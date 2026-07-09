@@ -1,0 +1,41 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: pekegno-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: pekegno
+      POSTGRES_USER: pekegno
+      POSTGRES_PASSWORD: pekegno_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./docker/php
+    image: pekegno-php
+    container_name: pekegno-backend
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    command: php artisan serve --host=0.0.0.0
+
+  frontend:
+    image: node:22
+    container_name: pekegno-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:
