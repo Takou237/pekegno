@@ -15,7 +15,7 @@ Plateforme multi-agence SaaS (CRM, Formations, Facturation, Comptabilité).
 ### 1. Cloner le projet
 
 ```bash
-git clone <url-du-repo> pekegno
+git clone https://github.com/Takou237/pekegno.git pekegno
 cd pekegno
 ```
 
