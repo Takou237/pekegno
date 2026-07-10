@@ -1,2 +1,4 @@
 /.env
 /node_modules
+/backend/pekegno-frontend@0.1.0
+/backend/vite
