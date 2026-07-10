@@ -6,9 +6,29 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\AssignRoleRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use OpenApi\Attributes as OA;
 
 class UserRoleController extends Controller
 {
+    #[OA\Post(
+        path: '/users/{user}/roles',
+        summary: 'Assigner un rôle à un utilisateur',
+        tags: ['Utilisateurs - Rôles'],
+        security: [['sanctum' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['role_id'],
+                properties: [
+                    new OA\Property(property: 'role_id', type: 'string', format: 'uuid'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Rôle assigné'),
+            new OA\Response(response: 422, description: 'Erreur de validation'),
+        ]
+    )]
     public function assignRole(User $user, AssignRoleRequest $request): JsonResponse
     {
         $roleId = $request->validated('role_id');
@@ -16,12 +36,30 @@ class UserRoleController extends Controller
         return response()->json($user->load('roles'));
     }
 
+    #[OA\Delete(
+        path: '/users/{user}/roles/{role}',
+        summary: 'Retirer un rôle à un utilisateur',
+        tags: ['Utilisateurs - Rôles'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Rôle retiré'),
+        ]
+    )]
     public function removeRole(User $user, string $role): JsonResponse
     {
         $user->roles()->detach($role);
         return response()->json($user->load('roles'));
     }
 
+    #[OA\Get(
+        path: '/users/{user}/roles',
+        summary: 'Lister les rôles d\'un utilisateur',
+        tags: ['Utilisateurs - Rôles'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Rôles de l\'utilisateur'),
+        ]
+    )]
     public function listRoles(User $user): JsonResponse
     {
         return response()->json($user->load('roles'));

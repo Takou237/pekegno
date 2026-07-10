@@ -8,9 +8,26 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use OpenApi\Attributes as OA;
 
 class UserController extends Controller
 {
+    #[OA\Get(
+        path: '/users',
+        summary: 'Lister les utilisateurs (admin)',
+        tags: ['Utilisateurs'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par nom/email/username', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'is_active', in: 'query', schema: new OA\Schema(type: 'boolean')),
+            new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
+            new OA\Parameter(name: 'sort', in: 'query', schema: new OA\Schema(type: 'string', default: 'created_at')),
+            new OA\Parameter(name: 'order', in: 'query', schema: new OA\Schema(type: 'string', default: 'desc')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Liste paginée des utilisateurs'),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $users = User::with('roles', 'agencies')
@@ -31,11 +48,46 @@ class UserController extends Controller
         return response()->json($users);
     }
 
+    #[OA\Get(
+        path: '/users/{user}',
+        summary: 'Afficher un utilisateur',
+        tags: ['Utilisateurs'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Détail de l\'utilisateur', content: new OA\JsonContent(ref: '#/components/schemas/User')),
+            new OA\Response(response: 404, description: 'Utilisateur non trouvé'),
+        ]
+    )]
     public function show(User $user): JsonResponse
     {
         return response()->json($user->load('roles', 'agencies', 'managedAgencies', 'managedDepartments'));
     }
 
+    #[OA\Put(
+        path: '/users/{user}',
+        summary: 'Modifier un utilisateur',
+        tags: ['Utilisateurs'],
+        security: [['sanctum' => []]],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'username', type: 'string'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email'),
+                    new OA\Property(property: 'first_name', type: 'string'),
+                    new OA\Property(property: 'last_name', type: 'string'),
+                    new OA\Property(property: 'phone', type: 'string'),
+                    new OA\Property(property: 'is_active', type: 'boolean'),
+                    new OA\Property(property: 'is_super_admin', type: 'boolean'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password'),
+                    new OA\Property(property: 'password_confirmation', type: 'string'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Utilisateur modifié', content: new OA\JsonContent(ref: '#/components/schemas/User')),
+            new OA\Response(response: 422, description: 'Erreur de validation'),
+        ]
+    )]
     public function update(Request $request, User $user): JsonResponse
     {
         $validated = $request->validate([
@@ -58,6 +110,16 @@ class UserController extends Controller
         return response()->json($user->fresh()->load('roles', 'agencies'));
     }
 
+    #[OA\Delete(
+        path: '/users/{user}',
+        summary: 'Supprimer un utilisateur',
+        tags: ['Utilisateurs'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 204, description: 'Utilisateur supprimé'),
+            new OA\Response(response: 403, description: 'Impossible de supprimer un super administrateur'),
+        ]
+    )]
     public function destroy(User $user): JsonResponse
     {
         if ($user->is_super_admin) {

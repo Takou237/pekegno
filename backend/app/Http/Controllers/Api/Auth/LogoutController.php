@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class LogoutController extends Controller
 {
@@ -13,6 +14,16 @@ class LogoutController extends Controller
         private readonly AuthService $authService
     ) {}
 
+    #[OA\Post(
+        path: '/auth/logout',
+        summary: 'Déconnecter l\'utilisateur courant',
+        tags: ['Authentification'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Déconnexion réussie'),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+        ]
+    )]
     public function __invoke(Request $request): JsonResponse
     {
         $this->authService->logout(
