@@ -19,6 +19,7 @@ use OpenApi\Attributes as OA;
     bearerFormat: 'sanctum',
     securityScheme: 'sanctum'
 )]
+#[OA\PathItem(path: '/api')]
 class OpenApi
 {
 }
