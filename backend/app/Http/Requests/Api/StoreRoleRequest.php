@@ -18,4 +18,12 @@ class StoreRoleRequest extends FormRequest
             'description' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Le nom du rôle est obligatoire.',
+            'name.unique' => 'Ce nom de rôle est déjà utilisé.',
+        ];
+    }
 }

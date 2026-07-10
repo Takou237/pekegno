@@ -20,4 +20,12 @@ class StoreCategoryRequest extends FormRequest
             'icon' => ['sometimes', 'nullable', 'string', 'max:100'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Le nom de la catégorie est obligatoire.',
+            'name.unique' => 'Ce nom de catégorie est déjà utilisé.',
+        ];
+    }
 }

@@ -62,6 +62,9 @@ class CategoryController extends Controller
         summary: 'Afficher une catégorie',
         tags: ['Catégories'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'category', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Détail de la catégorie', content: new OA\JsonContent(ref: '#/components/schemas/Category')),
             new OA\Response(response: 404, description: 'Catégorie non trouvée'),
@@ -77,6 +80,9 @@ class CategoryController extends Controller
         summary: 'Modifier une catégorie',
         tags: ['Catégories'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'category', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         requestBody: new OA\RequestBody(
             content: new OA\JsonContent(
                 properties: [
@@ -102,6 +108,9 @@ class CategoryController extends Controller
         summary: 'Supprimer une catégorie',
         tags: ['Catégories'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'category', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 204, description: 'Catégorie supprimée'),
         ]

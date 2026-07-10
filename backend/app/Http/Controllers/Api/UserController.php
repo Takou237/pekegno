@@ -53,6 +53,9 @@ class UserController extends Controller
         summary: 'Afficher un utilisateur',
         tags: ['Utilisateurs'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Détail de l\'utilisateur', content: new OA\JsonContent(ref: '#/components/schemas/User')),
             new OA\Response(response: 404, description: 'Utilisateur non trouvé'),
@@ -68,6 +71,9 @@ class UserController extends Controller
         summary: 'Modifier un utilisateur',
         tags: ['Utilisateurs'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         requestBody: new OA\RequestBody(
             content: new OA\JsonContent(
                 properties: [
@@ -115,6 +121,9 @@ class UserController extends Controller
         summary: 'Supprimer un utilisateur',
         tags: ['Utilisateurs'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 204, description: 'Utilisateur supprimé'),
             new OA\Response(response: 403, description: 'Impossible de supprimer un super administrateur'),

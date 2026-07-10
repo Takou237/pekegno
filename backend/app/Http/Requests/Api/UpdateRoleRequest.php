@@ -18,4 +18,11 @@ class UpdateRoleRequest extends FormRequest
             'description' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'name.unique' => 'Ce nom de rôle est déjà utilisé.',
+        ];
+    }
 }

@@ -15,6 +15,9 @@ class RolePermissionController extends Controller
         summary: 'Assigner des permissions à un rôle',
         tags: ['Rôles - Permissions'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'role', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
@@ -45,6 +48,9 @@ class RolePermissionController extends Controller
         summary: 'Lister les permissions d\'un rôle',
         tags: ['Rôles - Permissions'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'role', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Permissions du rôle'),
         ]

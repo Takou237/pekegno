@@ -17,4 +17,12 @@ class AssignRoleRequest extends FormRequest
             'role_id' => ['required', 'string', 'exists:roles,id'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'role_id.required' => 'Le rôle est obligatoire.',
+            'role_id.exists' => "Ce rôle n'existe pas.",
+        ];
+    }
 }

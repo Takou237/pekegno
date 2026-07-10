@@ -39,7 +39,7 @@ class DepartmentController extends Controller
             content: new OA\JsonContent(
                 required: ['agency_id', 'name'],
                 properties: [
-                    new OA\Property(property: 'agency_id', type: 'string', format: 'uuid', example: 'uuid-de-l-agence'),
+                    new OA\Property(property: 'agency_id', type: 'string', format: 'uuid', description: "UUID de l'agence (récupéré via GET /api/agencies)"),
                     new OA\Property(property: 'name', type: 'string', example: 'Service Commercial'),
                     new OA\Property(property: 'description', type: 'string'),
                 ]
@@ -61,6 +61,9 @@ class DepartmentController extends Controller
         summary: 'Afficher un département',
         tags: ['Départements'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'department', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Détail du département', content: new OA\JsonContent(ref: '#/components/schemas/Department')),
             new OA\Response(response: 404, description: 'Département non trouvé'),
@@ -76,10 +79,13 @@ class DepartmentController extends Controller
         summary: 'Modifier un département',
         tags: ['Départements'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'department', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         requestBody: new OA\RequestBody(
             content: new OA\JsonContent(
                 properties: [
-                    new OA\Property(property: 'agency_id', type: 'string', format: 'uuid'),
+                    new OA\Property(property: 'agency_id', type: 'string', format: 'uuid', description: "UUID de l'agence (récupéré via GET /api/agencies)"),
                     new OA\Property(property: 'name', type: 'string'),
                     new OA\Property(property: 'description', type: 'string'),
                 ]
@@ -100,6 +106,9 @@ class DepartmentController extends Controller
         summary: 'Supprimer un département',
         tags: ['Départements'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'department', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 204, description: 'Département supprimé'),
         ]

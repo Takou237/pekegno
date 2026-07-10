@@ -18,4 +18,12 @@ class AssignPermissionRequest extends FormRequest
             'permissions.*' => ['required', 'string', 'exists:permissions,id'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'permissions.required' => 'Les permissions sont obligatoires.',
+            'permissions.*.exists' => "Cette permission n'existe pas.",
+        ];
+    }
 }

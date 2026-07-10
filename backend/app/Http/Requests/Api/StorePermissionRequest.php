@@ -20,4 +20,12 @@ class StorePermissionRequest extends FormRequest
             'description' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Le nom de la permission est obligatoire.',
+            'name.unique' => 'Ce nom de permission est déjà utilisé.',
+        ];
+    }
 }

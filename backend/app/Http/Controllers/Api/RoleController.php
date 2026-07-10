@@ -60,6 +60,9 @@ class RoleController extends Controller
         summary: 'Afficher un rôle',
         tags: ['Rôles'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'role', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Détail du rôle', content: new OA\JsonContent(ref: '#/components/schemas/Role')),
             new OA\Response(response: 404, description: 'Rôle non trouvé'),
@@ -75,6 +78,9 @@ class RoleController extends Controller
         summary: 'Modifier un rôle',
         tags: ['Rôles'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'role', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
@@ -100,6 +106,9 @@ class RoleController extends Controller
         summary: 'Supprimer un rôle',
         tags: ['Rôles'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'role', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 204, description: 'Rôle supprimé'),
             new OA\Response(response: 403, description: 'Impossible de supprimer un rôle système'),

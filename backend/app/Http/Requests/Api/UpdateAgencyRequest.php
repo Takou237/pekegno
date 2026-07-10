@@ -24,4 +24,12 @@ class UpdateAgencyRequest extends FormRequest
             'manager_id' => ['sometimes', 'nullable', 'string', 'exists:users,id'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'code.unique' => 'Ce code agence est déjà utilisé.',
+            'manager_id.exists' => "Ce gestionnaire n'existe pas.",
+        ];
+    }
 }

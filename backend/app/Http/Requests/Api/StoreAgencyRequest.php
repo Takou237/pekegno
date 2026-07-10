@@ -24,4 +24,15 @@ class StoreAgencyRequest extends FormRequest
             'manager_id' => ['sometimes', 'nullable', 'string', 'exists:users,id'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'code.required' => 'Le code agence est obligatoire.',
+            'code.unique' => 'Ce code agence est déjà utilisé.',
+            'name.required' => "Le nom de l'agence est obligatoire.",
+            'country.required' => 'Le pays est obligatoire.',
+            'manager_id.exists' => "Ce gestionnaire n'existe pas.",
+        ];
+    }
 }

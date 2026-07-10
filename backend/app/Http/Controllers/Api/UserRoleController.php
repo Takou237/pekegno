@@ -15,6 +15,9 @@ class UserRoleController extends Controller
         summary: 'Assigner un rôle à un utilisateur',
         tags: ['Utilisateurs - Rôles'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
@@ -41,6 +44,10 @@ class UserRoleController extends Controller
         summary: 'Retirer un rôle à un utilisateur',
         tags: ['Utilisateurs - Rôles'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'role', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Rôle retiré'),
         ]
@@ -56,6 +63,9 @@ class UserRoleController extends Controller
         summary: 'Lister les rôles d\'un utilisateur',
         tags: ['Utilisateurs - Rôles'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Rôles de l\'utilisateur'),
         ]

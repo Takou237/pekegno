@@ -61,6 +61,9 @@ class PermissionController extends Controller
         summary: 'Afficher une permission',
         tags: ['Permissions'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'permission', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Détail de la permission', content: new OA\JsonContent(ref: '#/components/schemas/Permission')),
             new OA\Response(response: 404, description: 'Permission non trouvée'),
@@ -76,6 +79,9 @@ class PermissionController extends Controller
         summary: 'Modifier une permission',
         tags: ['Permissions'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'permission', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         requestBody: new OA\RequestBody(
             content: new OA\JsonContent(
                 properties: [
@@ -100,6 +106,9 @@ class PermissionController extends Controller
         summary: 'Supprimer une permission',
         tags: ['Permissions'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'permission', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 204, description: 'Permission supprimée'),
         ]

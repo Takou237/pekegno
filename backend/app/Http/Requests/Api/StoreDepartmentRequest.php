@@ -20,4 +20,14 @@ class StoreDepartmentRequest extends FormRequest
             'manager_id' => ['sometimes', 'nullable', 'string', 'exists:users,id'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'agency_id.required' => "L'agence est obligatoire.",
+            'agency_id.exists' => "Cette agence n'existe pas. Utilisez un UUID valide récupéré depuis GET /api/agencies.",
+            'name.required' => "Le nom du département est obligatoire.",
+            'manager_id.exists' => "Ce gestionnaire n'existe pas.",
+        ];
+    }
 }

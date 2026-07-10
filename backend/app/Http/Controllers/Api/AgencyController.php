@@ -65,6 +65,9 @@ class AgencyController extends Controller
         summary: 'Afficher une agence',
         tags: ['Agences'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Détail de l\'agence', content: new OA\JsonContent(ref: '#/components/schemas/Agency')),
             new OA\Response(response: 404, description: 'Agence non trouvée'),
@@ -80,6 +83,9 @@ class AgencyController extends Controller
         summary: 'Modifier une agence',
         tags: ['Agences'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         requestBody: new OA\RequestBody(
             content: new OA\JsonContent(
                 properties: [
@@ -108,6 +114,9 @@ class AgencyController extends Controller
         summary: 'Supprimer une agence',
         tags: ['Agences'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
         responses: [
             new OA\Response(response: 204, description: 'Agence supprimée'),
         ]
