@@ -15,7 +15,7 @@ class LoginController extends Controller
     ) {}
 
     #[OA\Post(
-        path: '/auth/login',
+        path: '/api/auth/login',
         summary: 'Connecter un utilisateur',
         tags: ['Authentification'],
         requestBody: new OA\RequestBody(

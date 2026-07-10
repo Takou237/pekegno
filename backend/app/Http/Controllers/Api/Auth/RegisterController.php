@@ -15,7 +15,7 @@ class RegisterController extends Controller
     ) {}
 
     #[OA\Post(
-        path: '/auth/register',
+        path: '/api/auth/register',
         summary: 'Inscrire un nouvel utilisateur',
         tags: ['Authentification'],
         requestBody: new OA\RequestBody(

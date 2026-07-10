@@ -11,7 +11,7 @@ use OpenApi\Attributes as OA;
 class RolePermissionController extends Controller
 {
     #[OA\Post(
-        path: '/roles/{role}/permissions',
+        path: '/api/roles/{role}/permissions',
         summary: 'Assigner des permissions à un rôle',
         tags: ['Rôles - Permissions'],
         security: [['sanctum' => []]],
@@ -41,7 +41,7 @@ class RolePermissionController extends Controller
     }
 
     #[OA\Get(
-        path: '/roles/{role}/permissions',
+        path: '/api/roles/{role}/permissions',
         summary: 'Lister les permissions d\'un rôle',
         tags: ['Rôles - Permissions'],
         security: [['sanctum' => []]],

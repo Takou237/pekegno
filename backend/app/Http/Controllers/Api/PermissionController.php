@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
 class PermissionController extends Controller
 {
     #[OA\Get(
-        path: '/permissions',
+        path: '/api/permissions',
         summary: 'Lister toutes les permissions',
         tags: ['Permissions'],
         security: [['sanctum' => []]],
@@ -30,7 +30,7 @@ class PermissionController extends Controller
     }
 
     #[OA\Post(
-        path: '/permissions',
+        path: '/api/permissions',
         summary: 'Créer une permission',
         tags: ['Permissions'],
         security: [['sanctum' => []]],
@@ -57,7 +57,7 @@ class PermissionController extends Controller
     }
 
     #[OA\Get(
-        path: '/permissions/{permission}',
+        path: '/api/permissions/{permission}',
         summary: 'Afficher une permission',
         tags: ['Permissions'],
         security: [['sanctum' => []]],
@@ -72,7 +72,7 @@ class PermissionController extends Controller
     }
 
     #[OA\Put(
-        path: '/permissions/{permission}',
+        path: '/api/permissions/{permission}',
         summary: 'Modifier une permission',
         tags: ['Permissions'],
         security: [['sanctum' => []]],
@@ -96,7 +96,7 @@ class PermissionController extends Controller
     }
 
     #[OA\Delete(
-        path: '/permissions/{permission}',
+        path: '/api/permissions/{permission}',
         summary: 'Supprimer une permission',
         tags: ['Permissions'],
         security: [['sanctum' => []]],

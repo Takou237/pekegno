@@ -10,7 +10,7 @@ use OpenApi\Attributes as OA;
 class ProfileController extends Controller
 {
     #[OA\Get(
-        path: '/user',
+        path: '/api/user',
         summary: 'Afficher le profil de l\'utilisateur connecté',
         tags: ['Profil'],
         security: [['sanctum' => []]],

@@ -11,7 +11,7 @@ use OpenApi\Attributes as OA;
 class UserRoleController extends Controller
 {
     #[OA\Post(
-        path: '/users/{user}/roles',
+        path: '/api/users/{user}/roles',
         summary: 'Assigner un rôle à un utilisateur',
         tags: ['Utilisateurs - Rôles'],
         security: [['sanctum' => []]],
@@ -37,7 +37,7 @@ class UserRoleController extends Controller
     }
 
     #[OA\Delete(
-        path: '/users/{user}/roles/{role}',
+        path: '/api/users/{user}/roles/{role}',
         summary: 'Retirer un rôle à un utilisateur',
         tags: ['Utilisateurs - Rôles'],
         security: [['sanctum' => []]],
@@ -52,7 +52,7 @@ class UserRoleController extends Controller
     }
 
     #[OA\Get(
-        path: '/users/{user}/roles',
+        path: '/api/users/{user}/roles',
         summary: 'Lister les rôles d\'un utilisateur',
         tags: ['Utilisateurs - Rôles'],
         security: [['sanctum' => []]],

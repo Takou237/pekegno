@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
 class RoleController extends Controller
 {
     #[OA\Get(
-        path: '/roles',
+        path: '/api/roles',
         summary: 'Lister tous les rôles',
         tags: ['Rôles'],
         security: [['sanctum' => []]],
@@ -30,7 +30,7 @@ class RoleController extends Controller
     }
 
     #[OA\Post(
-        path: '/roles',
+        path: '/api/roles',
         summary: 'Créer un rôle',
         tags: ['Rôles'],
         security: [['sanctum' => []]],
@@ -56,7 +56,7 @@ class RoleController extends Controller
     }
 
     #[OA\Get(
-        path: '/roles/{role}',
+        path: '/api/roles/{role}',
         summary: 'Afficher un rôle',
         tags: ['Rôles'],
         security: [['sanctum' => []]],
@@ -71,7 +71,7 @@ class RoleController extends Controller
     }
 
     #[OA\Put(
-        path: '/roles/{role}',
+        path: '/api/roles/{role}',
         summary: 'Modifier un rôle',
         tags: ['Rôles'],
         security: [['sanctum' => []]],
@@ -96,7 +96,7 @@ class RoleController extends Controller
     }
 
     #[OA\Delete(
-        path: '/roles/{role}',
+        path: '/api/roles/{role}',
         summary: 'Supprimer un rôle',
         tags: ['Rôles'],
         security: [['sanctum' => []]],

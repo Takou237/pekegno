@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
 class CategoryController extends Controller
 {
     #[OA\Get(
-        path: '/categories',
+        path: '/api/categories',
         summary: 'Lister toutes les catégories',
         tags: ['Catégories'],
         security: [['sanctum' => []]],
@@ -30,7 +30,7 @@ class CategoryController extends Controller
     }
 
     #[OA\Post(
-        path: '/categories',
+        path: '/api/categories',
         summary: 'Créer une catégorie',
         tags: ['Catégories'],
         security: [['sanctum' => []]],
@@ -58,7 +58,7 @@ class CategoryController extends Controller
     }
 
     #[OA\Get(
-        path: '/categories/{category}',
+        path: '/api/categories/{category}',
         summary: 'Afficher une catégorie',
         tags: ['Catégories'],
         security: [['sanctum' => []]],
@@ -73,7 +73,7 @@ class CategoryController extends Controller
     }
 
     #[OA\Put(
-        path: '/categories/{category}',
+        path: '/api/categories/{category}',
         summary: 'Modifier une catégorie',
         tags: ['Catégories'],
         security: [['sanctum' => []]],
@@ -98,7 +98,7 @@ class CategoryController extends Controller
     }
 
     #[OA\Delete(
-        path: '/categories/{category}',
+        path: '/api/categories/{category}',
         summary: 'Supprimer une catégorie',
         tags: ['Catégories'],
         security: [['sanctum' => []]],

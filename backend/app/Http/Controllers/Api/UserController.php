@@ -13,7 +13,7 @@ use OpenApi\Attributes as OA;
 class UserController extends Controller
 {
     #[OA\Get(
-        path: '/users',
+        path: '/api/users',
         summary: 'Lister les utilisateurs (admin)',
         tags: ['Utilisateurs'],
         security: [['sanctum' => []]],
@@ -49,7 +49,7 @@ class UserController extends Controller
     }
 
     #[OA\Get(
-        path: '/users/{user}',
+        path: '/api/users/{user}',
         summary: 'Afficher un utilisateur',
         tags: ['Utilisateurs'],
         security: [['sanctum' => []]],
@@ -64,7 +64,7 @@ class UserController extends Controller
     }
 
     #[OA\Put(
-        path: '/users/{user}',
+        path: '/api/users/{user}',
         summary: 'Modifier un utilisateur',
         tags: ['Utilisateurs'],
         security: [['sanctum' => []]],
@@ -111,7 +111,7 @@ class UserController extends Controller
     }
 
     #[OA\Delete(
-        path: '/users/{user}',
+        path: '/api/users/{user}',
         summary: 'Supprimer un utilisateur',
         tags: ['Utilisateurs'],
         security: [['sanctum' => []]],

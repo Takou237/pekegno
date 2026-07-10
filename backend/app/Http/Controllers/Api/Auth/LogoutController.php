@@ -15,7 +15,7 @@ class LogoutController extends Controller
     ) {}
 
     #[OA\Post(
-        path: '/auth/logout',
+        path: '/api/auth/logout',
         summary: 'Déconnecter l\'utilisateur courant',
         tags: ['Authentification'],
         security: [['sanctum' => []]],

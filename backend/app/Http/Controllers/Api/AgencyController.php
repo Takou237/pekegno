@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
 class AgencyController extends Controller
 {
     #[OA\Get(
-        path: '/agencies',
+        path: '/api/agencies',
         summary: 'Lister toutes les agences',
         tags: ['Agences'],
         security: [['sanctum' => []]],
@@ -30,7 +30,7 @@ class AgencyController extends Controller
     }
 
     #[OA\Post(
-        path: '/agencies',
+        path: '/api/agencies',
         summary: 'Créer une agence',
         tags: ['Agences'],
         security: [['sanctum' => []]],
@@ -61,7 +61,7 @@ class AgencyController extends Controller
     }
 
     #[OA\Get(
-        path: '/agencies/{agency}',
+        path: '/api/agencies/{agency}',
         summary: 'Afficher une agence',
         tags: ['Agences'],
         security: [['sanctum' => []]],
@@ -76,7 +76,7 @@ class AgencyController extends Controller
     }
 
     #[OA\Put(
-        path: '/agencies/{agency}',
+        path: '/api/agencies/{agency}',
         summary: 'Modifier une agence',
         tags: ['Agences'],
         security: [['sanctum' => []]],
@@ -104,7 +104,7 @@ class AgencyController extends Controller
     }
 
     #[OA\Delete(
-        path: '/agencies/{agency}',
+        path: '/api/agencies/{agency}',
         summary: 'Supprimer une agence',
         tags: ['Agences'],
         security: [['sanctum' => []]],

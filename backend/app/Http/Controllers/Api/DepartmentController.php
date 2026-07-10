@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
 class DepartmentController extends Controller
 {
     #[OA\Get(
-        path: '/departments',
+        path: '/api/departments',
         summary: 'Lister tous les départements',
         tags: ['Départements'],
         security: [['sanctum' => []]],
@@ -30,7 +30,7 @@ class DepartmentController extends Controller
     }
 
     #[OA\Post(
-        path: '/departments',
+        path: '/api/departments',
         summary: 'Créer un département',
         tags: ['Départements'],
         security: [['sanctum' => []]],
@@ -57,7 +57,7 @@ class DepartmentController extends Controller
     }
 
     #[OA\Get(
-        path: '/departments/{department}',
+        path: '/api/departments/{department}',
         summary: 'Afficher un département',
         tags: ['Départements'],
         security: [['sanctum' => []]],
@@ -72,7 +72,7 @@ class DepartmentController extends Controller
     }
 
     #[OA\Put(
-        path: '/departments/{department}',
+        path: '/api/departments/{department}',
         summary: 'Modifier un département',
         tags: ['Départements'],
         security: [['sanctum' => []]],
@@ -96,7 +96,7 @@ class DepartmentController extends Controller
     }
 
     #[OA\Delete(
-        path: '/departments/{department}',
+        path: '/api/departments/{department}',
         summary: 'Supprimer un département',
         tags: ['Départements'],
         security: [['sanctum' => []]],
