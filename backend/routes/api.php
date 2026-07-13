@@ -28,9 +28,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy']);
 
-    Route::get('/users/{user}/roles', [UserRoleController::class, 'listRoles']);
-    Route::post('/users/{user}/roles', [UserRoleController::class, 'assignRole']);
-    Route::delete('/users/{user}/roles/{role}', [UserRoleController::class, 'removeRole']);
+    Route::get('/users/{user}/role', [UserRoleController::class, 'show']);
+    Route::put('/users/{user}/role', [UserRoleController::class, 'update']);
 
     Route::get('/roles/{role}/permissions', [RolePermissionController::class, 'listPermissions']);
     Route::post('/roles/{role}/permissions', [RolePermissionController::class, 'assignPermissions']);

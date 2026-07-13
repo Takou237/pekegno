@@ -11,6 +11,8 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
+        $superAdminRole = Role::where('name', 'super-admin')->first();
+
         $admin = User::firstOrCreate(
             ['email' => 'admin@pekegno.com'],
             [
@@ -18,15 +20,10 @@ class AdminUserSeeder extends Seeder
                 'password' => Hash::make('password'),
                 'first_name' => 'Admin',
                 'last_name' => 'PEKEGNO',
-                'is_super_admin' => true,
+                'role_id' => $superAdminRole?->id,
                 'is_active' => true,
-                'must_change_password' => false,
+                'is_password_change_required' => false,
             ]
         );
-
-        $superAdminRole = Role::where('name', 'super-admin')->first();
-        if ($superAdminRole) {
-            $admin->roles()->syncWithoutDetaching([$superAdminRole->id]);
-        }
     }
 }

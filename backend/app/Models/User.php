@@ -5,7 +5,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -22,10 +22,13 @@ class User extends Authenticatable
         'first_name',
         'last_name',
         'phone',
+        'role_id',
+        'agency_id',
+        'department_id',
         'is_active',
-        'is_super_admin',
         'two_factor_enabled',
-        'must_change_password',
+        'active_session_id',
+        'is_password_change_required',
     ];
 
     protected $hidden = [
@@ -37,25 +40,27 @@ class User extends Authenticatable
     {
         return [
             'is_active' => 'boolean',
-            'is_super_admin' => 'boolean',
             'two_factor_enabled' => 'boolean',
-            'must_change_password' => 'boolean',
+            'is_password_change_required' => 'boolean',
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
 
-    public function roles(): BelongsToMany
+    public function role(): BelongsTo
     {
-        return $this->morphToMany(Role::class, 'model', 'model_has_roles');
+        return $this->belongsTo(Role::class);
     }
 
-    public function agencies(): BelongsToMany
+    public function agency(): BelongsTo
     {
-        return $this->belongsToMany(Agency::class, 'user_assignments')
-            ->withPivot('is_primary', 'department_id')
-            ->withTimestamps();
+        return $this->belongsTo(Agency::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 
     public function managedAgencies(): HasMany

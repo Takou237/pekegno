@@ -11,7 +11,7 @@ class AuthService
 {
     public function attempt(array $credentials, string $ip = null, string $userAgent = null): array
     {
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::with('role')->where('email', $credentials['email'])->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             $this->log(
@@ -57,7 +57,7 @@ class AuthService
         ]);
 
         return [
-            'user' => $user,
+            'user' => $user->load('role'),
             'token' => $token,
         ];
     }

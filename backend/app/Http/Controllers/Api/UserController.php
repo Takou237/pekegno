@@ -30,7 +30,7 @@ class UserController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $users = User::with('roles', 'agencies')
+        $users = User::with('role', 'agency', 'department')
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
@@ -63,7 +63,7 @@ class UserController extends Controller
     )]
     public function show(User $user): JsonResponse
     {
-        return response()->json($user->load('roles', 'agencies', 'managedAgencies', 'managedDepartments'));
+        return response()->json($user->load('role', 'agency', 'department', 'managedAgencies', 'managedDepartments'));
     }
 
     #[OA\Put(
@@ -83,7 +83,9 @@ class UserController extends Controller
                     new OA\Property(property: 'last_name', type: 'string'),
                     new OA\Property(property: 'phone', type: 'string'),
                     new OA\Property(property: 'is_active', type: 'boolean'),
-                    new OA\Property(property: 'is_super_admin', type: 'boolean'),
+                    new OA\Property(property: 'role_id', type: 'string', format: 'uuid'),
+                    new OA\Property(property: 'agency_id', type: 'string', format: 'uuid'),
+                    new OA\Property(property: 'department_id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'password', type: 'string', format: 'password'),
                     new OA\Property(property: 'password_confirmation', type: 'string'),
                 ]
@@ -103,8 +105,10 @@ class UserController extends Controller
             'last_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'is_active' => ['sometimes', 'boolean'],
-            'is_super_admin' => ['sometimes', 'boolean'],
-            'must_change_password' => ['sometimes', 'boolean'],
+            'role_id' => ['sometimes', 'nullable', 'uuid', 'exists:roles,id'],
+            'agency_id' => ['sometimes', 'nullable', 'uuid', 'exists:agencies,id'],
+            'department_id' => ['sometimes', 'nullable', 'uuid', 'exists:departments,id'],
+            'is_password_change_required' => ['sometimes', 'boolean'],
         ]);
 
         if ($request->filled('password')) {
@@ -113,7 +117,7 @@ class UserController extends Controller
         }
 
         $user->update($validated);
-        return response()->json($user->fresh()->load('roles', 'agencies'));
+        return response()->json($user->fresh()->load('role', 'agency', 'department'));
     }
 
     #[OA\Delete(
@@ -131,8 +135,8 @@ class UserController extends Controller
     )]
     public function destroy(User $user): JsonResponse
     {
-        if ($user->is_super_admin) {
-            return response()->json(['message' => 'Impossible de supprimer un super administrateur.'], 403);
+        if ($user->role && $user->role->is_system) {
+            return response()->json(['message' => 'Impossible de supprimer un utilisateur avec un rôle système.'], 403);
         }
         $user->delete();
         return response()->json(null, 204);
