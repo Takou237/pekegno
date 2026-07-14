@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\UpdateUserRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 use OpenApi\Attributes as OA;
 
 class UserController extends Controller
@@ -30,7 +29,7 @@ class UserController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $users = User::with('role', 'agency', 'department')
+        $users = User::with('role', 'assignments')
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
@@ -63,7 +62,7 @@ class UserController extends Controller
     )]
     public function show(User $user): JsonResponse
     {
-        return response()->json($user->load('role', 'agency', 'department', 'managedAgencies', 'managedDepartments'));
+        return response()->json($user->load('role', 'assignments'));
     }
 
     #[OA\Put(
@@ -84,8 +83,6 @@ class UserController extends Controller
                     new OA\Property(property: 'phone', type: 'string'),
                     new OA\Property(property: 'is_active', type: 'boolean'),
                     new OA\Property(property: 'role_id', type: 'string', format: 'uuid'),
-                    new OA\Property(property: 'agency_id', type: 'string', format: 'uuid'),
-                    new OA\Property(property: 'department_id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'password', type: 'string', format: 'password'),
                     new OA\Property(property: 'password_confirmation', type: 'string'),
                 ]
@@ -96,28 +93,16 @@ class UserController extends Controller
             new OA\Response(response: 422, description: 'Erreur de validation'),
         ]
     )]
-    public function update(Request $request, User $user): JsonResponse
+    public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        $validated = $request->validate([
-            'username' => ['sometimes', 'string', 'max:100', Rule::unique('users')->ignore($user)],
-            'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($user)],
-            'first_name' => ['sometimes', 'nullable', 'string', 'max:150'],
-            'last_name' => ['sometimes', 'nullable', 'string', 'max:150'],
-            'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
-            'is_active' => ['sometimes', 'boolean'],
-            'role_id' => ['sometimes', 'nullable', 'uuid', 'exists:roles,id'],
-            'agency_id' => ['sometimes', 'nullable', 'uuid', 'exists:agencies,id'],
-            'department_id' => ['sometimes', 'nullable', 'uuid', 'exists:departments,id'],
-            'is_password_change_required' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
-        if ($request->filled('password')) {
-            $request->validate(['password' => ['string', 'min:8', 'confirmed']]);
-            $validated['password'] = Hash::make($request->password);
+        if (isset($validated['password'])) {
+            $validated['password'] = \Illuminate\Support\Facades\Hash::make($validated['password']);
         }
 
         $user->update($validated);
-        return response()->json($user->fresh()->load('role', 'agency', 'department'));
+        return response()->json($user->fresh()->load('role', 'assignments'));
     }
 
     #[OA\Delete(
@@ -135,9 +120,6 @@ class UserController extends Controller
     )]
     public function destroy(User $user): JsonResponse
     {
-        if ($user->role && $user->role->is_system) {
-            return response()->json(['message' => 'Impossible de supprimer un utilisateur avec un rôle système.'], 403);
-        }
         $user->delete();
         return response()->json(null, 204);
     }

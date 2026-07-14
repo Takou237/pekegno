@@ -2,46 +2,65 @@
 
 namespace Database\Seeders;
 
-use App\Models\Permission;
-use App\Models\Role;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class RoleSeeder extends Seeder
 {
     public function run(): void
     {
-        $superAdmin = Role::firstOrCreate(
-            ['name' => 'super-admin'],
-            ['description' => 'Super administrateur – accès total', 'is_system' => true]
-        );
+        $roles = [
+            ['name' => 'super-admin',            'description' => 'Super Administrateur',                   'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'direction-generale',     'description' => 'Direction Générale',                     'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'responsable-agence',     'description' => 'Responsable Agence',                     'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'responsable-departement','description' => 'Responsable Département',                'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'commercial',             'description' => 'Commercial',                             'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'caissier',               'description' => 'Caissier',                               'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'comptable',              'description' => 'Comptable',                              'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'formateur',              'description' => 'Formateur',                              'created_at' => now(), 'updated_at' => now()],
+        ];
 
-        $admin = Role::firstOrCreate(
-            ['name' => 'admin'],
-            ['description' => 'Administrateur – gestion des utilisateurs et paramètres', 'is_system' => true]
-        );
+        foreach ($roles as &$r) {
+            $r['id'] = Str::uuid();
+        }
 
-        $manager = Role::firstOrCreate(
-            ['name' => 'manager'],
-            ['description' => 'Manager – gestion des agences et départements', 'is_system' => true]
-        );
+        DB::table('roles')->insert($roles);
 
-        $user = Role::firstOrCreate(
-            ['name' => 'user'],
-            ['description' => 'Utilisateur standard', 'is_system' => true]
-        );
+        // Assigner les permissions à chaque rôle
+        $permissions = DB::table('permissions')->pluck('id', 'name');
+        $rolesMap = DB::table('roles')->pluck('id', 'name');
 
-        $superAdmin->permissions()->sync(Permission::all()->pluck('id'));
+        $assignments = [
+            'super-admin' => $permissions->keys()->toArray(),
+            'direction-generale' => $permissions->keys()->toArray(),
+            'responsable-agence' => ['creer', 'modifier', 'supprimer', 'exporter', 'consulter', 'imprimer', 'valider', 'annuler'],
+            'responsable-departement' => ['creer', 'modifier', 'supprimer', 'exporter', 'consulter', 'imprimer', 'valider', 'annuler'],
+            'commercial' => ['creer', 'modifier', 'exporter', 'consulter', 'imprimer'],
+            'caissier' => ['consulter', 'encaisser', 'imprimer'],
+            'comptable' => ['consulter', 'exporter', 'imprimer', 'valider'],
+            'formateur' => ['consulter', 'creer', 'modifier'],
+        ];
 
-        $admin->permissions()->sync(
-            Permission::whereIn('group', ['users', 'roles', 'permissions', 'agencies', 'departments', 'categories'])->pluck('id')
-        );
+        $rolePermissions = [];
 
-        $manager->permissions()->sync(
-            Permission::whereIn('group', ['agencies', 'departments', 'categories'])->pluck('id')
-        );
+        foreach ($assignments as $roleName => $permNames) {
+            $roleId = $rolesMap[$roleName] ?? null;
+            if (! $roleId) {
+                continue;
+            }
 
-        $user->permissions()->sync(
-            Permission::whereIn('name', ['categories.view'])->pluck('id')
-        );
+            foreach ($permNames as $permName) {
+                $permId = $permissions[$permName] ?? null;
+                if ($permId) {
+                    $rolePermissions[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permId,
+                    ];
+                }
+            }
+        }
+
+        DB::table('role_permission')->insert($rolePermissions);
     }
 }

@@ -26,7 +26,7 @@ class DepartmentController extends Controller
     )]
     public function index(): JsonResponse
     {
-        return response()->json(Department::with('agency', 'manager')->get());
+        return response()->json(Department::with('agency')->get());
     }
 
     #[OA\Post(
@@ -53,7 +53,7 @@ class DepartmentController extends Controller
     public function store(StoreDepartmentRequest $request): JsonResponse
     {
         $department = Department::create($request->validated());
-        return response()->json($department->load('agency', 'manager'), 201);
+        return response()->json($department->load('agency'), 201);
     }
 
     #[OA\Get(
@@ -71,7 +71,7 @@ class DepartmentController extends Controller
     )]
     public function show(Department $department): JsonResponse
     {
-        return response()->json($department->load('agency', 'manager'));
+        return response()->json($department->load('agency'));
     }
 
     #[OA\Put(
@@ -98,7 +98,7 @@ class DepartmentController extends Controller
     public function update(UpdateDepartmentRequest $request, Department $department): JsonResponse
     {
         $department->update($request->validated());
-        return response()->json($department->fresh()->load('agency', 'manager'));
+        return response()->json($department->fresh()->load('agency'));
     }
 
     #[OA\Delete(

@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -23,8 +24,6 @@ class User extends Authenticatable
         'last_name',
         'phone',
         'role_id',
-        'agency_id',
-        'department_id',
         'is_active',
         'two_factor_enabled',
         'active_session_id',
@@ -35,6 +34,8 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    protected $with = ['role'];
 
     protected function casts(): array
     {
@@ -53,23 +54,16 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
-    public function agency(): BelongsTo
+    // Affectations via user_assignments (agence + département)
+    public function assignments(): BelongsToMany
     {
-        return $this->belongsTo(Agency::class);
+        return $this->belongsToMany(Agency::class, 'user_assignments')
+            ->withPivot('department_id', 'is_primary')
+            ->withTimestamps();
     }
 
-    public function department(): BelongsTo
+    public function primaryAgency(): BelongsTo
     {
-        return $this->belongsTo(Department::class);
-    }
-
-    public function managedAgencies(): HasMany
-    {
-        return $this->hasMany(Agency::class, 'manager_id');
-    }
-
-    public function managedDepartments(): HasMany
-    {
-        return $this->hasMany(Department::class, 'manager_id');
+        return $this->belongsTo(Agency::class)->wherePivot('is_primary', true);
     }
 }

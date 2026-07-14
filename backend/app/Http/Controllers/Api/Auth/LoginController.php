@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\LoginRequest;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
 class LoginController extends Controller
@@ -42,15 +42,10 @@ class LoginController extends Controller
             new OA\Response(response: 422, description: 'Erreur de validation'),
         ]
     )]
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(LoginRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
-
         $result = $this->authService->attempt(
-            credentials: $validated,
+            credentials: $request->validated(),
             ip: $request->ip(),
             userAgent: $request->userAgent(),
         );

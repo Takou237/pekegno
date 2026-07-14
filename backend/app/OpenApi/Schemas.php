@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
     new OA\Property(property: 'last_name', type: 'string', nullable: true),
     new OA\Property(property: 'phone', type: 'string', nullable: true),
     new OA\Property(property: 'is_active', type: 'boolean'),
-    new OA\Property(property: 'is_super_admin', type: 'boolean'),
+    new OA\Property(property: 'role_id', type: 'string', format: 'uuid'),
     new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
     new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
 ])]
@@ -20,15 +20,12 @@ use OpenApi\Attributes as OA;
     new OA\Property(property: 'id', type: 'string', format: 'uuid'),
     new OA\Property(property: 'name', type: 'string'),
     new OA\Property(property: 'description', type: 'string', nullable: true),
-    new OA\Property(property: 'is_system', type: 'boolean'),
     new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
     new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
 ])]
 #[OA\Schema(schema: 'Permission', properties: [
     new OA\Property(property: 'id', type: 'string', format: 'uuid'),
     new OA\Property(property: 'name', type: 'string'),
-    new OA\Property(property: 'label', type: 'string', nullable: true),
-    new OA\Property(property: 'group', type: 'string', nullable: true),
     new OA\Property(property: 'description', type: 'string', nullable: true),
     new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
     new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
@@ -42,7 +39,6 @@ use OpenApi\Attributes as OA;
     new OA\Property(property: 'address', type: 'string', nullable: true),
     new OA\Property(property: 'phone', type: 'string', nullable: true),
     new OA\Property(property: 'email', type: 'string', nullable: true),
-    new OA\Property(property: 'manager_id', type: 'string', format: 'uuid', nullable: true),
     new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
     new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
 ])]
@@ -51,7 +47,6 @@ use OpenApi\Attributes as OA;
     new OA\Property(property: 'agency_id', type: 'string', format: 'uuid'),
     new OA\Property(property: 'name', type: 'string'),
     new OA\Property(property: 'description', type: 'string', nullable: true),
-    new OA\Property(property: 'manager_id', type: 'string', format: 'uuid', nullable: true),
     new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
     new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
 ])]

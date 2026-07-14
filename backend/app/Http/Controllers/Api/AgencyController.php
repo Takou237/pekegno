@@ -26,7 +26,7 @@ class AgencyController extends Controller
     )]
     public function index(): JsonResponse
     {
-        return response()->json(Agency::with('manager', 'departments')->get());
+        return response()->json(Agency::with('departments')->get());
     }
 
     #[OA\Post(
@@ -57,7 +57,7 @@ class AgencyController extends Controller
     public function store(StoreAgencyRequest $request): JsonResponse
     {
         $agency = Agency::create($request->validated());
-        return response()->json($agency->load('manager', 'departments'), 201);
+        return response()->json($agency->load('departments'), 201);
     }
 
     #[OA\Get(
@@ -75,7 +75,7 @@ class AgencyController extends Controller
     )]
     public function show(Agency $agency): JsonResponse
     {
-        return response()->json($agency->load('manager', 'departments', 'users'));
+        return response()->json($agency->load('departments', 'assignedUsers'));
     }
 
     #[OA\Put(
@@ -106,7 +106,7 @@ class AgencyController extends Controller
     public function update(UpdateAgencyRequest $request, Agency $agency): JsonResponse
     {
         $agency->update($request->validated());
-        return response()->json($agency->fresh()->load('manager', 'departments'));
+        return response()->json($agency->fresh()->load('departments'));
     }
 
     #[OA\Delete(

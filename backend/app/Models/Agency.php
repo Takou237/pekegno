@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Agency extends Model
@@ -19,23 +20,20 @@ class Agency extends Model
         'address',
         'phone',
         'email',
-        'manager_id',
     ];
 
-    public function manager(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'manager_id');
-    }
+    protected $with = ['departments'];
 
     public function departments(): HasMany
     {
         return $this->hasMany(Department::class);
     }
 
-    public function users()
+    // Utilisateurs assignés à cette agence (via user_assignments)
+    public function assignedUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_assignments')
-            ->withPivot('is_primary', 'department_id')
+            ->withPivot('department_id', 'is_primary')
             ->withTimestamps();
     }
 }

@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\RegisterRequest;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
 class RegisterController extends Controller
@@ -47,19 +47,10 @@ class RegisterController extends Controller
             new OA\Response(response: 422, description: 'Erreur de validation'),
         ]
     )]
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(RegisterRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'username' => ['required', 'string', 'max:100', 'unique:users,username'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'first_name' => ['sometimes', 'string', 'max:150'],
-            'last_name' => ['sometimes', 'string', 'max:150'],
-            'phone' => ['sometimes', 'string', 'max:50'],
-        ]);
-
         $result = $this->authService->register(
-            data: $validated,
+            data: $request->validated(),
             ip: $request->ip(),
             userAgent: $request->userAgent(),
         );

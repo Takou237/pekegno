@@ -13,7 +13,7 @@ class AdminUserSeeder extends Seeder
     {
         $superAdminRole = Role::where('name', 'super-admin')->first();
 
-        $admin = User::firstOrCreate(
+        User::firstOrCreate(
             ['email' => 'admin@pekegno.com'],
             [
                 'username' => 'admin',
