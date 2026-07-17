@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\LoginLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthService
@@ -40,6 +41,31 @@ class AuthService
             throw ValidationException::withMessages([
                 'email' => ['Ce compte est désactivé.'],
             ]);
+        }
+
+        if ($user->two_factor_enabled && $user->two_factor_secret) {
+            $tempToken = Str::random(64);
+
+            cache()->put(
+                '2fa_temp_token:' . $tempToken,
+                [
+                    'user_id' => $user->id,
+                    'attempts' => 0,
+                ],
+                300
+            );
+
+            $this->log(
+                user: $user,
+                action: '2fa_required',
+                ip: $ip,
+                userAgent: $userAgent,
+            );
+
+            return [
+                'temp_token' => $tempToken,
+                'two_factor_required' => true,
+            ];
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;

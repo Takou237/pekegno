@@ -26,6 +26,7 @@ class User extends Authenticatable
         'role_id',
         'is_active',
         'two_factor_enabled',
+        'two_factor_secret',
         'active_session_id',
         'is_password_change_required',
     ];
