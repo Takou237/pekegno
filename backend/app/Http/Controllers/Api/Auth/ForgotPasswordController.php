@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\ForgotPasswordRequest;
+use App\Mail\ResetPasswordMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -47,14 +48,10 @@ class ForgotPasswordController extends Controller
             'created_at' => now(),
         ]);
 
-        Mail::raw(
-            "Cliquez sur ce lien pour réinitialiser votre mot de passe : " .
-            url("/reset-password?token={$token}&email={$email}"),
-            function ($message) use ($email) {
-                $message->to($email)
-                    ->subject('Réinitialisation de votre mot de passe PEKEGNO');
-            }
-        );
+        $resetUrl = config('app.frontend_url', 'http://localhost:5173')
+            . "/reset-password?token={$token}&email={$email}";
+
+        Mail::to($email)->send(new ResetPasswordMail($resetUrl));
 
         return response()->json([
             'message' => 'Si un compte est associé à cette adresse email, vous recevrez un lien de réinitialisation.',
