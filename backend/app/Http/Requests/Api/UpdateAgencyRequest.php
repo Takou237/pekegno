@@ -13,15 +13,16 @@ class UpdateAgencyRequest extends FormRequest
 
     public function rules(): array
     {
+        $agencyId = $this->route('agency')?->id ?? $this->route('agency');
+
         return [
-            'code' => ['sometimes', 'string', 'max:20', 'unique:agencies,code,'.$this->route('agency')],
+            'code' => ['sometimes', 'string', 'max:20', 'unique:agencies,code,' . $agencyId],
             'name' => ['sometimes', 'string', 'max:255'],
             'country' => ['sometimes', 'string', 'max:100'],
             'city' => ['sometimes', 'nullable', 'string', 'max:150'],
             'address' => ['sometimes', 'nullable', 'string'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
-            'manager_id' => ['sometimes', 'nullable', 'string', 'exists:users,id'],
         ];
     }
 
@@ -29,7 +30,6 @@ class UpdateAgencyRequest extends FormRequest
     {
         return [
             'code.unique' => 'Ce code agence est déjà utilisé.',
-            'manager_id.exists' => "Ce gestionnaire n'existe pas.",
         ];
     }
 }

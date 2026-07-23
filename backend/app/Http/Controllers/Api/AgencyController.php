@@ -5,33 +5,60 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreAgencyRequest;
 use App\Http\Requests\Api\UpdateAgencyRequest;
+use App\Http\Resources\AgencyResource;
 use App\Models\Agency;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use OpenApi\Attributes as OA;
 
 class AgencyController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Agency::class, 'agency');
+    }
+
     #[OA\Get(
         path: '/api/agencies',
-        summary: 'Lister toutes les agences',
+        summary: 'Lister les agences avec pagination, recherche et filtres',
         tags: ['Agences'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par nom, code, email, ville ou pays', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'country', in: 'query', description: 'Filtrer par pays', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', description: 'Nombre de résultats par page', schema: new OA\Schema(type: 'integer', default: 15)),
+            new OA\Parameter(name: 'sort_by', in: 'query', description: 'Champ de tri', schema: new OA\Schema(type: 'string', enum: ['name', 'code', 'country', 'created_at'])),
+            new OA\Parameter(name: 'sort_order', in: 'query', description: 'Ordre de tri', schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], default: 'asc')),
+        ],
         responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Liste des agences',
-                content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/Agency'))
-            ),
+            new OA\Response(response: 200, description: 'Liste paginée des agences'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
-    public function index(): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return response()->json(Agency::with('departments')->get());
+        $query = Agency::with('departments')
+            ->search($request->input('search'))
+            ->byCountry($request->input('country'));
+
+        $sortBy = $request->input('sort_by', 'name');
+        $sortOrder = $request->input('sort_order', 'asc');
+        $allowedSorts = ['name', 'code', 'country', 'created_at'];
+
+        if (in_array($sortBy, $allowedSorts)) {
+            $query->orderBy($sortBy, $sortOrder);
+        }
+
+        $perPage = min((int) $request->input('per_page', 15), 100);
+        $agencies = $query->paginate($perPage);
+
+        return AgencyResource::collection($agencies);
     }
 
     #[OA\Post(
         path: '/api/agencies',
-        summary: 'Créer une agence',
+        summary: 'Créer une nouvelle agence',
         tags: ['Agences'],
         security: [['sanctum' => []]],
         requestBody: new OA\RequestBody(
@@ -43,26 +70,30 @@ class AgencyController extends Controller
                     new OA\Property(property: 'name', type: 'string', example: 'Agence Paris'),
                     new OA\Property(property: 'country', type: 'string', example: 'France'),
                     new OA\Property(property: 'city', type: 'string', example: 'Paris'),
-                    new OA\Property(property: 'address', type: 'string'),
-                    new OA\Property(property: 'phone', type: 'string'),
-                    new OA\Property(property: 'email', type: 'string', format: 'email'),
+                    new OA\Property(property: 'address', type: 'string', example: '123 Rue de la Paix'),
+                    new OA\Property(property: 'phone', type: 'string', example: '+33123456789'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'contact@agence.fr'),
                 ]
             )
         ),
         responses: [
             new OA\Response(response: 201, description: 'Agence créée', content: new OA\JsonContent(ref: '#/components/schemas/Agency')),
             new OA\Response(response: 422, description: 'Erreur de validation'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
     public function store(StoreAgencyRequest $request): JsonResponse
     {
         $agency = Agency::create($request->validated());
-        return response()->json($agency->load('departments'), 201);
+
+        return (new AgencyResource($agency->load('departments')))
+            ->response()
+            ->setStatusCode(201);
     }
 
     #[OA\Get(
         path: '/api/agencies/{agency}',
-        summary: 'Afficher une agence',
+        summary: 'Afficher le détail d\'une agence',
         tags: ['Agences'],
         security: [['sanctum' => []]],
         parameters: [
@@ -73,9 +104,9 @@ class AgencyController extends Controller
             new OA\Response(response: 404, description: 'Agence non trouvée'),
         ]
     )]
-    public function show(Agency $agency): JsonResponse
+    public function show(Agency $agency): AgencyResource
     {
-        return response()->json($agency->load('departments', 'assignedUsers'));
+        return new AgencyResource($agency->load('departments', 'assignedUsers'));
     }
 
     #[OA\Put(
@@ -95,23 +126,27 @@ class AgencyController extends Controller
                     new OA\Property(property: 'city', type: 'string'),
                     new OA\Property(property: 'address', type: 'string'),
                     new OA\Property(property: 'phone', type: 'string'),
-                    new OA\Property(property: 'email', type: 'string'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email'),
                 ]
             )
         ),
         responses: [
             new OA\Response(response: 200, description: 'Agence modifiée', content: new OA\JsonContent(ref: '#/components/schemas/Agency')),
+            new OA\Response(response: 422, description: 'Erreur de validation'),
+            new OA\Response(response: 404, description: 'Agence non trouvée'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
-    public function update(UpdateAgencyRequest $request, Agency $agency): JsonResponse
+    public function update(UpdateAgencyRequest $request, Agency $agency): AgencyResource
     {
         $agency->update($request->validated());
-        return response()->json($agency->fresh()->load('departments'));
+
+        return new AgencyResource($agency->fresh()->load('departments'));
     }
 
     #[OA\Delete(
         path: '/api/agencies/{agency}',
-        summary: 'Supprimer une agence',
+        summary: 'Supprimer une agence (soft delete)',
         tags: ['Agences'],
         security: [['sanctum' => []]],
         parameters: [
@@ -119,11 +154,96 @@ class AgencyController extends Controller
         ],
         responses: [
             new OA\Response(response: 204, description: 'Agence supprimée'),
+            new OA\Response(response: 409, description: 'Conflit - agence a des dépendances'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
     public function destroy(Agency $agency): JsonResponse
     {
+        if ($agency->departments()->exists() || $agency->assignedUsers()->exists()) {
+            return response()->json([
+                'message' => 'Impossible de supprimer cette agence car elle contient des départements ou des utilisateurs assignés.',
+            ], 409);
+        }
+
         $agency->delete();
+
+        return response()->json(null, 204);
+    }
+
+    #[OA\Get(
+        path: '/api/agencies/trash',
+        summary: 'Lister les agences supprimées (corbeille)',
+        tags: ['Agences'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'search', in: 'query', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Liste paginée des agences supprimées'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
+        ]
+    )]
+    public function trash(Request $request): AnonymousResourceCollection
+    {
+        $query = Agency::onlyTrashed()
+            ->with('departments')
+            ->search($request->input('search'));
+
+        $perPage = min((int) $request->input('per_page', 15), 100);
+
+        return AgencyResource::collection($query->paginate($perPage));
+    }
+
+    #[OA\Post(
+        path: '/api/agencies/{agency}/restore',
+        summary: 'Restaurer une agence supprimée',
+        tags: ['Agences'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Agence restaurée', content: new OA\JsonContent(ref: '#/components/schemas/Agency')),
+            new OA\Response(response: 404, description: 'Agence non trouvée dans la corbeille'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
+        ]
+    )]
+    public function restore(string $id): AgencyResource
+    {
+        $agency = Agency::onlyTrashed()->findOrFail($id);
+        $agency->restore();
+
+        return new AgencyResource($agency->load('departments'));
+    }
+
+    #[OA\Delete(
+        path: '/api/agencies/{agency}/force-delete',
+        summary: 'Supprimer définitivement une agence',
+        tags: ['Agences'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 204, description: 'Agence supprimée définitivement'),
+            new OA\Response(response: 404, description: 'Agence non trouvée'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
+        ]
+    )]
+    public function forceDelete(string $id): JsonResponse
+    {
+        $agency = Agency::onlyTrashed()->findOrFail($id);
+
+        if ($agency->departments()->withTrashed()->exists()) {
+            return response()->json([
+                'message' => 'Impossible de supprimer définitivement cette agence car elle contient des départements.',
+            ], 409);
+        }
+
+        $agency->forceDelete();
+
         return response()->json(null, 204);
     }
 }

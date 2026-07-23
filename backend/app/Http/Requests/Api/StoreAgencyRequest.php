@@ -21,7 +21,6 @@ class StoreAgencyRequest extends FormRequest
             'address' => ['sometimes', 'nullable', 'string'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
-            'manager_id' => ['sometimes', 'nullable', 'string', 'exists:users,id'],
         ];
     }
 
@@ -32,7 +31,6 @@ class StoreAgencyRequest extends FormRequest
             'code.unique' => 'Ce code agence est déjà utilisé.',
             'name.required' => "Le nom de l'agence est obligatoire.",
             'country.required' => 'Le pays est obligatoire.',
-            'manager_id.exists' => "Ce gestionnaire n'existe pas.",
         ];
     }
 }

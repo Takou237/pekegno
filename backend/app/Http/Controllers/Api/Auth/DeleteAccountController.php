@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\DeleteAccountRequest;
+use App\Models\LoginLog;
+use App\Models\Role;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use OpenApi\Attributes as OA;
 
@@ -43,6 +46,27 @@ class DeleteAccountController extends Controller
                 'message' => 'Le mot de passe est incorrect.',
             ], 422);
         }
+
+        $superAdminRole = Role::where('name', 'super-admin')->first();
+
+        if ($superAdminRole) {
+            $superAdminCount = DB::table('model_has_roles')
+                ->where('role_id', $superAdminRole->id)
+                ->count();
+
+            if ($superAdminCount <= 1 && $user->role_id === $superAdminRole->id) {
+                return response()->json([
+                    'message' => 'Vous ne pouvez pas supprimer le compte du dernier super-administrateur.',
+                ], 422);
+            }
+        }
+
+        LoginLog::create([
+            'user_id' => $user->id,
+            'action' => 'account_deleted',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         $user->tokens()->delete();
         $user->delete();
