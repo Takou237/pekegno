@@ -1,10 +1,16 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { ProtectedRoute } from '@/router/ProtectedRoute';
 import { GuestRoute } from '@/router/GuestRoute';
+import { AppLayout } from '@/components/layout/AppLayout';
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import TwoFactorPage from '@/pages/auth/TwoFactorPage';
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
 import DashboardPlaceholderPage from '@/pages/DashboardPlaceholderPage';
+import ProfilePage from '@/pages/profile/ProfilePage';
+import AgencyListPage from '@/pages/agencies/AgencyListPage';
+import AgencyTrashPage from '@/pages/agencies/AgencyTrashPage';
 
 export const router = createBrowserRouter([
   {
@@ -12,6 +18,8 @@ export const router = createBrowserRouter([
     children: [
       { path: '/login', element: <LoginPage /> },
       { path: '/register', element: <RegisterPage /> },
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
       // Le 2FA est accessible même sans session complète (token en attente
       // stocké côté AuthContext), donc via GuestRoute plutôt que ProtectedRoute.
       { path: '/two-factor', element: <TwoFactorPage /> },
@@ -19,6 +27,16 @@ export const router = createBrowserRouter([
   },
   {
     element: <ProtectedRoute />,
-    children: [{ path: '/', element: <DashboardPlaceholderPage /> }],
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          { path: '/', element: <DashboardPlaceholderPage /> },
+          { path: '/profile', element: <ProfilePage /> },
+          { path: '/agencies', element: <AgencyListPage /> },
+          { path: '/agencies/trash', element: <AgencyTrashPage /> },
+        ],
+      },
+    ],
   },
 ]);

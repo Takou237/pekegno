@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/useToast';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -19,6 +20,7 @@ const initialForm: RegisterPayload = {
 
 export function RegisterForm() {
   const { register } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   const [form, setForm] = useState<RegisterPayload>(initialForm);
@@ -38,7 +40,8 @@ export function RegisterForm() {
 
     try {
       await register(form);
-      navigate('/', { replace: true });
+      showToast('Compte créé avec succès. Vous pouvez maintenant vous connecter.', 'success');
+      navigate('/login', { replace: true });
     } catch (error) {
       setFormError(extractErrorMessage(error, "Inscription impossible. Réessayez."));
       setFieldErrors(extractFieldErrors(error));

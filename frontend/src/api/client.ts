@@ -31,14 +31,21 @@ client.interceptors.request.use((config) => {
 });
 
 /**
- * Callback branché par AuthContext (useAuth) pour réagir globalement à une
- * session invalide, sans créer de dépendance circulaire entre le client
- * Axios et le contexte React.
+ * Callbacks branchés par AuthContext / ToastContext pour réagir globalement
+ * à une session invalide (401) ou un accès refusé (403), sans créer de
+ * dépendance circulaire entre le client Axios et le reste de l'app.
  */
-let onUnauthorized: (() => void) | null = null;
+let onUnauthorized: ((reason: 'expired' | 'invalid') => void) | null = null;
+let onForbidden: (() => void) | null = null;
 
-export function registerUnauthorizedHandler(handler: () => void): void {
+export function registerUnauthorizedHandler(
+  handler: (reason: 'expired' | 'invalid') => void
+): void {
   onUnauthorized = handler;
+}
+
+export function registerForbiddenHandler(handler: () => void): void {
+  onForbidden = handler;
 }
 
 /**
@@ -47,18 +54,24 @@ export function registerUnauthorizedHandler(handler: () => void): void {
  * mécanisme de refresh natif. On ne peut donc pas "rafraîchir" un token côté
  * front. Ce qu'on peut faire :
  *  - détecter tout 401 (token invalide, révoqué par EnsureSingleSession
- *    suite à une connexion ailleurs, ou session expirée pour inactivité)
- *  - nettoyer l'état local et rediriger proprement vers /login
- * Si Dev1 ajoute un vrai refresh token plus tard, on branchera ici une
- * tentative de refresh avant de déclencher onUnauthorized.
+ *    suite à une connexion ailleurs, ou session expirée pour inactivité) et
+ *    nettoyer l'état local + rediriger proprement vers /login
+ *  - détecter tout 403 (policy backend refusée, ex. AgencyPolicy) et notifier
+ *    l'utilisateur sans casser sa session
  */
 client.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
+      const hadToken = Boolean(getStoredToken());
       setStoredToken(null);
-      onUnauthorized?.();
+      onUnauthorized?.(hadToken ? 'expired' : 'invalid');
     }
+
+    if (error.response?.status === 403) {
+      onForbidden?.();
+    }
+
     return Promise.reject(error);
   }
 );

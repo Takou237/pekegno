@@ -9,28 +9,29 @@ import {
 import { authApi } from '@/api/auth.api';
 import {
   getStoredToken,
+  registerForbiddenHandler,
   registerUnauthorizedHandler,
   setStoredToken,
 } from '@/api/client';
+import { useToast } from '@/hooks/useToast';
 import {
   requiresTwoFactor,
   type LoginCredentials,
   type RegisterPayload,
-  type TwoFactorVerifyPayload,
   type User,
 } from '@/types/auth';
 
 interface AuthContextValue {
   user: User | null;
-  /** true tant qu'on n'a pas fini de vérifier une session existante au chargement */
   isInitializing: boolean;
   isAuthenticated: boolean;
-  /** rempli quand /auth/login renvoie un défi 2FA, en attente de vérification */
   pendingTwoFactorToken: string | null;
   login: (credentials: LoginCredentials) => Promise<{ requiresTwoFactor: boolean }>;
   verifyTwoFactor: (code: string) => Promise<void>;
+  cancelTwoFactorChallenge: () => void;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pendingTwoFactorToken, setPendingTwoFactorToken] = useState<string | null>(
     null
   );
+  const { showToast } = useToast();
 
   const clearSession = useCallback(() => {
     setStoredToken(null);
@@ -48,8 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPendingTwoFactorToken(null);
   }, []);
 
-  // Si un token est déjà stocké (rechargement de page), on tente de
-  // récupérer l'utilisateur courant pour restaurer la session.
   useEffect(() => {
     const token = getStoredToken();
 
@@ -65,19 +65,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsInitializing(false));
   }, [clearSession]);
 
-  // Le client Axios appelle ce handler dès qu'une requête renvoie 401
-  // (token révoqué par EnsureSingleSession, session expirée, etc.)
   useEffect(() => {
-    registerUnauthorizedHandler(() => {
+    registerUnauthorizedHandler((reason) => {
+      const hadSession = user !== null;
       clearSession();
+      if (hadSession) {
+        showToast(
+          reason === 'expired'
+            ? 'Votre session a expiré, veuillez vous reconnecter.'
+            : 'Session invalide, veuillez vous reconnecter.',
+          'warning'
+        );
+      }
     });
-  }, [clearSession]);
+
+    registerForbiddenHandler(() => {
+      showToast("Vous n'avez pas les droits nécessaires pour cette action.", 'error');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearSession, showToast, user]);
 
   const login = useCallback<AuthContextValue['login']>(async (credentials) => {
     const response = await authApi.login(credentials);
 
     if (requiresTwoFactor(response)) {
-      setPendingTwoFactorToken(response.two_factor_token);
+      setPendingTwoFactorToken(response.temp_token);
       return { requiresTwoFactor: true };
     }
 
@@ -92,11 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Aucune vérification 2FA en attente.');
       }
 
-      const payload: TwoFactorVerifyPayload = {
-        two_factor_token: pendingTwoFactorToken,
+      const response = await authApi.twoFactorLogin({
+        temp_token: pendingTwoFactorToken,
         code,
-      };
-      const response = await authApi.verifyTwoFactor(payload);
+      });
 
       setStoredToken(response.token);
       setUser(response.user);
@@ -105,10 +116,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [pendingTwoFactorToken]
   );
 
+  const cancelTwoFactorChallenge = useCallback(() => {
+    setPendingTwoFactorToken(null);
+  }, []);
+
+  // F2 : le backend renvoie un token valide sur /auth/register, mais le
+  // parcours attendu (TASKS_AUTHENTICATION.md) est une redirection vers
+  // /login après inscription plutôt qu'une connexion automatique.
   const register = useCallback<AuthContextValue['register']>(async (payload) => {
-    const response = await authApi.register(payload);
-    setStoredToken(response.token);
-    setUser(response.user);
+    await authApi.register(payload);
   }, []);
 
   const logout = useCallback(async () => {
@@ -119,6 +135,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearSession]);
 
+  const refreshUser = useCallback(async () => {
+    const freshUser = await authApi.me();
+    setUser(freshUser);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -127,10 +148,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       pendingTwoFactorToken,
       login,
       verifyTwoFactor,
+      cancelTwoFactorChallenge,
       register,
       logout,
+      refreshUser,
     }),
-    [user, isInitializing, pendingTwoFactorToken, login, verifyTwoFactor, register, logout]
+    [
+      user,
+      isInitializing,
+      pendingTwoFactorToken,
+      login,
+      verifyTwoFactor,
+      cancelTwoFactorChallenge,
+      register,
+      logout,
+      refreshUser,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

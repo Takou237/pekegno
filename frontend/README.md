@@ -53,3 +53,24 @@ src/
 ## Prochaine étape (Jour 3, Dev2)
 
 Pages Rôles/Permissions (`RoleList`, `RoleForm`, `PermissionList`) + `usePermissions.ts` + `RoleRoute.tsx`, en s'appuyant sur les endpoints déjà livrés par Dev1 (`/roles`, `/permissions`, `/roles/{role}/permissions`).
+
+## Mise à jour — Authentification complète + CRUD Agences
+
+Suite à `TASKS_AUTHENTICATION.md` et à l'avancement du backend (Dev1), ajout de :
+
+- **Auth complète (F1-F12)** : mot de passe oublié / réinitialisation, changement de mot de passe, activation/désactivation 2FA (QR code), suppression de compte, menu utilisateur, toasts globaux, gestion 401/403 centralisée.
+- **Correction de contrat** : les vrais noms de champs du backend sont `two_factor_required` / `temp_token` (pas ceux que j'avais anticipés avant que Dev1 code l'endpoint). `types/auth.ts` est maintenant aligné sur `app/Models/User.php` réel (objet `role`, `is_active`, `is_password_change_required`...).
+- **Inscription** : redirige maintenant vers `/login` (avec toast) au lieu de connecter automatiquement, conformément à la spec F2.
+- **CRUD Agences** (`/agencies`) : liste avec recherche, filtre pays, tri, pagination ; création/édition en modal ; détail (départements + utilisateurs assignés) ; suppression (soft-delete) ; corbeille avec restauration / suppression définitive (`/agencies/trash`), réservée aux rôles autorisés par `AgencyPolicy` (`utils/agencyPermissions.ts`).
+- **`AppLayout`** : sidebar + header avec menu utilisateur, sert de coquille pour toutes les pages protégées.
+
+### Ne pas oublier
+
+```bash
+npm install   # nouvelle dépendance : lucide-react
+```
+
+### Points à vérifier avec Dev1
+
+- Le champ `name` dans `UserResource` (utilisateurs assignés à une agence) n'existe pas sur le modèle `User` (`username`/`first_name`/`last_name` seulement) — à corriger côté backend, sinon `assigned_users[].name` sera toujours `null`.
+- `canEditAgency` pour le rôle `responsable-agence` est une approximation de `AgencyPolicy` (je ne recharge pas l'assignation "responsable principal" côté front) — un 403 legitime affichera un toast, mais le bouton peut apparaître à tort. À affiner si besoin au Jour 4.

@@ -61,6 +61,15 @@ export function LoginForm() {
         placeholder="••••••••"
       />
 
+      <div className="flex justify-end -mt-2">
+        <Link
+          to="/forgot-password"
+          className="text-sm font-medium text-brand-600 hover:underline"
+        >
+          Mot de passe oublié ?
+        </Link>
+      </div>
+
       <Button type="submit" isLoading={isSubmitting}>
         Se connecter
       </Button>

@@ -1,6 +1,13 @@
 /**
- * Reflète app/Models/User.php (Dev1) — garder synchronisé avec le backend.
+ * Reflète app/Models/User.php + app/Models/Role.php (Dev1).
+ * Contrat vérifié contre le code réel du backend (juillet 2026).
  */
+export interface Role {
+  id: string;
+  name: string; // 'super-admin' | 'direction-generale' | 'responsable-agence' | ...
+  description: string | null;
+}
+
 export interface User {
   id: string; // uuid
   username: string;
@@ -8,10 +15,11 @@ export interface User {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  role_id: string | null;
+  role: Role | null;
   is_active: boolean;
-  is_super_admin: boolean;
   two_factor_enabled: boolean;
-  must_change_password: boolean;
+  is_password_change_required: boolean;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
@@ -32,27 +40,19 @@ export interface RegisterPayload {
   phone?: string;
 }
 
-/**
- * Réponse "succès direct" de POST /auth/login (utilisateur sans 2FA activé).
- */
+/** Réponse "succès direct" de POST /auth/login ou /auth/register. */
 export interface AuthSuccessResponse {
   user: User;
   token: string;
 }
 
 /**
- * Réponse "défi 2FA" attendue de POST /auth/login lorsque l'utilisateur a
- * two_factor_enabled = true.
- *
- * ⚠️ CONTRAT À CONFIRMER AVEC DEV1 : son LoginController actuel renvoie
- * toujours { user, token } sans jamais vérifier two_factor_enabled, et
- * aucune route /auth/two-factor/verify n'existe encore côté API.
- * Le shape ci-dessous est celui qu'on propose pour ne pas bloquer le front —
- * à ajuster dès que Dev1 code le TwoFactorController.
+ * Réponse "défi 2FA" réelle de POST /auth/login (AuthService::attempt),
+ * lorsque l'utilisateur a two_factor_enabled = true.
  */
 export interface AuthTwoFactorChallengeResponse {
-  requires_two_factor: true;
-  two_factor_token: string;
+  two_factor_required: true;
+  temp_token: string;
 }
 
 export type LoginResponse = AuthSuccessResponse | AuthTwoFactorChallengeResponse;
@@ -60,12 +60,42 @@ export type LoginResponse = AuthSuccessResponse | AuthTwoFactorChallengeResponse
 export function requiresTwoFactor(
   response: LoginResponse
 ): response is AuthTwoFactorChallengeResponse {
-  return (response as AuthTwoFactorChallengeResponse).requires_two_factor === true;
+  return (response as AuthTwoFactorChallengeResponse).two_factor_required === true;
 }
 
-export interface TwoFactorVerifyPayload {
-  two_factor_token: string;
+export interface TwoFactorLoginPayload {
+  temp_token: string;
   code: string;
+}
+
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface DeleteAccountPayload {
+  password: string;
+}
+
+export interface TwoFactorEnableResponse {
+  secret: string;
+  qr_code_url: string;
+}
+
+export interface ApiMessageResponse {
+  message: string;
 }
 
 export interface ApiValidationError {

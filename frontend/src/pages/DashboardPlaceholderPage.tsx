@@ -1,23 +1,17 @@
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/Button';
 
-/**
- * Page d'accueil provisoire post-connexion. Sera remplacée par le vrai
- * AppLayout + Sidebar + Dashboard (jours 4-5 et 27 du plan).
- */
 export default function DashboardPlaceholderPage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-900">
-      <p className="text-lg text-gray-700 dark:text-gray-200">
-        Connecté en tant que <strong>{user?.username}</strong>
+    <div className="rounded-2xl border border-gray-100 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+        Bienvenue, {user?.first_name ?? user?.username} 👋
+      </h1>
+      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+        Le vrai tableau de bord (indicateurs, graphiques) arrive au Jour 27 du plan.
+        En attendant, la gestion des agences est disponible dans le menu.
       </p>
-      <div className="w-48">
-        <Button variant="outline" onClick={() => logout()}>
-          Se déconnecter
-        </Button>
-      </div>
     </div>
   );
 }
