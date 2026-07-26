@@ -14,7 +14,6 @@ class StoreAgencyRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => ['required', 'string', 'max:20', 'unique:agencies,code'],
             'name' => ['required', 'string', 'max:255'],
             'country' => ['required', 'string', 'max:100'],
             'city' => ['sometimes', 'nullable', 'string', 'max:150'],
@@ -27,8 +26,6 @@ class StoreAgencyRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'code.required' => 'Le code agence est obligatoire.',
-            'code.unique' => 'Ce code agence est déjà utilisé.',
             'name.required' => "Le nom de l'agence est obligatoire.",
             'country.required' => 'Le pays est obligatoire.',
         ];

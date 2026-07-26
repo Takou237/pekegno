@@ -84,7 +84,10 @@ class AgencyController extends Controller
     )]
     public function store(StoreAgencyRequest $request): JsonResponse
     {
-        $agency = Agency::create($request->validated());
+        $data = $request->validated();
+        $data['code'] = Agency::generateNextCode();
+
+        $agency = Agency::create($data);
 
         return (new AgencyResource($agency->load('departments')))
             ->response()
@@ -236,7 +239,7 @@ class AgencyController extends Controller
     {
         $agency = Agency::onlyTrashed()->findOrFail($id);
 
-        if ($agency->departments()->withTrashed()->exists()) {
+        if ($agency->departments()->exists()) {
             return response()->json([
                 'message' => 'Impossible de supprimer définitivement cette agence car elle contient des départements.',
             ], 409);

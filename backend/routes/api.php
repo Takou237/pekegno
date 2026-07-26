@@ -32,10 +32,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/2fa/verify', [TwoFactorController::class, 'verify']);
     Route::post('/auth/2fa/disable', [TwoFactorController::class, 'disable']);
 
-    Route::apiResource('agencies', AgencyController::class);
     Route::get('/agencies/trash', [AgencyController::class, 'trash']);
     Route::post('/agencies/{agency}/restore', [AgencyController::class, 'restore']);
     Route::delete('/agencies/{agency}/force-delete', [AgencyController::class, 'forceDelete']);
+    Route::apiResource('agencies', AgencyController::class);
     Route::apiResource('departments', DepartmentController::class);
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy']);

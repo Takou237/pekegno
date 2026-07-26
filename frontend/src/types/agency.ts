@@ -32,7 +32,6 @@ export interface Agency {
 }
 
 export interface AgencyPayload {
-  code: string;
   name: string;
   country: string;
   city?: string;

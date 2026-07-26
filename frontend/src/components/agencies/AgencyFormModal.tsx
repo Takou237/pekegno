@@ -9,7 +9,6 @@ import { Alert } from '@/components/ui/Alert';
 import type { Agency, AgencyPayload } from '@/types/agency';
 
 const emptyForm: AgencyPayload = {
-  code: '',
   name: '',
   country: '',
   city: '',
@@ -39,7 +38,6 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
       setForm(
         agency
           ? {
-              code: agency.code,
               name: agency.name,
               country: agency.country,
               city: agency.city ?? '',
@@ -95,14 +93,6 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Code agence"
-            required
-            value={form.code}
-            onChange={(e) => update('code', e.target.value)}
-            error={fieldErrors.code}
-            placeholder="AG-001"
-          />
-          <Input
             label="Nom de l'agence"
             required
             value={form.name}
@@ -110,9 +100,6 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
             error={fieldErrors.name}
             placeholder="Agence Douala"
           />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Pays"
             required
@@ -121,6 +108,9 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
             error={fieldErrors.country}
             placeholder="Cameroun"
           />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Ville"
             value={form.city}
@@ -128,14 +118,13 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
             error={fieldErrors.city}
             placeholder="Douala"
           />
+          <Input
+            label="Adresse"
+            value={form.address}
+            onChange={(e) => update('address', e.target.value)}
+            error={fieldErrors.address}
+          />
         </div>
-
-        <Input
-          label="Adresse"
-          value={form.address}
-          onChange={(e) => update('address', e.target.value)}
-          error={fieldErrors.address}
-        />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input

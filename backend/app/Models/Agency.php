@@ -66,6 +66,22 @@ class Agency extends Model
         return $query->where('country', $country);
     }
 
+    public static function generateNextCode(): string
+    {
+        $lastCode = static::withTrashed()
+            ->orderByRaw("SUBSTRING(code FROM 3)::int DESC")
+            ->where('code', 'LIKE', 'AG%')
+            ->value('code');
+
+        if ($lastCode && preg_match('/^AG(\d+)$/', $lastCode, $matches)) {
+            $next = (int) $matches[1] + 1;
+        } else {
+            $next = 1;
+        }
+
+        return 'AG' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+    }
+
     public function getFullAddressAttribute(): ?string
     {
         $parts = collect([$this->address, $this->city, $this->country])->filter();
