@@ -215,6 +215,8 @@ class AgencyController extends Controller
     )]
     public function restore(string $id): AgencyResource
     {
+        $this->authorize('restore', Agency::class);
+
         $agency = Agency::onlyTrashed()->findOrFail($id);
         $agency->restore();
 
@@ -237,6 +239,8 @@ class AgencyController extends Controller
     )]
     public function forceDelete(string $id): JsonResponse
     {
+        $this->authorize('forceDelete', Agency::class);
+
         $agency = Agency::onlyTrashed()->findOrFail($id);
 
         if ($agency->departments()->exists()) {

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\JsonResponse;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
@@ -23,8 +23,8 @@ class ProfileController extends Controller
             new OA\Response(response: 401, description: 'Non authentifié'),
         ]
     )]
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request)
     {
-        return response()->json($request->user());
+        return new UserResource($request->user()->load('role', 'assignments.agency'));
     }
 }

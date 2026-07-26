@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, Eye, ArrowUpDown, ShieldCheck } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
 import { AgencyDetailModal } from '@/components/agencies/AgencyDetailModal';
+import { AgencyChiefAssignModal } from '@/components/agencies/AgencyChiefAssignModal';
 import { canCreateAgency, canDeleteAgency, canEditAgency, canManageTrash } from '@/utils/agencyPermissions';
 import type { Agency, AgencyListParams, PaginationMeta } from '@/types/agency';
 
@@ -45,6 +46,7 @@ export default function AgencyListPage() {
   const [detailAgency, setDetailAgency] = useState<Agency | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Agency | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [chiefAgency, setChiefAgency] = useState<Agency | null>(null);
 
   const fetchAgencies = useCallback(async () => {
     setIsLoading(true);
@@ -240,14 +242,24 @@ export default function AgencyListPage() {
                           <Eye className="h-4 w-4" />
                         </button>
                         {canEditAgency(user) && (
-                          <button
-                            type="button"
-                            onClick={() => setFormModalState({ open: true, agency })}
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                            title="Modifier"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setChiefAgency(agency)}
+                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
+                              title="Assigner un chef d'agence"
+                            >
+                              <ShieldCheck className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormModalState({ open: true, agency })}
+                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
+                              title="Modifier"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          </>
                         )}
                         {canDeleteAgency(user) && (
                           <button
@@ -289,6 +301,13 @@ export default function AgencyListPage() {
       />
 
       <AgencyDetailModal agency={detailAgency} onClose={() => setDetailAgency(null)} />
+
+      <AgencyChiefAssignModal
+        isOpen={Boolean(chiefAgency)}
+        agency={chiefAgency}
+        onClose={() => setChiefAgency(null)}
+        onSaved={fetchAgencies}
+      />
 
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}

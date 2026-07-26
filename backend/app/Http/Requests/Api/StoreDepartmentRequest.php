@@ -17,7 +17,6 @@ class StoreDepartmentRequest extends FormRequest
             'agency_id' => ['required', 'string', 'exists:agencies,id'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            'manager_id' => ['sometimes', 'nullable', 'string', 'exists:users,id'],
         ];
     }
 
@@ -25,9 +24,8 @@ class StoreDepartmentRequest extends FormRequest
     {
         return [
             'agency_id.required' => "L'agence est obligatoire.",
-            'agency_id.exists' => "Cette agence n'existe pas. Utilisez un UUID valide récupéré depuis GET /api/agencies.",
+            'agency_id.exists' => "Cette agence n'existe pas.",
             'name.required' => "Le nom du département est obligatoire.",
-            'manager_id.exists' => "Ce gestionnaire n'existe pas.",
         ];
     }
 }

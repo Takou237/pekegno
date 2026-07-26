@@ -11,6 +11,7 @@ import DashboardPlaceholderPage from '@/pages/DashboardPlaceholderPage';
 import ProfilePage from '@/pages/profile/ProfilePage';
 import AgencyListPage from '@/pages/agencies/AgencyListPage';
 import AgencyTrashPage from '@/pages/agencies/AgencyTrashPage';
+import UserListPage from '@/pages/users/UserListPage';
 
 export const router = createBrowserRouter([
   {
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
           { path: '/profile', element: <ProfilePage /> },
           { path: '/agencies', element: <AgencyListPage /> },
           { path: '/agencies/trash', element: <AgencyTrashPage /> },
+          { path: '/users', element: <UserListPage /> },
         ],
       },
     ],

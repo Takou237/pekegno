@@ -1,7 +1,7 @@
 export interface Department {
   id: string;
   name: string;
-  code: string | null;
+  description: string | null;
   agency_id: string;
   created_at: string;
   updated_at: string;
@@ -12,6 +12,10 @@ export interface AssignedUser {
   name: string | null;
   email: string;
   phone: string | null;
+  pivot?: {
+    department_id: string | null;
+    is_primary: boolean;
+  };
 }
 
 export interface Agency {

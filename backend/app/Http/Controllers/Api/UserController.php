@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\UpdateUserRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ class UserController extends Controller
             new OA\Response(response: 200, description: 'Liste paginée des utilisateurs'),
         ]
     )]
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
         $users = User::with('role', 'assignments')
             ->when($request->search, function ($q, $search) {
@@ -44,7 +45,7 @@ class UserController extends Controller
             ->orderBy($request->sort ?? 'created_at', $request->order ?? 'desc')
             ->paginate($request->per_page ?? 15);
 
-        return response()->json($users);
+        return UserResource::collection($users);
     }
 
     #[OA\Get(
@@ -60,9 +61,9 @@ class UserController extends Controller
             new OA\Response(response: 404, description: 'Utilisateur non trouvé'),
         ]
     )]
-    public function show(User $user): JsonResponse
+    public function show(User $user)
     {
-        return response()->json($user->load('role', 'assignments'));
+        return new UserResource($user->load('role', 'assignments.agency'));
     }
 
     #[OA\Put(
@@ -93,7 +94,7 @@ class UserController extends Controller
             new OA\Response(response: 422, description: 'Erreur de validation'),
         ]
     )]
-    public function update(UpdateUserRequest $request, User $user): JsonResponse
+    public function update(UpdateUserRequest $request, User $user)
     {
         $validated = $request->validated();
 
@@ -102,7 +103,7 @@ class UserController extends Controller
         }
 
         $user->update($validated);
-        return response()->json($user->fresh()->load('role', 'assignments'));
+        return new UserResource($user->fresh()->load('role', 'assignments'));
     }
 
     #[OA\Delete(
@@ -118,9 +119,26 @@ class UserController extends Controller
             new OA\Response(response: 403, description: 'Impossible de supprimer un super administrateur'),
         ]
     )]
-    public function destroy(User $user): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
+        if ($user->id === $request->user()->id) {
+            return response()->json([
+                'message' => 'Vous ne pouvez pas supprimer votre propre compte.',
+            ], 422);
+        }
+
+        if ($user->role?->name === 'super-admin') {
+            $superAdminCount = User::where('role_id', $user->role_id)->count();
+            if ($superAdminCount <= 1) {
+                return response()->json([
+                    'message' => 'Impossible de supprimer le dernier super-administrateur.',
+                ], 422);
+            }
+        }
+
+        $user->tokens()->delete();
         $user->delete();
+
         return response()->json(null, 204);
     }
 }

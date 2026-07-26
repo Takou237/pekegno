@@ -34,6 +34,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
     ];
 
     protected $with = ['role'];
@@ -63,8 +64,11 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
-    public function primaryAgency(): BelongsTo
+    public function primaryAgency()
     {
-        return $this->belongsTo(Agency::class)->wherePivot('is_primary', true);
+        return $this->belongsToMany(Agency::class, 'user_assignments')
+            ->wherePivot('is_primary', true)
+            ->withPivot('department_id', 'is_primary')
+            ->withTimestamps();
     }
 }

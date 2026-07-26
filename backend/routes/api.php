@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\UserAssignmentController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Support\Facades\Route;
@@ -36,10 +38,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/agencies/{agency}/restore', [AgencyController::class, 'restore']);
     Route::delete('/agencies/{agency}/force-delete', [AgencyController::class, 'forceDelete']);
     Route::apiResource('agencies', AgencyController::class);
+
+    Route::put('/agencies/{agency}/chief', [UserAssignmentController::class, 'assignChief']);
+    Route::delete('/agencies/{agency}/chief', [UserAssignmentController::class, 'removeChief']);
+
+    Route::get('/departments/trash', [DepartmentController::class, 'trash']);
+    Route::post('/departments/{department}/restore', [DepartmentController::class, 'restore']);
+    Route::delete('/departments/{department}/force-delete', [DepartmentController::class, 'forceDelete']);
     Route::apiResource('departments', DepartmentController::class);
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy']);
 
     Route::get('/users/{user}/role', [UserRoleController::class, 'show']);
     Route::put('/users/{user}/role', [UserRoleController::class, 'update']);
+
+    Route::get('/roles', [RoleController::class, 'index']);
 });
