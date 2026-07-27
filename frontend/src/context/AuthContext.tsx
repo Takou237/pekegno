@@ -61,7 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authApi
       .me()
       .then(setUser)
-      .catch(() => clearSession())
+      .catch((error) => {
+        if (error?.response?.status === 401) {
+          clearSession();
+        }
+      })
       .finally(() => setIsInitializing(false));
   }, [clearSession]);
 

@@ -9,18 +9,18 @@ export const departmentsApi = {
   },
 
   async get(id: string): Promise<Department> {
-    const { data } = await client.get<{ data: Department }>(`/departments/${id}`);
-    return data.data;
+    const { data } = await client.get<Department>(`/departments/${id}`);
+    return data;
   },
 
   async create(payload: DepartmentPayload): Promise<Department> {
-    const { data } = await client.post<{ data: Department }>('/departments', payload);
-    return data.data;
+    const { data } = await client.post<Department>('/departments', payload);
+    return data;
   },
 
   async update(id: string, payload: Partial<DepartmentPayload>): Promise<Department> {
-    const { data } = await client.put<{ data: Department }>(`/departments/${id}`, payload);
-    return data.data;
+    const { data } = await client.put<Department>(`/departments/${id}`, payload);
+    return data;
   },
 
   async remove(id: string): Promise<void> {
@@ -35,8 +35,8 @@ export const departmentsApi = {
   },
 
   async restore(id: string): Promise<Department> {
-    const { data } = await client.post<{ data: Department }>(`/departments/${id}/restore`);
-    return data.data;
+    const { data } = await client.post<Department>(`/departments/${id}/restore`);
+    return data;
   },
 
   async forceDelete(id: string): Promise<void> {

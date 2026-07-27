@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureSingleSession;
 use App\Http\Middleware\InactivityLogout;
+use App\Http\Middleware\UpdateLastActivity;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,12 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->api(prepend: [
-            EnsureSingleSession::class,
-        ]);
-
         $middleware->alias([
+            'single.session' => EnsureSingleSession::class,
             'inactivity.logout' => InactivityLogout::class,
+            'update.activity' => UpdateLastActivity::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

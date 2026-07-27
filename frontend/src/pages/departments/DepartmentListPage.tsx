@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, Users } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, Eye, Users, ShieldCheck } from 'lucide-react';
 import { departmentsApi } from '@/api/departments.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -21,6 +21,7 @@ import {
   canManageDepartmentTrash,
 } from '@/utils/departmentPermissions';
 import { DepartmentUserAssignModal } from '@/components/departments/DepartmentUserAssignModal';
+import { DepartmentChiefAssignModal } from '@/components/departments/DepartmentChiefAssignModal';
 import type { Department, DepartmentPayload } from '@/types/department';
 import type { Agency, PaginationMeta } from '@/types/agency';
 
@@ -54,6 +55,7 @@ export default function DepartmentListPage() {
   const [deleteTarget, setDeleteTarget] = useState<Department | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [usersDepartment, setUsersDepartment] = useState<Department | null>(null);
+  const [chiefDepartment, setChiefDepartment] = useState<Department | null>(null);
 
   const fetchDepartments = useCallback(async () => {
     setIsLoading(true);
@@ -256,6 +258,14 @@ export default function DepartmentListPage() {
                           <>
                             <button
                               type="button"
+                              onClick={() => setChiefDepartment(dept)}
+                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
+                              title="Assigner un chef de département"
+                            >
+                              <ShieldCheck className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => setUsersDepartment(dept)}
                               className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
                               title="Gérer les utilisateurs"
@@ -407,6 +417,14 @@ export default function DepartmentListPage() {
         isOpen={Boolean(usersDepartment)}
         department={usersDepartment}
         onClose={() => setUsersDepartment(null)}
+        onSaved={fetchDepartments}
+      />
+
+      {/* Modal chef de département */}
+      <DepartmentChiefAssignModal
+        isOpen={Boolean(chiefDepartment)}
+        department={chiefDepartment}
+        onClose={() => setChiefDepartment(null)}
         onSaved={fetchDepartments}
       />
     </div>

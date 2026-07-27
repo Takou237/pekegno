@@ -12,6 +12,8 @@ import { client } from '@/api/client';
 import type { UserListItem } from '@/types/user';
 import type { Agency } from '@/types/agency';
 
+const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale']);
+
 interface AgencyUserAssignModalProps {
   isOpen: boolean;
   agency: Agency | null;
@@ -51,14 +53,16 @@ export function AgencyUserAssignModal({
       client.get('/users', { params: { per_page: 100 } }),
     ])
       .then(([agencyRes, usersRes]) => {
-        const agencyData = agencyRes.data.data ?? agencyRes.data;
+        const agencyData: Agency = agencyRes.data;
         setAssignedUsers(agencyData.assigned_users ?? []);
 
         const assignedIds = new Set(
           (agencyData.assigned_users ?? []).map((u: AssignedUser) => u.id)
         );
-        const available = (usersRes.data.data ?? usersRes.data).filter(
-          (u: UserListItem) => !assignedIds.has(u.id)
+        const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
+          (u: UserListItem) =>
+            !assignedIds.has(u.id) &&
+            !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
         );
         setAllUsers(available);
       })
@@ -79,15 +83,17 @@ export function AgencyUserAssignModal({
       setSelectedUserId('');
       onSaved();
 
-      const { data: agencyRes } = await client.get(`/agencies/${agency.id}`);
-      const agencyData = agencyRes.data ?? agencyRes;
+      const agencyRes = await client.get(`/agencies/${agency.id}`);
+      const agencyData: Agency = agencyRes.data;
       setAssignedUsers(agencyData.assigned_users ?? []);
       const assignedIds = new Set(
         (agencyData.assigned_users ?? []).map((u: AssignedUser) => u.id)
       );
-      const { data: usersRes } = await client.get('/users', { params: { per_page: 100 } });
-      const available = (usersRes.data ?? usersRes).filter(
-        (u: UserListItem) => !assignedIds.has(u.id)
+      const usersRes = await client.get('/users', { params: { per_page: 100 } });
+      const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
+        (u: UserListItem) =>
+          !assignedIds.has(u.id) &&
+          !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
       );
       setAllUsers(available);
     } catch (err) {
@@ -105,7 +111,7 @@ export function AgencyUserAssignModal({
       onSaved();
 
       setAssignedUsers((prev) => prev.filter((u) => u.id !== user.id));
-      setAllUsers((prev) => [...prev, { id: user.id, name: user.name, email: user.email, username: user.username, first_name: user.first_name, last_name: user.last_name, phone: user.phone, is_active: user.is_active, role: user.role, role_id: user.role_id, email_verified_at: null, created_at: user.created_at, updated_at: user.updated_at }]);
+      setAllUsers((prev) => [...prev, { ...user }]);
     } catch (err) {
       showToast(extractErrorMessage(err, "Impossible de retirer l'utilisateur."), 'error');
     }

@@ -23,6 +23,11 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
+            'pivot' => $this->when(isset($this->pivot), fn () => [
+                'department_id' => $this->pivot->department_id,
+                'is_primary' => $this->pivot->is_primary,
+                'is_department_chief' => $this->pivot->is_department_chief,
+            ]),
         ];
     }
 }

@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
+import QRCode from 'qrcode';
 import { authApi } from '@/api/auth.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -8,20 +9,18 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Modal } from '@/components/ui/Modal';
-import type { TwoFactorEnableResponse } from '@/types/auth';
 
 export function TwoFactorSettings() {
   const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
 
-  // --- Activation (F6) ---
-  const [setupData, setSetupData] = useState<TwoFactorEnableResponse | null>(null);
+  const [secret, setSecret] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
   const [isEnabling, setIsEnabling] = useState(false);
   const [verifyCode, setVerifyCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
 
-  // --- Désactivation (F7) ---
   const [isDisableModalOpen, setIsDisableModalOpen] = useState(false);
   const [disablePassword, setDisablePassword] = useState('');
   const [disableCode, setDisableCode] = useState('');
@@ -37,7 +36,13 @@ export function TwoFactorSettings() {
     setIsEnabling(true);
     try {
       const data = await authApi.enableTwoFactor();
-      setSetupData(data);
+      setSecret(data.secret);
+      const dataUrl = await QRCode.toDataURL(data.qr_code_url, {
+        width: 160,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+      });
+      setQrDataUrl(dataUrl);
     } catch (error) {
       setSetupError(extractErrorMessage(error, "Impossible d'activer la 2FA pour le moment."));
     } finally {
@@ -52,7 +57,8 @@ export function TwoFactorSettings() {
     try {
       await authApi.verifyTwoFactorSetup(verifyCode);
       showToast('Double authentification activée avec succès.', 'success');
-      setSetupData(null);
+      setSecret('');
+      setQrDataUrl('');
       setVerifyCode('');
       await refreshUser();
     } catch (error) {
@@ -79,6 +85,8 @@ export function TwoFactorSettings() {
       setIsDisabling(false);
     }
   }
+
+  const showSetup = Boolean(secret && qrDataUrl);
 
   return (
     <div id="security" className="flex flex-col gap-4">
@@ -114,8 +122,7 @@ export function TwoFactorSettings() {
         </div>
       </div>
 
-      {/* Étape de setup : QR code + confirmation du code (F6) */}
-      {setupData && (
+      {showSetup && (
         <div className="flex flex-col gap-4 rounded-lg border border-gray-100 p-4 dark:border-gray-800">
           {setupError && <Alert variant="error">{setupError}</Alert>}
           <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -123,12 +130,12 @@ export function TwoFactorSettings() {
             Authenticator, Authy...), ou saisissez le secret manuellement.
           </p>
           <img
-            src={setupData.qr_code_url}
+            src={qrDataUrl}
             alt="QR code de configuration 2FA"
             className="h-40 w-40 rounded-lg border border-gray-100 dark:border-gray-800"
           />
           <p className="break-all rounded bg-gray-50 px-3 py-2 font-mono text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-            {setupData.secret}
+            {secret}
           </p>
           <form onSubmit={handleVerifySetup} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
@@ -151,7 +158,6 @@ export function TwoFactorSettings() {
         </div>
       )}
 
-      {/* Modal de désactivation (F7) */}
       <Modal
         isOpen={isDisableModalOpen}
         onClose={() => setIsDisableModalOpen(false)}

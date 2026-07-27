@@ -33,7 +33,7 @@ class Agency extends Model
     public function assignedUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_assignments')
-            ->withPivot('department_id', 'is_primary')
+            ->withPivot('department_id', 'is_primary', 'is_department_chief')
             ->withTimestamps();
     }
 

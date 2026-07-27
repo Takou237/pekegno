@@ -24,7 +24,7 @@ Route::post('/auth/forgot-password', ForgotPasswordController::class);
 Route::post('/auth/reset-password', ResetPasswordController::class);
 Route::post('/auth/2fa/login', [TwoFactorController::class, 'login']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactivity.logout'])->group(function () {
     Route::post('/auth/logout', LogoutController::class);
     Route::put('/auth/change-password', ChangePasswordController::class);
     Route::delete('/auth/account', DeleteAccountController::class);
@@ -45,6 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/agencies/{agency}/users', [UserAssignmentController::class, 'assignUser']);
     Route::delete('/agencies/{agency}/users/{user}', [UserAssignmentController::class, 'removeUser']);
 
+    Route::put('/departments/{department}/chief', [UserAssignmentController::class, 'assignDepartmentChief']);
+    Route::delete('/departments/{department}/chief', [UserAssignmentController::class, 'removeDepartmentChief']);
     Route::get('/departments/trash', [DepartmentController::class, 'trash']);
     Route::post('/departments/{department}/restore', [DepartmentController::class, 'restore']);
     Route::delete('/departments/{department}/force-delete', [DepartmentController::class, 'forceDelete']);

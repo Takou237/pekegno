@@ -29,6 +29,7 @@ class User extends Authenticatable
         'two_factor_secret',
         'active_session_id',
         'is_password_change_required',
+        'last_activity_at',
     ];
 
     protected $hidden = [
@@ -47,6 +48,7 @@ class User extends Authenticatable
             'is_password_change_required' => 'boolean',
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'last_activity_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

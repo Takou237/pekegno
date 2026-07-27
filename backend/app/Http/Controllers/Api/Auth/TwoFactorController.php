@@ -234,7 +234,13 @@ class TwoFactorController extends Controller
 
         Cache::forget('2fa_temp_token:' . $request->validated('temp_token'));
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $accessToken = $user->createToken('auth-token');
+        $token = $accessToken->plainTextToken;
+
+        $user->update([
+            'active_session_id' => $accessToken->accessToken->id,
+            'last_activity_at' => now(),
+        ]);
 
         return response()->json([
             'user' => $user,

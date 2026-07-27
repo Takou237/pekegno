@@ -27,7 +27,7 @@ class Department extends Model
     public function assignedUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_assignments')
-            ->withPivot('agency_id', 'is_primary')
+            ->withPivot('agency_id', 'is_primary', 'is_department_chief')
             ->withTimestamps();
     }
 }

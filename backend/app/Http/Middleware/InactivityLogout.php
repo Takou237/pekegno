@@ -12,9 +12,9 @@ class InactivityLogout
     {
         $user = $request->user();
 
-        if ($user && $user->last_login_at) {
+        if ($user && $user->last_activity_at) {
             $sessionLifetime = config('session.lifetime', 120);
-            $inactiveMinutes = now()->diffInMinutes($user->last_login_at);
+            $inactiveMinutes = now()->diffInMinutes($user->last_activity_at);
 
             if ($inactiveMinutes >= $sessionLifetime) {
                 $user->currentAccessToken()?->delete();

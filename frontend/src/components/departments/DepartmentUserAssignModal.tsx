@@ -12,6 +12,8 @@ import { client } from '@/api/client';
 import type { UserListItem } from '@/types/user';
 import type { Department } from '@/types/department';
 
+const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale']);
+
 interface DepartmentUserAssignModalProps {
   isOpen: boolean;
   department: Department | null;
@@ -51,13 +53,15 @@ export function DepartmentUserAssignModal({
       client.get(`/agencies/${department.agency_id}/users`),
     ])
       .then(([deptRes, agencyUsersRes]) => {
-        const deptData = deptRes.data.data ?? deptRes.data;
+        const deptData = deptRes.data;
         const deptAssigned = deptData.assigned_users ?? [];
         setAssignedUsers(deptAssigned);
 
         const assignedIds = new Set(deptAssigned.map((u: AssignedUser) => u.id));
-        const available = (agencyUsersRes.data.data ?? agencyUsersRes.data).filter(
-          (u: UserListItem) => !assignedIds.has(u.id)
+        const available: UserListItem[] = agencyUsersRes.data.filter(
+          (u: UserListItem) =>
+            !assignedIds.has(u.id) &&
+            !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
         );
         setAgencyUsers(available);
       })
@@ -78,16 +82,17 @@ export function DepartmentUserAssignModal({
       setSelectedUserId('');
       onSaved();
 
-      const { data: deptRes } = await client.get(`/departments/${department.id}`);
-      const deptData = deptRes.data ?? deptRes;
-      const deptAssigned = deptData.assigned_users ?? [];
+      const deptRes = await client.get(`/departments/${department.id}`);
+      const deptAssigned = deptRes.data.assigned_users ?? [];
       setAssignedUsers(deptAssigned);
       const assignedIds = new Set(deptAssigned.map((u: AssignedUser) => u.id));
-      const { data: agencyUsersRes } = await client.get(
+      const agencyUsersRes = await client.get(
         `/agencies/${department.agency_id}/users`
       );
-      const available = (agencyUsersRes.data ?? agencyUsersRes).filter(
-        (u: UserListItem) => !assignedIds.has(u.id)
+      const available: UserListItem[] = agencyUsersRes.data.filter(
+        (u: UserListItem) =>
+          !assignedIds.has(u.id) &&
+          !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
       );
       setAgencyUsers(available);
     } catch (err) {
@@ -105,24 +110,7 @@ export function DepartmentUserAssignModal({
       onSaved();
 
       setAssignedUsers((prev) => prev.filter((u) => u.id !== user.id));
-      setAgencyUsers((prev) => [
-        ...prev,
-        {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          phone: user.phone,
-          is_active: user.is_active,
-          role: user.role,
-          role_id: user.role_id,
-          email_verified_at: null,
-          created_at: user.created_at,
-          updated_at: user.updated_at,
-        },
-      ]);
+      setAgencyUsers((prev) => [...prev, { ...user }]);
     } catch (err) {
       showToast(extractErrorMessage(err, "Impossible de retirer l'utilisateur."), 'error');
     }

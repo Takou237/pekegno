@@ -93,7 +93,7 @@ class DepartmentController extends Controller
     )]
     public function show(Department $department): DepartmentResource
     {
-        return new DepartmentResource($department->load('agency'));
+        return new DepartmentResource($department->load('agency', 'assignedUsers'));
     }
 
     #[OA\Put(

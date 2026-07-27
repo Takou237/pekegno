@@ -68,7 +68,8 @@ class AuthService
             ];
         }
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $accessToken = $user->createToken('auth-token');
+        $token = $accessToken->plainTextToken;
 
         $this->log(
             user: $user,
@@ -78,8 +79,10 @@ class AuthService
         );
 
         $user->update([
+            'active_session_id' => $accessToken->accessToken->id,
             'last_login_at' => now(),
             'last_login_ip' => $ip,
+            'last_activity_at' => now(),
         ]);
 
         return [

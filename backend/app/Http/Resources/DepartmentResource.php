@@ -15,6 +15,7 @@ class DepartmentResource extends JsonResource
             'description' => $this->description,
             'agency_id' => $this->agency_id,
             'agency' => new AgencyResource($this->whenLoaded('agency')),
+            'assigned_users' => UserResource::collection($this->whenLoaded('assignedUsers')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

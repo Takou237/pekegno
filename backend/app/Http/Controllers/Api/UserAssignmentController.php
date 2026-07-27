@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AgencyResource;
+use App\Http\Resources\DepartmentResource;
 use App\Http\Resources\UserResource;
 use App\Models\Agency;
 use App\Models\Department;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +17,50 @@ use OpenApi\Attributes as OA;
 
 class UserAssignmentController extends Controller
 {
-    // ─── Agency ───────────────────────────────────────────────────────────
+    private const NON_ASSIGNABLE_ROLES = ['super-admin', 'direction-generale'];
+
+    private function assertUserIsAssignable(User $user): void
+    {
+        if (in_array($user->role?->name, self::NON_ASSIGNABLE_ROLES, true)) {
+            abort(422, 'Ce profil ne peut pas être assigné à une agence ou un département.');
+        }
+    }
+
+    private function syncRole(User $user, string $roleName): void
+    {
+        $role = Role::where('name', $roleName)->first();
+        if ($role) {
+            $user->update(['role_id' => $role->id]);
+        }
+    }
+
+    private function clearRoleIfOrphaned(User $user): void
+    {
+        $stillAgencyChief = DB::table('user_assignments')
+            ->where('user_id', $user->id)
+            ->where('is_primary', true)
+            ->exists();
+
+        $stillDeptChief = DB::table('user_assignments')
+            ->where('user_id', $user->id)
+            ->where('is_department_chief', true)
+            ->exists();
+
+        if (! $stillAgencyChief && ! $stillDeptChief) {
+            $user->update(['role_id' => null]);
+        }
+    }
+
+    private function syncChiefRole(User $user): void
+    {
+        if (DB::table('user_assignments')->where('user_id', $user->id)->where('is_primary', true)->exists()) {
+            $this->syncRole($user, 'responsable-agence');
+        } elseif (DB::table('user_assignments')->where('user_id', $user->id)->where('is_department_chief', true)->exists()) {
+            $this->syncRole($user, 'responsable-departement');
+        }
+    }
+
+    // ─── Agency Chief ────────────────────────────────────────────────────
 
     #[OA\Put(
         path: '/api/agencies/{agency}/chief',
@@ -50,8 +96,15 @@ class UserAssignmentController extends Controller
         ]);
 
         $userId = $request->input('user_id');
+        $user = User::findOrFail($userId);
+        $this->assertUserIsAssignable($user);
 
         DB::transaction(function () use ($agency, $userId) {
+            $oldChiefAssignment = DB::table('user_assignments')
+                ->where('agency_id', $agency->id)
+                ->where('is_primary', true)
+                ->first();
+
             DB::table('user_assignments')
                 ->where('agency_id', $agency->id)
                 ->where('is_primary', true)
@@ -73,17 +126,29 @@ class UserAssignmentController extends Controller
                     'agency_id' => $agency->id,
                     'department_id' => null,
                     'is_primary' => true,
+                    'is_department_chief' => false,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
             }
+
+            if ($oldChiefAssignment && $oldChiefAssignment->user_id !== $userId) {
+                $oldChief = User::find($oldChiefAssignment->user_id);
+                if ($oldChief) {
+                    $this->syncChiefRole($oldChief);
+                    if (! DB::table('user_assignments')->where('user_id', $oldChief->id)->where('is_primary', true)->exists()) {
+                        $this->clearRoleIfOrphaned($oldChief);
+                    }
+                }
+            }
         });
 
+        $this->syncRole($user, 'responsable-agence');
         $agency->load('assignedUsers');
 
         return response()->json([
             'message' => 'Chef d\'agence assigné avec succès.',
-            'data' => $agency,
+            'data' => new AgencyResource($agency),
         ]);
     }
 
@@ -103,15 +168,27 @@ class UserAssignmentController extends Controller
     {
         $this->authorize('update', $agency);
 
+        $oldChiefAssignment = DB::table('user_assignments')
+            ->where('agency_id', $agency->id)
+            ->where('is_primary', true)
+            ->first();
+
         DB::table('user_assignments')
             ->where('agency_id', $agency->id)
             ->where('is_primary', true)
             ->update(['is_primary' => false]);
 
+        if ($oldChiefAssignment) {
+            $oldChief = User::find($oldChiefAssignment->user_id);
+            if ($oldChief) {
+                $this->clearRoleIfOrphaned($oldChief);
+            }
+        }
+
         return response()->json(['message' => 'Chef d\'agence retiré avec succès.']);
     }
 
-    // ─── Agency Users (assignation générale) ──────────────────────────────
+    // ─── Agency Users ────────────────────────────────────────────────────
 
     #[OA\Get(
         path: '/api/agencies/{agency}/users',
@@ -131,9 +208,7 @@ class UserAssignmentController extends Controller
 
         $users = $agency->assignedUsers()->get();
 
-        return response()->json([
-            'data' => UserResource::collection($users),
-        ]);
+        return response()->json(UserResource::collection($users));
     }
 
     #[OA\Post(
@@ -175,6 +250,9 @@ class UserAssignmentController extends Controller
         $userId = $request->input('user_id');
         $departmentId = $request->input('department_id');
 
+        $user = User::findOrFail($userId);
+        $this->assertUserIsAssignable($user);
+
         if ($departmentId) {
             $dept = Department::findOrFail($departmentId);
             if ($dept->agency_id !== $agency->id) {
@@ -203,6 +281,7 @@ class UserAssignmentController extends Controller
                 'agency_id' => $agency->id,
                 'department_id' => $departmentId,
                 'is_primary' => false,
+                'is_department_chief' => false,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -212,7 +291,7 @@ class UserAssignmentController extends Controller
 
         return response()->json([
             'message' => 'Utilisateur assigné avec succès.',
-            'data' => $agency,
+            'data' => new AgencyResource($agency),
         ])->setStatusCode(201);
     }
 
@@ -233,20 +312,158 @@ class UserAssignmentController extends Controller
     {
         $this->authorize('update', $agency);
 
+        $wasChief = DB::table('user_assignments')
+            ->where('user_id', $user->id)
+            ->where('agency_id', $agency->id)
+            ->where('is_primary', true)
+            ->exists();
+
         DB::table('user_assignments')
             ->where('user_id', $user->id)
             ->where('agency_id', $agency->id)
             ->delete();
 
+        if ($wasChief) {
+            $this->clearRoleIfOrphaned($user);
+        }
+
         $agency->load('assignedUsers');
 
         return response()->json([
             'message' => 'Utilisateur retiré de l\'agence avec succès.',
-            'data' => $agency,
+            'data' => new AgencyResource($agency),
         ]);
     }
 
-    // ─── Department Users ─────────────────────────────────────────────────
+    // ─── Department Chief ────────────────────────────────────────────────
+
+    #[OA\Put(
+        path: '/api/departments/{department}/chief',
+        summary: 'Assigner un chef de département',
+        tags: ['Départements - Affectations'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'department', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['user_id'],
+                properties: [
+                    new OA\Property(property: 'user_id', type: 'string', format: 'uuid'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Chef de département assigné'),
+            new OA\Response(response: 422, description: 'Erreur de validation'),
+        ]
+    )]
+    public function assignDepartmentChief(Request $request, Department $department): JsonResponse
+    {
+        $this->authorize('update', $department);
+
+        $request->validate([
+            'user_id' => ['required', 'string', 'exists:users,id'],
+        ], [
+            'user_id.required' => "L'utilisateur est obligatoire.",
+            'user_id.exists' => "Cet utilisateur n'existe pas.",
+        ]);
+
+        $userId = $request->input('user_id');
+        $user = User::findOrFail($userId);
+        $this->assertUserIsAssignable($user);
+
+        DB::transaction(function () use ($department, $userId) {
+            $oldChiefAssignment = DB::table('user_assignments')
+                ->where('department_id', $department->id)
+                ->where('is_department_chief', true)
+                ->first();
+
+            DB::table('user_assignments')
+                ->where('department_id', $department->id)
+                ->where('is_department_chief', true)
+                ->update(['is_department_chief' => false]);
+
+            $existing = DB::table('user_assignments')
+                ->where('user_id', $userId)
+                ->where('agency_id', $department->agency_id)
+                ->first();
+
+            if ($existing) {
+                DB::table('user_assignments')
+                    ->where('user_id', $userId)
+                    ->where('agency_id', $department->agency_id)
+                    ->update([
+                        'department_id' => $department->id,
+                        'is_department_chief' => true,
+                    ]);
+            } else {
+                DB::table('user_assignments')->insert([
+                    'user_id' => $userId,
+                    'agency_id' => $department->agency_id,
+                    'department_id' => $department->id,
+                    'is_primary' => false,
+                    'is_department_chief' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            if ($oldChiefAssignment && $oldChiefAssignment->user_id !== $userId) {
+                $oldChief = User::find($oldChiefAssignment->user_id);
+                if ($oldChief) {
+                    $this->clearRoleIfOrphaned($oldChief);
+                }
+            }
+        });
+
+        $this->syncRole($user, 'responsable-departement');
+        $department->load('assignedUsers');
+
+        return response()->json([
+            'message' => 'Chef de département assigné avec succès.',
+            'data' => new DepartmentResource($department),
+        ]);
+    }
+
+    #[OA\Delete(
+        path: '/api/departments/{department}/chief',
+        summary: 'Retirer le chef de département',
+        tags: ['Départements - Affectations'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'department', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Chef retiré'),
+        ]
+    )]
+    public function removeDepartmentChief(Request $request, Department $department): JsonResponse
+    {
+        $this->authorize('update', $department);
+
+        $oldChiefAssignment = DB::table('user_assignments')
+            ->where('department_id', $department->id)
+            ->where('is_department_chief', true)
+            ->first();
+
+        DB::table('user_assignments')
+            ->where('department_id', $department->id)
+            ->where('is_department_chief', true)
+            ->update(['is_department_chief' => false]);
+
+        if ($oldChiefAssignment) {
+            $oldChief = User::find($oldChiefAssignment->user_id);
+            if ($oldChief) {
+                $this->clearRoleIfOrphaned($oldChief);
+            }
+        }
+
+        return response()->json(['message' => 'Chef de département retiré avec succès.']);
+    }
+
+    // ─── Department Users ────────────────────────────────────────────────
 
     #[OA\Get(
         path: '/api/departments/{department}/users',
@@ -266,9 +483,7 @@ class UserAssignmentController extends Controller
 
         $users = $department->assignedUsers()->get();
 
-        return response()->json([
-            'data' => UserResource::collection($users),
-        ]);
+        return response()->json(UserResource::collection($users));
     }
 
     #[OA\Post(
@@ -305,6 +520,8 @@ class UserAssignmentController extends Controller
         ]);
 
         $userId = $request->input('user_id');
+        $user = User::findOrFail($userId);
+        $this->assertUserIsAssignable($user);
 
         $exists = DB::table('user_assignments')
             ->where('user_id', $userId)
@@ -325,6 +542,7 @@ class UserAssignmentController extends Controller
                 'agency_id' => $department->agency_id,
                 'department_id' => $department->id,
                 'is_primary' => false,
+                'is_department_chief' => false,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -334,7 +552,7 @@ class UserAssignmentController extends Controller
 
         return response()->json([
             'message' => 'Utilisateur assigné au département avec succès.',
-            'data' => $department,
+            'data' => new DepartmentResource($department),
         ])->setStatusCode(201);
     }
 
@@ -355,16 +573,26 @@ class UserAssignmentController extends Controller
     {
         $this->authorize('update', $department);
 
+        $wasDeptChief = DB::table('user_assignments')
+            ->where('user_id', $user->id)
+            ->where('department_id', $department->id)
+            ->where('is_department_chief', true)
+            ->exists();
+
         DB::table('user_assignments')
             ->where('user_id', $user->id)
             ->where('department_id', $department->id)
-            ->update(['department_id' => null]);
+            ->update(['department_id' => null, 'is_department_chief' => false]);
+
+        if ($wasDeptChief) {
+            $this->clearRoleIfOrphaned($user);
+        }
 
         $department->load('assignedUsers');
 
         return response()->json([
             'message' => 'Utilisateur retiré du département avec succès.',
-            'data' => $department,
+            'data' => new DepartmentResource($department),
         ]);
     }
 }

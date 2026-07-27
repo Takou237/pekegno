@@ -14,13 +14,13 @@ export const usersApi = {
   },
 
   async get(id: string): Promise<UserListItem> {
-    const { data } = await client.get<{ data: UserListItem }>(`/users/${id}`);
-    return data.data;
+    const { data } = await client.get<UserListItem>(`/users/${id}`);
+    return data;
   },
 
   async update(id: string, payload: UpdateUserPayload): Promise<UserListItem> {
-    const { data } = await client.put<{ data: UserListItem }>(`/users/${id}`, payload);
-    return data.data;
+    const { data } = await client.put<UserListItem>(`/users/${id}`, payload);
+    return data;
   },
 
   async remove(id: string): Promise<void> {
@@ -33,9 +33,9 @@ export const usersApi = {
   },
 
   async assignRole(userId: string, roleId: string): Promise<UserListItem> {
-    const { data } = await client.put<{ data: UserListItem }>(`/users/${userId}/role`, {
+    const { data } = await client.put<UserListItem>(`/users/${userId}/role`, {
       role_id: roleId,
     });
-    return data.data;
+    return data;
   },
 };
