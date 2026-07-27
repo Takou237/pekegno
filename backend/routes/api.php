@@ -41,11 +41,17 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/agencies/{agency}/chief', [UserAssignmentController::class, 'assignChief']);
     Route::delete('/agencies/{agency}/chief', [UserAssignmentController::class, 'removeChief']);
+    Route::get('/agencies/{agency}/users', [UserAssignmentController::class, 'listAgencyUsers']);
+    Route::post('/agencies/{agency}/users', [UserAssignmentController::class, 'assignUser']);
+    Route::delete('/agencies/{agency}/users/{user}', [UserAssignmentController::class, 'removeUser']);
 
     Route::get('/departments/trash', [DepartmentController::class, 'trash']);
     Route::post('/departments/{department}/restore', [DepartmentController::class, 'restore']);
     Route::delete('/departments/{department}/force-delete', [DepartmentController::class, 'forceDelete']);
     Route::apiResource('departments', DepartmentController::class);
+    Route::get('/departments/{department}/users', [UserAssignmentController::class, 'listDepartmentUsers']);
+    Route::post('/departments/{department}/users', [UserAssignmentController::class, 'assignUserToDepartment']);
+    Route::delete('/departments/{department}/users/{user}', [UserAssignmentController::class, 'removeUserFromDepartment']);
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy']);
 

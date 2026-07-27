@@ -23,7 +23,7 @@ export function UserMenu() {
     return null;
   }
 
-  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username;
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || '—';
 
   async function handleLogout() {
     setIsOpen(false);
