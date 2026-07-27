@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Building2, UserRound, Users } from 'lucide-react';
+import { LayoutDashboard, Building2, UserRound, Users, FolderTree } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
   { to: '/agencies', label: 'Agences', icon: Building2, end: false },
+  { to: '/departments', label: 'Départements', icon: FolderTree, end: false },
   { to: '/users', label: 'Utilisateurs', icon: Users, end: false },
   { to: '/profile', label: 'Mon profil', icon: UserRound, end: false },
 ];
