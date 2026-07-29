@@ -16,6 +16,16 @@ class DepartmentResource extends JsonResource
             'agency_id' => $this->agency_id,
             'agency' => new AgencyResource($this->whenLoaded('agency')),
             'assigned_users' => UserResource::collection($this->whenLoaded('assignedUsers')),
+            'agency_chief' => $this->whenLoaded('agency', fn () => $this->agency->assignedUsers->first() ? [
+                'id' => $this->agency->assignedUsers->first()->id,
+                'name' => $this->agency->assignedUsers->first()->first_name . ' ' . $this->agency->assignedUsers->first()->last_name,
+                'email' => $this->agency->assignedUsers->first()->email,
+            ] : null),
+            'department_chief' => $this->whenLoaded('assignedUsers', fn () => $this->assignedUsers->first() ? [
+                'id' => $this->assignedUsers->first()->id,
+                'name' => $this->assignedUsers->first()->first_name . ' ' . $this->assignedUsers->first()->last_name,
+                'email' => $this->assignedUsers->first()->email,
+            ] : null),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

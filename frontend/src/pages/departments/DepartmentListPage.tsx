@@ -227,7 +227,7 @@ export default function DepartmentListPage() {
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
                   <th className="px-5 py-3 font-medium">Nom</th>
-                  <th className="px-5 py-3 font-medium">Description</th>
+                  <th className="px-5 py-3 font-medium">Chef de département</th>
                   <th className="px-5 py-3 font-medium">Agence</th>
                   <th className="px-5 py-3 font-medium text-right">Actions</th>
                 </tr>
@@ -239,7 +239,7 @@ export default function DepartmentListPage() {
                       {dept.name}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {dept.description ?? '—'}
+                      {dept.department_chief?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {dept.agency?.name ?? '—'}
@@ -328,9 +328,9 @@ export default function DepartmentListPage() {
               <dd className="text-gray-800 dark:text-gray-100">{detailDepartment.name}</dd>
             </div>
             <div>
-              <dt className="font-medium text-gray-500">Description</dt>
+              <dt className="font-medium text-gray-500">Chef de département</dt>
               <dd className="text-gray-800 dark:text-gray-100">
-                {detailDepartment.description ?? '—'}
+                {detailDepartment.department_chief?.name ?? '—'}
               </dd>
             </div>
             <div>

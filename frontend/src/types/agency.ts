@@ -15,6 +15,7 @@ export interface AssignedUser {
   pivot?: {
     department_id: string | null;
     is_primary: boolean;
+    is_department_chief: boolean;
   };
 }
 

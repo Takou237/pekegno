@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { UserMinus, UserPlus } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
-import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
@@ -21,13 +20,6 @@ interface DepartmentUserAssignModalProps {
   onSaved: () => void;
 }
 
-interface AssignedUser extends UserListItem {
-  pivot?: {
-    agency_id: string;
-    is_primary: boolean;
-  };
-}
-
 export function DepartmentUserAssignModal({
   isOpen,
   department,
@@ -35,9 +27,9 @@ export function DepartmentUserAssignModal({
   onSaved,
 }: DepartmentUserAssignModalProps) {
   const { showToast } = useToast();
-  const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
+  const [assignedUsers, setAssignedUsers] = useState<any[]>([]);
   const [agencyUsers, setAgencyUsers] = useState<UserListItem[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +39,7 @@ export function DepartmentUserAssignModal({
 
     setIsLoading(true);
     setError(null);
+    setSelectedIds(new Set());
 
     Promise.all([
       client.get(`/departments/${department.id}`),
@@ -57,7 +50,7 @@ export function DepartmentUserAssignModal({
         const deptAssigned = deptData.assigned_users ?? [];
         setAssignedUsers(deptAssigned);
 
-        const assignedIds = new Set(deptAssigned.map((u: AssignedUser) => u.id));
+        const assignedIds = new Set(deptAssigned.map((u: any) => u.id));
         const available: UserListItem[] = agencyUsersRes.data.filter(
           (u: UserListItem) =>
             !assignedIds.has(u.id) &&
@@ -69,23 +62,42 @@ export function DepartmentUserAssignModal({
       .finally(() => setIsLoading(false));
   }, [isOpen, department]);
 
-  async function handleAssign() {
-    if (!department || !selectedUserId) return;
+  function toggleSelection(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleAssignMultiple() {
+    if (!department || selectedIds.size === 0) return;
     setIsSubmitting(true);
     setError(null);
 
-    try {
-      await client.post(`/departments/${department.id}/users`, {
-        user_id: selectedUserId,
-      });
-      showToast('Utilisateur assigné au département avec succès.', 'success');
-      setSelectedUserId('');
+    const errors: string[] = [];
+    let successCount = 0;
+
+    for (const userId of selectedIds) {
+      try {
+        await client.post(`/departments/${department.id}/users`, {
+          user_id: userId,
+        });
+        successCount++;
+      } catch (err) {
+        errors.push(extractErrorMessage(err, "Erreur"));
+      }
+    }
+
+    if (successCount > 0) {
+      showToast(`${successCount} utilisateur(s) assigné(s) avec succès.`, 'success');
       onSaved();
 
       const deptRes = await client.get(`/departments/${department.id}`);
       const deptAssigned = deptRes.data.assigned_users ?? [];
       setAssignedUsers(deptAssigned);
-      const assignedIds = new Set(deptAssigned.map((u: AssignedUser) => u.id));
+      const assignedIds = new Set(deptAssigned.map((u: any) => u.id));
       const agencyUsersRes = await client.get(
         `/agencies/${department.agency_id}/users`
       );
@@ -95,21 +107,24 @@ export function DepartmentUserAssignModal({
           !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
       );
       setAgencyUsers(available);
-    } catch (err) {
-      setError(extractErrorMessage(err, "Impossible d'assigner l'utilisateur."));
-    } finally {
-      setIsSubmitting(false);
+      setSelectedIds(new Set());
     }
+
+    if (errors.length > 0) {
+      setError(errors.join('. '));
+    }
+
+    setIsSubmitting(false);
   }
 
-  async function handleRemove(user: AssignedUser) {
+  async function handleRemove(user: any) {
     if (!department) return;
     try {
       await client.delete(`/departments/${department.id}/users/${user.id}`);
       showToast('Utilisateur retiré du département avec succès.', 'success');
       onSaved();
 
-      setAssignedUsers((prev) => prev.filter((u) => u.id !== user.id));
+      setAssignedUsers((prev) => prev.filter((u: any) => u.id !== user.id));
       setAgencyUsers((prev) => [...prev, { ...user }]);
     } catch (err) {
       showToast(extractErrorMessage(err, "Impossible de retirer l'utilisateur."), 'error');
@@ -142,7 +157,7 @@ export function DepartmentUserAssignModal({
                 </p>
               ) : (
                 <ul className="flex flex-col gap-1">
-                  {assignedUsers.map((u) => (
+                  {assignedUsers.map((u: any) => (
                     <li
                       key={u.id}
                       className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
@@ -171,30 +186,49 @@ export function DepartmentUserAssignModal({
             </div>
 
             {agencyUsers.length > 0 && (
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Select
-                    label="Ajouter un utilisateur de l'agence"
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                  >
-                    <option value="">— Sélectionner —</option>
-                    {agencyUsers.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.email})
-                      </option>
-                    ))}
-                  </Select>
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase text-gray-400">
+                  Utilisateurs de l'agence ({agencyUsers.length})
+                </p>
+                <div className="max-h-60 overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-800">
+                  {agencyUsers.map((u) => (
+                    <label
+                      key={u.id}
+                      className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(u.id)}
+                        onChange={() => toggleSelection(u.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                      />
+                      <span className="font-medium text-gray-800 dark:text-gray-100">
+                        {u.name}
+                      </span>
+                      <span className="text-gray-400">{u.email}</span>
+                      {u.role && (
+                        <Badge variant="neutral">{u.role.name}</Badge>
+                      )}
+                    </label>
+                  ))}
                 </div>
-                <Button
-                  onClick={handleAssign}
-                  isLoading={isSubmitting}
-                  disabled={!selectedUserId}
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Assigner
-                </Button>
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    onClick={handleAssignMultiple}
+                    isLoading={isSubmitting}
+                    disabled={selectedIds.size === 0}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Assigner ({selectedIds.size})
+                  </Button>
+                </div>
               </div>
+            )}
+
+            {agencyUsers.length === 0 && assignedUsers.length > 0 && (
+              <p className="text-sm text-gray-400">
+                Tous les utilisateurs de l'agence sont déjà assignés à ce département.
+              </p>
             )}
           </>
         )}

@@ -42,6 +42,12 @@ class UserController extends Controller
             ->when($request->is_active !== null, function ($q) use ($request) {
                 $q->where('is_active', $request->boolean('is_active'));
             })
+            ->when($request->agency_id, function ($q, $agencyId) {
+                $q->whereHas('assignments', fn ($q) => $q->where('agency_id', $agencyId));
+            })
+            ->when($request->department_id, function ($q, $departmentId) {
+                $q->whereHas('assignments', fn ($q) => $q->where('department_id', $departmentId));
+            })
             ->orderBy($request->sort ?? 'created_at', $request->order ?? 'desc')
             ->paginate($request->per_page ?? 15);
 

@@ -1,15 +1,25 @@
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Building2, UserRound, Users, FolderTree } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
-const NAV_ITEMS = [
+const ADMIN_ROLES = ['super-admin', 'direction-generale'];
+const ALL_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
   { to: '/agencies', label: 'Agences', icon: Building2, end: false },
   { to: '/departments', label: 'Départements', icon: FolderTree, end: false },
   { to: '/users', label: 'Utilisateurs', icon: Users, end: false },
   { to: '/profile', label: 'Mon profil', icon: UserRound, end: false },
 ];
+const RESTRICTED_ITEMS = [
+  { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
+  { to: '/profile', label: 'Mon profil', icon: UserRound, end: false },
+];
 
 export function Sidebar() {
+  const { user } = useAuth();
+  const isAdmin = ADMIN_ROLES.includes(user?.role?.name ?? '');
+  const items = isAdmin ? ALL_ITEMS : RESTRICTED_ITEMS;
+
   return (
     <aside className="hidden w-64 shrink-0 border-r border-gray-100 bg-white px-4 py-6 dark:border-gray-800 dark:bg-gray-900 lg:block">
       <div className="mb-8 px-2">
@@ -18,7 +28,7 @@ export function Sidebar() {
         </span>
       </div>
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+        {items.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

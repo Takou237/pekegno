@@ -62,7 +62,7 @@ class User extends Authenticatable
     public function assignments(): BelongsToMany
     {
         return $this->belongsToMany(Agency::class, 'user_assignments')
-            ->withPivot('department_id', 'is_primary')
+            ->withPivot('department_id', 'is_primary', 'is_department_chief')
             ->withTimestamps();
     }
 
@@ -70,7 +70,7 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Agency::class, 'user_assignments')
             ->wherePivot('is_primary', true)
-            ->withPivot('department_id', 'is_primary')
+            ->withPivot('department_id', 'is_primary', 'is_department_chief')
             ->withTimestamps();
     }
 }

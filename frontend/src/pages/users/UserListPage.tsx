@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Search, Pencil, Shield, UserX, UserCheck } from 'lucide-react';
+import { Search, Pencil } from 'lucide-react';
 import { usersApi } from '@/api/users.api';
+import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -12,8 +13,8 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
-import type { UserListItem, UserListParams, PaginationMeta } from '@/types/user';
-import type { RoleListItem } from '@/types/user';
+import type { UserListItem, RoleListItem } from '@/types/user';
+import type { Agency, Department, PaginationMeta } from '@/types/agency';
 
 export default function UserListPage() {
   const { user: currentUser } = useAuth();
@@ -28,6 +29,11 @@ export default function UserListPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
+  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedAgencyId, setSelectedAgencyId] = useState('');
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
+
   const [editUser, setEditUser] = useState<UserListItem | null>(null);
   const [editForm, setEditForm] = useState({
     first_name: '',
@@ -40,21 +46,24 @@ export default function UserListPage() {
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [editSubmitting, setEditSubmitting] = useState(false);
 
-  const [roleModalUser, setRoleModalUser] = useState<UserListItem | null>(null);
-  const [selectedRoleId, setSelectedRoleId] = useState('');
-  const [roleSubmitting, setRoleSubmitting] = useState(false);
-
   const canManageUsers = ['super-admin', 'direction-generale'].includes(
     currentUser?.role?.name ?? ''
   );
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (filters: {
+    search?: string;
+    agency_id?: string;
+    department_id?: string;
+    page: number;
+  }) => {
     setIsLoading(true);
     setLoadError(null);
     try {
       const response = await usersApi.list({
-        search: search || undefined,
-        page,
+        search: filters.search || undefined,
+        agency_id: filters.agency_id || undefined,
+        department_id: filters.department_id || undefined,
+        page: filters.page,
         per_page: 15,
       });
       setUsers(response.data);
@@ -64,22 +73,47 @@ export default function UserListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, page]);
+  }, []);
+
+  useEffect(() => {
+    fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: selectedDepartmentId || undefined, page: 1 });
+  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      setPage(1);
-      fetchUsers();
+      fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: selectedDepartmentId || undefined, page: 1 });
     }, 350);
     return () => clearTimeout(timeout);
   }, [search]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [page]);
+    usersApi.listRoles().then(setRoles).catch(() => {});
+  }, []);
+
+  function handleAgencyChange(agencyId: string) {
+    const agency = agencies.find((a) => a.id === agencyId);
+    setSelectedAgencyId(agencyId);
+    setSelectedDepartmentId('');
+    setDepartments(agency?.departments ?? []);
+    setPage(1);
+    fetchUsers({ search, agency_id: agencyId || undefined, department_id: undefined, page: 1 });
+  }
+
+  function handleDepartmentChange(departmentId: string) {
+    setSelectedDepartmentId(departmentId);
+    setPage(1);
+    fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: departmentId || undefined, page: 1 });
+  }
+
+  function handlePageChange(newPage: number) {
+    setPage(newPage);
+    fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: selectedDepartmentId || undefined, page: newPage });
+  }
 
   useEffect(() => {
-    usersApi.listRoles().then(setRoles).catch(() => {});
+    agenciesApi.list({ per_page: 100 }).then((res) => {
+      setAgencies(res.data ?? []);
+    }).catch(() => {});
   }, []);
 
   function openEdit(user: UserListItem) {
@@ -104,7 +138,7 @@ export default function UserListPage() {
       await usersApi.update(editUser.id, editForm);
       showToast('Utilisateur modifié avec succès.', 'success');
       setEditUser(null);
-      fetchUsers();
+      fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: selectedDepartmentId || undefined, page });
     } catch (error) {
       setEditErrors(
         Object.fromEntries(
@@ -115,26 +149,6 @@ export default function UserListPage() {
       );
     } finally {
       setEditSubmitting(false);
-    }
-  }
-
-  function openRoleModal(user: UserListItem) {
-    setRoleModalUser(user);
-    setSelectedRoleId(user.role_id ?? '');
-  }
-
-  async function handleRoleAssign() {
-    if (!roleModalUser || !selectedRoleId) return;
-    setRoleSubmitting(true);
-    try {
-      await usersApi.assignRole(roleModalUser.id, selectedRoleId);
-      showToast('Rôle attribué avec succès.', 'success');
-      setRoleModalUser(null);
-      fetchUsers();
-    } catch (error) {
-      showToast(extractErrorMessage(error, "Impossible d'attribuer le rôle."), 'error');
-    } finally {
-      setRoleSubmitting(false);
     }
   }
 
@@ -171,7 +185,7 @@ export default function UserListPage() {
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-end">
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Recherche
           </label>
@@ -184,6 +198,35 @@ export default function UserListPage() {
               className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
+        </div>
+        <div className="w-56">
+          <Select
+            label="Agence"
+            value={selectedAgencyId}
+            onChange={(e) => handleAgencyChange(e.target.value)}
+          >
+            <option value="">Toutes les agences</option>
+            {agencies.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="w-56">
+          <Select
+            label="Département"
+            value={selectedDepartmentId}
+            onChange={(e) => handleDepartmentChange(e.target.value)}
+            disabled={!selectedAgencyId}
+          >
+            <option value="">Tous les départements</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </Select>
         </div>
       </div>
 
@@ -232,14 +275,6 @@ export default function UserListPage() {
                         <div className="flex justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => openRoleModal(u)}
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                            title="Attribuer un rôle"
-                          >
-                            <Shield className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => openEdit(u)}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
                             title="Modifier"
@@ -263,7 +298,7 @@ export default function UserListPage() {
               lastPage={meta.last_page}
               total={meta.total}
               perPage={meta.per_page}
-              onPageChange={setPage}
+              onPageChange={handlePageChange}
             />
           </div>
         )}
@@ -330,40 +365,6 @@ export default function UserListPage() {
         </form>
       </Modal>
 
-      {/* Modal attribution rôle */}
-      <Modal
-        isOpen={Boolean(roleModalUser)}
-        onClose={() => setRoleModalUser(null)}
-        title={`Attribuer un rôle à ${roleModalUser?.name ?? ''}`}
-        maxWidth="max-w-md"
-      >
-        <div className="flex flex-col gap-4">
-          <Select
-            label="Rôle"
-            value={selectedRoleId}
-            onChange={(e) => setSelectedRoleId(e.target.value)}
-          >
-            <option value="">— Sélectionner un rôle —</option>
-            {roles.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </Select>
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setRoleModalUser(null)}>
-              Annuler
-            </Button>
-            <Button
-              onClick={handleRoleAssign}
-              isLoading={roleSubmitting}
-              disabled={!selectedRoleId}
-            >
-              Attribuer
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

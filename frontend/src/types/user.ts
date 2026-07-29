@@ -6,6 +6,7 @@ export interface UserAssignment {
   pivot: {
     department_id: string | null;
     is_primary: boolean;
+    is_department_chief: boolean;
   };
 }
 
@@ -28,6 +29,8 @@ export interface UserListItem {
 export interface UserListParams {
   search?: string;
   is_active?: boolean;
+  agency_id?: string;
+  department_id?: string;
   per_page?: number;
   page?: number;
   sort?: string;

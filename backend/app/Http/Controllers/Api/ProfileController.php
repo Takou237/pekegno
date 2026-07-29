@@ -25,6 +25,6 @@ class ProfileController extends Controller
     )]
     public function __invoke(Request $request)
     {
-        return new UserResource($request->user()->load('role', 'assignments.agency'));
+        return new UserResource($request->user()->load('role', 'assignments'));
     }
 }

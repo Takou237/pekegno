@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
-import { Select } from '@/components/ui/Select';
+import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
 import { useToast } from '@/hooks/useToast';
 import { extractErrorMessage } from '@/api/errors';
 import { client } from '@/api/client';
-import type { UserListItem } from '@/types/user';
+import { usersApi } from '@/api/users.api';
+import type { RoleListItem } from '@/types/user';
 import type { Department } from '@/types/department';
 
 interface DepartmentChiefAssignModalProps {
@@ -23,35 +25,58 @@ export function DepartmentChiefAssignModal({
   onSaved,
 }: DepartmentChiefAssignModalProps) {
   const { showToast } = useToast();
-  const [users, setUsers] = useState<UserListItem[]>([]);
   const [currentChiefId, setCurrentChiefId] = useState<string>('');
+  const [currentChiefName, setCurrentChiefName] = useState<string>('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [showOldChiefDialog, setShowOldChiefDialog] = useState(false);
+  const [newRoleId, setNewRoleId] = useState('');
+  const [roles, setRoles] = useState<RoleListItem[]>([]);
+  const [isRoleSubmitting, setIsRoleSubmitting] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !department) return;
 
     setIsLoading(true);
     setError(null);
+    setSelectedUserId('');
+    setCurrentChiefId('');
+    setCurrentChiefName('');
 
     client
       .get(`/departments/${department.id}`)
       .then(({ data }) => {
         const assigned = data.assigned_users ?? [];
-        setUsers(assigned);
-
         const chief = assigned.find(
           (u: any) => u.pivot?.is_department_chief === true
         );
         const chiefId = chief?.id ?? '';
         setCurrentChiefId(chiefId);
+        setCurrentChiefName(chief ? `${chief.first_name ?? ''} ${chief.last_name ?? ''}`.trim() || chief.email : '');
         setSelectedUserId(chiefId);
       })
       .catch(() => setError('Impossible de charger les données.'))
       .finally(() => setIsLoading(false));
+
+    usersApi.listRoles().then(setRoles).catch(() => {});
   }, [isOpen, department]);
+
+  async function fetchUsers(query: string): Promise<AutocompleteOption[]> {
+    const { data } = await client.get('/users', {
+      params: { search: query, per_page: 10 },
+    });
+    const users = data.data ?? [];
+    return users
+      .filter((u: any) => u.role?.name !== 'super-admin' && u.role?.name !== 'direction-generale')
+      .map((u: any) => ({
+        id: u.id,
+        label: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
+        subtitle: u.email,
+      }));
+  }
 
   async function handleAssign() {
     if (!department) return;
@@ -64,15 +89,22 @@ export function DepartmentChiefAssignModal({
           user_id: selectedUserId,
         });
         showToast('Chef de département assigné avec succès.', 'success');
+
+        if (currentChiefId && currentChiefId !== selectedUserId) {
+          setShowOldChiefDialog(true);
+        } else {
+          onSaved();
+          onClose();
+        }
       } else if (currentChiefId) {
         await client.delete(`/departments/${department.id}/chief`);
         showToast('Chef de département retiré avec succès.', 'success');
+        onSaved();
+        onClose();
       } else {
         onClose();
         return;
       }
-      onSaved();
-      onClose();
     } catch (err) {
       setError(extractErrorMessage(err, "Impossible d'assigner le chef de département."));
     } finally {
@@ -80,56 +112,109 @@ export function DepartmentChiefAssignModal({
     }
   }
 
+  async function handleAssignNewRole() {
+    if (!newRoleId || !currentChiefId) return;
+    setIsRoleSubmitting(true);
+    try {
+      await usersApi.assignRole(currentChiefId, newRoleId);
+      showToast('Nouveau rôle assigné à l\'ancien chef.', 'success');
+      setShowOldChiefDialog(false);
+      onSaved();
+      onClose();
+    } catch (err) {
+      showToast(extractErrorMessage(err, "Impossible d'assigner le nouveau rôle."), 'error');
+    } finally {
+      setIsRoleSubmitting(false);
+    }
+  }
+
+  function handleSkipRole() {
+    setShowOldChiefDialog(false);
+    onSaved();
+    onClose();
+  }
+
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Chef de département — ${department?.name ?? ''}`}
-      maxWidth="max-w-md"
-    >
-      <div className="flex flex-col gap-4">
-        {error && <Alert variant="error">{error}</Alert>}
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={`Chef de département — ${department?.name ?? ''}`}
+        maxWidth="max-w-md"
+      >
+        <div className="flex flex-col gap-4">
+          {error && <Alert variant="error">{error}</Alert>}
 
-        {isLoading ? (
-          <p className="text-sm text-gray-500">Chargement...</p>
-        ) : users.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Aucun utilisateur assigné à ce département. Assignez d'abord un utilisateur avant de le
-            désigner comme chef.
-          </p>
-        ) : (
-          <>
-            <Select
-              label="Chef de département"
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-            >
-              <option value="">— Aucun chef —</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.email})
-                </option>
-              ))}
-            </Select>
-            <p className="text-xs text-gray-400">
-              Un seul chef par département. Un chef peut gérer plusieurs départements.
-            </p>
-          </>
-        )}
+          {isLoading ? (
+            <p className="text-sm text-gray-500">Chargement...</p>
+          ) : (
+            <>
+              <Autocomplete
+                label="Chef de département"
+                placeholder="Rechercher un utilisateur..."
+                value={selectedUserId}
+                onChange={setSelectedUserId}
+                fetchOptions={fetchUsers}
+              />
+              <p className="text-xs text-gray-400">
+                Un seul chef par département. Un chef peut gérer plusieurs départements.
+              </p>
+            </>
+          )}
 
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button
-            onClick={handleAssign}
-            isLoading={isSubmitting}
-            disabled={isLoading || users.length === 0}
-          >
-            Enregistrer
-          </Button>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Annuler
+            </Button>
+            <Button onClick={handleAssign} isLoading={isSubmitting} disabled={isLoading}>
+              Enregistrer
+            </Button>
+          </div>
         </div>
-      </div>
-    </Modal>
+      </Modal>
+
+      <Modal
+        isOpen={showOldChiefDialog}
+        onClose={handleSkipRole}
+        title="Ancien chef"
+        maxWidth="max-w-md"
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {currentChiefName ? (
+              <>L'ancien chef <strong>{currentChiefName}</strong> a été remplacé. Que souhaitez-vous faire de son rôle ?</>
+            ) : (
+              "L'ancien chef a été remplacé. Que souhaitez-vous faire de son rôle ?"
+            )}
+          </p>
+
+          <Select
+            label="Assigner un nouveau rôle"
+            value={newRoleId}
+            onChange={(e) => setNewRoleId(e.target.value)}
+          >
+            <option value="">— Ne pas assigner de rôle —</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </Select>
+
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={handleSkipRole}>
+              Ignorer
+            </Button>
+            <Button
+              onClick={handleAssignNewRole}
+              isLoading={isRoleSubmitting}
+              disabled={!newRoleId}
+            >
+              Assigner le rôle
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }

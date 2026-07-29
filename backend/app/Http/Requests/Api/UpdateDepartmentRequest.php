@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateDepartmentRequest extends FormRequest
 {
@@ -13,9 +14,18 @@ class UpdateDepartmentRequest extends FormRequest
 
     public function rules(): array
     {
+        $department = $this->route('department');
+
         return [
             'agency_id' => ['sometimes', 'string', 'exists:agencies,id'],
-            'name' => ['sometimes', 'string', 'max:255'],
+            'name' => [
+                'sometimes',
+                'string',
+                'max:255',
+                Rule::unique('departments')
+                    ->ignore($department)
+                    ->where(fn ($q) => $q->where('agency_id', $this->agency_id ?? $department?->agency_id)),
+            ],
             'description' => ['sometimes', 'nullable', 'string'],
         ];
     }
@@ -24,6 +34,7 @@ class UpdateDepartmentRequest extends FormRequest
     {
         return [
             'agency_id.exists' => "Cette agence n'existe pas.",
+            'name.unique' => "Un département avec ce nom existe déjà dans cette agence.",
         ];
     }
 }

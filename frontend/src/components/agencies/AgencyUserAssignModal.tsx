@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { UserMinus, UserPlus } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
-import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
@@ -21,13 +20,6 @@ interface AgencyUserAssignModalProps {
   onSaved: () => void;
 }
 
-interface AssignedUser extends UserListItem {
-  pivot?: {
-    department_id: string | null;
-    is_primary: boolean;
-  };
-}
-
 export function AgencyUserAssignModal({
   isOpen,
   agency,
@@ -35,9 +27,9 @@ export function AgencyUserAssignModal({
   onSaved,
 }: AgencyUserAssignModalProps) {
   const { showToast } = useToast();
-  const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
-  const [allUsers, setAllUsers] = useState<UserListItem[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [assignedUsers, setAssignedUsers] = useState<any[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<UserListItem[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +39,7 @@ export function AgencyUserAssignModal({
 
     setIsLoading(true);
     setError(null);
+    setSelectedIds(new Set());
 
     Promise.all([
       client.get(`/agencies/${agency.id}`),
@@ -57,37 +50,56 @@ export function AgencyUserAssignModal({
         setAssignedUsers(agencyData.assigned_users ?? []);
 
         const assignedIds = new Set(
-          (agencyData.assigned_users ?? []).map((u: AssignedUser) => u.id)
+          (agencyData.assigned_users ?? []).map((u: any) => u.id)
         );
         const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
           (u: UserListItem) =>
             !assignedIds.has(u.id) &&
             !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
         );
-        setAllUsers(available);
+        setAvailableUsers(available);
       })
       .catch(() => setError('Impossible de charger les données.'))
       .finally(() => setIsLoading(false));
   }, [isOpen, agency]);
 
-  async function handleAssign() {
-    if (!agency || !selectedUserId) return;
+  function toggleSelection(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleAssignMultiple() {
+    if (!agency || selectedIds.size === 0) return;
     setIsSubmitting(true);
     setError(null);
 
-    try {
-      await client.post(`/agencies/${agency.id}/users`, {
-        user_id: selectedUserId,
-      });
-      showToast('Utilisateur assigné avec succès.', 'success');
-      setSelectedUserId('');
+    const errors: string[] = [];
+    let successCount = 0;
+
+    for (const userId of selectedIds) {
+      try {
+        await client.post(`/agencies/${agency.id}/users`, {
+          user_id: userId,
+        });
+        successCount++;
+      } catch (err) {
+        errors.push(extractErrorMessage(err, "Erreur"));
+      }
+    }
+
+    if (successCount > 0) {
+      showToast(`${successCount} utilisateur(s) assigné(s) avec succès.`, 'success');
       onSaved();
 
       const agencyRes = await client.get(`/agencies/${agency.id}`);
       const agencyData: Agency = agencyRes.data;
       setAssignedUsers(agencyData.assigned_users ?? []);
       const assignedIds = new Set(
-        (agencyData.assigned_users ?? []).map((u: AssignedUser) => u.id)
+        (agencyData.assigned_users ?? []).map((u: any) => u.id)
       );
       const usersRes = await client.get('/users', { params: { per_page: 100 } });
       const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
@@ -95,23 +107,26 @@ export function AgencyUserAssignModal({
           !assignedIds.has(u.id) &&
           !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
       );
-      setAllUsers(available);
-    } catch (err) {
-      setError(extractErrorMessage(err, "Impossible d'assigner l'utilisateur."));
-    } finally {
-      setIsSubmitting(false);
+      setAvailableUsers(available);
+      setSelectedIds(new Set());
     }
+
+    if (errors.length > 0) {
+      setError(errors.join('. '));
+    }
+
+    setIsSubmitting(false);
   }
 
-  async function handleRemove(user: AssignedUser) {
+  async function handleRemove(user: any) {
     if (!agency) return;
     try {
       await client.delete(`/agencies/${agency.id}/users/${user.id}`);
       showToast('Utilisateur retiré avec succès.', 'success');
       onSaved();
 
-      setAssignedUsers((prev) => prev.filter((u) => u.id !== user.id));
-      setAllUsers((prev) => [...prev, { ...user }]);
+      setAssignedUsers((prev) => prev.filter((u: any) => u.id !== user.id));
+      setAvailableUsers((prev) => [...prev, { ...user }]);
     } catch (err) {
       showToast(extractErrorMessage(err, "Impossible de retirer l'utilisateur."), 'error');
     }
@@ -143,7 +158,7 @@ export function AgencyUserAssignModal({
                 </p>
               ) : (
                 <ul className="flex flex-col gap-1">
-                  {assignedUsers.map((u) => (
+                  {assignedUsers.map((u: any) => (
                     <li
                       key={u.id}
                       className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
@@ -174,31 +189,48 @@ export function AgencyUserAssignModal({
               )}
             </div>
 
-            {allUsers.length > 0 && (
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Select
-                    label="Ajouter un utilisateur"
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                  >
-                    <option value="">— Sélectionner —</option>
-                    {allUsers.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.email})
-                      </option>
-                    ))}
-                  </Select>
+            {availableUsers.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase text-gray-400">
+                  Disponibles ({availableUsers.length})
+                </p>
+                <div className="max-h-60 overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-800">
+                  {availableUsers.map((u) => (
+                    <label
+                      key={u.id}
+                      className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(u.id)}
+                        onChange={() => toggleSelection(u.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                      />
+                      <span className="font-medium text-gray-800 dark:text-gray-100">
+                        {u.name}
+                      </span>
+                      <span className="text-gray-400">{u.email}</span>
+                      {u.role && (
+                        <Badge variant="neutral">{u.role.name}</Badge>
+                      )}
+                    </label>
+                  ))}
                 </div>
-                <Button
-                  onClick={handleAssign}
-                  isLoading={isSubmitting}
-                  disabled={!selectedUserId}
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Assigner
-                </Button>
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    onClick={handleAssignMultiple}
+                    isLoading={isSubmitting}
+                    disabled={selectedIds.size === 0}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Assigner ({selectedIds.size})
+                  </Button>
+                </div>
               </div>
+            )}
+
+            {availableUsers.length === 0 && assignedUsers.length > 0 && (
+              <p className="text-sm text-gray-400">Tous les utilisateurs disponibles sont déjà assignés.</p>
             )}
           </>
         )}

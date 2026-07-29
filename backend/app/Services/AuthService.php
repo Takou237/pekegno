@@ -86,7 +86,7 @@ class AuthService
         ]);
 
         return [
-            'user' => $user->load('role'),
+            'user' => $user->load('role', 'assignments'),
             'token' => $token,
         ];
     }

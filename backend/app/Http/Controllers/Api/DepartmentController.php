@@ -32,7 +32,11 @@ class DepartmentController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Department::with('agency')
+        $query = Department::with([
+                'agency',
+                'agency.assignedUsers' => fn ($q) => $q->wherePivot('is_primary', true),
+                'assignedUsers' => fn ($q) => $q->wherePivot('is_department_chief', true),
+            ])
             ->when($request->search, function ($q, $search) {
                 $q->where('name', 'like', "%{$search}%");
             })

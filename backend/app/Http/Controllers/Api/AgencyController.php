@@ -163,12 +163,8 @@ class AgencyController extends Controller
     )]
     public function destroy(Agency $agency): JsonResponse
     {
-        if ($agency->departments()->exists() || $agency->assignedUsers()->exists()) {
-            return response()->json([
-                'message' => 'Impossible de supprimer cette agence car elle contient des départements ou des utilisateurs assignés.',
-            ], 409);
-        }
-
+        $agency->departments->each->delete();
+        $agency->assignedUsers()->detach();
         $agency->delete();
 
         return response()->json(null, 204);
@@ -191,7 +187,7 @@ class AgencyController extends Controller
     public function trash(Request $request): AnonymousResourceCollection
     {
         $query = Agency::onlyTrashed()
-            ->with('departments')
+            ->with(['departments' => fn ($q) => $q->withTrashed()])
             ->search($request->input('search'));
 
         $perPage = min((int) $request->input('per_page', 15), 100);
@@ -218,6 +214,8 @@ class AgencyController extends Controller
         $this->authorize('restore', Agency::class);
 
         $agency = Agency::onlyTrashed()->findOrFail($id);
+        $agency->load(['departments' => fn ($q) => $q->withTrashed()]);
+        $agency->departments->each->restore();
         $agency->restore();
 
         return new AgencyResource($agency->load('departments'));
@@ -243,12 +241,7 @@ class AgencyController extends Controller
 
         $agency = Agency::onlyTrashed()->findOrFail($id);
 
-        if ($agency->departments()->exists()) {
-            return response()->json([
-                'message' => 'Impossible de supprimer définitivement cette agence car elle contient des départements.',
-            ], 409);
-        }
-
+        $agency->assignedUsers()->detach();
         $agency->forceDelete();
 
         return response()->json(null, 204);

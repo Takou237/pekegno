@@ -28,6 +28,17 @@ class UserResource extends JsonResource
                 'is_primary' => $this->pivot->is_primary,
                 'is_department_chief' => $this->pivot->is_department_chief,
             ]),
+            'assignments' => $this->whenLoaded('assignments', fn () =>
+                $this->assignments->map(fn ($a) => [
+                    'id' => $a->id,
+                    'name' => $a->name,
+                    'pivot' => [
+                        'department_id' => $a->pivot->department_id,
+                        'is_primary' => $a->pivot->is_primary,
+                        'is_department_chief' => $a->pivot->is_department_chief,
+                    ],
+                ])
+            ),
         ];
     }
 }

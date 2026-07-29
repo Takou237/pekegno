@@ -8,9 +8,22 @@ export interface Role {
   description: string | null;
 }
 
+export interface UserAssignmentPivot {
+  department_id: string | null;
+  is_primary: boolean;
+  is_department_chief: boolean;
+}
+
+export interface UserAssignment {
+  id: string;
+  name: string;
+  pivot: UserAssignmentPivot;
+}
+
 export interface User {
   id: string; // uuid
   username: string;
+  name: string;
   email: string;
   first_name: string | null;
   last_name: string | null;
@@ -23,6 +36,7 @@ export interface User {
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+  assignments?: UserAssignment[];
 }
 
 export interface LoginCredentials {
