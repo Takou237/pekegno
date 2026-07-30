@@ -15,6 +15,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
+import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { CreateUserPayload, UserListItem, RoleListItem } from '@/types/user';
@@ -60,9 +61,7 @@ export default function UserListPage() {
   const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
   const [availableUsers, setAvailableUsers] = useState<UserListItem[]>([]);
   const [assignLoading, setAssignLoading] = useState(false);
-  const [selectedAssignIds, setSelectedAssignIds] = useState<Set<string>>(new Set());
   const [assignError, setAssignError] = useState<string | null>(null);
-  const [assignSubmitting, setAssignSubmitting] = useState(false);
 
   const [confirmRoleRemove, setConfirmRoleRemove] = useState<(() => Promise<void>) | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
@@ -241,7 +240,6 @@ export default function UserListPage() {
     setAssignModalOpen(true);
     setAssignLoading(true);
     setAssignError(null);
-    setSelectedAssignIds(new Set());
 
     if (type === 'agency') {
       client.get(`/agencies/${selectedAgencyId}`)
@@ -289,43 +287,20 @@ export default function UserListPage() {
     }
   }
 
-  function toggleAssignSelection(id: string) {
-    setSelectedAssignIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  async function handleAssignUsers() {
+  async function handleAssignUser(userId: string) {
     const targetId = assignTargetType === 'agency' ? selectedAgencyId : selectedDepartmentId;
-    if (!targetId || selectedAssignIds.size === 0) return;
+    if (!targetId) return;
     const endpoint = assignTargetType === 'agency' ? `/agencies/${targetId}/users` : `/departments/${targetId}/users`;
 
-    setAssignSubmitting(true);
-    setAssignError(null);
-
-    const errors: string[] = [];
-    let successCount = 0;
-
-    for (const userId of selectedAssignIds) {
-      try {
-        await client.post(endpoint, { user_id: userId });
-        successCount++;
-      } catch (err) {
-        errors.push(extractErrorMessage(err, 'Erreur'));
-      }
-    }
-
-    if (successCount > 0) {
-      showToast(`${successCount} utilisateur(s) assigné(s) avec succès.`, 'success');
+    try {
+      await client.post(endpoint, { user_id: userId });
+      showToast('Utilisateur assigné avec succès.', 'success');
       fetchUsers(fetchParams);
       await reloadAssignData();
+    } catch (err) {
+      showToast(extractErrorMessage(err, 'Impossible d\'assigner l\'utilisateur.'), 'error');
+      setAssignError(extractErrorMessage(err, 'Erreur'));
     }
-
-    if (errors.length > 0) setAssignError(errors.join('. '));
-    setAssignSubmitting(false);
   }
 
   async function handleRemoveUser(userId: string) {
@@ -363,7 +338,6 @@ export default function UserListPage() {
             !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
         );
         setAvailableUsers(available);
-        setSelectedAssignIds(new Set());
       } catch { /* silent */ }
     } else {
       if (!selectedDepartmentId) return;
@@ -387,7 +361,6 @@ export default function UserListPage() {
             !NON_ASSIGNABLE_ROLES.has((u as any).role?.name ?? '')
         );
         setAvailableUsers(available as UserListItem[]);
-        setSelectedAssignIds(new Set());
       } catch { /* silent */ }
     }
   }
@@ -786,46 +759,35 @@ export default function UserListPage() {
                 )}
               </div>
 
-              {availableUsers.length > 0 && (
-                <div>
-                  <p className="mb-2 text-xs font-medium uppercase text-gray-400">
-                    Disponibles ({availableUsers.length})
-                  </p>
-                  <div className="max-h-60 overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-800">
-                    {availableUsers.map((u) => (
-                      <label
-                        key={u.id}
-                        className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedAssignIds.has(u.id)}
-                          onChange={() => toggleAssignSelection(u.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                        />
-                        <span className="font-medium text-gray-800 dark:text-gray-100">{u.name}</span>
-                        <span className="text-gray-400">{u.email}</span>
-                        {u.role && <Badge variant="neutral">{u.role.name}</Badge>}
-                      </label>
-                    ))}
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      onClick={handleAssignUsers}
-                      isLoading={assignSubmitting}
-                      disabled={selectedAssignIds.size === 0}
-                    >
-                      <UserPlus className="h-4 w-4" />
-                      Assigner ({selectedAssignIds.size})
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {availableUsers.length === 0 && assignedUsers.length > 0 && (
-                <p className="text-sm text-gray-400">Tous les utilisateurs disponibles sont déjà assignés.</p>
-              )}
-            </>
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase text-gray-400">
+                  Ajouter
+                </p>
+                <Autocomplete
+                  placeholder={availableUsers.length === 0 ? 'Aucun utilisateur disponible' : 'Rechercher par nom ou email...'}
+                  value=""
+                  onChange={(userId) => {
+                    if (userId) handleAssignUser(userId);
+                  }}
+                  fetchOptions={async (query) => {
+                    const q = query.toLowerCase();
+                    return availableUsers
+                      .filter(
+                        (u) =>
+                          u.name?.toLowerCase().includes(q) ||
+                          u.email.toLowerCase().includes(q)
+                      )
+                      .slice(0, 20)
+                      .map((u) => ({
+                        id: u.id,
+                        label: u.name ?? u.email,
+                        subtitle: u.role?.name ? `${u.email} — ${u.role.name}` : u.email,
+                      }));
+                  }}
+                  disabled={availableUsers.length === 0}
+                />
+              </div>
+            </> 
           )}
 
           <div className="flex justify-end">
