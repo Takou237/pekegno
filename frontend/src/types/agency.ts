@@ -71,4 +71,5 @@ export interface AgencyListParams {
   page?: number;
   sort_by?: 'name' | 'code' | 'country' | 'created_at';
   sort_order?: 'asc' | 'desc';
+  with?: string;
 }

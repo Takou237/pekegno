@@ -14,9 +14,19 @@ use OpenApi\Attributes as OA;
 
 class AgencyController extends Controller
 {
+    private const ALLOWED_WITH = ['departments', 'assignedUsers', 'activityLogs'];
+
     public function __construct()
     {
         $this->authorizeResource(Agency::class, 'agency');
+    }
+
+    private function parseWith(Request $request): array
+    {
+        $with = $request->input('with');
+        if (!$with) return [];
+        $relations = array_map('trim', explode(',', $with));
+        return array_intersect($relations, self::ALLOWED_WITH);
     }
 
     #[OA\Get(
@@ -38,7 +48,7 @@ class AgencyController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Agency::with('departments')
+        $query = Agency::with(array_merge(['departments'], $this->parseWith($request)))
             ->search($request->input('search'))
             ->byCountry($request->input('country'));
 
@@ -107,9 +117,10 @@ class AgencyController extends Controller
             new OA\Response(response: 404, description: 'Agence non trouvée'),
         ]
     )]
-    public function show(Agency $agency): AgencyResource
+    public function show(Request $request, Agency $agency): AgencyResource
     {
-        return new AgencyResource($agency->load('departments', 'assignedUsers'));
+        $with = array_unique(array_merge(['departments', 'assignedUsers'], $this->parseWith($request)));
+        return new AgencyResource($agency->load($with));
     }
 
     #[OA\Put(

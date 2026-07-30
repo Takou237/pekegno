@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, Trash2, Pencil, Eye, ArrowUpDown, ShieldCheck, Users } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -14,7 +14,6 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
 import { AgencyDetailModal } from '@/components/agencies/AgencyDetailModal';
 import { AgencyChiefAssignModal } from '@/components/agencies/AgencyChiefAssignModal';
-import { AgencyUserAssignModal } from '@/components/agencies/AgencyUserAssignModal';
 import { canCreateAgency, canDeleteAgency, canEditAgency, canManageTrash } from '@/utils/agencyPermissions';
 import type { Agency, AgencyListParams, PaginationMeta } from '@/types/agency';
 
@@ -28,6 +27,7 @@ const SORT_OPTIONS: { value: NonNullable<AgencyListParams['sort_by']>; label: st
 export default function AgencyListPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -48,7 +48,6 @@ export default function AgencyListPage() {
   const [deleteTarget, setDeleteTarget] = useState<Agency | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [chiefAgency, setChiefAgency] = useState<Agency | null>(null);
-  const [usersAgency, setUsersAgency] = useState<Agency | null>(null);
 
   const fetchAgencies = useCallback(async () => {
     setIsLoading(true);
@@ -255,9 +254,9 @@ export default function AgencyListPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setUsersAgency(agency)}
+                              onClick={() => navigate(`/users?agency_id=${agency.id}`)}
                               className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
-                              title="Gérer les utilisateurs"
+                              title="Voir les utilisateurs"
                             >
                               <Users className="h-4 w-4" />
                             </button>
@@ -316,13 +315,6 @@ export default function AgencyListPage() {
         isOpen={Boolean(chiefAgency)}
         agency={chiefAgency}
         onClose={() => setChiefAgency(null)}
-        onSaved={fetchAgencies}
-      />
-
-      <AgencyUserAssignModal
-        isOpen={Boolean(usersAgency)}
-        agency={usersAgency}
-        onClose={() => setUsersAgency(null)}
         onSaved={fetchAgencies}
       />
 

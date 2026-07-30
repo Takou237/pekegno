@@ -14,6 +14,16 @@ use OpenApi\Attributes as OA;
 
 class DepartmentController extends Controller
 {
+    private const ALLOWED_WITH = ['agency', 'assignedUsers'];
+
+    private function parseWith(Request $request): array
+    {
+        $with = $request->input('with');
+        if (!$with) return [];
+        $relations = array_map('trim', explode(',', $with));
+        return array_intersect($relations, self::ALLOWED_WITH);
+    }
+
     #[OA\Get(
         path: '/api/departments',
         summary: 'Lister les départements avec pagination et recherche',
@@ -32,11 +42,12 @@ class DepartmentController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Department::with([
-                'agency',
-                'agency.assignedUsers' => fn ($q) => $q->wherePivot('is_primary', true),
-                'assignedUsers' => fn ($q) => $q->wherePivot('is_department_chief', true),
-            ])
+        $defaultWith = [
+            'agency',
+            'agency.assignedUsers' => fn ($q) => $q->wherePivot('is_primary', true),
+            'assignedUsers' => fn ($q) => $q->wherePivot('is_department_chief', true),
+        ];
+        $query = Department::with($defaultWith)
             ->when($request->search, function ($q, $search) {
                 $q->where('name', 'like', "%{$search}%");
             })
@@ -95,9 +106,10 @@ class DepartmentController extends Controller
             new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
-    public function show(Department $department): DepartmentResource
+    public function show(Request $request, Department $department): DepartmentResource
     {
-        return new DepartmentResource($department->load('agency', 'assignedUsers'));
+        $with = array_unique(array_merge(['agency', 'assignedUsers'], $this->parseWith($request)));
+        return new DepartmentResource($department->load($with));
     }
 
     #[OA\Put(
@@ -147,12 +159,7 @@ class DepartmentController extends Controller
     )]
     public function destroy(Department $department): JsonResponse
     {
-        if ($department->assignedUsers()->exists()) {
-            return response()->json([
-                'message' => 'Impossible de supprimer ce département car il contient des utilisateurs assignés.',
-            ], 409);
-        }
-
+        $department->assignedUsers()->detach();
         $department->delete();
 
         return response()->json(null, 204);

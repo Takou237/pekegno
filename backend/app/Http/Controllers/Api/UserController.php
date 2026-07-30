@@ -12,6 +12,16 @@ use OpenApi\Attributes as OA;
 
 class UserController extends Controller
 {
+    private const ALLOWED_WITH = ['role', 'assignments'];
+
+    private function parseWith(Request $request): array
+    {
+        $with = $request->input('with');
+        if (!$with) return [];
+        $relations = array_map('trim', explode(',', $with));
+        return array_intersect($relations, self::ALLOWED_WITH);
+    }
+
     #[OA\Get(
         path: '/api/users',
         summary: 'Lister les utilisateurs (admin)',
@@ -30,7 +40,10 @@ class UserController extends Controller
     )]
     public function index(Request $request)
     {
-        $users = User::with('role', 'assignments')
+        $defaultWith = ['role', 'assignments'];
+        $with = array_unique(array_merge($defaultWith, $this->parseWith($request)));
+        
+        $users = User::with($with)
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
@@ -67,9 +80,10 @@ class UserController extends Controller
             new OA\Response(response: 404, description: 'Utilisateur non trouvé'),
         ]
     )]
-    public function show(User $user)
+    public function show(Request $request, User $user)
     {
-        return new UserResource($user->load('role', 'assignments.agency'));
+        $with = array_unique(array_merge(['role', 'assignments.agency'], $this->parseWith($request)));
+        return new UserResource($user->load($with));
     }
 
     #[OA\Put(

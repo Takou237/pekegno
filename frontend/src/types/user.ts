@@ -24,6 +24,7 @@ export interface UserListItem {
   email_verified_at: string | null;
   created_at: string;
   updated_at: string;
+  assignments?: UserAssignment[];
 }
 
 export interface UserListParams {
@@ -35,6 +36,7 @@ export interface UserListParams {
   page?: number;
   sort?: string;
   order?: 'asc' | 'desc';
+  with?: string;
 }
 
 export interface UpdateUserPayload {

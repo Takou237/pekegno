@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Search, Pencil } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Search, Pencil, Eye, UserPlus, UserMinus } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { usersApi } from '@/api/users.api';
 import { agenciesApi } from '@/api/agencies.api';
+import { client } from '@/api/client';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -13,12 +15,16 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { UserListItem, RoleListItem } from '@/types/user';
-import type { Agency, Department, PaginationMeta } from '@/types/agency';
+import type { Agency, AssignedUser, Department, PaginationMeta } from '@/types/agency';
+
+const CHIEF_ROLE_NAMES = new Set(['responsable-agence', 'responsable-departement']);
 
 export default function UserListPage() {
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [roles, setRoles] = useState<RoleListItem[]>([]);
@@ -31,8 +37,8 @@ export default function UserListPage() {
 
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [selectedAgencyId, setSelectedAgencyId] = useState('');
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
+  const selectedAgencyId = searchParams.get('agency_id') ?? '';
+  const selectedDepartmentId = searchParams.get('department_id') ?? '';
 
   const [editUser, setEditUser] = useState<UserListItem | null>(null);
   const [editForm, setEditForm] = useState({
@@ -45,6 +51,18 @@ export default function UserListPage() {
   });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const [viewUser, setViewUser] = useState<UserListItem | null>(null);
+
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<UserListItem[]>([]);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [selectedAssignIds, setSelectedAssignIds] = useState<Set<string>>(new Set());
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
+
+  const [confirmRoleRemove, setConfirmRoleRemove] = useState<(() => Promise<void>) | null>(null);
 
   const canManageUsers = ['super-admin', 'direction-generale'].includes(
     currentUser?.role?.name ?? ''
@@ -75,13 +93,20 @@ export default function UserListPage() {
     }
   }, []);
 
+  const fetchParams = useMemo(() => ({
+    search: search || undefined,
+    agency_id: selectedAgencyId || undefined,
+    department_id: selectedDepartmentId || undefined,
+    page,
+  }), [search, selectedAgencyId, selectedDepartmentId, page]);
+
   useEffect(() => {
-    fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: selectedDepartmentId || undefined, page: 1 });
-  }, []);
+    fetchUsers(fetchParams);
+  }, [fetchParams]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: selectedDepartmentId || undefined, page: 1 });
+      setPage(1);
     }, 350);
     return () => clearTimeout(timeout);
   }, [search]);
@@ -90,31 +115,45 @@ export default function UserListPage() {
     usersApi.listRoles().then(setRoles).catch(() => {});
   }, []);
 
+  const nonChiefRoles = roles.filter((r) => !CHIEF_ROLE_NAMES.has(r.name));
+
   function handleAgencyChange(agencyId: string) {
     const agency = agencies.find((a) => a.id === agencyId);
-    setSelectedAgencyId(agencyId);
-    setSelectedDepartmentId('');
     setDepartments(agency?.departments ?? []);
     setPage(1);
-    fetchUsers({ search, agency_id: agencyId || undefined, department_id: undefined, page: 1 });
+    const params = new URLSearchParams(searchParams);
+    if (agencyId) params.set('agency_id', agencyId);
+    else params.delete('agency_id');
+    params.delete('department_id');
+    setSearchParams(params);
   }
 
   function handleDepartmentChange(departmentId: string) {
-    setSelectedDepartmentId(departmentId);
     setPage(1);
-    fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: departmentId || undefined, page: 1 });
+    const params = new URLSearchParams(searchParams);
+    if (departmentId) params.set('department_id', departmentId);
+    else params.delete('department_id');
+    setSearchParams(params);
   }
 
   function handlePageChange(newPage: number) {
     setPage(newPage);
-    fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: selectedDepartmentId || undefined, page: newPage });
   }
 
   useEffect(() => {
-    agenciesApi.list({ per_page: 100 }).then((res) => {
+    agenciesApi.list({ per_page: 100, with: 'departments' }).then((res) => {
       setAgencies(res.data ?? []);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (selectedAgencyId) {
+      const agency = agencies.find((a) => a.id === selectedAgencyId);
+      setDepartments(agency?.departments ?? []);
+    } else {
+      setDepartments([]);
+    }
+  }, [selectedAgencyId, agencies]);
 
   function openEdit(user: UserListItem) {
     setEditUser(user);
@@ -129,8 +168,18 @@ export default function UserListPage() {
     setEditErrors({});
   }
 
-  async function handleEditSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleEditSubmitConfirm() {
+    if (!editForm.role_id) {
+      setConfirmRoleRemove(() => async () => {
+        setConfirmRoleRemove(null);
+        await submitEdit();
+      });
+      return;
+    }
+    submitEdit();
+  }
+
+  async function submitEdit() {
     if (!editUser) return;
     setEditSubmitting(true);
     setEditErrors({});
@@ -138,7 +187,7 @@ export default function UserListPage() {
       await usersApi.update(editUser.id, editForm);
       showToast('Utilisateur modifié avec succès.', 'success');
       setEditUser(null);
-      fetchUsers({ search, agency_id: selectedAgencyId || undefined, department_id: selectedDepartmentId || undefined, page });
+      fetchUsers(fetchParams);
     } catch (error) {
       setEditErrors(
         Object.fromEntries(
@@ -149,6 +198,108 @@ export default function UserListPage() {
       );
     } finally {
       setEditSubmitting(false);
+    }
+  }
+
+  const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale']);
+
+  function openAssignModal() {
+    if (!selectedAgencyId) return;
+    setAssignModalOpen(true);
+    setAssignLoading(true);
+    setAssignError(null);
+    setSelectedAssignIds(new Set());
+
+    Promise.all([
+      client.get(`/agencies/${selectedAgencyId}`),
+      client.get('/users', { params: { per_page: 100 } }),
+    ])
+      .then(([agencyRes, usersRes]) => {
+        const agencyData: any = agencyRes.data;
+        const data = agencyData.data ?? agencyData;
+        setAssignedUsers(data.assigned_users ?? []);
+
+        const assignedIds = new Set((data.assigned_users ?? []).map((u: any) => u.id));
+        const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
+          (u: UserListItem) =>
+            !assignedIds.has(u.id) &&
+            !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
+        );
+        setAvailableUsers(available);
+      })
+      .catch(() => setAssignError('Impossible de charger les données.'))
+      .finally(() => setAssignLoading(false));
+  }
+
+  function toggleAssignSelection(id: string) {
+    setSelectedAssignIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleAssignUsers() {
+    if (!selectedAgencyId || selectedAssignIds.size === 0) return;
+    setAssignSubmitting(true);
+    setAssignError(null);
+
+    const errors: string[] = [];
+    let successCount = 0;
+
+    for (const userId of selectedAssignIds) {
+      try {
+        await client.post(`/agencies/${selectedAgencyId}/users`, { user_id: userId });
+        successCount++;
+      } catch (err) {
+        errors.push(extractErrorMessage(err, 'Erreur'));
+      }
+    }
+
+    if (successCount > 0) {
+      showToast(`${successCount} utilisateur(s) assigné(s) avec succès.`, 'success');
+      fetchUsers(fetchParams);
+      await reloadAssignData();
+    }
+
+    if (errors.length > 0) setAssignError(errors.join('. '));
+    setAssignSubmitting(false);
+  }
+
+  async function handleRemoveUser(userId: string) {
+    if (!selectedAgencyId) return;
+    try {
+      await client.delete(`/agencies/${selectedAgencyId}/users/${userId}`);
+      showToast('Utilisateur retiré avec succès.', 'success');
+      fetchUsers(fetchParams);
+      await reloadAssignData();
+    } catch (err) {
+      showToast(extractErrorMessage(err, 'Impossible de retirer l\'utilisateur.'), 'error');
+    }
+  }
+
+  async function reloadAssignData() {
+    if (!selectedAgencyId) return;
+    try {
+      const [agencyRes, usersRes] = await Promise.all([
+        client.get(`/agencies/${selectedAgencyId}`),
+        client.get('/users', { params: { per_page: 100 } }),
+      ]);
+      const agencyData: any = agencyRes.data;
+      const data = agencyData.data ?? agencyData;
+      setAssignedUsers(data.assigned_users ?? []);
+
+      const assignedIds = new Set((data.assigned_users ?? []).map((u: any) => u.id));
+      const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
+        (u: UserListItem) =>
+          !assignedIds.has(u.id) &&
+          !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
+      );
+      setAvailableUsers(available);
+      setSelectedAssignIds(new Set());
+    } catch {
+      // silent
     }
   }
 
@@ -228,6 +379,14 @@ export default function UserListPage() {
             ))}
           </Select>
         </div>
+        {selectedAgencyId && canManageUsers && (
+          <div className="sm:w-44">
+            <Button onClick={openAssignModal}>
+              <UserPlus className="h-4 w-4" />
+              Assigner
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
@@ -238,7 +397,12 @@ export default function UserListPage() {
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : users.length === 0 ? (
-          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">Aucun utilisateur trouvé.</p>
+          <div className="flex flex-col items-center gap-3 p-6">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Aucun utilisateur trouvé.
+              {canManageUsers && " Vous pouvez en créer un via l'écran d'inscription."}
+            </p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -248,6 +412,7 @@ export default function UserListPage() {
                   <th className="px-5 py-3 font-medium">Email</th>
                   <th className="px-5 py-3 font-medium">Téléphone</th>
                   <th className="px-5 py-3 font-medium">Rôle</th>
+                  <th className="px-5 py-3 font-medium">Agence</th>
                   <th className="px-5 py-3 font-medium">Statut</th>
                   <th className="px-5 py-3 font-medium text-right">Actions</th>
                 </tr>
@@ -263,6 +428,11 @@ export default function UserListPage() {
                       {u.phone ?? '—'}
                     </td>
                     <td className="px-5 py-3">{getRoleBadge(u.role?.name)}</td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {u.assignments && u.assignments.length > 0
+                        ? u.assignments.map((a) => a.name).join(', ')
+                        : '—'}
+                    </td>
                     <td className="px-5 py-3">
                       {u.is_active ? (
                         <Badge variant="success">Actif</Badge>
@@ -273,6 +443,14 @@ export default function UserListPage() {
                     <td className="px-5 py-3">
                       {canManageUsers && (
                         <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setViewUser(u)}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                            title="Voir le détail"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEdit(u)}
@@ -304,6 +482,41 @@ export default function UserListPage() {
         )}
       </div>
 
+      {/* Modal détail utilisateur */}
+      <Modal
+        isOpen={Boolean(viewUser)}
+        onClose={() => setViewUser(null)}
+        title="Détail de l'utilisateur"
+        maxWidth="max-w-md"
+      >
+        {viewUser && (
+          <dl className="flex flex-col gap-3 text-sm">
+            <div>
+              <dt className="font-medium text-gray-500">Nom</dt>
+              <dd className="text-gray-800 dark:text-gray-100">{viewUser.name}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">Email</dt>
+              <dd className="text-gray-800 dark:text-gray-100">{viewUser.email}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">Téléphone</dt>
+              <dd className="text-gray-800 dark:text-gray-100">{viewUser.phone ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">Rôle</dt>
+              <dd className="text-gray-800 dark:text-gray-100">{getRoleBadge(viewUser.role?.name)}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">Statut</dt>
+              <dd className="text-gray-800 dark:text-gray-100">
+                {viewUser.is_active ? 'Actif' : 'Inactif'}
+              </dd>
+            </div>
+          </dl>
+        )}
+      </Modal>
+
       {/* Modal modification utilisateur */}
       <Modal
         isOpen={Boolean(editUser)}
@@ -311,7 +524,7 @@ export default function UserListPage() {
         title="Modifier l'utilisateur"
         maxWidth="max-w-lg"
       >
-        <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleEditSubmitConfirm(); }} className="flex flex-col gap-4">
           {Object.keys(editErrors).length > 0 && (
             <Alert variant="error">
               {Object.values(editErrors).join(' ')}
@@ -347,8 +560,8 @@ export default function UserListPage() {
             value={editForm.role_id}
             onChange={(e) => setEditForm((p) => ({ ...p, role_id: e.target.value }))}
           >
-            <option value="">— Aucun rôle —</option>
-            {roles.map((r) => (
+            <option value="">— Licencier (aucun rôle) —</option>
+            {nonChiefRoles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
@@ -365,6 +578,116 @@ export default function UserListPage() {
         </form>
       </Modal>
 
+      {/* Modal assignation agence */}
+      <Modal
+        isOpen={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        title={selectedAgencyId ? `Assigner des utilisateurs — ${agencies.find((a) => a.id === selectedAgencyId)?.name ?? ''}` : 'Assigner'}
+        maxWidth="max-w-lg"
+      >
+        <div className="flex flex-col gap-4">
+          {assignError && <Alert variant="error">{assignError}</Alert>}
+
+          {assignLoading ? (
+            <div className="flex justify-center py-8">
+              <Spinner />
+            </div>
+          ) : (
+            <>
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase text-gray-400">
+                  Assignés ({assignedUsers.length})
+                </p>
+                {assignedUsers.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Aucun utilisateur assigné.</p>
+                ) : (
+                  <ul className="flex flex-col gap-1">
+                    {assignedUsers.map((u) => (
+                      <li
+                        key={u.id}
+                        className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      >
+                        <div className="flex items-center gap-2 text-sm">
+                          {u.pivot?.is_primary && <Badge variant="warning">Chef</Badge>}
+                          <span className="font-medium text-gray-800 dark:text-gray-100">
+                            {u.name}
+                          </span>
+                          <span className="text-gray-400">{u.email}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveUser(u.id)}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                          title="Retirer de l'agence"
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {availableUsers.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase text-gray-400">
+                    Disponibles ({availableUsers.length})
+                  </p>
+                  <div className="max-h-60 overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-800">
+                    {availableUsers.map((u) => (
+                      <label
+                        key={u.id}
+                        className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedAssignIds.has(u.id)}
+                          onChange={() => toggleAssignSelection(u.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        <span className="font-medium text-gray-800 dark:text-gray-100">{u.name}</span>
+                        <span className="text-gray-400">{u.email}</span>
+                        {u.role && <Badge variant="neutral">{u.role.name}</Badge>}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      onClick={handleAssignUsers}
+                      isLoading={assignSubmitting}
+                      disabled={selectedAssignIds.size === 0}
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Assigner ({selectedAssignIds.size})
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {availableUsers.length === 0 && assignedUsers.length > 0 && (
+                <p className="text-sm text-gray-400">Tous les utilisateurs disponibles sont déjà assignés.</p>
+              )}
+            </>
+          )}
+
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setAssignModalOpen(false)}>
+              Fermer
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Confirmation licenciement */}
+      <ConfirmDialog
+        isOpen={Boolean(confirmRoleRemove)}
+        title="Licencier cet utilisateur ?"
+        message="Vous êtes sur le point de retirer le rôle de cet utilisateur. Cela signifie qu'il n'aura plus accès à l'application. Confirmez-vous ?"
+        confirmLabel="Oui, licencier"
+        variant="danger"
+        onConfirm={() => confirmRoleRemove?.()}
+        onCancel={() => setConfirmRoleRemove(null)}
+      />
     </div>
   );
 }

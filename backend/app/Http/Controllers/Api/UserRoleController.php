@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\AssignRoleRequest;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use OpenApi\Attributes as OA;
 
 class UserRoleController extends Controller
 {
+    private const CHIEF_ROLE_NAMES = ['responsable-agence', 'responsable-departement'];
+
     #[OA\Get(
         path: '/api/users/{user}/roles',
         summary: 'Afficher le rôle d\'un utilisateur',
@@ -52,6 +55,14 @@ class UserRoleController extends Controller
     public function update(User $user, AssignRoleRequest $request): JsonResponse
     {
         $roleId = $request->validated('role_id');
+        $role = Role::find($roleId);
+
+        if ($role && in_array($role->name, self::CHIEF_ROLE_NAMES, true)) {
+            return response()->json([
+                'message' => 'Les rôles de chef (agence/département) doivent être assignés depuis la page de l\'agence ou du département.',
+            ], 422);
+        }
+
         $user->update(['role_id' => $roleId]);
         return response()->json($user->fresh()->load('role'));
     }

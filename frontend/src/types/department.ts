@@ -26,6 +26,7 @@ export interface DepartmentListParams {
   agency_id?: string;
   per_page?: number;
   page?: number;
+  with?: string;
 }
 
 export interface DepartmentPayload {

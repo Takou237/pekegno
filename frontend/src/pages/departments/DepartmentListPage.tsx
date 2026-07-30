@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, Trash2, Pencil, Eye, Users, ShieldCheck } from 'lucide-react';
 import { departmentsApi } from '@/api/departments.api';
 import { agenciesApi } from '@/api/agencies.api';
@@ -20,7 +20,6 @@ import {
   canEditDepartment,
   canManageDepartmentTrash,
 } from '@/utils/departmentPermissions';
-import { DepartmentUserAssignModal } from '@/components/departments/DepartmentUserAssignModal';
 import { DepartmentChiefAssignModal } from '@/components/departments/DepartmentChiefAssignModal';
 import type { Department, DepartmentPayload } from '@/types/department';
 import type { Agency, PaginationMeta } from '@/types/agency';
@@ -28,6 +27,7 @@ import type { Agency, PaginationMeta } from '@/types/agency';
 export default function DepartmentListPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [departments, setDepartments] = useState<Department[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
@@ -54,7 +54,6 @@ export default function DepartmentListPage() {
   const [detailDepartment, setDetailDepartment] = useState<Department | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Department | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [usersDepartment, setUsersDepartment] = useState<Department | null>(null);
   const [chiefDepartment, setChiefDepartment] = useState<Department | null>(null);
 
   const fetchDepartments = useCallback(async () => {
@@ -266,9 +265,9 @@ export default function DepartmentListPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setUsersDepartment(dept)}
+                              onClick={() => navigate(`/users?agency_id=${dept.agency_id}&department_id=${dept.id}`)}
                               className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
-                              title="Gérer les utilisateurs"
+                              title="Voir les utilisateurs"
                             >
                               <Users className="h-4 w-4" />
                             </button>
@@ -382,7 +381,7 @@ export default function DepartmentListPage() {
             error={formErrors.name}
           />
           <Input
-            label="Description"
+            label="Chef de département"
             value={form.description ?? ''}
             onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
           />
@@ -410,14 +409,6 @@ export default function DepartmentListPage() {
         isLoading={isDeleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
-      />
-
-      {/* Modal affectation utilisateurs */}
-      <DepartmentUserAssignModal
-        isOpen={Boolean(usersDepartment)}
-        department={usersDepartment}
-        onClose={() => setUsersDepartment(null)}
-        onSaved={fetchDepartments}
       />
 
       {/* Modal chef de département */}
