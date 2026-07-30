@@ -10,6 +10,7 @@ use App\Models\Department;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 class DepartmentController extends Controller
@@ -45,14 +46,27 @@ class DepartmentController extends Controller
         $defaultWith = [
             'agency',
             'agency.assignedUsers' => fn ($q) => $q->wherePivot('is_primary', true),
-            'assignedUsers' => fn ($q) => $q->wherePivot('is_department_chief', true),
+            'chief',
         ];
         $query = Department::with($defaultWith)
+            ->withCount('assignedUsers as user_count')
             ->when($request->search, function ($q, $search) {
                 $q->where('name', 'like', "%{$search}%");
             })
             ->when($request->agency_id, function ($q, $agencyId) {
                 $q->where('agency_id', $agencyId);
+            })
+            ->when($request->user()?->role?->name === 'responsable-agence', function ($q) use ($request) {
+                $agencyIds = $request->user()->assignments()
+                    ->where('is_primary', true)
+                    ->pluck('agency_id');
+                $q->whereIn('agency_id', $agencyIds);
+            })
+            ->when($request->user()?->role?->name === 'responsable-departement', function ($q) use ($request) {
+                $deptIds = DB::table('department_chiefs')
+                    ->where('user_id', $request->user()->id)
+                    ->pluck('department_id');
+                $q->whereIn('id', $deptIds);
             })
             ->orderBy('name');
 
@@ -108,7 +122,7 @@ class DepartmentController extends Controller
     )]
     public function show(Request $request, Department $department): DepartmentResource
     {
-        $with = array_unique(array_merge(['agency', 'assignedUsers'], $this->parseWith($request)));
+        $with = array_unique(array_merge(['agency', 'assignedUsers', 'chief'], $this->parseWith($request)));
         return new DepartmentResource($department->load($with));
     }
 

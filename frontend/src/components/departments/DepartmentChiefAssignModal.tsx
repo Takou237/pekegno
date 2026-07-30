@@ -54,13 +54,11 @@ export function DepartmentChiefAssignModal({
     client
       .get(`/departments/${department.id}`)
       .then(({ data }) => {
-        const assigned = data.assigned_users ?? [];
-        const chief = assigned.find(
-          (u: any) => u.pivot?.is_department_chief === true
-        );
+        const dept = data.data ?? data;
+        const chief = dept.department_chief ?? null;
         const chiefId = chief?.id ?? '';
         setCurrentChiefId(chiefId);
-        setCurrentChiefName(chief ? `${chief.first_name ?? ''} ${chief.last_name ?? ''}`.trim() || chief.email : '');
+        setCurrentChiefName(chief ? `${chief.name}`.trim() || chief.email : '');
         setSelectedUserId(chiefId);
       })
       .catch(() => setError('Impossible de charger les données.'))

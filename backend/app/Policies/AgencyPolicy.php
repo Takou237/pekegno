@@ -12,7 +12,9 @@ class AgencyPolicy
 
     public function viewAny(User $user): bool
     {
-        return in_array($user->role?->name, ['super-admin', 'direction-generale', 'responsable-agence']);
+        return in_array($user->role?->name, [
+            'super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement',
+        ]);
     }
 
     public function view(User $user, Agency $agency): bool

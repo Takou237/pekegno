@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Department extends Model
@@ -29,5 +30,17 @@ class Department extends Model
         return $this->belongsToMany(User::class, 'user_assignments')
             ->withPivot('agency_id', 'is_primary', 'is_department_chief')
             ->withTimestamps();
+    }
+
+    public function chief(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            User::class,
+            DepartmentChief::class,
+            'department_id',
+            'id',
+            'id',
+            'user_id'
+        );
     }
 }

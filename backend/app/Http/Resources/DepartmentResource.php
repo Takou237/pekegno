@@ -21,10 +21,11 @@ class DepartmentResource extends JsonResource
                 'name' => $this->agency->assignedUsers->first()->first_name . ' ' . $this->agency->assignedUsers->first()->last_name,
                 'email' => $this->agency->assignedUsers->first()->email,
             ] : null),
-            'department_chief' => $this->whenLoaded('assignedUsers', fn () => $this->assignedUsers->first() ? [
-                'id' => $this->assignedUsers->first()->id,
-                'name' => $this->assignedUsers->first()->first_name . ' ' . $this->assignedUsers->first()->last_name,
-                'email' => $this->assignedUsers->first()->email,
+            'user_count' => $this->user_count ?? $this->whenLoaded('assignedUsers', fn () => $this->assignedUsers->count()),
+            'department_chief' => $this->whenLoaded('chief', fn () => $this->chief ? [
+                'id' => $this->chief->id,
+                'name' => $this->chief->first_name . ' ' . $this->chief->last_name,
+                'email' => $this->chief->email,
             ] : null),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

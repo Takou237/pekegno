@@ -55,7 +55,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::post('/departments/{department}/users', [UserAssignmentController::class, 'assignUserToDepartment']);
     Route::delete('/departments/{department}/users/{user}', [UserAssignmentController::class, 'removeUserFromDepartment']);
     Route::apiResource('categories', CategoryController::class);
-    Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy']);
+    Route::apiResource('users', UserController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 
     Route::get('/users/{user}/role', [UserRoleController::class, 'show']);
     Route::put('/users/{user}/role', [UserRoleController::class, 'update']);

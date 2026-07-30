@@ -3,8 +3,9 @@ import { Search, Pencil, Eye, Trash2, UserPlus, UserMinus } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { usersApi } from '@/api/users.api';
 import { agenciesApi } from '@/api/agencies.api';
+import { departmentsApi } from '@/api/departments.api';
 import { client } from '@/api/client';
-import { extractErrorMessage } from '@/api/errors';
+import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
@@ -16,7 +17,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import type { UserListItem, RoleListItem } from '@/types/user';
+import type { CreateUserPayload, UserListItem, RoleListItem } from '@/types/user';
 import type { Agency, AssignedUser, Department, PaginationMeta } from '@/types/agency';
 
 const CHIEF_ROLE_NAMES = new Set(['responsable-agence', 'responsable-departement']);
@@ -55,6 +56,7 @@ export default function UserListPage() {
   const [viewUser, setViewUser] = useState<UserListItem | null>(null);
 
   const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignTargetType, setAssignTargetType] = useState<'agency' | 'department' | null>(null);
   const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
   const [availableUsers, setAvailableUsers] = useState<UserListItem[]>([]);
   const [assignLoading, setAssignLoading] = useState(false);
@@ -65,6 +67,19 @@ export default function UserListPage() {
   const [confirmRoleRemove, setConfirmRoleRemove] = useState<(() => Promise<void>) | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateUserPayload>({
+    username: '',
+    email: '',
+    password: 'password',
+    password_confirmation: 'password',
+    first_name: '',
+    last_name: '',
+    phone: '',
+    role_id: '',
+  });
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [createSubmitting, setCreateSubmitting] = useState(false);
 
   const canManageUsers = ['super-admin', 'direction-generale'].includes(
     currentUser?.role?.name ?? ''
@@ -148,14 +163,30 @@ export default function UserListPage() {
     }).catch(() => {});
   }, []);
 
+  // Quand on arrive avec ?department_id=xxx sans ?agency_id, on déduit l'agence
+  useEffect(() => {
+    if (selectedDepartmentId && !selectedAgencyId && agencies.length > 0) {
+      const found = agencies.find((a) =>
+        a.departments?.some((d) => d.id === selectedDepartmentId)
+      );
+      if (found) {
+        const params = new URLSearchParams(searchParams);
+        params.set('agency_id', found.id);
+        setSearchParams(params);
+      }
+    }
+  }, [selectedDepartmentId, selectedAgencyId, agencies]);
+
   useEffect(() => {
     if (selectedAgencyId) {
       const agency = agencies.find((a) => a.id === selectedAgencyId);
       setDepartments(agency?.departments ?? []);
+    } else if (currentUser?.role?.name === 'responsable-departement') {
+      departmentsApi.list({ per_page: 100 }).then((res) => setDepartments(res.data)).catch(() => {});
     } else {
       setDepartments([]);
     }
-  }, [selectedAgencyId, agencies]);
+  }, [selectedAgencyId, agencies, currentUser]);
 
   function openEdit(user: UserListItem) {
     setEditUser(user);
@@ -205,32 +236,57 @@ export default function UserListPage() {
 
   const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale']);
 
-  function openAssignModal() {
-    if (!selectedAgencyId) return;
+  function openAssignModal(type: 'agency' | 'department') {
+    setAssignTargetType(type);
     setAssignModalOpen(true);
     setAssignLoading(true);
     setAssignError(null);
     setSelectedAssignIds(new Set());
 
-    Promise.all([
-      client.get(`/agencies/${selectedAgencyId}`),
-      client.get('/users', { params: { per_page: 100 } }),
-    ])
-      .then(([agencyRes, usersRes]) => {
-        const agencyData: any = agencyRes.data;
-        const data = agencyData.data ?? agencyData;
-        setAssignedUsers(data.assigned_users ?? []);
+    if (type === 'agency') {
+      client.get(`/agencies/${selectedAgencyId}`)
+        .then((agencyRes) => {
+          const data = agencyRes.data.data ?? agencyRes.data;
+          setAssignedUsers(data.assigned_users ?? []);
 
-        const assignedIds = new Set((data.assigned_users ?? []).map((u: any) => u.id));
-        const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
-          (u: UserListItem) =>
-            !assignedIds.has(u.id) &&
-            !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
-        );
-        setAvailableUsers(available);
-      })
-      .catch(() => setAssignError('Impossible de charger les données.'))
-      .finally(() => setAssignLoading(false));
+          const assignedIds = new Set((data.assigned_users ?? []).map((u: any) => u.id));
+          return client.get('/users', { params: { per_page: 100 } }).then((usersRes) => {
+            const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
+              (u: UserListItem) =>
+                !assignedIds.has(u.id) &&
+                !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
+            );
+            setAvailableUsers(available);
+          });
+        })
+        .catch(() => setAssignError('Impossible de charger les données.'))
+        .finally(() => setAssignLoading(false));
+    } else {
+      const dept = departments.find((d) => d.id === selectedDepartmentId);
+      if (!dept) { setAssignLoading(false); return; }
+
+      Promise.all([
+        client.get(`/agencies/${dept.agency_id}`),
+        client.get(`/departments/${selectedDepartmentId}/users`),
+      ])
+        .then(([agencyRes, deptRes]) => {
+          const agencyData = agencyRes.data.data ?? agencyRes.data;
+          const agencyUsers: AssignedUser[] = agencyData.assigned_users ?? [];
+          const deptUsersRaw: any[] = deptRes.data.data ?? deptRes.data;
+          const deptUserIds = new Set(deptUsersRaw.map((u: any) => u.id));
+
+          setAssignedUsers(deptUsersRaw.map((u: any) => ({ ...u, pivot: u.pivot ?? null })));
+
+          const available: UserListItem[] = agencyUsers.filter(
+            (u: AssignedUser) =>
+              !deptUserIds.has(u.id) &&
+              !NON_ASSIGNABLE_ROLES.has((u as any).role?.name ?? '')
+          );
+          setAvailableUsers(available as UserListItem[]);
+        })
+        .catch(() => setAssignError('Impossible de charger les données.'))
+        .finally(() => setAssignLoading(false));
+    }
   }
 
   function toggleAssignSelection(id: string) {
@@ -243,7 +299,10 @@ export default function UserListPage() {
   }
 
   async function handleAssignUsers() {
-    if (!selectedAgencyId || selectedAssignIds.size === 0) return;
+    const targetId = assignTargetType === 'agency' ? selectedAgencyId : selectedDepartmentId;
+    if (!targetId || selectedAssignIds.size === 0) return;
+    const endpoint = assignTargetType === 'agency' ? `/agencies/${targetId}/users` : `/departments/${targetId}/users`;
+
     setAssignSubmitting(true);
     setAssignError(null);
 
@@ -252,7 +311,7 @@ export default function UserListPage() {
 
     for (const userId of selectedAssignIds) {
       try {
-        await client.post(`/agencies/${selectedAgencyId}/users`, { user_id: userId });
+        await client.post(endpoint, { user_id: userId });
         successCount++;
       } catch (err) {
         errors.push(extractErrorMessage(err, 'Erreur'));
@@ -270,9 +329,14 @@ export default function UserListPage() {
   }
 
   async function handleRemoveUser(userId: string) {
-    if (!selectedAgencyId) return;
+    const targetId = assignTargetType === 'agency' ? selectedAgencyId : selectedDepartmentId;
+    if (!targetId) return;
+    const endpoint = assignTargetType === 'agency'
+      ? `/agencies/${targetId}/users/${userId}`
+      : `/departments/${targetId}/users/${userId}`;
+
     try {
-      await client.delete(`/agencies/${selectedAgencyId}/users/${userId}`);
+      await client.delete(endpoint);
       showToast('Utilisateur retiré avec succès.', 'success');
       fetchUsers(fetchParams);
       await reloadAssignData();
@@ -282,26 +346,49 @@ export default function UserListPage() {
   }
 
   async function reloadAssignData() {
-    if (!selectedAgencyId) return;
-    try {
-      const [agencyRes, usersRes] = await Promise.all([
-        client.get(`/agencies/${selectedAgencyId}`),
-        client.get('/users', { params: { per_page: 100 } }),
-      ]);
-      const agencyData: any = agencyRes.data;
-      const data = agencyData.data ?? agencyData;
-      setAssignedUsers(data.assigned_users ?? []);
+    if (assignTargetType === 'agency') {
+      if (!selectedAgencyId) return;
+      try {
+        const [agencyRes, usersRes] = await Promise.all([
+          client.get(`/agencies/${selectedAgencyId}`),
+          client.get('/users', { params: { per_page: 100 } }),
+        ]);
+        const data = agencyRes.data.data ?? agencyRes.data;
+        setAssignedUsers(data.assigned_users ?? []);
 
-      const assignedIds = new Set((data.assigned_users ?? []).map((u: any) => u.id));
-      const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
-        (u: UserListItem) =>
-          !assignedIds.has(u.id) &&
-          !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
-      );
-      setAvailableUsers(available);
-      setSelectedAssignIds(new Set());
-    } catch {
-      // silent
+        const assignedIds = new Set((data.assigned_users ?? []).map((u: any) => u.id));
+        const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
+          (u: UserListItem) =>
+            !assignedIds.has(u.id) &&
+            !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
+        );
+        setAvailableUsers(available);
+        setSelectedAssignIds(new Set());
+      } catch { /* silent */ }
+    } else {
+      if (!selectedDepartmentId) return;
+      const dept = departments.find((d) => d.id === selectedDepartmentId);
+      if (!dept) return;
+      try {
+        const [agencyRes, deptRes] = await Promise.all([
+          client.get(`/agencies/${dept.agency_id}`),
+          client.get(`/departments/${selectedDepartmentId}/users`),
+        ]);
+        const agencyData = agencyRes.data.data ?? agencyRes.data;
+        const agencyUsers: AssignedUser[] = agencyData.assigned_users ?? [];
+        const deptUsersRaw: any[] = deptRes.data.data ?? deptRes.data;
+        const deptUserIds = new Set(deptUsersRaw.map((u: any) => u.id));
+
+        setAssignedUsers(deptUsersRaw.map((u: any) => ({ ...u, pivot: u.pivot ?? null })));
+
+        const available: UserListItem[] = agencyUsers.filter(
+          (u: AssignedUser) =>
+            !deptUserIds.has(u.id) &&
+            !NON_ASSIGNABLE_ROLES.has((u as any).role?.name ?? '')
+        );
+        setAvailableUsers(available as UserListItem[]);
+        setSelectedAssignIds(new Set());
+      } catch { /* silent */ }
     }
   }
 
@@ -317,6 +404,33 @@ export default function UserListPage() {
       showToast(extractErrorMessage(err, 'Impossible de supprimer cet utilisateur.'), 'error');
     } finally {
       setDeleteSubmitting(false);
+    }
+  }
+
+  async function handleCreateUser() {
+    setCreateErrors({});
+    setCreateSubmitting(true);
+    try {
+      await usersApi.create(createForm);
+      showToast('Utilisateur créé avec succès.', 'success');
+      setCreateOpen(false);
+      setCreateForm({
+        username: '',
+        email: '',
+        password: 'password',
+        password_confirmation: 'password',
+        first_name: '',
+        last_name: '',
+        phone: '',
+        role_id: '',
+      });
+      fetchUsers(fetchParams);
+    } catch (err) {
+      const msg = extractErrorMessage(err);
+      if (msg) showToast(msg, 'error');
+      setCreateErrors(extractFieldErrors(err) as Record<string, string>);
+    } finally {
+      setCreateSubmitting(false);
     }
   }
 
@@ -367,26 +481,28 @@ export default function UserListPage() {
             />
           </div>
         </div>
-        <div className="w-56">
-          <Select
-            label="Agence"
-            value={selectedAgencyId}
-            onChange={(e) => handleAgencyChange(e.target.value)}
-          >
-            <option value="">Toutes les agences</option>
-            {agencies.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {currentUser?.role?.name !== 'responsable-departement' && (
+          <div className="w-56">
+            <Select
+              label="Agence"
+              value={selectedAgencyId}
+              onChange={(e) => handleAgencyChange(e.target.value)}
+            >
+              <option value="">Toutes les agences</option>
+              {agencies.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="w-56">
           <Select
             label="Département"
             value={selectedDepartmentId}
             onChange={(e) => handleDepartmentChange(e.target.value)}
-            disabled={!selectedAgencyId}
+            disabled={!selectedAgencyId && currentUser?.role?.name !== 'responsable-departement'}
           >
             <option value="">Tous les départements</option>
             {departments.map((d) => (
@@ -396,14 +512,26 @@ export default function UserListPage() {
             ))}
           </Select>
         </div>
-        {selectedAgencyId && canManageUsers && (
-          <div className="sm:w-44">
-            <Button onClick={openAssignModal}>
+        <div className="flex gap-3">
+          {canManageUsers && (
+            <Button onClick={() => setCreateOpen(true)}>
+              <UserPlus className="h-4 w-4" />
+              Créer
+            </Button>
+          )}
+          {selectedAgencyId && !selectedDepartmentId && canManageUsers && (
+            <Button onClick={() => openAssignModal('agency')}>
               <UserPlus className="h-4 w-4" />
               Assigner
             </Button>
-          </div>
-        )}
+          )}
+          {selectedDepartmentId && canManageUsers && (
+            <Button onClick={() => openAssignModal('department')}>
+              <UserPlus className="h-4 w-4" />
+              Assigner
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
@@ -603,11 +731,15 @@ export default function UserListPage() {
         </form>
       </Modal>
 
-      {/* Modal assignation agence */}
+      {/* Modal assignation */}
       <Modal
         isOpen={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
-        title={selectedAgencyId ? `Assigner des utilisateurs — ${agencies.find((a) => a.id === selectedAgencyId)?.name ?? ''}` : 'Assigner'}
+        title={
+          assignTargetType === 'agency'
+            ? `Assigner des utilisateurs — ${agencies.find((a) => a.id === selectedAgencyId)?.name ?? ''}`
+            : `Assigner des utilisateurs — ${departments.find((d) => d.id === selectedDepartmentId)?.name ?? ''}`
+        }
         maxWidth="max-w-lg"
       >
         <div className="flex flex-col gap-4">
@@ -633,7 +765,8 @@ export default function UserListPage() {
                         className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                       >
                         <div className="flex items-center gap-2 text-sm">
-                          {u.pivot?.is_primary && <Badge variant="warning">Chef</Badge>}
+                          {assignTargetType === 'agency' && u.pivot?.is_primary && <Badge variant="warning">Chef</Badge>}
+                          {assignTargetType === 'department' && u.pivot?.is_department_chief && <Badge variant="warning">Chef</Badge>}
                           <span className="font-medium text-gray-800 dark:text-gray-100">
                             {u.name}
                           </span>
@@ -643,7 +776,7 @@ export default function UserListPage() {
                           type="button"
                           onClick={() => handleRemoveUser(u.id)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                          title="Retirer de l'agence"
+                          title="Retirer"
                         >
                           <UserMinus className="h-4 w-4" />
                         </button>
@@ -729,6 +862,89 @@ export default function UserListPage() {
         onConfirm={handleDeleteUser}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* Modal création utilisateur */}
+      <Modal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Créer un utilisateur"
+        maxWidth="max-w-lg"
+      >
+        <form
+          onSubmit={(e) => { e.preventDefault(); handleCreateUser(); }}
+          className="flex flex-col gap-4"
+        >
+          {Object.keys(createErrors).length > 0 && (
+            <Alert variant="error">{Object.values(createErrors).join(' ')}</Alert>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              label="Prénom"
+              name="first_name"
+              value={createForm.first_name ?? ''}
+              onChange={(e) => setCreateForm((p) => ({ ...p, first_name: e.target.value }))}
+              error={createErrors.first_name}
+            />
+            <Input
+              label="Nom"
+              name="last_name"
+              value={createForm.last_name ?? ''}
+              onChange={(e) => setCreateForm((p) => ({ ...p, last_name: e.target.value }))}
+              error={createErrors.last_name}
+            />
+          </div>
+
+          <Input
+            label="Nom d'utilisateur"
+            name="username"
+            required
+            value={createForm.username}
+            onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
+            error={createErrors.username}
+          />
+
+          <Input
+            label="Adresse email"
+            type="email"
+            name="email"
+            required
+            value={createForm.email}
+            onChange={(e) => setCreateForm((p) => ({ ...p, email: e.target.value }))}
+            error={createErrors.email}
+          />
+
+          <Input
+            label="Téléphone"
+            name="phone"
+            value={createForm.phone ?? ''}
+            onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))}
+            error={createErrors.phone}
+          />
+
+          <Select
+            label="Rôle"
+            value={createForm.role_id ?? ''}
+            onChange={(e) => setCreateForm((p) => ({ ...p, role_id: e.target.value }))}
+          >
+            <option value="">— Aucun rôle —</option>
+            {nonChiefRoles.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </Select>
+
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              Annuler
+            </Button>
+            <Button type="submit" isLoading={createSubmitting}>
+              Créer
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

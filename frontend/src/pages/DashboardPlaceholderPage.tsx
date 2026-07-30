@@ -85,150 +85,212 @@ function AdminDashboard() {
 
 function AgencyChiefDashboard() {
   const { user } = useAuth();
-  const assignment = user?.assignments?.find((a: any) => a.pivot?.is_primary === true);
+  const assignments = user?.assignments?.filter((a: any) => a.pivot?.is_primary === true) ?? [];
   const [agency, setAgency] = useState<Agency | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!assignment?.id) { setLoading(false); return; }
-    client.get(`/agencies/${assignment.id}`)
+    if (assignments.length === 0) { setLoading(false); return; }
+    client.get(`/agencies/${assignments[0].id}`)
       .then(({ data }) => setAgency(data.data ?? data))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [assignment?.id]);
+  }, [assignments]);
 
   if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
+  if (!agency) return <p className="text-sm text-gray-400">Aucune agence assignée.</p>;
+
+  const deptCount = agency.departments?.length ?? 0;
+  const userCount = agency.assigned_users?.length ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-        Tableau de bord — {agency?.name ?? 'Agence'}
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{agency.name}</h1>
+        <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+          {agency.code}
+        </span>
+      </div>
 
-      {agency && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-1 text-sm font-semibold text-gray-500 uppercase tracking-wide">Agence</h2>
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">{agency.name}</p>
-          <p className="text-sm text-gray-500">{agency.code} — {agency.city ?? agency.country}</p>
-        </div>
-      )}
-
-      {agency && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            Départements ({agency.departments?.length ?? 0})
-          </h2>
-          {agency.departments && agency.departments.length > 0 ? (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {agency.departments.map((d) => (
-                <div key={d.id} className="flex items-center justify-between py-2.5">
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{d.name}</span>
-                  <span className="text-xs text-gray-400">{d.description ?? '—'}</span>
-                </div>
-              ))}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Link to={`/departments?agency_id=${agency.id}`} className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+              <FolderTree className="h-5 w-5" />
             </div>
-          ) : (
-            <p className="text-sm text-gray-400">Aucun département.</p>
-          )}
-        </div>
-      )}
-
-      {agency && (
+            <div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{deptCount}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Départements</p>
+            </div>
+          </div>
+        </Link>
+        <Link to={`/users?agency_id=${agency.id}`} className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{userCount}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Utilisateurs</p>
+            </div>
+          </div>
+        </Link>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            Utilisateurs de l'agence ({agency.assigned_users?.length ?? 0})
-          </h2>
-          {agency.assigned_users && agency.assigned_users.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                    <th className="pb-2 pr-4 font-medium">Nom</th>
-                    <th className="pb-2 pr-4 font-medium">Email</th>
-                    <th className="pb-2 font-medium">Rôle</th>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{agency.country}</p>
+              <p className="text-xs text-gray-400">{agency.city ?? '—'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-1 text-sm font-semibold text-gray-500 uppercase tracking-wide">Informations</h2>
+        <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+          <div><span className="text-gray-400">Adresse :</span><br /><span className="text-gray-800 dark:text-gray-100">{agency.full_address ?? '—'}</span></div>
+          <div><span className="text-gray-400">Téléphone :</span><br /><span className="text-gray-800 dark:text-gray-100">{agency.phone ?? '—'}</span></div>
+          <div><span className="text-gray-400">Email :</span><br /><span className="text-gray-800 dark:text-gray-100">{agency.email ?? '—'}</span></div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+          Départements ({deptCount})
+        </h2>
+        {deptCount > 0 ? (
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {agency.departments?.map((d) => (
+              <div key={d.id} className="flex items-center justify-between py-2.5">
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{d.name}</span>
+                <span className="text-xs text-gray-400">{d.description ?? '—'}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">Aucun département.</p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+          Utilisateurs ({userCount})
+        </h2>
+        {userCount > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                  <th className="pb-2 pr-4 font-medium">Nom</th>
+                  <th className="pb-2 pr-4 font-medium">Email</th>
+                  <th className="pb-2 font-medium">Rôle</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {agency.assigned_users?.map((u: any) => (
+                  <tr key={u.id}>
+                    <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{u.name}</td>
+                    <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{u.email}</td>
+                    <td className="py-2.5">{roleBadge(u.role?.name)}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {agency.assigned_users.map((u: any) => (
-                    <tr key={u.id}>
-                      <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{u.name}</td>
-                      <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{u.email}</td>
-                      <td className="py-2.5">{roleBadge(u.role?.name)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-400">Aucun utilisateur assigné.</p>
-          )}
-        </div>
-      )}
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">Aucun utilisateur assigné.</p>
+        )}
+      </div>
     </div>
   );
 }
 
 function DeptChiefDashboard() {
   const { user } = useAuth();
-  const deptAssignment = user?.assignments?.find((a: any) => a.pivot?.is_department_chief === true);
-  const [dept, setDept] = useState<any>(null);
+  const deptChiefAssignments = (user?.assignments ?? []).filter(
+    (a: any) => a.pivot?.is_department_chief === true
+  );
+  const [depts, setDepts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!deptAssignment?.pivot?.department_id) { setLoading(false); return; }
-    client.get(`/departments/${deptAssignment.pivot.department_id}`)
-      .then(({ data }) => setDept(data))
+    if (deptChiefAssignments.length === 0) { setLoading(false); return; }
+    client.get('/departments?per_page=100')
+      .then(({ data }) => setDepts(data.data ?? data ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [deptAssignment?.pivot?.department_id]);
+  }, []);
 
   if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
+  if (depts.length === 0) return <p className="text-sm text-gray-400">Aucun département assigné.</p>;
+
+  const totalUsers = depts.reduce((sum, d) => sum + (d.user_count ?? d.assigned_users?.length ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-        Tableau de bord — {dept?.name ?? 'Département'}
-      </h1>
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Mes départements</h1>
 
-      {dept && (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-1 text-sm font-semibold text-gray-500 uppercase tracking-wide">Département</h2>
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">{dept.name}</p>
-          <p className="text-sm text-gray-500">{dept.agency?.name ?? '—'}</p>
-        </div>
-      )}
-
-      {dept && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            Utilisateurs ({dept.assigned_users?.length ?? 0})
-          </h2>
-          {dept.assigned_users && dept.assigned_users.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                    <th className="pb-2 pr-4 font-medium">Nom</th>
-                    <th className="pb-2 pr-4 font-medium">Email</th>
-                    <th className="pb-2 font-medium">Rôle</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {dept.assigned_users.map((u: any) => (
-                    <tr key={u.id}>
-                      <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{u.name}</td>
-                      <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{u.email}</td>
-                      <td className="py-2.5">{roleBadge(u.role?.name)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+              <FolderTree className="h-5 w-5" />
             </div>
-          ) : (
-            <p className="text-sm text-gray-400">Aucun utilisateur assigné.</p>
-          )}
+            <div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{depts.length}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Départements</p>
+            </div>
+          </div>
         </div>
-      )}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalUsers}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Utilisateurs</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{depts[0]?.agency?.name ?? '—'}</p>
+              <p className="text-xs text-gray-400">Agence rattachée</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {depts.map((d) => (
+          <div key={d.id} className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">{d.name}</h2>
+                <p className="text-xs text-gray-400">{d.description ?? d.agency?.name ?? '—'}</p>
+              </div>
+              <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-300">
+                {d.user_count ?? d.assigned_users?.length ?? 0} utilisateur{(d.user_count ?? d.assigned_users?.length ?? 0) > 1 ? 's' : ''}
+              </span>
+            </div>
+            <Link
+              to={`/users?department_id=${d.id}`}
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
+            >
+              <Users className="h-4 w-4" />
+              Voir les utilisateurs
+            </Link>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

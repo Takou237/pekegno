@@ -39,6 +39,17 @@ export interface UserListParams {
   with?: string;
 }
 
+export interface CreateUserPayload {
+  username: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  role_id?: string;
+}
+
 export interface UpdateUserPayload {
   first_name?: string;
   last_name?: string;

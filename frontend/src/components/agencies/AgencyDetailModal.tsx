@@ -61,6 +61,19 @@ export function AgencyDetailModal({
         </div>
       ) : (
         <div className="flex flex-col gap-5">
+          {(() => {
+            const chief = display.assigned_users?.find((u) => u.pivot?.is_primary === true);
+            return chief ? (
+              <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
+                <p className="mb-1 text-xs font-medium uppercase text-amber-600 dark:text-amber-400">
+                  Chef d&apos;agence
+                </p>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{chief.name}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{chief.email}</p>
+              </div>
+            ) : null;
+          })()}
+
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
             <div>
               <dt className="text-xs font-medium uppercase text-gray-400">Code</dt>

@@ -14,7 +14,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
 import { AgencyDetailModal } from '@/components/agencies/AgencyDetailModal';
 import { AgencyChiefAssignModal } from '@/components/agencies/AgencyChiefAssignModal';
-import { canCreateAgency, canDeleteAgency, canEditAgency, canManageTrash } from '@/utils/agencyPermissions';
+import { canAssignAgencyChief, canCreateAgency, canDeleteAgency, canEditAgency, canManageTrash } from '@/utils/agencyPermissions';
 import type { Agency, AgencyListParams, PaginationMeta } from '@/types/agency';
 
 const SORT_OPTIONS: { value: NonNullable<AgencyListParams['sort_by']>; label: string }[] = [
@@ -242,16 +242,18 @@ export default function AgencyListPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
+                        {canAssignAgencyChief(user) && (
+                          <button
+                            type="button"
+                            onClick={() => setChiefAgency(agency)}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
+                            title="Assigner un chef d'agence"
+                          >
+                            <ShieldCheck className="h-4 w-4" />
+                          </button>
+                        )}
                         {canEditAgency(user) && (
                           <>
-                            <button
-                              type="button"
-                              onClick={() => setChiefAgency(agency)}
-                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
-                              title="Assigner un chef d'agence"
-                            >
-                              <ShieldCheck className="h-4 w-4" />
-                            </button>
                             <button
                               type="button"
                               onClick={() => navigate(`/users?agency_id=${agency.id}`)}

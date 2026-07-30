@@ -193,20 +193,22 @@ export default function DepartmentListPage() {
             />
           </div>
         </div>
-        <div className="sm:w-64">
-          <Select
-            label="Agence"
-            value={agencyFilter}
-            onChange={(e) => setAgencyFilter(e.target.value)}
-          >
-            <option value="">Toutes les agences</option>
-            {agencies.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.code} — {a.name}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {user?.role?.name !== 'responsable-departement' && (
+          <div className="sm:w-64">
+            <Select
+              label="Agence"
+              value={agencyFilter}
+              onChange={(e) => setAgencyFilter(e.target.value)}
+            >
+              <option value="">Toutes les agences</option>
+              {agencies.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.code} — {a.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
@@ -226,7 +228,8 @@ export default function DepartmentListPage() {
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
                   <th className="px-5 py-3 font-medium">Nom</th>
-                  <th className="px-5 py-3 font-medium">Chef de département</th>
+                  <th className="px-5 py-3 font-medium">Chef</th>
+                  <th className="px-5 py-3 font-medium">Effectif</th>
                   <th className="px-5 py-3 font-medium">Agence</th>
                   <th className="px-5 py-3 font-medium text-right">Actions</th>
                 </tr>
@@ -241,6 +244,9 @@ export default function DepartmentListPage() {
                       {dept.department_chief?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {dept.user_count ?? 0}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {dept.agency?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3">
@@ -253,6 +259,14 @@ export default function DepartmentListPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/users?agency_id=${dept.agency_id}&department_id=${dept.id}`)}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
+                          title="Voir les utilisateurs"
+                        >
+                          <Users className="h-4 w-4" />
+                        </button>
                         {canEditDepartment(user) && (
                           <>
                             <button
@@ -262,14 +276,6 @@ export default function DepartmentListPage() {
                               title="Assigner un chef de département"
                             >
                               <ShieldCheck className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/users?agency_id=${dept.agency_id}&department_id=${dept.id}`)}
-                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
-                              title="Voir les utilisateurs"
-                            >
-                              <Users className="h-4 w-4" />
                             </button>
                             <button
                               type="button"

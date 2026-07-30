@@ -1,5 +1,6 @@
 import { client } from './client';
 import type {
+  CreateUserPayload,
   RoleListItem,
   UpdateUserPayload,
   UserListParams,
@@ -10,6 +11,11 @@ import type { PaginatedResponse } from '@/types/agency';
 export const usersApi = {
   async list(params: UserListParams = {}): Promise<PaginatedResponse<UserListItem>> {
     const { data } = await client.get<PaginatedResponse<UserListItem>>('/users', { params });
+    return data;
+  },
+
+  async create(payload: CreateUserPayload): Promise<UserListItem> {
+    const { data } = await client.post<UserListItem>('/users', payload);
     return data;
   },
 

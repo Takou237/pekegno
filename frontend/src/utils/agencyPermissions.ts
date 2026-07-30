@@ -8,7 +8,7 @@ import type { User } from '@/types/auth';
  * affiché en toast.
  */
 export function canViewAgencies(user: User | null): boolean {
-  return ['super-admin', 'direction-generale', 'responsable-agence'].includes(
+  return ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     user?.role?.name ?? ''
   );
 }
@@ -26,6 +26,10 @@ export function canEditAgency(user: User | null): boolean {
 
 export function canDeleteAgency(user: User | null): boolean {
   return user?.role?.name === 'super-admin';
+}
+
+export function canAssignAgencyChief(user: User | null): boolean {
+  return ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '');
 }
 
 export function canManageTrash(user: User | null): boolean {

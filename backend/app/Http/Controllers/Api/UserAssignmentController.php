@@ -41,9 +41,8 @@ class UserAssignmentController extends Controller
             ->where('is_primary', true)
             ->exists();
 
-        $stillDeptChief = DB::table('user_assignments')
+        $stillDeptChief = DB::table('department_chiefs')
             ->where('user_id', $user->id)
-            ->where('is_department_chief', true)
             ->exists();
 
         if (! $stillAgencyChief && ! $stillDeptChief) {
@@ -377,57 +376,45 @@ class UserAssignmentController extends Controller
         $user = User::findOrFail($userId);
         $this->assertUserIsAssignable($user);
 
-        $existingAssignment = DB::table('user_assignments')
+        $agencyAssignment = DB::table('user_assignments')
             ->where('user_id', $userId)
             ->where('agency_id', $department->agency_id)
             ->first();
 
-        if (! $existingAssignment) {
+        if (! $agencyAssignment) {
             return response()->json([
                 'message' => "L'utilisateur doit d'abord être assigné à l'agence \"" . ($department->agency?->name ?? '') . "\" pour être nommé chef de département.",
             ], 422);
         }
 
-        DB::transaction(function () use ($department, $userId) {
-            $oldChiefAssignment = DB::table('user_assignments')
+        DB::transaction(function () use ($department, $userId, $agencyAssignment) {
+            $oldChief = DB::table('department_chiefs')
                 ->where('department_id', $department->id)
-                ->where('is_department_chief', true)
                 ->first();
 
-            DB::table('user_assignments')
+            DB::table('department_chiefs')
                 ->where('department_id', $department->id)
-                ->where('is_department_chief', true)
-                ->update(['is_department_chief' => false]);
+                ->delete();
 
-            $existing = DB::table('user_assignments')
-                ->where('user_id', $userId)
-                ->where('agency_id', $department->agency_id)
-                ->first();
+            DB::table('department_chiefs')->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'user_id' => $userId,
+                'department_id' => $department->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-            if ($existing) {
+            if ($agencyAssignment) {
                 DB::table('user_assignments')
-                    ->where('user_id', $userId)
-                    ->where('agency_id', $department->agency_id)
-                    ->update([
-                        'department_id' => $department->id,
-                        'is_department_chief' => true,
-                    ]);
-            } else {
-                DB::table('user_assignments')->insert([
-                    'user_id' => $userId,
-                    'agency_id' => $department->agency_id,
-                    'department_id' => $department->id,
-                    'is_primary' => false,
-                    'is_department_chief' => true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                    ->where('user_id', $agencyAssignment->user_id)
+                    ->where('agency_id', $agencyAssignment->agency_id)
+                    ->update(['is_department_chief' => true]);
             }
 
-            if ($oldChiefAssignment && $oldChiefAssignment->user_id !== $userId) {
-                $oldChief = User::find($oldChiefAssignment->user_id);
-                if ($oldChief) {
-                    $this->clearRoleIfOrphaned($oldChief);
+            if ($oldChief && $oldChief->user_id !== $userId) {
+                $oldChiefUser = User::find($oldChief->user_id);
+                if ($oldChiefUser) {
+                    $this->clearRoleIfOrphaned($oldChiefUser);
                 }
             }
         });
@@ -457,20 +444,23 @@ class UserAssignmentController extends Controller
     {
         $this->authorize('update', $department);
 
-        $oldChiefAssignment = DB::table('user_assignments')
+        $oldChief = DB::table('department_chiefs')
             ->where('department_id', $department->id)
-            ->where('is_department_chief', true)
             ->first();
 
-        DB::table('user_assignments')
+        DB::table('department_chiefs')
             ->where('department_id', $department->id)
-            ->where('is_department_chief', true)
-            ->update(['is_department_chief' => false]);
+            ->delete();
 
-        if ($oldChiefAssignment) {
-            $oldChief = User::find($oldChiefAssignment->user_id);
-            if ($oldChief) {
-                $this->clearRoleIfOrphaned($oldChief);
+        if ($oldChief) {
+            DB::table('user_assignments')
+                ->where('user_id', $oldChief->user_id)
+                ->where('agency_id', $department->agency_id)
+                ->update(['is_department_chief' => false]);
+
+            $oldChiefUser = User::find($oldChief->user_id);
+            if ($oldChiefUser) {
+                $this->clearRoleIfOrphaned($oldChiefUser);
             }
         }
 

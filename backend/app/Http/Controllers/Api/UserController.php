@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\StoreUserRequest;
 use App\Http\Requests\Api\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use OpenApi\Attributes as OA;
 
 class UserController extends Controller
@@ -61,10 +64,32 @@ class UserController extends Controller
             ->when($request->department_id, function ($q, $departmentId) {
                 $q->whereHas('assignments', fn ($q) => $q->where('department_id', $departmentId));
             })
+            ->when($request->user()?->role?->name === 'responsable-departement', function ($q) use ($request) {
+                $deptIds = DB::table('department_chiefs')
+                    ->where('user_id', $request->user()->id)
+                    ->pluck('department_id');
+                $q->whereHas('assignments', fn ($q) => $q->whereIn('department_id', $deptIds));
+            })
             ->orderBy($request->sort ?? 'created_at', $request->order ?? 'desc')
             ->paginate($request->per_page ?? 15);
 
         return UserResource::collection($users);
+    }
+
+    public function store(StoreUserRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $data['password'] = Hash::make($data['password'] ?? 'password');
+
+        $user = User::create($data);
+
+        if (isset($data['role_id'])) {
+            $user->update(['role_id' => $data['role_id']]);
+        }
+
+        return (new UserResource($user->fresh()->load('role')))
+            ->response()
+            ->setStatusCode(201);
     }
 
     #[OA\Get(
