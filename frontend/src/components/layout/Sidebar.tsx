@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Building2, UserRound, Users, FolderTree } from 'lucide-react';
+import { LayoutDashboard, Building2, UserRound, Users, FolderTree, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const ADMIN_ROLES = ['super-admin', 'direction-generale'];
@@ -8,6 +8,7 @@ const ALL_ITEMS = [
   { to: '/agencies', label: 'Agences', icon: Building2, end: false },
   { to: '/departments', label: 'Départements', icon: FolderTree, end: false },
   { to: '/users', label: 'Utilisateurs', icon: Users, end: false },
+  { to: '/privileges', label: 'Privilèges', icon: Shield, end: false },
   { to: '/profile', label: 'Mon profil', icon: UserRound, end: false },
 ];
 const RESTRICTED_ITEMS = [

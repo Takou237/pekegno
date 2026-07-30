@@ -103,28 +103,6 @@ export function AgencyDetailModal({
             )}
           </div>
 
-          <div>
-            <p className="mb-2 text-xs font-medium uppercase text-gray-400">
-              Utilisateurs assignés ({display.assigned_users?.length ?? 0})
-            </p>
-            {(display.assigned_users?.length ?? 0) === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Aucun utilisateur assigné.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {(display.assigned_users ?? []).map((assignedUser) => (
-                  <li key={assignedUser.id} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                    {assignedUser.pivot?.is_primary && (
-                      <Badge variant="warning">Chef</Badge>
-                    )}
-                    <span>{assignedUser.name ?? assignedUser.email}</span>
-                    <span className="text-gray-400">— {assignedUser.email}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </div>
       )}
     </Modal>

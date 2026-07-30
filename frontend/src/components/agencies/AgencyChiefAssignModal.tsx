@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/useToast';
 import { extractErrorMessage } from '@/api/errors';
 import { client } from '@/api/client';
 import { usersApi } from '@/api/users.api';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { Agency } from '@/types/agency';
 import type { RoleListItem } from '@/types/user';
 
@@ -36,6 +37,9 @@ export function AgencyChiefAssignModal({
   const [newRoleId, setNewRoleId] = useState('');
   const [roles, setRoles] = useState<RoleListItem[]>([]);
   const [isRoleSubmitting, setIsRoleSubmitting] = useState(false);
+  const [showFireConfirm, setShowFireConfirm] = useState(false);
+  const [fireSubmitting, setFireSubmitting] = useState(false);
+  const [assignedUserIds, setAssignedUserIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isOpen || !agency) return;
@@ -45,6 +49,7 @@ export function AgencyChiefAssignModal({
     setSelectedUserId('');
     setCurrentChiefId('');
     setCurrentChiefName('');
+    setAssignedUserIds(new Set());
 
     client
       .get(`/agencies/${agency.id}`)
@@ -56,6 +61,7 @@ export function AgencyChiefAssignModal({
         setCurrentChiefId(chiefId);
         setCurrentChiefName(chief ? `${chief.first_name ?? ''} ${chief.last_name ?? ''}`.trim() || chief.email : '');
         setSelectedUserId(chiefId);
+        setAssignedUserIds(new Set(assigned.map((u: any) => u.id)));
       })
       .catch(() => setError('Impossible de charger les données.'))
       .finally(() => setIsLoading(false));
@@ -64,12 +70,18 @@ export function AgencyChiefAssignModal({
   }, [isOpen, agency]);
 
   async function fetchUsers(query: string): Promise<AutocompleteOption[]> {
+    if (assignedUserIds.size === 0) return [];
+
     const { data } = await client.get('/users', {
       params: { search: query, per_page: 10 },
     });
     const users = data.data ?? [];
     return users
-      .filter((u: any) => u.role?.name !== 'super-admin' && u.role?.name !== 'direction-generale')
+      .filter((u: any) =>
+        assignedUserIds.has(u.id) &&
+        u.role?.name !== 'super-admin' &&
+        u.role?.name !== 'direction-generale'
+      )
       .map((u: any) => ({
         id: u.id,
         label: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
@@ -131,6 +143,23 @@ export function AgencyChiefAssignModal({
     setShowOldChiefDialog(false);
     onSaved();
     onClose();
+  }
+
+  async function handleFireChief() {
+    if (!currentChiefId) return;
+    setFireSubmitting(true);
+    try {
+      await usersApi.remove(currentChiefId);
+      showToast('Utilisateur licencié avec succès.', 'success');
+      setShowFireConfirm(false);
+      setShowOldChiefDialog(false);
+      onSaved();
+      onClose();
+    } catch (err) {
+      showToast(extractErrorMessage(err, 'Impossible de licencier cet utilisateur.'), 'error');
+    } finally {
+      setFireSubmitting(false);
+    }
   }
 
   return (
@@ -200,20 +229,35 @@ export function AgencyChiefAssignModal({
             ))}
           </Select>
 
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={handleSkipRole}>
-              Ignorer
+          <div className="flex items-center justify-between gap-3">
+            <Button type="button" variant="danger" onClick={() => setShowFireConfirm(true)}>
+              Licencier
             </Button>
-            <Button
-              onClick={handleAssignNewRole}
-              isLoading={isRoleSubmitting}
-              disabled={!newRoleId}
-            >
-              Assigner le rôle
-            </Button>
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={handleSkipRole}>
+                Ignorer
+              </Button>
+              <Button
+                onClick={handleAssignNewRole}
+                isLoading={isRoleSubmitting}
+                disabled={!newRoleId}
+              >
+                Assigner le rôle
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={showFireConfirm}
+        onCancel={() => setShowFireConfirm(false)}
+        onConfirm={handleFireChief}
+        title="Licencier l'ancien chef"
+        message={`Êtes-vous sûr de vouloir licencier ${currentChiefName} ? Cette action est irréversible.`}
+        confirmLabel="Licencier"
+        isLoading={fireSubmitting}
+      />
     </>
   );
 }

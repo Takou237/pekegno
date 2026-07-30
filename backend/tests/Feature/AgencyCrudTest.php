@@ -240,24 +240,21 @@ class AgencyCrudTest extends TestCase
         $this->assertSoftDeleted('agencies', ['id' => $agency->id]);
     }
 
-    public function test_cannot_delete_agency_with_departments(): void
+    public function test_can_delete_agency_with_departments(): void
     {
         Sanctum::actingAs($this->admin);
 
         $agency = Agency::factory()->create();
-        Department::factory()->create(['agency_id' => $agency->id]);
+        $department = Department::factory()->create(['agency_id' => $agency->id]);
 
         $response = $this->deleteJson("/api/agencies/{$agency->id}");
 
-        $response->assertConflict()
-            ->assertJsonFragment([
-                'message' => 'Impossible de supprimer cette agence car elle contient des départements ou des utilisateurs assignés.',
-            ]);
-
-        $this->assertDatabaseHas('agencies', ['id' => $agency->id, 'deleted_at' => null]);
+        $response->assertNoContent();
+        $this->assertSoftDeleted('agencies', ['id' => $agency->id]);
+        $this->assertSoftDeleted('departments', ['id' => $department->id]);
     }
 
-    public function test_cannot_delete_agency_with_assigned_users(): void
+    public function test_can_delete_agency_with_assigned_users(): void
     {
         Sanctum::actingAs($this->admin);
 
@@ -267,7 +264,12 @@ class AgencyCrudTest extends TestCase
 
         $response = $this->deleteJson("/api/agencies/{$agency->id}");
 
-        $response->assertConflict();
+        $response->assertNoContent();
+        $this->assertSoftDeleted('agencies', ['id' => $agency->id]);
+        $this->assertDatabaseMissing('user_assignments', [
+            'agency_id' => $agency->id,
+            'user_id' => $user->id,
+        ]);
     }
 
     // ─── TRASH / RESTORE / FORCE DELETE ──────────────────

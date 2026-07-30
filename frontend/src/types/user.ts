@@ -50,8 +50,15 @@ export interface UpdateUserPayload {
   password_confirmation?: string;
 }
 
+export interface Permission {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
 export interface RoleListItem {
   id: string;
   name: string;
   description: string | null;
+  permissions?: Permission[];
 }

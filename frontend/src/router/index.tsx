@@ -14,6 +14,7 @@ import AgencyTrashPage from '@/pages/agencies/AgencyTrashPage';
 import UserListPage from '@/pages/users/UserListPage';
 import DepartmentListPage from '@/pages/departments/DepartmentListPage';
 import DepartmentTrashPage from '@/pages/departments/DepartmentTrashPage';
+import RolesPrivilegesPage from '@/pages/RolesPrivilegesPage';
 
 export const router = createBrowserRouter([
   {
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
           { path: '/users', element: <UserListPage /> },
           { path: '/departments', element: <DepartmentListPage /> },
           { path: '/departments/trash', element: <DepartmentTrashPage /> },
+          { path: '/privileges', element: <RolesPrivilegesPage /> },
         ],
       },
     ],

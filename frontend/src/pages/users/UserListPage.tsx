@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search, Pencil, Eye, UserPlus, UserMinus } from 'lucide-react';
+import { Search, Pencil, Eye, Trash2, UserPlus, UserMinus } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { usersApi } from '@/api/users.api';
 import { agenciesApi } from '@/api/agencies.api';
@@ -63,6 +63,8 @@ export default function UserListPage() {
   const [assignSubmitting, setAssignSubmitting] = useState(false);
 
   const [confirmRoleRemove, setConfirmRoleRemove] = useState<(() => Promise<void>) | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const canManageUsers = ['super-admin', 'direction-generale'].includes(
     currentUser?.role?.name ?? ''
@@ -303,6 +305,21 @@ export default function UserListPage() {
     }
   }
 
+  async function handleDeleteUser() {
+    if (!deleteTarget) return;
+    setDeleteSubmitting(true);
+    try {
+      await usersApi.remove(deleteTarget.id);
+      showToast('Utilisateur supprimé avec succès.', 'success');
+      setDeleteTarget(null);
+      fetchUsers(fetchParams);
+    } catch (err) {
+      showToast(extractErrorMessage(err, 'Impossible de supprimer cet utilisateur.'), 'error');
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }
+
   function getRoleBadge(roleName: string | null | undefined) {
     switch (roleName) {
       case 'super-admin':
@@ -458,6 +475,14 @@ export default function UserListPage() {
                             title="Modifier"
                           >
                             <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(u)}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       )}
@@ -687,6 +712,22 @@ export default function UserListPage() {
         variant="danger"
         onConfirm={() => confirmRoleRemove?.()}
         onCancel={() => setConfirmRoleRemove(null)}
+      />
+
+      {/* Confirmation suppression */}
+      <ConfirmDialog
+        isOpen={Boolean(deleteTarget)}
+        title="Supprimer cet utilisateur ?"
+        message={
+          deleteTarget
+            ? `Êtes-vous sûr de vouloir supprimer définitivement ${deleteTarget.name} ? Cette action est irréversible.`
+            : ''
+        }
+        confirmLabel="Oui, supprimer"
+        variant="danger"
+        isLoading={deleteSubmitting}
+        onConfirm={handleDeleteUser}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );
