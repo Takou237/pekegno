@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -50,10 +49,10 @@ class Agency extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('name', 'like', "%{$search}%")
-              ->orWhere('code', 'like', "%{$search}%")
-              ->orWhere('email', 'like', "%{$search}%")
-              ->orWhere('city', 'like', "%{$search}%")
-              ->orWhere('country', 'like', "%{$search}%");
+                ->orWhere('code', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('city', 'like', "%{$search}%")
+                ->orWhere('country', 'like', "%{$search}%");
         });
     }
 
@@ -69,17 +68,16 @@ class Agency extends Model
     public static function generateNextCode(): string
     {
         $lastCode = static::withTrashed()
-            ->orderByRaw("SUBSTRING(code FROM 3)::int DESC")
             ->where('code', 'LIKE', 'AG%')
-            ->value('code');
+            ->pluck('code')
+            ->map(function (string $code): int {
+                return preg_match('/^AG(\d+)$/', $code, $matches) ? (int) $matches[1] : 0;
+            })
+            ->max();
 
-        if ($lastCode && preg_match('/^AG(\d+)$/', $lastCode, $matches)) {
-            $next = (int) $matches[1] + 1;
-        } else {
-            $next = 1;
-        }
+        $next = ($lastCode ?: 0) + 1;
 
-        return 'AG' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+        return 'AG'.str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 
     public function getFullAddressAttribute(): ?string

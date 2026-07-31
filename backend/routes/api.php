@@ -12,7 +12,9 @@ use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\UserAssignmentController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserRoleController;
@@ -55,6 +57,18 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::post('/departments/{department}/users', [UserAssignmentController::class, 'assignUserToDepartment']);
     Route::delete('/departments/{department}/users/{user}', [UserAssignmentController::class, 'removeUserFromDepartment']);
     Route::apiResource('categories', CategoryController::class);
+
+    Route::get('/services/trash', [ServiceController::class, 'trash']);
+    Route::post('/services/{service}/restore', [ServiceController::class, 'restore']);
+    Route::delete('/services/{service}/force-delete', [ServiceController::class, 'forceDelete']);
+    Route::apiResource('services', ServiceController::class);
+
+    Route::get('/services/{service}/promotions', [PromotionController::class, 'indexForService']);
+    Route::post('/services/{service}/promotions', [PromotionController::class, 'store']);
+    Route::put('/promotions/{promotion}', [PromotionController::class, 'update']);
+    Route::delete('/promotions/{promotion}', [PromotionController::class, 'destroy']);
+    Route::get('/promotions', [PromotionController::class, 'index']);
+
     Route::apiResource('users', UserController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 
     Route::get('/users/{user}/role', [UserRoleController::class, 'show']);

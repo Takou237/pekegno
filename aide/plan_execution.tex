@@ -1,0 +1,935 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[french]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{mdframed}
+\usepackage{enumitem}
+\usepackage{tabularx}
+
+\geometry{margin=2cm, top=2.5cm, bottom=2.5cm}
+
+\definecolor{primary}{RGB}{41, 128, 185}
+\definecolor{secondary}{RGB}{52, 73, 94}
+\definecolor{accent}{RGB}{231, 76, 60}
+\definecolor{success}{RGB}{39, 174, 96}
+\definecolor{warning}{RGB}{243, 156, 18}
+\definecolor{lightgray}{RGB}{236, 240, 241}
+\definecolor{dev1}{RGB}{41, 128, 185}
+\definecolor{dev2}{RGB}{231, 76, 60}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=primary
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textbf{PEKEGNO} -- Plan d'Exécution}
+\fancyhead[R]{\thepage}
+\fancyfoot[C]{Confidentiel}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    {\Huge \textbf{PEKEGNO}}\\[0.8cm]
+    {\Large Plan d'Exécution -- 3 Mois}\\[1.5cm]
+    {\color{primary}\hrule height 3pt}\vspace{1cm}
+    {\LARGE \textbf{Organisation du Travail}}\\[0.5cm]
+    {\Large 2 Développeurs Fullstack + Chef de Projet}\\[2cm]
+    \vfill
+    \begin{tabularx}{0.7\textwidth}{>{\raggedleft\arraybackslash}X >{\raggedright\arraybackslash}X}
+        \textbf{Equipe} & 3 personnes \\
+        \textbf{Durée} & 3 mois (90 jours) \\
+        \textbf{Début} & \today \\
+        \textbf{Version} & 1.0 \\
+    \end{tabularx}
+    \vspace{2cm}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ===========================================================================
+\chapter{Organisation de l'Équipe}
+% ===========================================================================
+
+\section{Composition}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    \textbf{Rôle} & \textbf{Personne} \\
+    \midrule
+    Chef de Projet & Topo Boss (validation, recette) \\
+    Développeur Fullstack \#1 & Dev1 \\
+    Développeur Fullstack \#2 & Dev2 \\
+    \bottomrule
+\end{tabularx}
+
+\section{Répartition des Responsabilités}
+
+\subsection*{Chef de Projet (Topo Boss)}
+\begin{itemize}
+    \item Valide les specs et priorise les modules
+    \item Recette après chaque module (validation avant de passer au suivant)
+    \item Décide des ajustements en cours de route
+    \item Fournit les accès et informations nécessaires
+\end{itemize}
+
+\subsection*{Dev1 (Fullstack)}
+\begin{itemize}
+    \item Backend : Modélisation BDD, API Laravel, migrations, seeders
+    \item Frontend : Composants React, pages, intégration API
+    \item \textbf{Lead technique} : Architecture, revue de code, décisions tech
+    \item Modules principaux : Agences, Services, Formations, Facturation, Créances
+\end{itemize}
+
+\subsection*{Dev2 (Fullstack)}
+\begin{itemize}
+    \item Backend : API Laravel, intégrations paiement, notifications, jobs
+    \item Frontend : Composants React, pages, tableaux de bord
+    \item \textbf{Lead fonctionnel} : CRM, Commercial, Comptabilité, Rapports
+    \item Modules principaux : CRM, Ventes, Clients, Comptabilité, Tableaux de bord
+\end{itemize}
+
+\section{Méthodologie de Travail}
+
+\begin{mdframed}[backgroundcolor=lightgray!30, linecolor=primary]
+    \textbf{Processus par module :}
+    Dev1 écrit les migrations + seeders $\rightarrow$ Dev1 écrit l'API $\rightarrow$ Dev2 écrit le frontend $\rightarrow$ Tests $\rightarrow$ Recette Topo Boss
+\end{mdframed}
+
+\subsection*{Règles d'Or}
+\begin{enumerate}
+    \item \textbf{Un module à la fois} -- on termine complètement un module avant de commencer le suivant
+    \item \textbf{Tests avant recette} -- Dev1 teste l'API, Dev2 teste le frontend, puis validation croisée
+    \item \textbf{Commit quotidien} -- fin de journée, tout ce qui est fonctionnel est commité
+    \item \textbf{Point journalier (15 min)} -- chaque matin, synchronisation Dev1 + Dev2
+    \item \textbf{Recette Topo Boss} -- validation obligatoire avant de passer au module suivant
+\end{enumerate}
+
+% ===========================================================================
+\chapter{Phases et Étapes}
+% ===========================================================================
+
+\section{Vue d'Ensemble des 3 Mois}
+
+\begin{tabularx}{\textwidth}{C{2.5cm} L{3.5cm} L{2.5cm} L{2.5cm} X}
+    \toprule
+    \textbf{Jours} & \textbf{Phase} & \textbf{Dev1} & \textbf{Dev2} & \textbf{Livrable} \\
+    \midrule
+    1--15 & Socle technique & BDD + Auth + Org & UI Framework + Auth & Auth + CRUD Agences \\
+    16--18 & Services & API Services & UI Services & Catalogue en ligne \\
+    19--48 & Formations & API Formations + Streaming & UI Formations + Lecteur & LMS opérationnel \\
+    49--63 & CRM + Commercial & API CRM + Ventes & UI CRM + Ventes & Pipeline commercial \\
+    64--75 & Facturation + Créances & API Factures + Créances & UI Facturation + Créances & Facturation OK \\
+    76--84 & Compta + Tableaux de bord & API Compta + Stats & UI Dashboard + Graphiques & Reporting OK \\
+    85--90 & Finalisation & Déploiement + Corrections & Tests + Doc & Mise en production \\
+    \bottomrule
+\end{tabularx}
+
+% ===========================================================================
+\chapter{Phase 1 : Socle Technique (Jours 1--15)}
+% ===========================================================================
+
+\section*{Objectif}
+Mettre en place l'infrastructure complète : base de données, authentification, structure multi-agence, gestion des utilisateurs, rôles et permissions.
+
+\section{Journal de Bord Quotidien}
+
+\subsection*{Jours 1--3 -- Initialisation du Projet}
+
+\textbf{Tâches parallèles :}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Initialiser le projet Laravel 11 + config BDD PostgreSQL + structure de dossiers \\
+    Dev1 & Créer les modèles : \texttt{Agency}, \texttt{Department}, \texttt{Category}, \texttt{User}, \texttt{Role}, \texttt{Permission} \\
+    Dev1 & Écrire les migrations : \texttt{create\_agencies\_table}, \texttt{create\_departments\_table}, \texttt{create\_categories\_table} \\
+    Dev2 & Initialiser le projet React + Vite + Tailwind CSS + React Router \\
+    Dev2 & Créer la structure de dossiers frontend : \texttt{components/ui/}, \texttt{pages/}, \texttt{api/}, \texttt{hooks/} \\
+    Dev2 & Configurer Axios client avec intercepteurs JWT \\
+    \bottomrule
+\end{tabularx}
+
+\textbf{Fichiers modifiés par Dev1 :}
+\begin{itemize}
+    \item \texttt{backend/.env} -- config BDD
+    \item \texttt{backend/database/migrations/xxxx\_create\_agencies\_table.php}
+    \item \texttt{backend/database/migrations/xxxx\_create\_departments\_table.php}
+    \item \texttt{backend/database/migrations/xxxx\_create\_categories\_table.php}
+    \item \texttt{backend/app/Models/Agency.php}
+    \item \texttt{backend/app/Models/Department.php}
+    \item \texttt{backend/app/Models/Category.php}
+    \item \texttt{backend/app/Models/User.php}
+    \item \texttt{backend/app/Models/Role.php}
+    \item \texttt{backend/app/Models/Permission.php}
+\end{itemize}
+
+\textbf{Fichiers modifiés par Dev2 :}
+\begin{itemize}
+    \item \texttt{frontend/package.json}
+    \item \texttt{frontend/vite.config.ts}
+    \item \texttt{frontend/tailwind.config.ts}
+    \item \texttt{frontend/src/api/client.ts}
+    \item \texttt{frontend/src/App.tsx}
+    \item \texttt{frontend/src/main.tsx}
+\end{itemize}
+
+\newpage
+\subsection*{Jours 4--6 -- Authentification}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Installer Laravel Sanctum, créer \texttt{LoginController}, \texttt{RegisterController}, \texttt{LogoutController} \\
+    Dev1 & Créer les middlewares : \texttt{EnsureSingleSession}, \texttt{InactivityLogout} \\
+    Dev1 & Écrire migration \texttt{create\_login\_logs\_table} \\
+    Dev2 & Créer \texttt{LoginPage}, \texttt{RegisterPage}, \texttt{TwoFactorPage} \\
+    Dev2 & Créer \texttt{AuthLayout.tsx}, \texttt{ProtectedRoute.tsx}, \texttt{useAuth.ts} \\
+    Dev2 & Gérer le refresh token et la déconnexion automatique \\
+    \bottomrule
+\end{tabularx}
+
+\textbf{Fichiers modifiés par Dev1 :}
+\begin{itemize}
+    \item \texttt{backend/app/Http/Controllers/Api/Auth/LoginController.php}
+    \item \texttt{backend/app/Http/Controllers/Api/Auth/LogoutController.php}
+    \item \texttt{backend/app/Http/Middleware/EnsureSingleSession.php}
+    \item \texttt{backend/app/Http/Middleware/InactivityLogout.php}
+    \item \texttt{backend/database/migrations/xxxx\_create\_login\_logs\_table.php}
+    \item \texttt{backend/config/sanctum.php}
+    \item \texttt{backend/routes/api.php}
+\end{itemize}
+
+\textbf{Fichiers modifiés par Dev2 :}
+\begin{itemize}
+    \item \texttt{frontend/src/pages/auth/LoginPage.tsx}
+    \item \texttt{frontend/src/pages/auth/TwoFactorPage.tsx}
+    \item \texttt{frontend/src/components/layout/AppLayout.tsx}
+    \item \texttt{frontend/src/components/auth/LoginForm.tsx}
+    \item \texttt{frontend/src/api/auth.api.ts}
+    \item \texttt{frontend/src/hooks/useAuth.ts}
+    \item \texttt{frontend/src/router/ProtectedRoute.tsx}
+\end{itemize}
+
+\subsection*{Jours 7--9 -- Gestion des Rôles et Permissions}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer les seeders : \texttt{RoleSeeder}, \texttt{PermissionSeeder}, \texttt{AdminUserSeeder} \\
+    Dev1 & Écrire migrations \texttt{create\_roles\_table}, \texttt{create\_permissions\_table}, \texttt{role\_permission}, \texttt{model\_has\_roles} \\
+    Dev1 & Créer les contrôleurs CRUD : \texttt{RoleController}, \texttt{PermissionController} \\
+    Dev1 & Écrire le middleware \texttt{CheckPermission} \\
+    Dev2 & Créer les pages : \texttt{RoleList}, \texttt{RoleForm}, \texttt{PermissionList} \\
+    Dev2 & Créer \texttt{usePermissions.ts} hook \\
+    Dev2 & Créer \texttt{RoleRoute.tsx} pour le routage basé sur les rôles \\
+    \bottomrule
+\end{tabularx}
+
+\textbf{Fichiers modifiés par Dev1 :}
+\begin{itemize}
+    \item \texttt{backend/database/seeders/RoleSeeder.php}
+    \item \texttt{backend/database/seeders/PermissionSeeder.php}
+    \item \texttt{backend/database/seeders/AdminUserSeeder.php}
+    \item \texttt{backend/app/Http/Controllers/Api/Role/RoleController.php}
+    \item \texttt{backend/app/Http/Controllers/Api/Permission/PermissionController.php}
+    \item \texttt{backend/app/Http/Middleware/CheckPermission.php}
+    \item \texttt{backend/routes/api.php}
+\end{itemize}
+
+\textbf{Fichiers modifiés par Dev2 :}
+\begin{itemize}
+    \item \texttt{frontend/src/pages/roles/RoleList.tsx}
+    \item \texttt{frontend/src/pages/roles/RoleForm.tsx}
+    \item \texttt{frontend/src/pages/permissions/PermissionList.tsx}
+    \item \texttt{frontend/src/hooks/usePermissions.ts}
+    \item \texttt{frontend/src/router/RoleRoute.tsx}
+    \item \texttt{frontend/src/router/index.tsx}
+\end{itemize}
+
+\subsection*{Jours 10--12 -- CRUD Agences, Départements, Catégories}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{AgencyController} (CRUD + archivage) \\
+    Dev1 & Créer \texttt{DepartmentController} (CRUD) \\
+    Dev1 & Créer \texttt{CategoryController} (CRUD) \\
+    Dev1 & Écrire les Form Requests : \texttt{StoreAgencyRequest}, \texttt{UpdateAgencyRequest} \\
+    Dev1 & Écrire les Resources API : \texttt{AgencyResource}, \texttt{DepartmentResource} \\
+    Dev2 & Créer \texttt{AgencyList}, \texttt{AgencyForm}, \texttt{AgencyCard} \\
+    Dev2 & Créer \texttt{DepartmentList}, \texttt{DepartmentForm} \\
+    Dev2 & Créer \texttt{CategoryList}, \texttt{CategoryForm} \\
+    Dev2 & Ajouter le sélecteur d'agence : \texttt{AgencySwitcher.tsx} \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 13--15 -- Gestion des Utilisateurs + Tests Phase 1}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{UserController} (CRUD + affectation agence/département) \\
+    Dev1 & Écrire migration \texttt{create\_user\_assignments\_table} \\
+    Dev1 & Tests unitaires PHPUnit pour l'authentification et les CRUD \\
+    Dev2 & Créer \texttt{UserList}, \texttt{UserForm} (avec sélecteur de rôles) \\
+    Dev2 & Tests frontend : parcours auth + CRUD agences \\
+    \textbf{Boss} & \textbf{Validation Phase 1 : Auth + Structure fonctionnelle} \\
+    \bottomrule
+\end{tabularx}
+
+\textbf{Livrable Phase 1 :} Authentification JWT, CRUD Agences/Départements/Catégories/Utilisateurs, système de rôles et permissions opérationnel.
+
+% ===========================================================================
+\chapter{Phase 2 : Services et Formations (Jours 16--48)}
+% ===========================================================================
+
+\section*{Objectif}
+Implémenter la gestion des services/activités, le catalogue, et le LMS complet (formations, modules, streaming, inscriptions).
+
+\subsection*{Jours 16--18 -- Services et Promotions}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{ServiceController} (CRUD + promotions) \\
+    Dev1 & Créer \texttt{PromotionController} (gestion des promos) \\
+    Dev1 & Écrire migration : \texttt{price\_history} \\
+    Dev1 & Ajouter le trigger de mise à jour de l'historique des prix \\
+    Dev2 & Créer \texttt{ServiceList}, \texttt{ServiceForm} \\
+    Dev2 & Créer \texttt{ServiceCard} pour l'affichage catalogue \\
+    Dev2 & Ajouter la gestion des promotions dans le formulaire service \\
+    \bottomrule
+\end{tabularx}
+
+\textbf{Fichiers modifiés par Dev1 :}
+\begin{itemize}
+    \item \texttt{backend/app/Models/Service.php}
+    \item \texttt{backend/app/Models/Promotion.php}
+    \item \texttt{backend/app/Models/PriceHistory.php}
+    \item \texttt{backend/app/Http/Controllers/Api/Service/ServiceController.php}
+    \item \texttt{backend/database/migrations/xxxx\_create\_services\_table.php}
+    \item \texttt{backend/database/migrations/xxxx\_create\_price\_history\_table.php}
+\end{itemize}
+
+\textbf{Fichiers modifiés par Dev2 :}
+\begin{itemize}
+    \item \texttt{frontend/src/pages/services/ServiceList.tsx}
+    \item \texttt{frontend/src/pages/services/ServiceForm.tsx}
+    \item \texttt{frontend/src/components/services/ServiceCard.tsx}
+    \item \texttt{frontend/src/api/services.api.ts}
+\end{itemize}
+
+\subsection*{Jours 19--21 -- Formations (Backend)}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{TrainingController}, \texttt{TrainingModuleController} \\
+    Dev1 & Migrations : \texttt{trainings}, \texttt{training\_modules}, \texttt{training\_module\_attachments} \\
+    Dev1 & Migrations : \texttt{trainers}, \texttt{trainer\_assignments} \\
+    Dev1 & Configurer le streaming HLS avec AWS S3 + CloudFront \\
+    Dev2 & (travaille sur le lecteur vidéo, voir jour 8) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 22--24 -- Lecteur Vidéo et Streaming (Frontend)}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev2 & Créer \texttt{TrainingList}, \texttt{TrainingForm} \\
+    Dev2 & Créer \texttt{ModuleList} avec drag-and-drop pour l'ordre \\
+    Dev2 & Créer \texttt{ModulePlayer} (lecteur HLS avec hls.js) \\
+    Dev2 & Ajouter la protection anti-téléchargement (désactiver clic droit, overlay) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 25--27 -- Modules Pédagogiques + Upload}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer l'API d'upload de fichiers (S3 presigned URLs) \\
+    Dev1 & Gérer les types de fichiers (vidéo, PDF, document) \\
+    Dev1 & Ajouter la colonne \texttt{stream\_url} et génération des URLs signées \\
+    Dev2 & Créer \texttt{FileUpload} component avec upload progressif \\
+    Dev2 & Intégrer l'upload dans le formulaire des modules \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 28--30 -- Inscriptions aux Formations}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{TrainingEnrollmentController} \\
+    Dev1 & Migrations : \texttt{training\_enrollments}, \texttt{training\_installments}, \texttt{training\_module\_progress} \\
+    Dev1 & Logique de déblocage séquentiel des modules \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 31--33 -- Espace Apprenant (Frontend)}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev2 & Créer l'espace apprenant : vue progression, modules accessibles \\
+    Dev2 & Créer \texttt{EnrollmentStatus} avec indicateur de progression \\
+    Dev2 & Créer la page de visualisation de module (vidéo + PDF) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 34--36 -- Paiements Formation}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{PaymentService} (intégration Orange Money, MTN Mobile Money) \\
+    Dev1 & Créer \texttt{PaymentController} pour initier et confirmer les paiements \\
+    Dev1 & Configurer les webhooks de confirmation de paiement \\
+    Dev2 & Créer le formulaire de paiement en ligne \\
+    Dev2 & Créer le formulaire complémentaire (nom, prénom, nationalité, etc.) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 37--39 -- Gestion Financière des Apprenants}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Logique d'échéances et d'acomptes pour formations présentielles \\
+    Dev1 & Calcul automatique du solde et du statut de solvabilité \\
+    Dev1 & Génération automatique du compte apprenant après paiement \\
+    Dev2 & UI : liste des apprenants avec statut (solvable/non solvable) \\
+    Dev2 & UI : échéances, pénalités, historique des paiements \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 40--42 -- Formateurs}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{TrainerController} (CRUD + planning) \\
+    Dev1 & API d'affectation des formateurs aux formations/modules \\
+    Dev2 & Créer \texttt{TrainerList}, \texttt{TrainerForm}, planning visuel \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 43--48 -- Tests Formations + Recette Phase 2}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Tests unitaires : inscriptions, déblocage modules, paiements \\
+    Dev2 & Tests frontend : parcours apprenant complet, lecteur vidéo \\
+    \textbf{Boss} & \textbf{Validation Phase 2 : LMS opérationnel} \\
+    \bottomrule
+\end{tabularx}
+
+% ===========================================================================
+\chapter{Phase 3 : CRM et Commercial (Jours 49--63)}
+% ===========================================================================
+
+\subsection*{Jours 49--51 -- Commerciaux et Commissions}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{SalesAgentController} (CRUD) \\
+    Dev1 & Migration : \texttt{sales\_agents}, \texttt{sales\_agent\_commission\_tiers} \\
+    Dev1 & Créer \texttt{CommissionService} (calcul automatique des commissions) \\
+    Dev2 & Créer \texttt{SalesAgentList}, \texttt{SalesAgentForm} \\
+    Dev2 & Créer \texttt{CommissionConfig} (paramétrage \% / montant fixe / paliers) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 52--54 -- Points et Performance Commerciale}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Migration : \texttt{sales\_agent\_points\_history}, \texttt{sales\_agent\_performance} \\
+    Dev1 & Logique de score et classement, dégressivité par inactivité (scheduler) \\
+    Dev1 & Commande \texttt{DecaySalesAgentPoints} (cron quotidien) \\
+    Dev2 & Créer \texttt{PointsBoard} (leaderboard/classement) \\
+    Dev2 & Créer \texttt{SalesAgentPerformance} (graphiques historiques) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 55--57 -- CRM (Prospects et Pipeline)}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{ProspectController}, \texttt{ProspectInteractionController} \\
+    Dev1 & Migrations : \texttt{prospects}, \texttt{prospect\_interactions} \\
+    Dev1 & Logique de conversion prospect $\rightarrow$ client \\
+    Dev2 & Créer \texttt{ProspectList}, \texttt{ProspectKanban} (vue Kanban) \\
+    Dev2 & Créer \texttt{ProspectTimeline} (historique des interactions) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 58--60 -- Ventes et Commandes}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{SaleController} (CRUD + génération facture/créance) \\
+    Dev1 & Migrations : \texttt{sales}, \texttt{sale\_items} \\
+    Dev1 & Trigger : création automatique de la créance si solde > 0 \\
+    Dev2 & Créer \texttt{SaleList}, \texttt{SaleForm} \\
+    Dev2 & Créer \texttt{SaleReceipt} (reçu de vente imprimable) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 61--63 -- Rapports Journaliers + Tests Phase 3}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Migrations : \texttt{daily\_reports} \\
+    Dev1 & Créer \texttt{DailyReportController} + commande \texttt{ApplyDailyPenalties} \\
+    Dev2 & Créer \texttt{DailyReportForm} (formulaire de rapport) \\
+    \textbf{Boss} & \textbf{Validation Phase 3 : CRM + Ventes opérationnels} \\
+    \bottomrule
+\end{tabularx}
+
+% ===========================================================================
+\chapter{Phase 4 : Clients et Facturation (Jours 64--75)}
+% ===========================================================================
+
+\subsection*{Jours 64--66 -- Gestion des Clients}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{ClientController} (CRUD + espace formation) \\
+    Dev1 & Migration : \texttt{clients}, \texttt{client\_training\_accounts} \\
+    Dev1 & Logique de création automatique du compte apprenant \\
+    Dev2 & Créer \texttt{ClientList}, \texttt{ClientForm} \\
+    Dev2 & Créer l'historique client (formations, paiements, créances) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 67--69 -- Facturation (Backend)}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{InvoiceController} (devis, factures, reçus) \\
+    Dev1 & Migration : \texttt{invoices}, \texttt{invoice\_items} \\
+    Dev1 & Créer \texttt{InvoiceService} (génération PDF avec QR code, numérotation auto) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 70--72 -- Facturation (Frontend)}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev2 & Créer \texttt{InvoiceList}, \texttt{InvoiceForm} \\
+    Dev2 & Créer \texttt{InvoicePDF} (template PDF avec logo, entête, cachet) \\
+    Dev2 & Créer \texttt{QRCodeBadge} pour les documents \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 73--75 -- Créances et Recouvrement}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{DebtController} + \texttt{DebtService} \\
+    Dev1 & Migration : \texttt{debts}, \texttt{debt\_reminders} \\
+    Dev1 & Logique de relances automatiques (commande \texttt{SendAutomaticReminders}) \\
+    Dev1 & Calcul des pénalités de retard \\
+    Dev2 & Créer \texttt{DebtList} avec les indicateurs de retard \\
+    Dev2 & Créer l'UI de relances et d'historique \\
+    \textbf{Boss} & \textbf{Validation Phase 4 : Clients + Facturation OK} \\
+    \bottomrule
+\end{tabularx}
+
+% ===========================================================================
+\chapter{Phase 5 : Comptabilité et Reportings (Jours 76--84)}
+% ===========================================================================
+
+\subsection*{Jours 76--78 -- Comptabilité}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{AccountingController} + \texttt{AccountingService} \\
+    Dev1 & Migrations : \texttt{accounting\_categories}, \texttt{accounting\_entries}, \texttt{cash\_register\_entries} \\
+    Dev1 & Logique d'écriture comptable automatique depuis les ventes/paiements \\
+    Dev2 & Créer les pages comptabilité : journal, balance, trésorerie \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 79--81 -- Notifications et Tableaux de Bord}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{NotificationService} (Email, SMS, WhatsApp) \\
+    Dev1 & Migration : \texttt{notification\_templates}, \texttt{notification\_logs} \\
+    Dev1 & Templates prédéfinis (facture, échéance, relance, paiement, formation) \\
+    Dev1 & Créer \texttt{DashboardController} (indicateurs et stats) \\
+    Dev2 & Créer \texttt{DirectionDashboard} (CA, trésorerie, graphiques) \\
+    Dev2 & Créer \texttt{CommercialDashboard}, \texttt{CashierDashboard}, \texttt{TrainerDashboard} \\
+    Dev2 & Créer les graphiques : évolution CA, ventes par agence, répartition \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 82--84 -- Rapports + Tests Phase 5}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Créer \texttt{ReportController} (exports Excel/PDF) \\
+    Dev1 & Commande \texttt{GenerateDailyBackup} \\
+    Dev2 & Créer la page des rapports avec filtres et exports \\
+    \textbf{Boss} & \textbf{Validation Phase 5 : Compta + Dashboard OK} \\
+    \bottomrule
+\end{tabularx}
+
+% ===========================================================================
+\chapter{Phase 6 : Finalisation (Jours 85--90)}
+% ===========================================================================
+
+\subsection*{Jours 85--87 -- Tests Généraux et Corrections}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Tests d'intégration Laravel (tous les parcours) \\
+    Dev1 & Correction des bugs backend \\
+    Dev1 & Vérification des performances (temps de réponse < 3s) \\
+    Dev2 & Tests d'intégration frontend (Cypress/Playwright) \\
+    Dev2 & Tests responsive (mobile, tablette, desktop) \\
+    Dev2 & Optimisation des temps de chargement (lazy loading, code splitting) \\
+    \bottomrule
+\end{tabularx}
+
+\subsection*{Jours 88--90 -- Déploiement et Documentation}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    & \textbf{Tâche} \\
+    \midrule
+    Dev1 & Configurer le CI/CD (GitHub Actions) \\
+    Dev1 & Déploiement production (configuration serveur, BDD, S3) \\
+    Dev1 & Sauvegarde automatique et monitoring \\
+    Dev2 & Documentation utilisateur \\
+    Dev2 & Formation des utilisateurs clés \\
+    \textbf{Boss} & \textbf{Validation finale -- Mise en production} \\
+    \bottomrule
+\end{tabularx}
+
+% ===========================================================================
+\chapter{Tableau Récapitulatif des Fichiers}
+% ===========================================================================
+
+\section{Migrations (Base de Données)}
+
+\begin{longtable}{L{6cm} L{3cm} L{5cm}}
+    \toprule
+    \textbf{Migration} & \textbf{Dev} & \textbf{Ordre} \\
+    \midrule
+    \endhead
+    create\_agencies\_table & Dev1 & J1--3 \\
+    create\_departments\_table & Dev1 & J1--3 \\
+    create\_categories\_table & Dev1 & J1--3 \\
+    create\_users\_table & Dev1 & J1--3 \\
+    create\_roles\_table & Dev1 & J7--9 \\
+    create\_permissions\_table & Dev1 & J7--9 \\
+    role\_permission\_table & Dev1 & J7--9 \\
+    model\_has\_roles\_table & Dev1 & J7--9 \\
+    create\_user\_assignments\_table & Dev1 & J13--15 \\
+    create\_login\_logs\_table & Dev1 & J4--6 \\
+    create\_activity\_logs\_table & Dev1 & J4--6 \\
+    create\_services\_table & Dev1 & J16--18 \\
+    create\_price\_history\_table & Dev1 & J16--18 \\
+    create\_trainings\_table & Dev1 & J19--21 \\
+    create\_training\_modules\_table & Dev1 & J19--21 \\
+    create\_training\_module\_attachments\_table & Dev1 & J19--21 \\
+    create\_trainers\_table & Dev1 & J40--42 \\
+    create\_trainer\_assignments\_table & Dev1 & J40--42 \\
+    create\_training\_enrollments\_table & Dev1 & J28--30 \\
+    create\_training\_installments\_table & Dev1 & J28--30 \\
+    create\_training\_module\_progress\_table & Dev1 & J28--30 \\
+    create\_sales\_agents\_table & Dev1 & J49--51 \\
+    create\_sales\_agent\_commission\_tiers\_table & Dev1 & J49--51 \\
+    create\_sales\_agent\_points\_history\_table & Dev1 & J52--54 \\
+    create\_sales\_agent\_performance\_table & Dev1 & J52--54 \\
+    create\_prospects\_table & Dev1 & J55--57 \\
+    create\_prospect\_interactions\_table & Dev1 & J55--57 \\
+    create\_sales\_table & Dev1 & J58--60 \\
+    create\_sale\_items\_table & Dev1 & J58--60 \\
+    create\_daily\_reports\_table & Dev1 & J61--63 \\
+    create\_clients\_table & Dev1 & J64--66 \\
+    create\_client\_training\_accounts\_table & Dev1 & J64--66 \\
+    create\_invoices\_table & Dev1 & J67--69 \\
+    create\_invoice\_items\_table & Dev1 & J67--69 \\
+    create\_payments\_table & Dev1 & J34--36 \\
+    create\_debts\_table & Dev1 & J73--75 \\
+    create\_debt\_reminders\_table & Dev1 & J73--75 \\
+    create\_accounting\_categories\_table & Dev1 & J76--78 \\
+    create\_accounting\_entries\_table & Dev1 & J76--78 \\
+    create\_cash\_register\_entries\_table & Dev1 & J76--78 \\
+    create\_notification\_templates\_table & Dev1 & J79--81 \\
+    create\_notification\_logs\_table & Dev1 & J79--81 \\
+    create\_export\_logs\_table & Dev1 & J82--84 \\
+    \bottomrule
+\end{longtable}
+
+\section{Contrôleurs API (Backend)}
+
+\begin{longtable}{L{6cm} L{3cm} L{5cm}}
+    \toprule
+    \textbf{Contrôleur} & \textbf{Dev} & \textbf{Jour} \\
+    \midrule
+    \endhead
+    Auth/LoginController & Dev1 & J4--6 \\
+    Auth/LogoutController & Dev1 & J4--6 \\
+    Auth/TwoFactorController & Dev1 & J4--6 \\
+    Agency/AgencyController & Dev1 & J10--12 \\
+    Department/DepartmentController & Dev1 & J10--12 \\
+    Category/CategoryController & Dev1 & J10--12 \\
+    User/UserController & Dev1 & J13--15 \\
+    Role/RoleController & Dev1 & J7--9 \\
+    Permission/PermissionController & Dev1 & J7--9 \\
+    Service/ServiceController & Dev1 & J16--18 \\
+    Training/TrainingController & Dev1 & J19--21 \\
+    Training/TrainingModuleController & Dev1 & J19--21 \\
+    Training/TrainingEnrollmentController & Dev1 & J28--30 \\
+    Trainer/TrainerController & Dev1 & J40--42 \\
+    SalesAgent/SalesAgentController & Dev1 & J49--51 \\
+    SalesAgent/CommissionController & Dev1 & J49--51 \\
+    Prospect/ProspectController & Dev1 & J55--57 \\
+    Prospect/ProspectInteractionController & Dev1 & J55--57 \\
+    Sale/SaleController & Dev1 & J58--60 \\
+    Client/ClientController & Dev1 & J64--66 \\
+    Invoice/InvoiceController & Dev1 & J67--69 \\
+    Payment/PaymentController & Dev1 & J34--36 \\
+    Debt/DebtController & Dev1 & J73--75 \\
+    Accounting/AccountingController & Dev1 & J76--78 \\
+    Notification/NotificationController & Dev1 & J79--81 \\
+    Dashboard/DirectionDashboardController & Dev1 & J79--81 \\
+    Dashboard/CommercialDashboardController & Dev1 & J79--81 \\
+    Dashboard/CashierDashboardController & Dev1 & J79--81 \\
+    Dashboard/TrainerDashboardController & Dev1 & J79--81 \\
+    Report/ReportController & Dev1 & J82--84 \\
+    \bottomrule
+\end{longtable}
+
+\section{Services Métier (Backend)}
+
+\begin{longtable}{L{6cm} L{3cm} L{5cm}}
+    \toprule
+    \textbf{Service} & \textbf{Dev} & \textbf{Jour} \\
+    \midrule
+    AuthService & Dev1 & J4--6 \\
+    CommissionService & Dev1 & J49--51 \\
+    InvoiceService & Dev1 & J67--69 \\
+    PaymentService & Dev1 & J34--36 \\
+    DebtService & Dev1 & J73--75 \\
+    NotificationService & Dev1 & J79--81 \\
+    ReportService & Dev1 & J82--84 \\
+    DashboardService & Dev1 & J79--81 \\
+    StreamService & Dev1 & J19--21 \\
+    ImportService & Dev1 & J82--84 \\
+    ExportService & Dev1 & J82--84 \\
+    \bottomrule
+\end{longtable}
+
+\section{Pages Frontend (React)}
+
+\begin{longtable}{L{6cm} L{3cm} L{5cm}}
+    \toprule
+    \textbf{Page / Composant} & \textbf{Dev} & \textbf{Jour} \\
+    \midrule
+    \endhead
+    Auth/LoginPage & Dev2 & J4--6 \\
+    Auth/TwoFactorPage & Dev2 & J4--6 \\
+    Agencies/AgencyList, AgencyForm & Dev2 & J10--12 \\
+    Departments/DepartmentList, DepartmentForm & Dev2 & J10--12 \\
+    Categories/CategoryList, CategoryForm & Dev2 & J10--12 \\
+    Users/UserList, UserForm & Dev2 & J13--15 \\
+    Roles/RoleList, RoleForm & Dev2 & J7--9 \\
+    Permissions/PermissionList & Dev2 & J7--9 \\
+    Services/ServiceList, ServiceForm & Dev2 & J16--18 \\
+    Trainings/TrainingList, TrainingForm & Dev2 & J22--24 \\
+    Trainings/ModuleList & Dev2 & J22--24 \\
+    Trainings/ModulePlayer & Dev2 & J22--24 \\
+    Trainings/EnrollmentStatus & Dev2 & J31--33 \\
+    Trainers/TrainerList, TrainerForm & Dev2 & J40--42 \\
+    SalesAgents/SalesAgentList, SalesAgentForm & Dev2 & J49--51 \\
+    SalesAgents/CommissionConfig & Dev2 & J49--51 \\
+    SalesAgents/PointsBoard & Dev2 & J52--54 \\
+    Prospects/ProspectList, ProspectKanban & Dev2 & J55--57 \\
+    Prospects/ProspectTimeline & Dev2 & J55--57 \\
+    Sales/SaleList, SaleForm, SaleReceipt & Dev2 & J58--60 \\
+    Clients/ClientList, ClientForm & Dev2 & J64--66 \\
+    Invoices/InvoiceList, InvoiceForm, InvoicePDF & Dev2 & J70--72 \\
+    Debts/DebtList & Dev2 & J73--75 \\
+    Accounting/ (journal, balance, trésorerie) & Dev2 & J76--78 \\
+    Dashboard/DirectionDashboard & Dev2 & J79--81 \\
+    Dashboard/CommercialDashboard & Dev2 & J79--81 \\
+    Dashboard/CashierDashboard & Dev2 & J79--81 \\
+    Dashboard/TrainerDashboard & Dev2 & J79--81 \\
+    Reports/ (liste, exports) & Dev2 & J82--84 \\
+    Commercial/DailyReportForm & Dev2 & J61--63 \\
+    \bottomrule
+\end{longtable}
+
+% ===========================================================================
+\chapter{Commandes et Tâches Planifiées}
+% ===========================================================================
+
+\section{Artisan Commands (Scheduler)}
+
+\begin{longtable}{L{5cm} L{3cm} L{6cm}}
+    \toprule
+    \textbf{Commande} & \textbf{Fréquence} & \textbf{Action} \\
+    \midrule
+    \endhead
+    \texttt{decay:sales-agent-points} & Quotidien (00:00) & Diminue les points des commerciaux inactifs depuis 7 jours \\
+    \texttt{penalties:apply-daily} & Quotidien (23:00) & Applique les pénalités pour rapports journaliers non soumis \\
+    \texttt{reminders:send-automatic} & Quotidien (08:00) & Envoie les relances automatiques pour créances échues \\
+    \texttt{promotions:check-expired} & Quotidien (00:30) & Désactive les promotions expirées \\
+    \texttt{backup:generate-daily} & Quotidien (02:00) & Sauvegarde automatique de la BDD \\
+    \texttt{notifications:retry-failed} & Toutes les heures & Relance les notifications échouées \\
+    \bottomrule
+\end{longtable}
+
+\section{Webhooks et Callbacks}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    \textbf{Webhook} & \textbf{Usage} \\
+    \midrule
+    \texttt{/api/webhooks/payments/orange-money} & Confirmation paiement Orange Money \\
+    \texttt{/api/webhooks/payments/mtn-money} & Confirmation paiement MTN Mobile Money \\
+    \texttt{/api/webhooks/payments/paypal} & Confirmation paiement PayPal \\
+    \texttt{/api/webhooks/streaming/cloudfront} & Notifications CloudFront (accès, erreurs) \\
+    \bottomrule
+\end{tabularx}
+
+% ===========================================================================
+\chapter{Plan de Test}
+% ===========================================================================
+
+\section{Parcours de Test Critiques}
+
+\begin{enumerate}
+    \item \textbf{Parcours Admin :} Connexion $\rightarrow$ Créer agence $\rightarrow$ Ajouter département $\rightarrow$ Créer utilisateur $\rightarrow$ Assigner rôle
+    \item \textbf{Parcours Formation :} Créer service $\rightarrow$ Ajouter formation $\rightarrow$ Créer modules $\rightarrow$ Upload vidéo $\rightarrow$ Inscrire apprenant
+    \item \textbf{Parcours Commercial :} Créer prospect $\rightarrow$ Relancer $\rightarrow$ Convertir en client $\rightarrow$ Créer vente $\rightarrow$ Générer facture
+    \item \textbf{Parcours Paiement :} Vente avec solde $\rightarrow$ Paiement partiel $\rightarrow$ Créance générée $\rightarrow$ Relance automatique $\rightarrow$ Soldé
+    \item \textbf{Parcours Apprenant :} Paiement formation $\rightarrow$ Compte créé $\rightarrow$ Connexion $\rightarrow$ Suivre modules $\rightarrow$ Terminer formation
+    \item \textbf{Parcours Reporting :} Dashboard direction $\rightarrow$ Graphiques $\rightarrow$ Export Excel $\rightarrow$ Export PDF
+\end{enumerate}
+
+\section{Outils de Test}
+
+\begin{tabularx}{\textwidth}{l X}
+    \toprule
+    \textbf{Outil} & \textbf{Pour} \\
+    \midrule
+    PHPUnit / Pest & Tests unitaires backend (modèles, services, contrôleurs) \\
+    Laravel Dusk & Tests d'API et navigation backend \\
+    Vitest & Tests unitaires frontend (composants, hooks) \\
+    Playwright & Tests d'intégration et parcours utilisateur \\
+    Postman / Insomnia & Tests manuels d'API pendant le développement \\
+    Lighthouse & Tests de performance et SEO \\
+    \bottomrule
+\end{tabularx}
+
+% ===========================================================================
+\chapter{Procédure de Validation}
+% ===========================================================================
+
+\section{Processus de Recette par Module}
+
+Chaque module suit ce cycle avant de passer au suivant :
+
+\begin{mdframed}[backgroundcolor=lightgray!20, linecolor=primary]
+    \textbf{Étape 1 :} Dev1 implémente le backend (migration + API + tests) \\
+    \textbf{Étape 2 :} Dev2 implémente le frontend (pages + composants) \\
+    \textbf{Étape 3 :} Test croisé (Dev1 teste le frontend, Dev2 teste l'API) \\
+    \textbf{Étape 4 :} Démo au Chef de Projet (Topo Boss) \\
+    \textbf{Étape 5 :} Validation ou retour pour ajustements \\
+    \textbf{Étape 6 :} Passage au module suivant
+\end{mdframed}
+
+\section{Checklist de Validation}
+
+\subsection*{Pour chaque module, vérifier :}
+\begin{itemize}
+    \item CRUD complet fonctionnel (créer, lire, modifier, supprimer/archiver)
+    \item Permissions respectées (rôles et privilèges)
+    \item Recherche, filtres et pagination opérationnels
+    \item Export (Excel/PDF) si applicable
+    \item Temps de réponse < 3 secondes
+    \item Responsive (mobile, tablette, desktop)
+    \item Pas de régression sur les modules précédents
+\end{itemize}
+
+\section{Plan de Déploiement}
+
+\begin{tabularx}{\textwidth}{l l X}
+    \toprule
+    \textbf{Étape} & \textbf{Moment} & \textbf{Action} \\
+    \midrule
+    Préprod & J84 & Déploiement sur serveur de staging \\
+    Recette finale & J87 & Test complet par Topo Boss sur staging \\
+    Production & J90 & Mise en ligne DNS + SSL + BDD \\
+    Post-prod & J90+7 & Support et corrections post-déploiement \\
+    \bottomrule
+\end{tabularx}
+
+\end{document}
