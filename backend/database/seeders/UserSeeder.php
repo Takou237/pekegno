@@ -113,6 +113,34 @@ class UserSeeder extends Seeder
                 'role' => 'responsable-departement',
                 'agencies' => [0, 1],
             ],
+            // Clients / Apprenants (inscrits via /auth/register, aucune agence)
+            [
+                'username' => 'aimee.ngassa',
+                'email' => 'aimee.ngassa@email.com',
+                'first_name' => 'Aimée',
+                'last_name' => 'Ngassa',
+                'phone' => '+237 690 000 011',
+                'role' => 'client',
+                'agencies' => [],
+            ],
+            [
+                'username' => 'brice.owona',
+                'email' => 'brice.owona@email.com',
+                'first_name' => 'Brice',
+                'last_name' => 'Owona',
+                'phone' => '+237 690 000 012',
+                'role' => 'client',
+                'agencies' => [],
+            ],
+            [
+                'username' => 'carine.fotso',
+                'email' => 'carine.fotso@email.com',
+                'first_name' => 'Carine',
+                'last_name' => 'Fotso',
+                'phone' => '+237 690 000 013',
+                'role' => 'client',
+                'agencies' => [],
+            ],
         ];
 
         foreach ($users as $userData) {

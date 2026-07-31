@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Building2, UserRound, Users, FolderTree, Shield, Layers } from 'lucide-react';
+import { LayoutDashboard, Building2, UserRound, Users, FolderTree, Shield, Layers, UserRoundSearch } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const ADMIN_ROLES = ['super-admin', 'direction-generale'];
@@ -12,6 +12,7 @@ function getMainItems(roleName: string | null | undefined, agencyId?: string) {
       { to: '/departments', label: 'Départements', icon: FolderTree, end: false },
       { to: '/services', label: 'Services', icon: Layers, end: false },
       { to: '/users', label: 'Utilisateurs', icon: Users, end: false },
+      { to: '/clients', label: 'Clients', icon: UserRoundSearch, end: false },
       { to: '/privileges', label: 'Privilèges', icon: Shield, end: false },
     ];
   }
@@ -22,6 +23,7 @@ function getMainItems(roleName: string | null | undefined, agencyId?: string) {
       { to: '/agencies', label: 'Mes agences', icon: Building2, end: false },
       { to: '/departments', label: 'Départements', icon: FolderTree, end: false },
       { to: '/services', label: 'Services', icon: Layers, end: false },
+      { to: '/clients', label: 'Clients', icon: UserRoundSearch, end: false },
       ...(agencyId
         ? [{ to: `/users?agency_id=${agencyId}`, label: 'Mon équipe', icon: Users, end: false as const }]
         : []),
@@ -33,6 +35,7 @@ function getMainItems(roleName: string | null | undefined, agencyId?: string) {
       { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
       { to: '/departments', label: 'Mes départements', icon: FolderTree, end: false },
       { to: '/services', label: 'Services', icon: Layers, end: false },
+      { to: '/clients', label: 'Clients', icon: UserRoundSearch, end: false },
       { to: '/users', label: 'Mon équipe', icon: Users, end: false },
     ];
   }

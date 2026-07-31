@@ -13,11 +13,12 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class UserAssignmentController extends Controller
 {
-    private const NON_ASSIGNABLE_ROLES = ['super-admin', 'direction-generale'];
+    private const NON_ASSIGNABLE_ROLES = ['super-admin', 'direction-generale', 'client'];
 
     private function assertUserIsAssignable(User $user): void
     {
@@ -316,7 +317,7 @@ class UserAssignmentController extends Controller
             ->where('agency_id', $agency->id)
             ->where(function ($q) {
                 $q->where('is_primary', true)
-                  ->orWhere('is_department_chief', true);
+                    ->orWhere('is_department_chief', true);
             })
             ->exists();
 
@@ -383,7 +384,7 @@ class UserAssignmentController extends Controller
 
         if (! $agencyAssignment) {
             return response()->json([
-                'message' => "L'utilisateur doit d'abord être assigné à l'agence \"" . ($department->agency?->name ?? '') . "\" pour être nommé chef de département.",
+                'message' => "L'utilisateur doit d'abord être assigné à l'agence \"".($department->agency?->name ?? '').'" pour être nommé chef de département.',
             ], 422);
         }
 
@@ -397,7 +398,7 @@ class UserAssignmentController extends Controller
                 ->delete();
 
             DB::table('department_chiefs')->insert([
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'user_id' => $userId,
                 'department_id' => $department->id,
                 'created_at' => now(),

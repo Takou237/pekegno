@@ -17,11 +17,19 @@ class UserController extends Controller
 {
     private const ALLOWED_WITH = ['role', 'assignments'];
 
+    private function abortIfClient(User $user): void
+    {
+        abort_if($user->role?->name === 'client', 403, 'Les comptes clients sont gérés via la ressource dédiée /clients.');
+    }
+
     private function parseWith(Request $request): array
     {
         $with = $request->input('with');
-        if (!$with) return [];
+        if (! $with) {
+            return [];
+        }
         $relations = array_map('trim', explode(',', $with));
+
         return array_intersect($relations, self::ALLOWED_WITH);
     }
 
@@ -43,16 +51,24 @@ class UserController extends Controller
     )]
     public function index(Request $request)
     {
+        $this->abortIfClient($request->user());
+
         $defaultWith = ['role', 'assignments'];
         $with = array_unique(array_merge($defaultWith, $this->parseWith($request)));
-        
+
+        $user = $request->user();
         $users = User::with($with)
+            // Le listing "employés" n'expose pas les clients (page dédiée).
+            ->where(function ($q) {
+                $q->whereNull('role_id')
+                    ->orWhereHas('role', fn ($q) => $q->where('name', '!=', 'client'));
+            })
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
-                      ->orWhere('last_name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%")
-                      ->orWhere('username', 'like', "%{$search}%");
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%");
                 });
             })
             ->when($request->is_active !== null, function ($q) use ($request) {
@@ -64,9 +80,16 @@ class UserController extends Controller
             ->when($request->department_id, function ($q, $departmentId) {
                 $q->whereHas('assignments', fn ($q) => $q->where('department_id', $departmentId));
             })
-            ->when($request->user()?->role?->name === 'responsable-departement', function ($q) use ($request) {
+            ->when($user?->role?->name === 'responsable-agence', function ($q) use ($user) {
+                $agencyIds = DB::table('user_assignments')
+                    ->where('user_id', $user->id)
+                    ->where('is_primary', true)
+                    ->pluck('agency_id');
+                $q->whereHas('assignments', fn ($q) => $q->whereIn('agency_id', $agencyIds));
+            })
+            ->when($user?->role?->name === 'responsable-departement', function ($q) use ($user) {
                 $deptIds = DB::table('department_chiefs')
-                    ->where('user_id', $request->user()->id)
+                    ->where('user_id', $user->id)
                     ->pluck('department_id');
                 $q->whereHas('assignments', fn ($q) => $q->whereIn('department_id', $deptIds));
             })
@@ -81,13 +104,31 @@ class UserController extends Controller
         $data = $request->validated();
         $data['password'] = Hash::make($data['password'] ?? 'password');
 
-        $user = User::create($data);
+        $creator = $request->user();
 
-        if (isset($data['role_id'])) {
-            $user->update(['role_id' => $data['role_id']]);
-        }
+        $user = DB::transaction(function () use ($data, $creator) {
+            $user = User::create($data);
 
-        return (new UserResource($user->fresh()->load('role')))
+            // Un responsable d'agence ne peut créer que des employés de ses agences :
+            // on rattache automatiquement le nouvel employé à son agence primaire.
+            if ($creator?->role?->name === 'responsable-agence') {
+                $agencyId = DB::table('user_assignments')
+                    ->where('user_id', $creator->id)
+                    ->where('is_primary', true)
+                    ->value('agency_id');
+
+                if ($agencyId) {
+                    $user->assignments()->attach($agencyId, [
+                        'is_primary' => false,
+                        'department_id' => null,
+                    ]);
+                }
+            }
+
+            return $user;
+        });
+
+        return (new UserResource($user->fresh()->load('role', 'assignments')))
             ->response()
             ->setStatusCode(201);
     }
@@ -107,7 +148,10 @@ class UserController extends Controller
     )]
     public function show(Request $request, User $user)
     {
+        $this->abortIfClient($user);
+
         $with = array_unique(array_merge(['role', 'assignments.agency'], $this->parseWith($request)));
+
         return new UserResource($user->load($with));
     }
 
@@ -141,13 +185,16 @@ class UserController extends Controller
     )]
     public function update(UpdateUserRequest $request, User $user)
     {
+        $this->abortIfClient($user);
+
         $validated = $request->validated();
 
         if (isset($validated['password'])) {
-            $validated['password'] = \Illuminate\Support\Facades\Hash::make($validated['password']);
+            $validated['password'] = Hash::make($validated['password']);
         }
 
         $user->update($validated);
+
         return new UserResource($user->fresh()->load('role', 'assignments'));
     }
 
@@ -166,6 +213,8 @@ class UserController extends Controller
     )]
     public function destroy(Request $request, User $user): JsonResponse
     {
+        $this->abortIfClient($user);
+
         if ($user->id === $request->user()->id) {
             return response()->json([
                 'message' => 'Vous ne pouvez pas supprimer votre propre compte.',

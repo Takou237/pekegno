@@ -54,6 +54,12 @@ class UserRoleController extends Controller
     )]
     public function update(User $user, AssignRoleRequest $request): JsonResponse
     {
+        if ($user->role?->name === 'client') {
+            return response()->json([
+                'message' => 'Les comptes clients sont gérés via la ressource dédiée /clients.',
+            ], 422);
+        }
+
         $roleId = $request->validated('role_id');
         $role = Role::find($roleId);
 
@@ -64,6 +70,7 @@ class UserRoleController extends Controller
         }
 
         $user->update(['role_id' => $roleId]);
+
         return response()->json($user->fresh()->load('role'));
     }
 }

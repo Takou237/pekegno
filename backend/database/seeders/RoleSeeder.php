@@ -2,32 +2,31 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class RoleSeeder extends Seeder
 {
     public function run(): void
     {
         $roles = [
-            ['name' => 'super-admin',            'description' => 'Super Administrateur',                   'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'direction-generale',     'description' => 'Direction Générale',                     'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'responsable-agence',     'description' => 'Responsable Agence',                     'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'responsable-departement','description' => 'Responsable Département',                'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'commercial',             'description' => 'Commercial',                             'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'caissier',               'description' => 'Caissier',                               'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'comptable',              'description' => 'Comptable',                              'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'formateur',              'description' => 'Formateur',                              'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'super-admin',             'description' => 'Super Administrateur'],
+            ['name' => 'direction-generale',      'description' => 'Direction Générale'],
+            ['name' => 'responsable-agence',      'description' => 'Responsable Agence'],
+            ['name' => 'responsable-departement', 'description' => 'Responsable Département'],
+            ['name' => 'commercial',              'description' => 'Commercial'],
+            ['name' => 'caissier',                'description' => 'Caissier'],
+            ['name' => 'comptable',               'description' => 'Comptable'],
+            ['name' => 'formateur',               'description' => 'Formateur'],
+            ['name' => 'client',                  'description' => 'Client / Apprenant'],
         ];
 
-        foreach ($roles as &$r) {
-            $r['id'] = Str::uuid();
+        foreach ($roles as $role) {
+            Role::updateOrCreate(['name' => $role['name']], ['description' => $role['description']]);
         }
 
-        DB::table('roles')->insert($roles);
-
-        // Assigner les permissions à chaque rôle
+        // Ré-affectation idempotente des permissions par rôle
         $permissions = DB::table('permissions')->pluck('id', 'name');
         $rolesMap = DB::table('roles')->pluck('id', 'name');
 
@@ -40,7 +39,10 @@ class RoleSeeder extends Seeder
             'caissier' => ['consulter', 'encaisser', 'imprimer'],
             'comptable' => ['consulter', 'exporter', 'imprimer', 'valider'],
             'formateur' => ['consulter', 'creer', 'modifier'],
+            'client' => ['consulter'],
         ];
+
+        DB::table('role_permission')->delete();
 
         $rolePermissions = [];
 

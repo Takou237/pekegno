@@ -20,8 +20,7 @@ import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { CreateUserPayload, UserListItem, RoleListItem } from '@/types/user';
 import type { Agency, AssignedUser, Department, PaginationMeta } from '@/types/agency';
-
-const CHIEF_ROLE_NAMES = new Set(['responsable-agence', 'responsable-departement']);
+import { assignableRoleNames, CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
 
 export default function UserListPage() {
   const { user: currentUser } = useAuth();
@@ -84,6 +83,10 @@ export default function UserListPage() {
     currentUser?.role?.name ?? ''
   );
 
+  const canCreateUsers = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
+    currentUser?.role?.name ?? ''
+  );
+
   const fetchUsers = useCallback(async (filters: {
     search?: string;
     agency_id?: string;
@@ -131,7 +134,11 @@ export default function UserListPage() {
     usersApi.listRoles().then(setRoles).catch(() => {});
   }, []);
 
-  const nonChiefRoles = roles.filter((r) => !CHIEF_ROLE_NAMES.has(r.name));
+  const assignableRoles = roles.filter(
+    (r) =>
+      !CHIEF_ROLE_NAMES.has(r.name) &&
+      assignableRoleNames(currentUser?.role?.name).includes(r.name)
+  );
 
   function handleAgencyChange(agencyId: string) {
     const agency = agencies.find((a) => a.id === agencyId);
@@ -233,7 +240,7 @@ export default function UserListPage() {
     }
   }
 
-  const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale']);
+  const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale', 'client']);
 
   function openAssignModal(type: 'agency' | 'department') {
     setAssignTargetType(type);
@@ -486,7 +493,7 @@ export default function UserListPage() {
           </Select>
         </div>
         <div className="flex gap-3">
-          {canManageUsers && (
+          {canCreateUsers && (
             <Button onClick={() => setCreateOpen(true)}>
               <UserPlus className="h-4 w-4" />
               Créer
@@ -687,11 +694,15 @@ export default function UserListPage() {
             onChange={(e) => setEditForm((p) => ({ ...p, role_id: e.target.value }))}
           >
             <option value="">— Licencier (aucun rôle) —</option>
-            {nonChiefRoles.map((r) => (
+            {assignableRoles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
             ))}
+            {editUser?.role &&
+              !assignableRoles.some((r) => r.id === editUser.role?.id) && (
+                <option value={editUser.role.id}>{editUser.role.name}</option>
+              )}
           </Select>
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setEditUser(null)}>
@@ -890,7 +901,7 @@ export default function UserListPage() {
             onChange={(e) => setCreateForm((p) => ({ ...p, role_id: e.target.value }))}
           >
             <option value="">— Aucun rôle —</option>
-            {nonChiefRoles.map((r) => (
+            {assignableRoles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>

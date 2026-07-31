@@ -11,6 +11,7 @@ import { usersApi } from '@/api/users.api';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { Agency } from '@/types/agency';
 import type { RoleListItem } from '@/types/user';
+import { CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
 
 interface AgencyChiefAssignModalProps {
   isOpen: boolean;
@@ -80,7 +81,8 @@ export function AgencyChiefAssignModal({
       .filter((u: any) =>
         assignedUserIds.has(u.id) &&
         u.role?.name !== 'super-admin' &&
-        u.role?.name !== 'direction-generale'
+        u.role?.name !== 'direction-generale' &&
+        u.role?.name !== 'client'
       )
       .map((u: any) => ({
         id: u.id,
@@ -222,11 +224,13 @@ export function AgencyChiefAssignModal({
             onChange={(e) => setNewRoleId(e.target.value)}
           >
             <option value="">— Ne pas assigner de rôle —</option>
-            {roles.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
+            {roles
+              .filter((r) => r.name !== 'client' && !CHIEF_ROLE_NAMES.has(r.name))
+              .map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
           </Select>
 
           <div className="flex items-center justify-between gap-3">

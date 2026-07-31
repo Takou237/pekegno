@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\LoginLog;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -10,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class AuthService
 {
-    public function attempt(array $credentials, string $ip = null, string $userAgent = null): array
+    public function attempt(array $credentials, ?string $ip = null, ?string $userAgent = null): array
     {
         $user = User::with('role')->where('email', $credentials['email'])->first();
 
@@ -47,7 +48,7 @@ class AuthService
             $tempToken = Str::random(64);
 
             cache()->put(
-                '2fa_temp_token:' . $tempToken,
+                '2fa_temp_token:'.$tempToken,
                 [
                     'user_id' => $user->id,
                     'attempts' => 0,
@@ -91,7 +92,7 @@ class AuthService
         ];
     }
 
-    public function logout(User $user, string $ip = null, string $userAgent = null): void
+    public function logout(User $user, ?string $ip = null, ?string $userAgent = null): void
     {
         $user->currentAccessToken()->delete();
 
@@ -103,8 +104,10 @@ class AuthService
         );
     }
 
-    public function register(array $data, string $ip = null, string $userAgent = null): array
+    public function register(array $data, ?string $ip = null, ?string $userAgent = null): array
     {
+        $clientRole = Role::where('name', 'client')->first();
+
         $user = User::create([
             'username' => $data['username'],
             'email' => $data['email'],
@@ -112,6 +115,7 @@ class AuthService
             'first_name' => $data['first_name'] ?? null,
             'last_name' => $data['last_name'] ?? null,
             'phone' => $data['phone'] ?? null,
+            'role_id' => $clientRole?->id,
         ]);
 
         $token = $user->createToken('auth-token')->plainTextToken;
@@ -124,12 +128,12 @@ class AuthService
         );
 
         return [
-            'user' => $user,
+            'user' => $user->load('role'),
             'token' => $token,
         ];
     }
 
-    private function log(?User $user, string $action, string $ip = null, string $userAgent = null, string $reason = null, string $email = null): void
+    private function log(?User $user, string $action, ?string $ip = null, ?string $userAgent = null, ?string $reason = null, ?string $email = null): void
     {
         LoginLog::create([
             'user_id' => $user?->id,

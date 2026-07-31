@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromotionController;
@@ -70,6 +71,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::get('/promotions', [PromotionController::class, 'index']);
 
     Route::apiResource('users', UserController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+
+    Route::get('/clients', [ClientController::class, 'index']);
+    Route::get('/clients/{client}', [ClientController::class, 'show']);
+    Route::put('/clients/{client}', [ClientController::class, 'update']);
 
     Route::get('/users/{user}/role', [UserRoleController::class, 'show']);
     Route::put('/users/{user}/role', [UserRoleController::class, 'update']);

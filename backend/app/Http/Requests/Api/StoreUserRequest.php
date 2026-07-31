@@ -2,13 +2,20 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\Role;
+use App\Support\EmployeeRoles;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return in_array($this->user()?->role?->name, ['super-admin', 'direction-generale']);
+        return in_array($this->user()?->role?->name, [
+            'super-admin',
+            'direction-generale',
+            'responsable-agence',
+        ], true);
     }
 
     public function rules(): array
@@ -21,6 +28,43 @@ class StoreUserRequest extends FormRequest
             'last_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'role_id' => ['sometimes', 'nullable', 'string', 'exists:roles,id'],
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                $roleId = $this->input('role_id');
+                if (! $roleId) {
+                    return;
+                }
+
+                $roleName = Role::where('id', $roleId)->value('name');
+                $assignable = EmployeeRoles::assignableRoleNames($this->user()?->role?->name);
+
+                if ($roleName === null) {
+                    $validator->errors()->add('role_id', "Ce rôle n'existe pas.");
+
+                    return;
+                }
+
+                if (EmployeeRoles::isClient($roleName)) {
+                    $validator->errors()->add(
+                        'role_id',
+                        'Le rôle client ne peut pas être créé ici : les clients s\'inscrivent via la page d\'inscription.'
+                    );
+
+                    return;
+                }
+
+                if (! in_array($roleName, $assignable, true)) {
+                    $validator->errors()->add(
+                        'role_id',
+                        'Vous n\'êtes pas autorisé à attribuer ce rôle.'
+                    );
+                }
+            },
         ];
     }
 
