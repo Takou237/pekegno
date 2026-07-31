@@ -1,12 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation();
   return (
-    <AuthLayout
-      title="Mot de passe oublié"
-      subtitle="Indiquez votre email, nous vous enverrons un lien de réinitialisation."
-    >
+    <AuthLayout title={t('auth.forgotTitle')} subtitle={t('auth.forgotSubtitle')}>
       <ForgotPasswordForm />
     </AuthLayout>
   );

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, Trash2, Pencil, Eye, Users, ShieldCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { departmentsApi } from '@/api/departments.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
+import { currentLocale } from '@/i18n';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +27,7 @@ import type { Department, DepartmentPayload } from '@/types/department';
 import type { Agency, PaginationMeta } from '@/types/agency';
 
 export default function DepartmentListPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -69,7 +72,7 @@ export default function DepartmentListPage() {
       setDepartments(response.data);
       setMeta(response.meta);
     } catch (error) {
-      setLoadError(extractErrorMessage(error, 'Impossible de charger les départements.'));
+      setLoadError(extractErrorMessage(error, t('departments.loadFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -114,10 +117,10 @@ export default function DepartmentListPage() {
     try {
       if (formModal.editing) {
         await departmentsApi.update(formModal.editing.id, form);
-        showToast('Département modifié avec succès.', 'success');
+        showToast(t('departments.updated'), 'success');
       } else {
         await departmentsApi.create(form);
-        showToast('Département créé avec succès.', 'success');
+        showToast(t('departments.created'), 'success');
       }
       setFormModal({ open: false, editing: null });
       fetchDepartments();
@@ -139,11 +142,11 @@ export default function DepartmentListPage() {
     setIsDeleting(true);
     try {
       await departmentsApi.remove(deleteTarget.id);
-      showToast('Département archivé.', 'success');
+      showToast(t('departments.archived'), 'success');
       setDeleteTarget(null);
       fetchDepartments();
     } catch (error) {
-      showToast(extractErrorMessage(error, 'Impossible de supprimer ce département.'), 'error');
+      showToast(extractErrorMessage(error, t('departments.deleteFailed')), 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -153,9 +156,9 @@ export default function DepartmentListPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Départements</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('departments.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Gestion des départements par agence.
+            {t('departments.subtitle')}
           </p>
         </div>
         <div className="flex gap-3">
@@ -163,7 +166,7 @@ export default function DepartmentListPage() {
             <Link to="/departments/trash">
               <Button variant="outline">
                 <Trash2 className="h-4 w-4" />
-                Corbeille
+                {t('common.trash')}
               </Button>
             </Link>
           )}
@@ -171,7 +174,7 @@ export default function DepartmentListPage() {
             <div className="w-52">
               <Button onClick={openCreate}>
                 <Plus className="h-4 w-4" />
-                Nouveau département
+                {t('departments.newDepartment')}
               </Button>
             </div>
           )}
@@ -181,14 +184,14 @@ export default function DepartmentListPage() {
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Recherche
+            {t('common.search')}
           </label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nom du département..."
+              placeholder={t('departments.searchPlaceholder')}
               className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
@@ -196,11 +199,11 @@ export default function DepartmentListPage() {
         {user?.role?.name !== 'responsable-departement' && (
           <div className="sm:w-64">
             <Select
-              label="Agence"
+              label={t('departments.agency')}
               value={agencyFilter}
               onChange={(e) => setAgencyFilter(e.target.value)}
             >
-              <option value="">Toutes les agences</option>
+              <option value="">{t('common.selectAllAgencies')}</option>
               {agencies.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.code} — {a.name}
@@ -220,18 +223,18 @@ export default function DepartmentListPage() {
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : departments.length === 0 ? (
           <p className="p-6 text-sm text-gray-500 dark:text-gray-400">
-            Aucun département trouvé.
+            {t('departments.empty')}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Nom</th>
-                  <th className="px-5 py-3 font-medium">Chef</th>
-                  <th className="px-5 py-3 font-medium">Effectif</th>
-                  <th className="px-5 py-3 font-medium">Agence</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-5 py-3 font-medium">{t('departments.colName')}</th>
+                  <th className="px-5 py-3 font-medium">{t('departments.colChief')}</th>
+                  <th className="px-5 py-3 font-medium">{t('departments.colCount')}</th>
+                  <th className="px-5 py-3 font-medium">{t('departments.colAgency')}</th>
+                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -255,7 +258,7 @@ export default function DepartmentListPage() {
                           type="button"
                           onClick={() => setDetailDepartment(dept)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                          title="Voir le détail"
+                          title={t('common.viewDetails')}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -263,7 +266,7 @@ export default function DepartmentListPage() {
                           type="button"
                           onClick={() => navigate(`/users?agency_id=${dept.agency_id}&department_id=${dept.id}`)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
-                          title="Voir les utilisateurs"
+                          title={t('departments.viewUsers')}
                         >
                           <Users className="h-4 w-4" />
                         </button>
@@ -273,7 +276,7 @@ export default function DepartmentListPage() {
                               type="button"
                               onClick={() => setChiefDepartment(dept)}
                               className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
-                              title="Assigner un chef de département"
+                              title={t('departments.assignChief')}
                             >
                               <ShieldCheck className="h-4 w-4" />
                             </button>
@@ -281,7 +284,7 @@ export default function DepartmentListPage() {
                               type="button"
                               onClick={() => openEdit(dept)}
                               className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                              title="Modifier"
+                              title={t('common.edit')}
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
@@ -292,7 +295,7 @@ export default function DepartmentListPage() {
                             type="button"
                             onClick={() => setDeleteTarget(dept)}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                            title="Supprimer"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -323,31 +326,31 @@ export default function DepartmentListPage() {
       <Modal
         isOpen={Boolean(detailDepartment)}
         onClose={() => setDetailDepartment(null)}
-        title="Détail du département"
+        title={t('departments.detailTitle')}
         maxWidth="max-w-md"
       >
         {detailDepartment && (
           <dl className="flex flex-col gap-3 text-sm">
             <div>
-              <dt className="font-medium text-gray-500">Nom</dt>
+              <dt className="font-medium text-gray-500">{t('departments.colName')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">{detailDepartment.name}</dd>
             </div>
             <div>
-              <dt className="font-medium text-gray-500">Chef de département</dt>
+              <dt className="font-medium text-gray-500">{t('departments.chiefOfDepartment')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">
                 {detailDepartment.department_chief?.name ?? '—'}
               </dd>
             </div>
             <div>
-              <dt className="font-medium text-gray-500">Agence</dt>
+              <dt className="font-medium text-gray-500">{t('departments.agency')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">
                 {detailDepartment.agency?.name ?? '—'}
               </dd>
             </div>
             <div>
-              <dt className="font-medium text-gray-500">Créé le</dt>
+              <dt className="font-medium text-gray-500">{t('departments.createdAt')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">
-                {new Date(detailDepartment.created_at).toLocaleDateString()}
+                {new Date(detailDepartment.created_at).toLocaleDateString(currentLocale())}
               </dd>
             </div>
           </dl>
@@ -358,7 +361,7 @@ export default function DepartmentListPage() {
       <Modal
         isOpen={formModal.open}
         onClose={() => setFormModal({ open: false, editing: null })}
-        title={formModal.editing ? 'Modifier le département' : 'Nouveau département'}
+        title={formModal.editing ? t('departments.editTitle') : t('departments.createTitle')}
         maxWidth="max-w-lg"
       >
         <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
@@ -366,13 +369,13 @@ export default function DepartmentListPage() {
             <Alert variant="error">{Object.values(formErrors).join(' ')}</Alert>
           )}
           <Select
-            label="Agence"
+            label={t('departments.agency')}
             required
             value={form.agency_id}
             onChange={(e) => setForm((p) => ({ ...p, agency_id: e.target.value }))}
             error={formErrors.agency_id}
           >
-            <option value="">— Sélectionner une agence —</option>
+            <option value="">{t('departments.selectAgency')}</option>
             {agencies.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.code} — {a.name}
@@ -380,14 +383,14 @@ export default function DepartmentListPage() {
             ))}
           </Select>
           <Input
-            label="Nom"
+            label={t('departments.colName')}
             required
             value={form.name}
             onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
             error={formErrors.name}
           />
           <Input
-            label="Chef de département"
+            label={t('departments.description')}
             value={form.description ?? ''}
             onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
           />
@@ -397,10 +400,10 @@ export default function DepartmentListPage() {
               variant="outline"
               onClick={() => setFormModal({ open: false, editing: null })}
             >
-              Annuler
+              {t('common.cancel')}
             </Button>
             <Button type="submit" isLoading={formSubmitting}>
-              {formModal.editing ? 'Enregistrer' : 'Créer'}
+              {formModal.editing ? t('common.save') : t('common.create')}
             </Button>
           </div>
         </form>
@@ -409,9 +412,9 @@ export default function DepartmentListPage() {
       {/* Confirm delete */}
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
-        title="Archiver ce département ?"
-        message={`Le département "${deleteTarget?.name}" sera déplacé vers la corbeille.`}
-        confirmLabel="Archiver"
+        title={t('departments.archiveTitle')}
+        message={t('departments.archiveMessage', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('departments.archive')}
         isLoading={isDeleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}

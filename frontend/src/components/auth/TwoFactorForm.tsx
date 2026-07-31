@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { extractErrorMessage } from '@/api/errors';
 import { Button } from '@/components/ui/Button';
@@ -8,6 +9,7 @@ import { Alert } from '@/components/ui/Alert';
 const CODE_LENGTH = 6;
 
 export function TwoFactorForm() {
+  const { t } = useTranslation();
   const { verifyTwoFactor, pendingTwoFactorToken } = useAuth();
   const navigate = useNavigate();
 
@@ -41,7 +43,7 @@ export function TwoFactorForm() {
     setFormError(null);
 
     if (code.length !== CODE_LENGTH) {
-      setFormError('Merci de saisir les 6 chiffres du code.');
+      setFormError(t('auth.twoFactorError'));
       return;
     }
 
@@ -50,7 +52,7 @@ export function TwoFactorForm() {
       await verifyTwoFactor(code);
       navigate('/', { replace: true });
     } catch (error) {
-      setFormError(extractErrorMessage(error, 'Code invalide ou expiré.'));
+      setFormError(extractErrorMessage(error, t('auth.twoFactorInvalid')));
     } finally {
       setIsSubmitting(false);
     }
@@ -58,9 +60,7 @@ export function TwoFactorForm() {
 
   if (!pendingTwoFactorToken) {
     return (
-      <Alert variant="info">
-        Aucune vérification en attente. Merci de vous reconnecter.
-      </Alert>
+      <Alert variant="info">{t('auth.twoFactorNone')}</Alert>
     );
   }
 
@@ -84,7 +84,7 @@ export function TwoFactorForm() {
       </div>
 
       <Button type="submit" isLoading={isSubmitting}>
-        Vérifier le code
+        {t('auth.twoFactorVerify')}
       </Button>
     </form>
   );

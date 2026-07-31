@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { departmentsApi } from '@/api/departments.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { currentLocale } from '@/i18n';
 import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -11,6 +13,7 @@ import type { Department } from '@/types/department';
 import type { PaginationMeta } from '@/types/agency';
 
 export default function DepartmentTrashPage() {
+  const { t } = useTranslation();
   const { showToast } = useToast();
 
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -29,7 +32,7 @@ export default function DepartmentTrashPage() {
       setDepartments(response.data);
       setMeta(response.meta);
     } catch (error) {
-      setLoadError(extractErrorMessage(error, 'Impossible de charger la corbeille.'));
+      setLoadError(extractErrorMessage(error, t('departments.trashLoadFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -42,10 +45,10 @@ export default function DepartmentTrashPage() {
   async function handleRestore(dept: Department) {
     try {
       await departmentsApi.restore(dept.id);
-      showToast(`Département "${dept.name}" restauré.`, 'success');
+      showToast(t('departments.restored', { name: dept.name }), 'success');
       setDepartments((prev) => prev.filter((item) => item.id !== dept.id));
     } catch (error) {
-      showToast(extractErrorMessage(error, 'Impossible de restaurer ce département.'), 'error');
+      showToast(extractErrorMessage(error, t('departments.restoreFailed')), 'error');
     }
   }
 
@@ -54,12 +57,12 @@ export default function DepartmentTrashPage() {
     setIsForceDeleting(true);
     try {
       await departmentsApi.forceDelete(forceDeleteTarget.id);
-      showToast('Département supprimé définitivement.', 'success');
+      showToast(t('departments.forceDeleted'), 'success');
       setDepartments((prev) => prev.filter((item) => item.id !== forceDeleteTarget.id));
       setForceDeleteTarget(null);
     } catch (error) {
       showToast(
-        extractErrorMessage(error, 'Impossible de supprimer définitivement ce département.'),
+        extractErrorMessage(error, t('departments.forceDeleteFailed')),
         'error'
       );
     } finally {
@@ -75,13 +78,13 @@ export default function DepartmentTrashPage() {
           className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
-          Retour aux départements
+          {t('departments.backToDepartments')}
         </Link>
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-          Corbeille — Départements
+          {t('departments.trashTitle')}
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Départements archivés. Réservé aux super-administrateurs.
+          {t('departments.trashSubtitle')}
         </p>
       </div>
 
@@ -93,16 +96,16 @@ export default function DepartmentTrashPage() {
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : departments.length === 0 ? (
-          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">La corbeille est vide.</p>
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('common.trashEmpty')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Nom</th>
-                  <th className="px-5 py-3 font-medium">Agence</th>
-                  <th className="px-5 py-3 font-medium">Supprimé le</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-5 py-3 font-medium">{t('departments.colName')}</th>
+                  <th className="px-5 py-3 font-medium">{t('departments.colAgency')}</th>
+                  <th className="px-5 py-3 font-medium">{t('departments.deletedAt')}</th>
+                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -115,7 +118,7 @@ export default function DepartmentTrashPage() {
                       {dept.agency?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {dept.deleted_at ? new Date(dept.deleted_at).toLocaleDateString() : '—'}
+                      {dept.deleted_at ? new Date(dept.deleted_at).toLocaleDateString(currentLocale()) : '—'}
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
@@ -123,7 +126,7 @@ export default function DepartmentTrashPage() {
                           type="button"
                           onClick={() => handleRestore(dept)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-success-600 dark:hover:bg-gray-800"
-                          title="Restaurer"
+                          title={t('common.restore')}
                         >
                           <RotateCcw className="h-4 w-4" />
                         </button>
@@ -131,7 +134,7 @@ export default function DepartmentTrashPage() {
                           type="button"
                           onClick={() => setForceDeleteTarget(dept)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                          title="Supprimer définitivement"
+                          title={t('common.deletePermanently')}
                         >
                           <XCircle className="h-4 w-4" />
                         </button>
@@ -159,9 +162,9 @@ export default function DepartmentTrashPage() {
 
       <ConfirmDialog
         isOpen={Boolean(forceDeleteTarget)}
-        title="Suppression définitive"
-        message={`Le département "${forceDeleteTarget?.name}" sera supprimé définitivement et irréversiblement. Continuer ?`}
-        confirmLabel="Supprimer définitivement"
+        title={t('departments.forceDeleteTitle')}
+        message={t('departments.forceDeleteMessage', { name: forceDeleteTarget?.name ?? '' })}
+        confirmLabel={t('common.deletePermanently')}
         isLoading={isForceDeleting}
         onConfirm={handleForceDelete}
         onCancel={() => setForceDeleteTarget(null)}

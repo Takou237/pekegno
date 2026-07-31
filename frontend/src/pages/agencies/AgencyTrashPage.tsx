@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { currentLocale } from '@/i18n';
 import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { Agency, PaginationMeta } from '@/types/agency';
 
 export default function AgencyTrashPage() {
+  const { t } = useTranslation();
   const { showToast } = useToast();
 
   const [agencies, setAgencies] = useState<Agency[]>([]);
@@ -28,7 +31,7 @@ export default function AgencyTrashPage() {
       setAgencies(response.data);
       setMeta(response.meta);
     } catch (error) {
-      setLoadError(extractErrorMessage(error, 'Impossible de charger la corbeille.'));
+      setLoadError(extractErrorMessage(error, t('agencies.trashLoadFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -41,10 +44,10 @@ export default function AgencyTrashPage() {
   async function handleRestore(agency: Agency) {
     try {
       await agenciesApi.restore(agency.id);
-      showToast(`Agence "${agency.name}" restaurée.`, 'success');
+      showToast(t('agencies.restored', { name: agency.name }), 'success');
       setAgencies((prev) => prev.filter((item) => item.id !== agency.id));
     } catch (error) {
-      showToast(extractErrorMessage(error, 'Impossible de restaurer cette agence.'), 'error');
+      showToast(extractErrorMessage(error, t('agencies.restoreFailed')), 'error');
     }
   }
 
@@ -53,12 +56,12 @@ export default function AgencyTrashPage() {
     setIsForceDeleting(true);
     try {
       await agenciesApi.forceDelete(forceDeleteTarget.id);
-      showToast('Agence supprimée définitivement.', 'success');
+      showToast(t('agencies.forceDeleted'), 'success');
       setAgencies((prev) => prev.filter((item) => item.id !== forceDeleteTarget.id));
       setForceDeleteTarget(null);
     } catch (error) {
       showToast(
-        extractErrorMessage(error, 'Impossible de supprimer définitivement cette agence.'),
+        extractErrorMessage(error, t('agencies.forceDeleteFailed')),
         'error'
       );
     } finally {
@@ -74,13 +77,13 @@ export default function AgencyTrashPage() {
           className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
-          Retour aux agences
+          {t('agencies.backToAgencies')}
         </Link>
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-          Corbeille — Agences
+          {t('agencies.trashTitle')}
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Agences archivées. Réservé aux super-administrateurs.
+          {t('agencies.trashSubtitle')}
         </p>
       </div>
 
@@ -92,16 +95,16 @@ export default function AgencyTrashPage() {
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : agencies.length === 0 ? (
-          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">La corbeille est vide.</p>
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('common.trashEmpty')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Code</th>
-                  <th className="px-5 py-3 font-medium">Nom</th>
-                  <th className="px-5 py-3 font-medium">Supprimée le</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-5 py-3 font-medium">{t('agencies.colCode')}</th>
+                  <th className="px-5 py-3 font-medium">{t('agencies.colName')}</th>
+                  <th className="px-5 py-3 font-medium">{t('agencies.deletedAt')}</th>
+                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -112,7 +115,7 @@ export default function AgencyTrashPage() {
                       {agency.name}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {agency.deleted_at ? new Date(agency.deleted_at).toLocaleDateString() : '—'}
+                      {agency.deleted_at ? new Date(agency.deleted_at).toLocaleDateString(currentLocale()) : '—'}
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
@@ -120,7 +123,7 @@ export default function AgencyTrashPage() {
                           type="button"
                           onClick={() => handleRestore(agency)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-success-600 dark:hover:bg-gray-800"
-                          title="Restaurer"
+                          title={t('common.restore')}
                         >
                           <RotateCcw className="h-4 w-4" />
                         </button>
@@ -128,7 +131,7 @@ export default function AgencyTrashPage() {
                           type="button"
                           onClick={() => setForceDeleteTarget(agency)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                          title="Supprimer définitivement"
+                          title={t('common.deletePermanently')}
                         >
                           <XCircle className="h-4 w-4" />
                         </button>
@@ -156,9 +159,9 @@ export default function AgencyTrashPage() {
 
       <ConfirmDialog
         isOpen={Boolean(forceDeleteTarget)}
-        title="Suppression définitive"
-        message={`L'agence "${forceDeleteTarget?.name}" sera supprimée définitivement et irréversiblement. Continuer ?`}
-        confirmLabel="Supprimer définitivement"
+        title={t('agencies.forceDeleteTitle')}
+        message={t('agencies.forceDeleteMessage', { name: forceDeleteTarget?.name ?? '' })}
+        confirmLabel={t('common.deletePermanently')}
         isLoading={isForceDeleting}
         onConfirm={handleForceDelete}
         onCancel={() => setForceDeleteTarget(null)}

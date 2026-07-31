@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '@/api/auth.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { Input } from '@/components/ui/Input';
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 
 export function ForgotPasswordForm() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -25,7 +27,7 @@ export function ForgotPasswordForm() {
       // existe ou non, pour éviter l'énumération d'emails.
       setIsSubmitted(true);
     } catch (error) {
-      setFormError(extractErrorMessage(error, 'Une erreur est survenue. Réessayez.'));
+      setFormError(extractErrorMessage(error, t('auth.forgotFailed')));
       setFieldErrors(extractFieldErrors(error));
     } finally {
       setIsSubmitting(false);
@@ -35,12 +37,9 @@ export function ForgotPasswordForm() {
   if (isSubmitted) {
     return (
       <div className="flex flex-col gap-5">
-        <Alert variant="success">
-          Si un compte est associé à cette adresse email, vous recevrez un lien de
-          réinitialisation dans quelques instants.
-        </Alert>
+        <Alert variant="success">{t('auth.forgotSuccess')}</Alert>
         <Link to="/login" className="text-center text-sm font-medium text-brand-600 hover:underline">
-          Retour à la connexion
+          {t('common.backToLogin')}
         </Link>
       </div>
     );
@@ -51,7 +50,7 @@ export function ForgotPasswordForm() {
       {formError && <Alert variant="error">{formError}</Alert>}
 
       <Input
-        label="Adresse email"
+        label={t('auth.email')}
         type="email"
         name="email"
         autoComplete="username"
@@ -59,15 +58,15 @@ export function ForgotPasswordForm() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         error={fieldErrors.email}
-        placeholder="vous@pekegno.com"
+        placeholder={t('auth.emailPlaceholder')}
       />
 
       <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting}>
-        Envoyer le lien de réinitialisation
+        {t('auth.sendResetLink')}
       </Button>
 
       <Link to="/login" className="text-center text-sm font-medium text-brand-600 hover:underline">
-        Retour à la connexion
+        {t('common.backToLogin')}
       </Link>
     </form>
   );

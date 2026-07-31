@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, Trash2, Pencil, Eye, ArrowUpDown, ShieldCheck, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,14 +18,19 @@ import { AgencyChiefAssignModal } from '@/components/agencies/AgencyChiefAssignM
 import { canAssignAgencyChief, canCreateAgency, canDeleteAgency, canEditAgency, canManageTrash } from '@/utils/agencyPermissions';
 import type { Agency, AgencyListParams, PaginationMeta } from '@/types/agency';
 
-const SORT_OPTIONS: { value: NonNullable<AgencyListParams['sort_by']>; label: string }[] = [
-  { value: 'name', label: 'Nom' },
-  { value: 'code', label: 'Code' },
-  { value: 'country', label: 'Pays' },
-  { value: 'created_at', label: 'Date de création' },
-];
+type TranslateFn = ReturnType<typeof useTranslation>['t'];
+
+function getSortOptions(t: TranslateFn): { value: NonNullable<AgencyListParams['sort_by']>; label: string }[] {
+  return [
+    { value: 'name', label: t('agencies.sortName') },
+    { value: 'code', label: t('agencies.sortCode') },
+    { value: 'country', label: t('agencies.sortCountry') },
+    { value: 'created_at', label: t('agencies.sortCreatedAt') },
+  ];
+}
 
 export default function AgencyListPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -64,7 +70,7 @@ export default function AgencyListPage() {
       setAgencies(response.data);
       setMeta(response.meta);
     } catch (error) {
-      setLoadError(extractErrorMessage(error, 'Impossible de charger les agences.'));
+      setLoadError(extractErrorMessage(error, t('agencies.loadFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -94,12 +100,12 @@ export default function AgencyListPage() {
     setIsDeleting(true);
     try {
       await agenciesApi.remove(deleteTarget.id);
-      showToast('Agence archivée avec succès.', 'success');
+      showToast(t('agencies.archived'), 'success');
       setDeleteTarget(null);
       fetchAgencies();
     } catch (error) {
       showToast(
-        extractErrorMessage(error, "Impossible de supprimer cette agence."),
+        extractErrorMessage(error, t('agencies.deleteFailed')),
         'error'
       );
     } finally {
@@ -120,9 +126,9 @@ export default function AgencyListPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Agences</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('agencies.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Gestion des agences et filiales PEKEGNO.
+            {t('agencies.subtitle')}
           </p>
         </div>
         <div className="flex gap-3">
@@ -130,7 +136,7 @@ export default function AgencyListPage() {
             <Link to="/agencies/trash">
               <Button variant="outline">
                 <Trash2 className="h-4 w-4" />
-                Corbeille
+                {t('common.trash')}
               </Button>
             </Link>
           )}
@@ -138,7 +144,7 @@ export default function AgencyListPage() {
             <div className="w-48">
               <Button onClick={() => setFormModalState({ open: true, agency: null })}>
                 <Plus className="h-4 w-4" />
-                Nouvelle agence
+                {t('agencies.newAgency')}
               </Button>
             </div>
           )}
@@ -148,33 +154,33 @@ export default function AgencyListPage() {
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Recherche
+            {t('common.search')}
           </label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nom, code, ville, email..."
+              placeholder={t('agencies.searchPlaceholder')}
               className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
         </div>
         <div className="sm:w-48">
           <Input
-            label="Pays"
+            label={t('agencies.country')}
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            placeholder="Cameroun"
+            placeholder={t('agencies.countryPlaceholder')}
           />
         </div>
         <div className="sm:w-48">
           <Select
-            label="Trier par"
+            label={t('agencies.sortBy')}
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
           >
-            {SORT_OPTIONS.map((option) => (
+            {getSortOptions(t).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -185,7 +191,7 @@ export default function AgencyListPage() {
           <button
             type="button"
             onClick={toggleSortOrder}
-            title={sortOrder === 'asc' ? 'Croissant' : 'Décroissant'}
+            title={sortOrder === 'asc' ? t('common.asc') : t('common.desc')}
             className="flex h-[42px] w-full items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             <ArrowUpDown className="h-4 w-4" />
@@ -201,18 +207,18 @@ export default function AgencyListPage() {
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : agencies.length === 0 ? (
-          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">Aucune agence trouvée.</p>
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('agencies.empty')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Code</th>
-                  <th className="px-5 py-3 font-medium">Nom</th>
-                  <th className="px-5 py-3 font-medium">Pays / Ville</th>
-                  <th className="px-5 py-3 font-medium">Contact</th>
-                  <th className="px-5 py-3 font-medium">Départements</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-5 py-3 font-medium">{t('agencies.colCode')}</th>
+                  <th className="px-5 py-3 font-medium">{t('agencies.colName')}</th>
+                  <th className="px-5 py-3 font-medium">{t('agencies.colCountryCity')}</th>
+                  <th className="px-5 py-3 font-medium">{t('agencies.colContact')}</th>
+                  <th className="px-5 py-3 font-medium">{t('agencies.colDepartments')}</th>
+                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -238,7 +244,7 @@ export default function AgencyListPage() {
                           type="button"
                           onClick={() => setDetailAgency(agency)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                          title="Voir le détail"
+                          title={t('common.viewDetails')}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -247,7 +253,7 @@ export default function AgencyListPage() {
                             type="button"
                             onClick={() => setChiefAgency(agency)}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
-                            title="Assigner un chef d'agence"
+                            title={t('agencies.assignChief')}
                           >
                             <ShieldCheck className="h-4 w-4" />
                           </button>
@@ -258,7 +264,7 @@ export default function AgencyListPage() {
                               type="button"
                               onClick={() => navigate(`/users?agency_id=${agency.id}`)}
                               className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
-                              title="Voir les utilisateurs"
+                              title={t('agencies.viewDepartments')}
                             >
                               <Users className="h-4 w-4" />
                             </button>
@@ -266,7 +272,7 @@ export default function AgencyListPage() {
                               type="button"
                               onClick={() => setFormModalState({ open: true, agency })}
                               className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                              title="Modifier"
+                              title={t('common.edit')}
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
@@ -277,7 +283,7 @@ export default function AgencyListPage() {
                             type="button"
                             onClick={() => setDeleteTarget(agency)}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                            title="Supprimer"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -322,9 +328,9 @@ export default function AgencyListPage() {
 
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
-        title="Archiver cette agence ?"
-        message={`L'agence "${deleteTarget?.name}" sera déplacée vers la corbeille. Elle pourra être restaurée par un super-administrateur.`}
-        confirmLabel="Archiver"
+        title={t('agencies.archiveTitle')}
+        message={t('agencies.archiveMessage', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('agencies.archive')}
         isLoading={isDeleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}

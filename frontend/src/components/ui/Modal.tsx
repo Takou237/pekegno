@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -10,6 +11,7 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' }: ModalProps) {
+  const { t } = useTranslation();
   if (!isOpen) {
     return null;
   }
@@ -35,7 +37,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-            aria-label="Fermer"
+            aria-label={t('common.close')}
           >
             <X className="h-5 w-5" />
           </button>

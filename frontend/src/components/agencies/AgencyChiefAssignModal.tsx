@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +27,7 @@ export function AgencyChiefAssignModal({
   onClose,
   onSaved,
 }: AgencyChiefAssignModalProps) {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const [currentChiefId, setCurrentChiefId] = useState<string>('');
   const [currentChiefName, setCurrentChiefName] = useState<string>('');
@@ -64,7 +66,7 @@ export function AgencyChiefAssignModal({
         setSelectedUserId(chiefId);
         setAssignedUserIds(new Set(assigned.map((u: any) => u.id)));
       })
-      .catch(() => setError('Impossible de charger les données.'))
+      .catch(() => setError(t('agencies.chiefDataFailed')))
       .finally(() => setIsLoading(false));
 
     usersApi.listRoles().then(setRoles).catch(() => {});
@@ -101,7 +103,7 @@ export function AgencyChiefAssignModal({
         await client.put(`/agencies/${agency.id}/chief`, {
           user_id: selectedUserId,
         });
-        showToast("Chef d'agence assigné avec succès.", 'success');
+        showToast(t('agencies.chiefAssigned'), 'success');
 
         if (currentChiefId && currentChiefId !== selectedUserId) {
           setShowOldChiefDialog(true);
@@ -111,7 +113,7 @@ export function AgencyChiefAssignModal({
         }
       } else if (currentChiefId) {
         await client.delete(`/agencies/${agency.id}/chief`);
-        showToast("Chef d'agence retiré avec succès.", 'success');
+        showToast(t('agencies.chiefRemoved'), 'success');
         onSaved();
         onClose();
       } else {
@@ -119,7 +121,7 @@ export function AgencyChiefAssignModal({
         return;
       }
     } catch (err) {
-      setError(extractErrorMessage(err, "Impossible d'assigner le chef d'agence."));
+      setError(extractErrorMessage(err, t('agencies.chiefAssignFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -130,12 +132,12 @@ export function AgencyChiefAssignModal({
     setIsRoleSubmitting(true);
     try {
       await usersApi.assignRole(currentChiefId, newRoleId);
-      showToast('Nouveau rôle assigné à l\'ancien chef.', 'success');
+      showToast(t('agencies.roleAssigned'), 'success');
       setShowOldChiefDialog(false);
       onSaved();
       onClose();
     } catch (err) {
-      showToast(extractErrorMessage(err, "Impossible d'assigner le nouveau rôle."), 'error');
+      showToast(extractErrorMessage(err, t('agencies.roleAssignFailed')), 'error');
     } finally {
       setIsRoleSubmitting(false);
     }
@@ -152,13 +154,13 @@ export function AgencyChiefAssignModal({
     setFireSubmitting(true);
     try {
       await usersApi.remove(currentChiefId);
-      showToast('Utilisateur licencié avec succès.', 'success');
+      showToast(t('agencies.userFired'), 'success');
       setShowFireConfirm(false);
       setShowOldChiefDialog(false);
       onSaved();
       onClose();
     } catch (err) {
-      showToast(extractErrorMessage(err, 'Impossible de licencier cet utilisateur.'), 'error');
+      showToast(extractErrorMessage(err, t('agencies.fireFailed')), 'error');
     } finally {
       setFireSubmitting(false);
     }
@@ -169,35 +171,35 @@ export function AgencyChiefAssignModal({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={`Chef d'agence — ${agency?.name ?? ''}`}
+        title={t('agencies.chiefTitle', { name: agency?.name ?? '' })}
         maxWidth="max-w-md"
       >
         <div className="flex flex-col gap-4">
           {error && <Alert variant="error">{error}</Alert>}
 
           {isLoading ? (
-            <p className="text-sm text-gray-500">Chargement...</p>
+            <p className="text-sm text-gray-500">{t('common.loading')}</p>
           ) : (
             <>
               <Autocomplete
-                label="Chef d'agence"
-                placeholder="Rechercher un utilisateur..."
+                label={t('agencies.chiefLabel')}
+                placeholder={t('agencies.chiefSearchPlaceholder')}
                 value={selectedUserId}
                 onChange={setSelectedUserId}
                 fetchOptions={fetchUsers}
               />
               <p className="text-xs text-gray-400">
-                Un seul chef par agence. Un chef peut gérer plusieurs agences.
+                {t('agencies.chiefHint')}
               </p>
             </>
           )}
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={onClose}>
-              Annuler
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleAssign} isLoading={isSubmitting} disabled={isLoading}>
-              Enregistrer
+              {t('common.save')}
             </Button>
           </div>
         </div>
@@ -206,24 +208,24 @@ export function AgencyChiefAssignModal({
       <Modal
         isOpen={showOldChiefDialog}
         onClose={handleSkipRole}
-        title="Ancien chef"
+        title={t('agencies.oldChiefTitle')}
         maxWidth="max-w-md"
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm text-gray-600 dark:text-gray-300">
             {currentChiefName ? (
-              <>L'ancien chef <strong>{currentChiefName}</strong> a été remplacé. Que souhaitez-vous faire de son rôle ?</>
+              <Trans t={t} i18nKey="agencies.oldChiefMessage" values={{ name: currentChiefName }} />
             ) : (
-              "L'ancien chef a été remplacé. Que souhaitez-vous faire de son rôle ?"
+              t('agencies.oldChiefMessageNoName')
             )}
           </p>
 
           <Select
-            label="Assigner un nouveau rôle"
+            label={t('agencies.assignNewRole')}
             value={newRoleId}
             onChange={(e) => setNewRoleId(e.target.value)}
           >
-            <option value="">— Ne pas assigner de rôle —</option>
+            <option value="">{t('agencies.noRole')}</option>
             {roles
               .filter((r) => r.name !== 'client' && !CHIEF_ROLE_NAMES.has(r.name))
               .map((r) => (
@@ -235,18 +237,18 @@ export function AgencyChiefAssignModal({
 
           <div className="flex items-center justify-between gap-3">
             <Button type="button" variant="danger" onClick={() => setShowFireConfirm(true)}>
-              Licencier
+              {t('agencies.fire')}
             </Button>
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={handleSkipRole}>
-                Ignorer
+                {t('agencies.skip')}
               </Button>
               <Button
                 onClick={handleAssignNewRole}
                 isLoading={isRoleSubmitting}
                 disabled={!newRoleId}
               >
-                Assigner le rôle
+                {t('agencies.assignRole')}
               </Button>
             </div>
           </div>
@@ -257,9 +259,9 @@ export function AgencyChiefAssignModal({
         isOpen={showFireConfirm}
         onCancel={() => setShowFireConfirm(false)}
         onConfirm={handleFireChief}
-        title="Licencier l'ancien chef"
-        message={`Êtes-vous sûr de vouloir licencier ${currentChiefName} ? Cette action est irréversible.`}
-        confirmLabel="Licencier"
+        title={t('agencies.fireTitle')}
+        message={t('agencies.fireMessage', { name: currentChiefName })}
+        confirmLabel={t('agencies.fire')}
         isLoading={fireSubmitting}
       />
     </>

@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, LogOut, ShieldCheck, ShieldAlert, UserRound } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Check, ChevronDown, Languages, LogOut, ShieldCheck, ShieldAlert, UserRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { SUPPORTED_LANGUAGES, applyLanguage } from '@/i18n';
 
 export function UserMenu() {
+  const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -46,13 +49,13 @@ export function UserMenu() {
             {fullName}
           </span>
           <span className="block text-xs text-gray-500 dark:text-gray-400">
-            {user.role?.name ?? 'Sans rôle'}
+            {user.role?.name ? t(`roles.${user.role.name}`, { defaultValue: user.role.name }) : t('userMenu.noRole')}
           </span>
         </span>
         {user.two_factor_enabled ? (
-          <ShieldCheck className="h-4 w-4 text-success-500" aria-label="2FA activée" />
+          <ShieldCheck className="h-4 w-4 text-success-500" aria-label={t('userMenu.twoFactorEnabled')} />
         ) : (
-          <ShieldAlert className="h-4 w-4 text-warning-500" aria-label="2FA non activée" />
+          <ShieldAlert className="h-4 w-4 text-warning-500" aria-label={t('userMenu.twoFactorDisabled')} />
         )}
         <ChevronDown className="h-4 w-4 text-gray-400" />
       </button>
@@ -65,7 +68,7 @@ export function UserMenu() {
             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
           >
             <UserRound className="h-4 w-4" />
-            Mon profil
+            {t('userMenu.myProfile')}
           </Link>
           {!user.two_factor_enabled && (
             <Link
@@ -74,16 +77,41 @@ export function UserMenu() {
               className="flex items-center gap-2 px-4 py-2 text-sm text-warning-600 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               <ShieldAlert className="h-4 w-4" />
-              Activer la 2FA
+              {t('userMenu.enable2FA')}
             </Link>
           )}
+
+          <div className="my-2 border-t border-gray-100 px-4 pt-2 dark:border-gray-800">
+            <p className="flex items-center gap-2 px-0 py-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+              <Languages className="h-3.5 w-3.5" />
+              {t('userMenu.language')}
+            </p>
+            <div className="mt-1 flex flex-col gap-0.5">
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => applyLanguage(lang)}
+                  className={`flex items-center justify-between rounded-lg px-2 py-1.5 text-sm ${
+                    i18n.resolvedLanguage === lang
+                      ? 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300'
+                      : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {lang === 'fr' ? t('userMenu.languageFrench') : t('userMenu.languageEnglish')}
+                  {i18n.resolvedLanguage === lang && <Check className="h-4 w-4" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={handleLogout}
             className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-error-600 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <LogOut className="h-4 w-4" />
-            Déconnexion
+            {t('userMenu.logout')}
           </button>
         </div>
       )}

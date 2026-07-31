@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { servicesApi, promotionsApi, categoriesApi } from '@/api/services.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { departmentsApi } from '@/api/departments.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
+import { currentCurrency } from '@/i18n';
 import { useToast } from '@/hooks/useToast';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
@@ -69,6 +71,7 @@ function emptyForm(): ServiceFormValues {
 }
 
 export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceFormModalProps) {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const isEditing = service !== null;
 
@@ -185,7 +188,7 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
         department_id: form.department_id || null,
       };
       if (priceChanged) {
-        payload.reason = form.reason?.trim() || 'Mise à jour du prix';
+        payload.reason = form.reason?.trim() || t('services.defaultPriceReason');
       }
 
       const saved = isEditing
@@ -215,11 +218,11 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
         await promotionsApi.remove(id);
       }
 
-      showToast(isEditing ? 'Service modifié avec succès.' : 'Service créé avec succès.', 'success');
+      showToast(isEditing ? t('services.updated') : t('services.created'), 'success');
       onSaved(await servicesApi.get(saved.id));
       onClose();
     } catch (error) {
-      setFormError(extractErrorMessage(error, "Impossible d'enregistrer le service."));
+      setFormError(extractErrorMessage(error, t('services.saveFailed')));
       setFieldErrors(extractFieldErrors(error));
     } finally {
       setIsSubmitting(false);
@@ -234,7 +237,7 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? 'Modifier le service' : 'Nouveau service'}
+      title={isEditing ? t('services.editTitle') : t('services.createTitle')}
       maxWidth="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -242,21 +245,21 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Nom du service"
+            label={t('services.name')}
             required
             value={form.name}
             onChange={(e) => update('name', e.target.value)}
             error={fieldErrors.name}
-            placeholder="Formation Marketing Digital"
+            placeholder={t('services.namePlaceholder')}
           />
           <Select
-            label="Catégorie"
+            label={t('services.category')}
             required
             value={form.category_id}
             onChange={(e) => update('category_id', e.target.value)}
             error={fieldErrors.category_id}
           >
-            <option value="">Sélectionner une catégorie...</option>
+            <option value="">{t('services.selectCategory')}</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -267,7 +270,7 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Input
-            label="Prix (FCFA)"
+            label={`${t('services.price')} (${currentCurrency()})`}
             required
             type="number"
             min={0}
@@ -278,14 +281,14 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
             placeholder="250000"
           />
           <Input
-            label="Couverture"
+            label={t('services.coverage')}
             value={form.coverage}
             onChange={(e) => update('coverage', e.target.value)}
             error={fieldErrors.coverage}
-            placeholder="Nationale, Régionale, Locale..."
+            placeholder={t('services.coveragePlaceholder')}
           />
           <Input
-            label="Vidéo de présentation (URL)"
+            label={t('services.video')}
             value={form.presentation_video}
             onChange={(e) => update('presentation_video', e.target.value)}
             error={fieldErrors.presentation_video}
@@ -294,16 +297,16 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
         </div>
 
         <Input
-          label="Description"
+          label={t('services.description')}
           value={form.description}
           onChange={(e) => update('description', e.target.value)}
           error={fieldErrors.description}
-          placeholder="Décrivez le service, ses objectifs et son contenu..."
+          placeholder={t('services.descriptionPlaceholder')}
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
-            label="Agence"
+            label={t('services.agency')}
             value={form.agency_id}
             onChange={(e) => {
               update('agency_id', e.target.value);
@@ -311,7 +314,7 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
             }}
             error={fieldErrors.agency_id}
           >
-            <option value="">Aucune agence</option>
+            <option value="">{t('common.noAgency')}</option>
             {agencies.map((agency) => (
               <option key={agency.id} value={agency.id}>
                 {agency.name}
@@ -319,12 +322,12 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
             ))}
           </Select>
           <Select
-            label="Département"
+            label={t('services.department')}
             value={form.department_id}
             onChange={(e) => update('department_id', e.target.value)}
             error={fieldErrors.department_id}
           >
-            <option value="">Aucun département</option>
+            <option value="">{t('common.noDepartment')}</option>
             {availableDepartments.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.name}
@@ -335,10 +338,10 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
 
         {isEditing && String(form.price) !== String(originalPrice) && (
           <Input
-            label="Motif du changement de prix"
+            label={t('services.priceChangeReason')}
             value={form.reason ?? ''}
             onChange={(e) => update('reason', e.target.value)}
-            hint="Conservé dans l'historique des prix."
+            hint={t('services.priceChangeReasonHint')}
           />
         )}
 
@@ -346,22 +349,22 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                Promotions temporaires
+                {t('services.temporaryPromotions')}
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Prix réduit appliqué automatiquement entre les dates indiquées.
+                {t('services.temporaryPromotionsHint')}
               </p>
             </div>
             <div className="w-36">
               <Button type="button" variant="outline" size="sm" onClick={addDraft}>
                 <Plus className="h-4 w-4" />
-                Ajouter
+                {t('services.addPromotion')}
               </Button>
             </div>
           </div>
 
           {drafts.length === 0 ? (
-            <p className="text-sm text-gray-400">Aucune promotion définie.</p>
+            <p className="text-sm text-gray-400">{t('services.noPromotion')}</p>
           ) : (
             <div className="flex flex-col gap-3">
               {drafts.map((draft, index) => (
@@ -371,7 +374,7 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
                 >
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <Input
-                      label="Prix promotionnel"
+                      label={t('services.promotionalPrice')}
                       type="number"
                       min={0}
                       step="0.01"
@@ -380,13 +383,13 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
                       placeholder="200000"
                     />
                     <Input
-                      label="Début"
+                      label={t('services.start')}
                       type="datetime-local"
                       value={draft.start_date}
                       onChange={(e) => updateDraft(index, { start_date: e.target.value })}
                     />
                     <Input
-                      label="Fin"
+                      label={t('services.end')}
                       type="datetime-local"
                       value={draft.end_date}
                       onChange={(e) => updateDraft(index, { end_date: e.target.value })}
@@ -400,13 +403,13 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
                         onChange={(e) => updateDraft(index, { is_active: e.target.checked })}
                         className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
                       />
-                      Promotion active
+                      {t('services.activePromotion')}
                     </label>
                     <button
                       type="button"
                       onClick={() => removeDraft(index)}
                       className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                      title="Supprimer la promotion"
+                      title={t('services.removePromotion')}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -420,12 +423,12 @@ export function ServiceFormModal({ isOpen, service, onClose, onSaved }: ServiceF
         <div className="mt-2 flex justify-end gap-3">
           <div className="w-32">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Annuler
+              {t('common.cancel')}
             </Button>
           </div>
           <div className="w-40">
             <Button type="submit" isLoading={isSubmitting}>
-              {isEditing ? 'Enregistrer' : 'Créer'}
+              {isEditing ? t('common.save') : t('common.create')}
             </Button>
           </div>
         </div>

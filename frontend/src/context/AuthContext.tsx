@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '@/api/auth.api';
 import {
   getStoredToken,
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     null
   );
   const { showToast } = useToast();
+  const { t } = useTranslation();
 
   const clearSession = useCallback(() => {
     setStoredToken(null);
@@ -75,19 +77,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearSession();
       if (hadSession) {
         showToast(
-          reason === 'expired'
-            ? 'Votre session a expiré, veuillez vous reconnecter.'
-            : 'Session invalide, veuillez vous reconnecter.',
+          reason === 'expired' ? t('session.expired') : t('session.invalid'),
           'warning'
         );
       }
     });
 
     registerForbiddenHandler(() => {
-      showToast("Vous n'avez pas les droits nécessaires pour cette action.", 'error');
+      showToast(t('session.forbidden'), 'error');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearSession, showToast, user]);
+  }, [clearSession, showToast, user, t]);
 
   const login = useCallback<AuthContextValue['login']>(async (credentials) => {
     const response = await authApi.login(credentials);
@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyTwoFactor = useCallback(
     async (code: string) => {
       if (!pendingTwoFactorToken) {
-        throw new Error('Aucune vérification 2FA en attente.');
+        throw new Error(t('session.twoFactorPending'));
       }
 
       const response = await authApi.twoFactorLogin({
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(response.user);
       setPendingTwoFactorToken(null);
     },
-    [pendingTwoFactorToken]
+    [pendingTwoFactorToken, t]
   );
 
   const cancelTwoFactorChallenge = useCallback(() => {

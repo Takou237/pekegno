@@ -1,35 +1,26 @@
 import { useEffect, useState } from 'react';
 import { Shield } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/api/users.api';
 import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { extractErrorMessage } from '@/api/errors';
 import type { RoleListItem, Permission } from '@/types/user';
 
-const PERMISSION_LABELS: Record<string, string> = {
-  creer: 'Créer',
-  modifier: 'Modifier',
-  supprimer: 'Supprimer',
-  exporter: 'Exporter',
-  consulter: 'Consulter',
-  imprimer: 'Imprimer',
-  valider: 'Valider',
-  encaisser: 'Encaisser',
-  annuler: 'Annuler',
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  'super-admin': 'Super Admin',
-  'direction-generale': 'Direction Générale',
-  'responsable-agence': 'Responsable Agence',
-  'responsable-departement': 'Responsable Département',
-  commercial: 'Commercial',
-  caissier: 'Caissier',
-  comptable: 'Comptable',
-  formateur: 'Formateur',
+const PERMISSION_KEYS: Record<string, string> = {
+  creer: 'privileges.permissionCreate',
+  modifier: 'privileges.permissionEdit',
+  supprimer: 'privileges.permissionDelete',
+  exporter: 'privileges.permissionExport',
+  consulter: 'privileges.permissionView',
+  imprimer: 'privileges.permissionPrint',
+  valider: 'privileges.permissionValidate',
+  encaisser: 'privileges.permissionCash',
+  annuler: 'privileges.permissionCancel',
 };
 
 export default function RolesPrivilegesPage() {
+  const { t } = useTranslation();
   const [roles, setRoles] = useState<RoleListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +31,9 @@ export default function RolesPrivilegesPage() {
     usersApi
       .listRoles()
       .then(setRoles)
-      .catch((err) => setError(extractErrorMessage(err, 'Impossible de charger les rôles.')))
+      .catch((err) => setError(extractErrorMessage(err, t('privileges.loadFailed'))))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [t]);
 
   const allPermissions = [
     'creer',
@@ -64,10 +55,10 @@ export default function RolesPrivilegesPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white">
           <Shield className="h-5 w-5" />
-          Privilèges par rôle
+          {t('privileges.title')}
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Liste des permissions attribuées à chaque profil.
+          {t('privileges.subtitle')}
         </p>
       </div>
 
@@ -82,13 +73,15 @@ export default function RolesPrivilegesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-800">
-                <th className="px-5 py-3 text-left font-medium text-gray-500">Rôle</th>
+                <th className="px-5 py-3 text-left font-medium text-gray-500">{t('privileges.colRole')}</th>
                 {allPermissions.map((perm) => (
                   <th
                     key={perm}
                     className="px-3 py-3 text-center font-medium text-gray-500"
                   >
-                    <span className="text-xs uppercase">{PERMISSION_LABELS[perm] ?? perm}</span>
+                    <span className="text-xs uppercase">
+                      {t(PERMISSION_KEYS[perm] ?? perm)}
+                    </span>
                   </th>
                 ))}
               </tr>
@@ -99,7 +92,7 @@ export default function RolesPrivilegesPage() {
                 return (
                   <tr key={role.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
-                      {ROLE_LABELS[role.name] ?? role.name}
+                      {t(`roles.${role.name}`, { defaultValue: role.name })}
                     </td>
                     {allPermissions.map((perm) => (
                       <td key={perm} className="px-3 py-3 text-center">

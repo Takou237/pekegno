@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -25,6 +26,7 @@ interface AgencyFormModalProps {
 }
 
 export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyFormModalProps) {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const isEditing = agency !== null;
 
@@ -68,13 +70,13 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
         : await agenciesApi.create(form);
 
       showToast(
-        isEditing ? 'Agence modifiée avec succès.' : 'Agence créée avec succès.',
+        isEditing ? t('agencies.updated') : t('agencies.saved'),
         'success'
       );
       onSaved(saved);
       onClose();
     } catch (error) {
-      setFormError(extractErrorMessage(error, "Impossible d'enregistrer l'agence."));
+      setFormError(extractErrorMessage(error, t('agencies.saveFailed')));
       setFieldErrors(extractFieldErrors(error));
     } finally {
       setIsSubmitting(false);
@@ -85,7 +87,7 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? "Modifier l'agence" : 'Nouvelle agence'}
+      title={isEditing ? t('agencies.editTitle') : t('agencies.createTitle')}
       maxWidth="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -93,33 +95,33 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Nom de l'agence"
+            label={t('agencies.name')}
             required
             value={form.name}
             onChange={(e) => update('name', e.target.value)}
             error={fieldErrors.name}
-            placeholder="Agence Douala"
+            placeholder={t('agencies.namePlaceholder')}
           />
           <Input
-            label="Pays"
+            label={t('agencies.country')}
             required
             value={form.country}
             onChange={(e) => update('country', e.target.value)}
             error={fieldErrors.country}
-            placeholder="Cameroun"
+            placeholder={t('agencies.countryPlaceholder')}
           />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Ville"
+            label={t('agencies.city')}
             value={form.city}
             onChange={(e) => update('city', e.target.value)}
             error={fieldErrors.city}
-            placeholder="Douala"
+            placeholder={t('agencies.cityPlaceholder')}
           />
           <Input
-            label="Adresse"
+            label={t('agencies.address')}
             value={form.address}
             onChange={(e) => update('address', e.target.value)}
             error={fieldErrors.address}
@@ -128,14 +130,14 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Téléphone"
+            label={t('auth.phone')}
             value={form.phone}
             onChange={(e) => update('phone', e.target.value)}
             error={fieldErrors.phone}
-            placeholder="+237 6XX XXX XXX"
+            placeholder={t('agencies.phonePlaceholder')}
           />
           <Input
-            label="Email"
+            label={t('auth.email')}
             type="email"
             value={form.email}
             onChange={(e) => update('email', e.target.value)}
@@ -146,12 +148,12 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
         <div className="mt-2 flex justify-end gap-3">
           <div className="w-32">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Annuler
+              {t('common.cancel')}
             </Button>
           </div>
           <div className="w-40">
             <Button type="submit" isLoading={isSubmitting}>
-              {isEditing ? 'Enregistrer' : 'Créer'}
+              {isEditing ? t('common.save') : t('common.create')}
             </Button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { Input } from '@/components/ui/Input';
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 
 export function LoginForm() {
+  const { t } = useTranslation();
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -26,7 +28,7 @@ export function LoginForm() {
       const result = await login({ email, password });
       navigate(result.requiresTwoFactor ? '/two-factor' : '/', { replace: true });
     } catch (error) {
-      setFormError(extractErrorMessage(error, 'Connexion impossible. Réessayez.'));
+      setFormError(extractErrorMessage(error, t('auth.loginFailed')));
       setFieldErrors(extractFieldErrors(error));
     } finally {
       setIsSubmitting(false);
@@ -38,7 +40,7 @@ export function LoginForm() {
       {formError && <Alert variant="error">{formError}</Alert>}
 
       <Input
-        label="Adresse email"
+        label={t('auth.email')}
         type="email"
         name="email"
         autoComplete="username"
@@ -46,11 +48,11 @@ export function LoginForm() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         error={fieldErrors.email}
-        placeholder="vous@pekegno.com"
+        placeholder={t('auth.emailPlaceholder')}
       />
 
       <Input
-        label="Mot de passe"
+        label={t('auth.password')}
         type="password"
         name="password"
         autoComplete="current-password"
@@ -66,18 +68,18 @@ export function LoginForm() {
           to="/forgot-password"
           className="text-sm font-medium text-brand-600 hover:underline"
         >
-          Mot de passe oublié ?
+          {t('auth.forgotPassword')}
         </Link>
       </div>
 
       <Button type="submit" isLoading={isSubmitting}>
-        Se connecter
+        {t('auth.signIn')}
       </Button>
 
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-        Pas encore de compte ?{' '}
+        {t('auth.noAccount')}{' '}
         <Link to="/register" className="font-medium text-brand-600 hover:underline">
-          Créer un compte
+          {t('auth.createAccount')}
         </Link>
       </p>
     </form>

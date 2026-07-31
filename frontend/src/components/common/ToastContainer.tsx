@@ -1,4 +1,5 @@
 import { CheckCircle2, AlertTriangle, XCircle, Info, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/useToast';
 import type { ToastVariant } from '@/context/ToastContext';
 
@@ -18,6 +19,7 @@ const VARIANT_ICONS: Record<ToastVariant, typeof Info> = {
 
 export function ToastContainer() {
   const { toasts, dismissToast } = useToast();
+  const { t } = useTranslation();
 
   if (toasts.length === 0) {
     return null;
@@ -39,7 +41,7 @@ export function ToastContainer() {
               type="button"
               onClick={() => dismissToast(toast.id)}
               className="shrink-0 opacity-60 hover:opacity-100"
-              aria-label="Fermer"
+              aria-label={t('common.close')}
             >
               <X className="h-4 w-4" />
             </button>

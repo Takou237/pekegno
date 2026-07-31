@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Pencil, Eye, Trash2, UserPlus, UserMinus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { usersApi } from '@/api/users.api';
 import { agenciesApi } from '@/api/agencies.api';
@@ -23,6 +24,7 @@ import type { Agency, AssignedUser, Department, PaginationMeta } from '@/types/a
 import { assignableRoleNames, CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
 
 export default function UserListPage() {
+  const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -106,7 +108,7 @@ export default function UserListPage() {
       setUsers(response.data);
       setMeta(response.meta);
     } catch (error) {
-      setLoadError(extractErrorMessage(error, 'Impossible de charger les utilisateurs.'));
+      setLoadError(extractErrorMessage(error, t('users.loadFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -224,7 +226,7 @@ export default function UserListPage() {
     setEditErrors({});
     try {
       await usersApi.update(editUser.id, editForm);
-      showToast('Utilisateur modifié avec succès.', 'success');
+      showToast(t('users.updated'), 'success');
       setEditUser(null);
       fetchUsers(fetchParams);
     } catch (error) {
@@ -264,7 +266,7 @@ export default function UserListPage() {
             setAvailableUsers(available);
           });
         })
-        .catch(() => setAssignError('Impossible de charger les données.'))
+        .catch(() => setAssignError(t('users.dataLoadFailed')))
         .finally(() => setAssignLoading(false));
     } else {
       const dept = departments.find((d) => d.id === selectedDepartmentId);
@@ -289,7 +291,7 @@ export default function UserListPage() {
           );
           setAvailableUsers(available as UserListItem[]);
         })
-        .catch(() => setAssignError('Impossible de charger les données.'))
+        .catch(() => setAssignError(t('users.dataLoadFailed')))
         .finally(() => setAssignLoading(false));
     }
   }
@@ -301,12 +303,12 @@ export default function UserListPage() {
 
     try {
       await client.post(endpoint, { user_id: userId });
-      showToast('Utilisateur assigné avec succès.', 'success');
+      showToast(t('users.assigned'), 'success');
       fetchUsers(fetchParams);
       await reloadAssignData();
     } catch (err) {
-      showToast(extractErrorMessage(err, 'Impossible d\'assigner l\'utilisateur.'), 'error');
-      setAssignError(extractErrorMessage(err, 'Erreur'));
+      showToast(extractErrorMessage(err, t('users.assignFailed')), 'error');
+      setAssignError(extractErrorMessage(err, t('users.assignFailed')));
     }
   }
 
@@ -319,11 +321,11 @@ export default function UserListPage() {
 
     try {
       await client.delete(endpoint);
-      showToast('Utilisateur retiré avec succès.', 'success');
+      showToast(t('users.removed'), 'success');
       fetchUsers(fetchParams);
       await reloadAssignData();
     } catch (err) {
-      showToast(extractErrorMessage(err, 'Impossible de retirer l\'utilisateur.'), 'error');
+      showToast(extractErrorMessage(err, t('users.removeFailed')), 'error');
     }
   }
 
@@ -377,11 +379,11 @@ export default function UserListPage() {
     setDeleteSubmitting(true);
     try {
       await usersApi.remove(deleteTarget.id);
-      showToast('Utilisateur supprimé avec succès.', 'success');
+      showToast(t('users.deleted'), 'success');
       setDeleteTarget(null);
       fetchUsers(fetchParams);
     } catch (err) {
-      showToast(extractErrorMessage(err, 'Impossible de supprimer cet utilisateur.'), 'error');
+      showToast(extractErrorMessage(err, t('users.deleteFailed')), 'error');
     } finally {
       setDeleteSubmitting(false);
     }
@@ -392,7 +394,7 @@ export default function UserListPage() {
     setCreateSubmitting(true);
     try {
       await usersApi.create(createForm);
-      showToast('Utilisateur créé avec succès.', 'success');
+      showToast(t('users.created'), 'success');
       setCreateOpen(false);
       setCreateForm({
         username: '',
@@ -417,46 +419,46 @@ export default function UserListPage() {
   function getRoleBadge(roleName: string | null | undefined) {
     switch (roleName) {
       case 'super-admin':
-        return <Badge variant="error">Super Admin</Badge>;
+        return <Badge variant="error">{t('roles.super-admin')}</Badge>;
       case 'direction-generale':
-        return <Badge variant="brand">Direction</Badge>;
+        return <Badge variant="brand">{t('roles.direction-generale')}</Badge>;
       case 'responsable-agence':
-        return <Badge variant="warning">Resp. Agence</Badge>;
+        return <Badge variant="warning">{t('roles.responsable-agence')}</Badge>;
       case 'responsable-departement':
-        return <Badge variant="warning">Resp. Dép.</Badge>;
+        return <Badge variant="warning">{t('roles.responsable-departement')}</Badge>;
       case 'commercial':
-        return <Badge variant="success">Commercial</Badge>;
+        return <Badge variant="success">{t('roles.commercial')}</Badge>;
       case 'caissier':
-        return <Badge variant="neutral">Caissier</Badge>;
+        return <Badge variant="neutral">{t('roles.caissier')}</Badge>;
       case 'comptable':
-        return <Badge variant="neutral">Comptable</Badge>;
+        return <Badge variant="neutral">{t('roles.comptable')}</Badge>;
       case 'formateur':
-        return <Badge variant="brand">Formateur</Badge>;
+        return <Badge variant="brand">{t('roles.formateur')}</Badge>;
       default:
-        return <Badge variant="neutral">Aucun rôle</Badge>;
+        return <Badge variant="neutral">{t('roles.none')}</Badge>;
     }
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Utilisateurs</h1>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('users.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Gestion des comptes utilisateurs et attribution des rôles.
+          {t('users.subtitle')}
         </p>
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Recherche
+            {t('common.search')}
           </label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nom, email, username..."
+              placeholder={t('users.searchPlaceholder')}
               className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
@@ -464,11 +466,11 @@ export default function UserListPage() {
         {currentUser?.role?.name !== 'responsable-departement' && (
           <div className="w-56">
             <Select
-              label="Agence"
+              label={t('users.agency')}
               value={selectedAgencyId}
               onChange={(e) => handleAgencyChange(e.target.value)}
             >
-              <option value="">Toutes les agences</option>
+              <option value="">{t('common.selectAllAgencies')}</option>
               {agencies.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -479,12 +481,12 @@ export default function UserListPage() {
         )}
         <div className="w-56">
           <Select
-            label="Département"
+            label={t('users.department')}
             value={selectedDepartmentId}
             onChange={(e) => handleDepartmentChange(e.target.value)}
             disabled={!selectedAgencyId && currentUser?.role?.name !== 'responsable-departement'}
           >
-            <option value="">Tous les départements</option>
+            <option value="">{t('common.selectAllDepartments')}</option>
             {departments.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
@@ -496,19 +498,19 @@ export default function UserListPage() {
           {canCreateUsers && (
             <Button onClick={() => setCreateOpen(true)}>
               <UserPlus className="h-4 w-4" />
-              Créer
+              {t('users.createUser')}
             </Button>
           )}
           {selectedAgencyId && !selectedDepartmentId && canManageUsers && (
             <Button onClick={() => openAssignModal('agency')}>
               <UserPlus className="h-4 w-4" />
-              Assigner
+              {t('users.assignUser')}
             </Button>
           )}
           {selectedDepartmentId && canManageUsers && (
             <Button onClick={() => openAssignModal('department')}>
               <UserPlus className="h-4 w-4" />
-              Assigner
+              {t('users.assignUser')}
             </Button>
           )}
         </div>
@@ -524,8 +526,8 @@ export default function UserListPage() {
         ) : users.length === 0 ? (
           <div className="flex flex-col items-center gap-3 p-6">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Aucun utilisateur trouvé.
-              {canManageUsers && " Vous pouvez en créer un via l'écran d'inscription."}
+              {t('users.empty')}
+              {canManageUsers && t('users.emptyHint')}
             </p>
           </div>
         ) : (
@@ -533,13 +535,13 @@ export default function UserListPage() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Nom</th>
-                  <th className="px-5 py-3 font-medium">Email</th>
-                  <th className="px-5 py-3 font-medium">Téléphone</th>
-                  <th className="px-5 py-3 font-medium">Rôle</th>
-                  <th className="px-5 py-3 font-medium">Agence</th>
-                  <th className="px-5 py-3 font-medium">Statut</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-5 py-3 font-medium">{t('users.colName')}</th>
+                  <th className="px-5 py-3 font-medium">{t('users.colEmail')}</th>
+                  <th className="px-5 py-3 font-medium">{t('users.colPhone')}</th>
+                  <th className="px-5 py-3 font-medium">{t('users.colRole')}</th>
+                  <th className="px-5 py-3 font-medium">{t('users.colAgency')}</th>
+                  <th className="px-5 py-3 font-medium">{t('common.status')}</th>
+                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -560,9 +562,9 @@ export default function UserListPage() {
                     </td>
                     <td className="px-5 py-3">
                       {u.is_active ? (
-                        <Badge variant="success">Actif</Badge>
+                        <Badge variant="success">{t('common.active')}</Badge>
                       ) : (
-                        <Badge variant="error">Inactif</Badge>
+                        <Badge variant="error">{t('common.inactive')}</Badge>
                       )}
                     </td>
                     <td className="px-5 py-3">
@@ -572,7 +574,7 @@ export default function UserListPage() {
                             type="button"
                             onClick={() => setViewUser(u)}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                            title="Voir le détail"
+                            title={t('users.viewDetail')}
                           >
                             <Eye className="h-4 w-4" />
                           </button>
@@ -580,7 +582,7 @@ export default function UserListPage() {
                             type="button"
                             onClick={() => openEdit(u)}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                            title="Modifier"
+                            title={t('common.edit')}
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
@@ -588,7 +590,7 @@ export default function UserListPage() {
                             type="button"
                             onClick={() => setDeleteTarget(u)}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                            title="Supprimer"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -619,31 +621,31 @@ export default function UserListPage() {
       <Modal
         isOpen={Boolean(viewUser)}
         onClose={() => setViewUser(null)}
-        title="Détail de l'utilisateur"
+        title={t('users.detailTitle')}
         maxWidth="max-w-md"
       >
         {viewUser && (
           <dl className="flex flex-col gap-3 text-sm">
             <div>
-              <dt className="font-medium text-gray-500">Nom</dt>
+              <dt className="font-medium text-gray-500">{t('users.colName')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">{viewUser.name}</dd>
             </div>
             <div>
-              <dt className="font-medium text-gray-500">Email</dt>
+              <dt className="font-medium text-gray-500">{t('users.colEmail')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">{viewUser.email}</dd>
             </div>
             <div>
-              <dt className="font-medium text-gray-500">Téléphone</dt>
+              <dt className="font-medium text-gray-500">{t('users.colPhone')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">{viewUser.phone ?? '—'}</dd>
             </div>
             <div>
-              <dt className="font-medium text-gray-500">Rôle</dt>
+              <dt className="font-medium text-gray-500">{t('users.colRole')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">{getRoleBadge(viewUser.role?.name)}</dd>
             </div>
             <div>
-              <dt className="font-medium text-gray-500">Statut</dt>
+              <dt className="font-medium text-gray-500">{t('common.status')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">
-                {viewUser.is_active ? 'Actif' : 'Inactif'}
+                {viewUser.is_active ? t('common.active') : t('common.inactive')}
               </dd>
             </div>
           </dl>
@@ -654,7 +656,7 @@ export default function UserListPage() {
       <Modal
         isOpen={Boolean(editUser)}
         onClose={() => setEditUser(null)}
-        title="Modifier l'utilisateur"
+        title={t('users.editTitle')}
         maxWidth="max-w-lg"
       >
         <form onSubmit={(e) => { e.preventDefault(); handleEditSubmitConfirm(); }} className="flex flex-col gap-4">
@@ -665,18 +667,18 @@ export default function UserListPage() {
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-              label="Prénom"
+              label={t('users.firstName')}
               value={editForm.first_name}
               onChange={(e) => setEditForm((p) => ({ ...p, first_name: e.target.value }))}
             />
             <Input
-              label="Nom"
+              label={t('users.lastName')}
               value={editForm.last_name}
               onChange={(e) => setEditForm((p) => ({ ...p, last_name: e.target.value }))}
             />
           </div>
           <Input
-            label="Email"
+            label={t('users.email')}
             type="email"
             required
             value={editForm.email}
@@ -684,16 +686,16 @@ export default function UserListPage() {
             error={editErrors.email}
           />
           <Input
-            label="Téléphone"
+            label={t('users.phone')}
             value={editForm.phone}
             onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))}
           />
           <Select
-            label="Rôle"
+            label={t('users.role')}
             value={editForm.role_id}
             onChange={(e) => setEditForm((p) => ({ ...p, role_id: e.target.value }))}
           >
-            <option value="">— Licencier (aucun rôle) —</option>
+            <option value="">{t('users.fireOption')}</option>
             {assignableRoles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -706,10 +708,10 @@ export default function UserListPage() {
           </Select>
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setEditUser(null)}>
-              Annuler
+              {t('common.cancel')}
             </Button>
             <Button type="submit" isLoading={editSubmitting}>
-              Enregistrer
+              {t('common.save')}
             </Button>
           </div>
         </form>
@@ -721,8 +723,8 @@ export default function UserListPage() {
         onClose={() => setAssignModalOpen(false)}
         title={
           assignTargetType === 'agency'
-            ? `Assigner des utilisateurs — ${agencies.find((a) => a.id === selectedAgencyId)?.name ?? ''}`
-            : `Assigner des utilisateurs — ${departments.find((d) => d.id === selectedDepartmentId)?.name ?? ''}`
+            ? t('users.assignTitle', { name: agencies.find((a) => a.id === selectedAgencyId)?.name ?? '' })
+            : t('users.assignTitle', { name: departments.find((d) => d.id === selectedDepartmentId)?.name ?? '' })
         }
         maxWidth="max-w-lg"
       >
@@ -737,10 +739,10 @@ export default function UserListPage() {
             <>
               <div>
                 <p className="mb-2 text-xs font-medium uppercase text-gray-400">
-                  Assignés ({assignedUsers.length})
+                  {t('users.assignedCount', { count: assignedUsers.length })}
                 </p>
                 {assignedUsers.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Aucun utilisateur assigné.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('users.noAssigned')}</p>
                 ) : (
                   <ul className="flex flex-col gap-1">
                     {assignedUsers.map((u) => (
@@ -749,8 +751,8 @@ export default function UserListPage() {
                         className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                       >
                         <div className="flex items-center gap-2 text-sm">
-                          {assignTargetType === 'agency' && u.pivot?.is_primary && <Badge variant="warning">Chef</Badge>}
-                          {assignTargetType === 'department' && u.pivot?.is_department_chief && <Badge variant="warning">Chef</Badge>}
+                          {assignTargetType === 'agency' && u.pivot?.is_primary && <Badge variant="warning">{t('users.chief')}</Badge>}
+                          {assignTargetType === 'department' && u.pivot?.is_department_chief && <Badge variant="warning">{t('users.chief')}</Badge>}
                           <span className="font-medium text-gray-800 dark:text-gray-100">
                             {u.name}
                           </span>
@@ -760,7 +762,7 @@ export default function UserListPage() {
                           type="button"
                           onClick={() => handleRemoveUser(u.id)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                          title="Retirer"
+                          title={t('users.remove')}
                         >
                           <UserMinus className="h-4 w-4" />
                         </button>
@@ -772,10 +774,10 @@ export default function UserListPage() {
 
               <div>
                 <p className="mb-2 text-xs font-medium uppercase text-gray-400">
-                  Ajouter
+                  {t('users.add')}
                 </p>
                 <Autocomplete
-                  placeholder={availableUsers.length === 0 ? 'Aucun utilisateur disponible' : 'Rechercher par nom ou email...'}
+                  placeholder={availableUsers.length === 0 ? t('users.noAvailableUsers') : t('users.searchByNameEmail')}
                   value=""
                   onChange={(userId) => {
                     if (userId) handleAssignUser(userId);
@@ -803,7 +805,7 @@ export default function UserListPage() {
 
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => setAssignModalOpen(false)}>
-              Fermer
+              {t('common.close')}
             </Button>
           </div>
         </div>
@@ -812,9 +814,9 @@ export default function UserListPage() {
       {/* Confirmation licenciement */}
       <ConfirmDialog
         isOpen={Boolean(confirmRoleRemove)}
-        title="Licencier cet utilisateur ?"
-        message="Vous êtes sur le point de retirer le rôle de cet utilisateur. Cela signifie qu'il n'aura plus accès à l'application. Confirmez-vous ?"
-        confirmLabel="Oui, licencier"
+        title={t('users.fireUserTitle')}
+        message={t('users.fireUserMessage')}
+        confirmLabel={t('users.yesFire')}
         variant="danger"
         onConfirm={() => confirmRoleRemove?.()}
         onCancel={() => setConfirmRoleRemove(null)}
@@ -823,13 +825,13 @@ export default function UserListPage() {
       {/* Confirmation suppression */}
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
-        title="Supprimer cet utilisateur ?"
+        title={t('users.deleteUserTitle')}
         message={
           deleteTarget
-            ? `Êtes-vous sûr de vouloir supprimer définitivement ${deleteTarget.name} ? Cette action est irréversible.`
+            ? t('users.deleteUserMessage', { name: deleteTarget.name })
             : ''
         }
-        confirmLabel="Oui, supprimer"
+        confirmLabel={t('users.yesDelete')}
         variant="danger"
         isLoading={deleteSubmitting}
         onConfirm={handleDeleteUser}
@@ -840,7 +842,7 @@ export default function UserListPage() {
       <Modal
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Créer un utilisateur"
+        title={t('users.createTitle')}
         maxWidth="max-w-lg"
       >
         <form
@@ -853,14 +855,14 @@ export default function UserListPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-              label="Prénom"
+              label={t('users.firstName')}
               name="first_name"
               value={createForm.first_name ?? ''}
               onChange={(e) => setCreateForm((p) => ({ ...p, first_name: e.target.value }))}
               error={createErrors.first_name}
             />
             <Input
-              label="Nom"
+              label={t('users.lastName')}
               name="last_name"
               value={createForm.last_name ?? ''}
               onChange={(e) => setCreateForm((p) => ({ ...p, last_name: e.target.value }))}
@@ -869,7 +871,7 @@ export default function UserListPage() {
           </div>
 
           <Input
-            label="Nom d'utilisateur"
+            label={t('users.username')}
             name="username"
             required
             value={createForm.username}
@@ -878,7 +880,7 @@ export default function UserListPage() {
           />
 
           <Input
-            label="Adresse email"
+            label={t('users.email')}
             type="email"
             name="email"
             required
@@ -888,7 +890,7 @@ export default function UserListPage() {
           />
 
           <Input
-            label="Téléphone"
+            label={t('users.phone')}
             name="phone"
             value={createForm.phone ?? ''}
             onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))}
@@ -896,11 +898,11 @@ export default function UserListPage() {
           />
 
           <Select
-            label="Rôle"
+            label={t('users.role')}
             value={createForm.role_id ?? ''}
             onChange={(e) => setCreateForm((p) => ({ ...p, role_id: e.target.value }))}
           >
-            <option value="">— Aucun rôle —</option>
+            <option value="">{t('users.noRoleOption')}</option>
             {assignableRoles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -910,10 +912,10 @@ export default function UserListPage() {
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-              Annuler
+              {t('common.cancel')}
             </Button>
             <Button type="submit" isLoading={createSubmitting}>
-              Créer
+              {t('common.create')}
             </Button>
           </div>
         </form>

@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useInactivityLogout } from '@/hooks/useInactivityLogout';
 
@@ -9,6 +10,7 @@ import { useInactivityLogout } from '@/hooks/useInactivityLogout';
  * - Branche la déconnexion automatique pour inactivité (jour 2 du plan).
  */
 export function ProtectedRoute() {
+  const { t } = useTranslation();
   const { isAuthenticated, isInitializing } = useAuth();
   const location = useLocation();
 
@@ -19,7 +21,7 @@ export function ProtectedRoute() {
       <div className="flex min-h-screen items-center justify-center">
         <span
           className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"
-          aria-label="Chargement"
+          aria-label={t('common.loading')}
         />
       </div>
     );

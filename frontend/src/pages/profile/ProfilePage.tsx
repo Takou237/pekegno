@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { ChangePasswordForm } from '@/components/profile/ChangePasswordForm';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
@@ -17,6 +18,7 @@ function Section({ title, description, children }: { title: string; description?
 }
 
 export default function ProfilePage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
 
   if (!user) {
@@ -28,24 +30,24 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Mon profil</h1>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('profile.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {fullName} — {user.email} {user.role?.name && `— ${user.role.name}`}
+          {fullName} — {user.email} {user.role?.name && `— ${t(`roles.${user.role.name}`, { defaultValue: user.role.name })}`}
         </p>
       </div>
 
       <Section
-        title="Changer le mot de passe"
-        description="Vos autres sessions seront déconnectées après ce changement."
+        title={t('profile.changePassword')}
+        description={t('profile.changePasswordDesc')}
       >
         <ChangePasswordForm />
       </Section>
 
-      <Section title="Sécurité du compte" description="Double authentification (2FA).">
+      <Section title={t('profile.security')} description={t('profile.securityDesc')}>
         <TwoFactorSettings />
       </Section>
 
-      <Section title="Zone de danger">
+      <Section title={t('profile.dangerZone')}>
         <DeleteAccountSection />
       </Section>
     </div>

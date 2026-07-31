@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
@@ -12,6 +13,7 @@ export function AgencyDetailModal({
   agency: Agency | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [fullAgency, setFullAgency] = useState<Agency | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -66,7 +68,7 @@ export function AgencyDetailModal({
             return chief ? (
               <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
                 <p className="mb-1 text-xs font-medium uppercase text-amber-600 dark:text-amber-400">
-                  Chef d&apos;agence
+                  {t('agencies.detailChef')}
                 </p>
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{chief.name}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{chief.email}</p>
@@ -76,35 +78,35 @@ export function AgencyDetailModal({
 
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
             <div>
-              <dt className="text-xs font-medium uppercase text-gray-400">Code</dt>
+              <dt className="text-xs font-medium uppercase text-gray-400">{t('agencies.colCode')}</dt>
               <dd className="text-sm text-gray-800 dark:text-gray-100">{display.code}</dd>
             </div>
             <div>
-              <dt className="text-xs font-medium uppercase text-gray-400">Pays</dt>
+              <dt className="text-xs font-medium uppercase text-gray-400">{t('agencies.country')}</dt>
               <dd className="text-sm text-gray-800 dark:text-gray-100">{display.country}</dd>
             </div>
             <div>
-              <dt className="text-xs font-medium uppercase text-gray-400">Adresse</dt>
+              <dt className="text-xs font-medium uppercase text-gray-400">{t('agencies.address')}</dt>
               <dd className="text-sm text-gray-800 dark:text-gray-100">
                 {display.full_address ?? '—'}
               </dd>
             </div>
             <div>
-              <dt className="text-xs font-medium uppercase text-gray-400">Téléphone</dt>
+              <dt className="text-xs font-medium uppercase text-gray-400">{t('auth.phone')}</dt>
               <dd className="text-sm text-gray-800 dark:text-gray-100">{display.phone ?? '—'}</dd>
             </div>
             <div>
-              <dt className="text-xs font-medium uppercase text-gray-400">Email</dt>
+              <dt className="text-xs font-medium uppercase text-gray-400">{t('auth.email')}</dt>
               <dd className="text-sm text-gray-800 dark:text-gray-100">{display.email ?? '—'}</dd>
             </div>
           </dl>
 
           <div>
             <p className="mb-2 text-xs font-medium uppercase text-gray-400">
-              Départements ({display.departments?.length ?? 0})
+              {t('agencies.colDepartments')} ({display.departments?.length ?? 0})
             </p>
             {(display.departments?.length ?? 0) === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">Aucun département.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('agencies.detailNoDepartments')}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {(display.departments ?? []).map((department) => (

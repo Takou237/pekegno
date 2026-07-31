@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import QRCode from 'qrcode';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '@/api/auth.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -11,6 +12,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Modal } from '@/components/ui/Modal';
 
 export function TwoFactorSettings() {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
 
@@ -44,7 +46,7 @@ export function TwoFactorSettings() {
       });
       setQrDataUrl(dataUrl);
     } catch (error) {
-      setSetupError(extractErrorMessage(error, "Impossible d'activer la 2FA pour le moment."));
+      setSetupError(extractErrorMessage(error, t('profile.twoFactorActivationFailed')));
     } finally {
       setIsEnabling(false);
     }
@@ -56,13 +58,13 @@ export function TwoFactorSettings() {
     setIsVerifying(true);
     try {
       await authApi.verifyTwoFactorSetup(verifyCode);
-      showToast('Double authentification activée avec succès.', 'success');
+      showToast(t('profile.twoFactorActivated'), 'success');
       setSecret('');
       setQrDataUrl('');
       setVerifyCode('');
       await refreshUser();
     } catch (error) {
-      setSetupError(extractErrorMessage(error, 'Code invalide.'));
+      setSetupError(extractErrorMessage(error, t('profile.twoFactorInvalidCode')));
     } finally {
       setIsVerifying(false);
     }
@@ -74,13 +76,13 @@ export function TwoFactorSettings() {
     setIsDisabling(true);
     try {
       await authApi.disableTwoFactor(disablePassword, disableCode);
-      showToast('Double authentification désactivée.', 'success');
+      showToast(t('profile.twoFactorDeactivated'), 'success');
       setIsDisableModalOpen(false);
       setDisablePassword('');
       setDisableCode('');
       await refreshUser();
     } catch (error) {
-      setDisableError(extractErrorMessage(error, 'Mot de passe ou code invalide.'));
+      setDisableError(extractErrorMessage(error, t('profile.twoFactorDisableFailed')));
     } finally {
       setIsDisabling(false);
     }
@@ -98,25 +100,25 @@ export function TwoFactorSettings() {
         )}
         <div className="flex-1">
           <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-            Double authentification (2FA){' '}
+            {t('profile.twoFactorStatus')}{' '}
             {user.two_factor_enabled ? (
-              <span className="text-success-600">activée</span>
+              <span className="text-success-600">{t('profile.twoFactorEnabled')}</span>
             ) : (
-              <span className="text-warning-600">non activée</span>
+              <span className="text-warning-600">{t('profile.twoFactorNotEnabled')}</span>
             )}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Ajoute une étape de vérification par code à 6 chiffres lors de la connexion.
+            {t('profile.twoFactorDesc')}
           </p>
         </div>
         <div className="w-48 shrink-0">
           {user.two_factor_enabled ? (
             <Button variant="outline" onClick={() => setIsDisableModalOpen(true)}>
-              Désactiver
+              {t('profile.twoFactorDisable')}
             </Button>
           ) : (
             <Button onClick={handleStartSetup} isLoading={isEnabling}>
-              Activer
+              {t('profile.twoFactorEnable')}
             </Button>
           )}
         </div>
@@ -126,12 +128,11 @@ export function TwoFactorSettings() {
         <div className="flex flex-col gap-4 rounded-lg border border-gray-100 p-4 dark:border-gray-800">
           {setupError && <Alert variant="error">{setupError}</Alert>}
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Scannez ce QR code avec votre application d'authentification (Google
-            Authenticator, Authy...), ou saisissez le secret manuellement.
+            {t('profile.twoFactorScan')}
           </p>
           <img
             src={qrDataUrl}
-            alt="QR code de configuration 2FA"
+            alt={t('profile.twoFactorQrAlt')}
             className="h-40 w-40 rounded-lg border border-gray-100 dark:border-gray-800"
           />
           <p className="break-all rounded bg-gray-50 px-3 py-2 font-mono text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
@@ -140,7 +141,7 @@ export function TwoFactorSettings() {
           <form onSubmit={handleVerifySetup} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <Input
-                label="Code de vérification"
+                label={t('profile.twoFactorVerificationCode')}
                 inputMode="numeric"
                 maxLength={6}
                 required
@@ -151,7 +152,7 @@ export function TwoFactorSettings() {
             </div>
             <div className="w-full sm:w-48">
               <Button type="submit" isLoading={isVerifying}>
-                Confirmer l'activation
+                {t('profile.twoFactorConfirmActivation')}
               </Button>
             </div>
           </form>
@@ -161,19 +162,19 @@ export function TwoFactorSettings() {
       <Modal
         isOpen={isDisableModalOpen}
         onClose={() => setIsDisableModalOpen(false)}
-        title="Désactiver la double authentification"
+        title={t('profile.twoFactorDisableTitle')}
       >
         <form onSubmit={handleDisable} className="flex flex-col gap-4">
           {disableError && <Alert variant="error">{disableError}</Alert>}
           <Input
-            label="Mot de passe actuel"
+            label={t('auth.currentPassword')}
             type="password"
             required
             value={disablePassword}
             onChange={(e) => setDisablePassword(e.target.value)}
           />
           <Input
-            label="Code 2FA actuel"
+            label={t('profile.twoFactorCurrentCode')}
             inputMode="numeric"
             maxLength={6}
             required
@@ -182,7 +183,7 @@ export function TwoFactorSettings() {
             placeholder="123456"
           />
           <Button type="submit" isLoading={isDisabling} className="!bg-error-500 hover:!bg-error-600">
-            Désactiver la 2FA
+            {t('profile.twoFactorDisableButton')}
           </Button>
         </form>
       </Modal>

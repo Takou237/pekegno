@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '@/api/auth.api';
 import { useToast } from '@/hooks/useToast';
 import { extractErrorMessage } from '@/api/errors';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 
 export function ResetPasswordForm() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -27,7 +29,7 @@ export function ResetPasswordForm() {
     setFormError(null);
 
     if (password !== passwordConfirmation) {
-      setFormError('Les mots de passe ne correspondent pas.');
+      setFormError(t('auth.passwordMismatch'));
       return;
     }
 
@@ -39,12 +41,10 @@ export function ResetPasswordForm() {
         password,
         password_confirmation: passwordConfirmation,
       });
-      showToast('Mot de passe réinitialisé avec succès. Vous pouvez vous reconnecter.', 'success');
+      showToast(t('auth.resetSuccess'), 'success');
       navigate('/login', { replace: true });
     } catch (error) {
-      setFormError(
-        extractErrorMessage(error, 'Ce lien de réinitialisation est invalide ou a expiré.')
-      );
+      setFormError(extractErrorMessage(error, t('auth.resetLinkInvalid')));
     } finally {
       setIsSubmitting(false);
     }
@@ -53,15 +53,12 @@ export function ResetPasswordForm() {
   if (!isLinkValid) {
     return (
       <div className="flex flex-col gap-5">
-        <Alert variant="error">
-          Ce lien de réinitialisation est incomplet ou invalide. Merci de refaire une
-          demande.
-        </Alert>
+        <Alert variant="error">{t('auth.resetLinkIncomplete')}</Alert>
         <Link
           to="/forgot-password"
           className="text-center text-sm font-medium text-brand-600 hover:underline"
         >
-          Refaire une demande
+          {t('common.resetRequest')}
         </Link>
       </div>
     );
@@ -71,21 +68,21 @@ export function ResetPasswordForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
       {formError && <Alert variant="error">{formError}</Alert>}
 
-      <Input label="Adresse email" type="email" value={email} readOnly disabled />
+      <Input label={t('auth.email')} type="email" value={email} readOnly disabled />
 
       <Input
-        label="Nouveau mot de passe"
+        label={t('auth.newPassword')}
         type="password"
         name="password"
         autoComplete="new-password"
         required
-        hint="8 caractères minimum."
+        hint={t('auth.passwordHint')}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
 
       <Input
-        label="Confirmer le mot de passe"
+        label={t('auth.confirmNewPassword')}
         type="password"
         name="password_confirmation"
         autoComplete="new-password"
@@ -95,7 +92,7 @@ export function ResetPasswordForm() {
       />
 
       <Button type="submit" isLoading={isSubmitting}>
-        Réinitialiser le mot de passe
+        {t('auth.resetPassword')}
       </Button>
     </form>
   );

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, Trash2, Pencil, Eye, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { servicesApi, categoriesApi } from '@/api/services.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -23,20 +24,26 @@ import {
 import type { Agency, PaginationMeta } from '@/types/agency';
 import type { Category } from '@/types/category';
 import type { Service, ServiceListParams } from '@/types/service';
+import { currentCurrency, currentLocale } from '@/i18n';
 
-const SORT_OPTIONS: { value: NonNullable<ServiceListParams['sort_by']>; label: string }[] = [
-  { value: 'name', label: 'Nom' },
-  { value: 'price', label: 'Prix' },
-  { value: 'created_at', label: 'Date de création' },
-];
+type TranslateFn = ReturnType<typeof useTranslation>['t'];
+
+function getSortOptions(t: TranslateFn): { value: NonNullable<ServiceListParams['sort_by']>; label: string }[] {
+  return [
+    { value: 'name', label: t('services.sortName') },
+    { value: 'price', label: t('services.sortPrice') },
+    { value: 'created_at', label: t('services.sortCreatedAt') },
+  ];
+}
 
 function formatPrice(value: string | number): string {
   const number = Number(value);
   if (Number.isNaN(number)) return String(value);
-  return `${number.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} FCFA`;
+  return `${number.toLocaleString(currentLocale(), { maximumFractionDigits: 2 })} ${currentCurrency()}`;
 }
 
 export default function ServiceListPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
 
@@ -79,7 +86,7 @@ export default function ServiceListPage() {
       setServices(response.data);
       setMeta(response.meta);
     } catch (error) {
-      setLoadError(extractErrorMessage(error, 'Impossible de charger les services.'));
+      setLoadError(extractErrorMessage(error, t('services.loadFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -119,12 +126,12 @@ export default function ServiceListPage() {
     setIsDeleting(true);
     try {
       await servicesApi.remove(deleteTarget.id);
-      showToast('Service archivé avec succès.', 'success');
+      showToast(t('services.archived'), 'success');
       setDeleteTarget(null);
       fetchServices();
     } catch (error) {
       showToast(
-        extractErrorMessage(error, 'Impossible de supprimer ce service.'),
+        extractErrorMessage(error, t('services.deleteFailed')),
         'error'
       );
     } finally {
@@ -147,7 +154,7 @@ export default function ServiceListPage() {
       setDetailService(full);
     } catch (error) {
       showToast(
-        extractErrorMessage(error, 'Impossible de charger le détail du service.'),
+        extractErrorMessage(error, t('services.detailLoadFailed')),
         'error'
       );
     }
@@ -157,9 +164,9 @@ export default function ServiceListPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Services</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('services.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Catalogue des services et activités, promotions et historique des prix.
+            {t('services.subtitle')}
           </p>
         </div>
         <div className="flex gap-3">
@@ -167,7 +174,7 @@ export default function ServiceListPage() {
             <Link to="/services/trash">
               <Button variant="outline">
                 <Trash2 className="h-4 w-4" />
-                Corbeille
+                {t('common.trash')}
               </Button>
             </Link>
           )}
@@ -175,7 +182,7 @@ export default function ServiceListPage() {
             <div className="w-48">
               <Button onClick={() => setFormModalState({ open: true, service: null })}>
                 <Plus className="h-4 w-4" />
-                Nouveau service
+                {t('services.newService')}
               </Button>
             </div>
           )}
@@ -185,25 +192,25 @@ export default function ServiceListPage() {
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Recherche
+            {t('common.search')}
           </label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nom, description, couverture..."
+              placeholder={t('services.searchPlaceholder')}
               className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
         </div>
         <div className="sm:w-48">
           <Select
-            label="Catégorie"
+            label={t('services.category')}
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
           >
-            <option value="">Toutes</option>
+            <option value="">{t('common.selectAll')}</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -213,11 +220,11 @@ export default function ServiceListPage() {
         </div>
         <div className="sm:w-48">
           <Select
-            label="Agence"
+            label={t('services.agency')}
             value={agencyId}
             onChange={(e) => setAgencyId(e.target.value)}
           >
-            <option value="">Toutes</option>
+            <option value="">{t('common.selectAll')}</option>
             {agencies.map((agency) => (
               <option key={agency.id} value={agency.id}>
                 {agency.name}
@@ -227,11 +234,11 @@ export default function ServiceListPage() {
         </div>
         <div className="sm:w-48">
           <Select
-            label="Trier par"
+            label={t('services.sortBy')}
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
           >
-            {SORT_OPTIONS.map((option) => (
+            {getSortOptions(t).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -242,7 +249,7 @@ export default function ServiceListPage() {
           <button
             type="button"
             onClick={toggleSortOrder}
-            title={sortOrder === 'asc' ? 'Croissant' : 'Décroissant'}
+            title={sortOrder === 'asc' ? t('common.asc') : t('common.desc')}
             className="flex h-[42px] w-full items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             <ArrowUpDown className="h-4 w-4" />
@@ -258,18 +265,18 @@ export default function ServiceListPage() {
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : services.length === 0 ? (
-          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">Aucun service trouvé.</p>
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('services.empty')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Service</th>
-                  <th className="px-5 py-3 font-medium">Catégorie</th>
-                  <th className="px-5 py-3 font-medium">Agence / Département</th>
-                  <th className="px-5 py-3 font-medium">Prix</th>
-                  <th className="px-5 py-3 font-medium">Promo</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-5 py-3 font-medium">{t('services.colService')}</th>
+                  <th className="px-5 py-3 font-medium">{t('services.colCategory')}</th>
+                  <th className="px-5 py-3 font-medium">{t('services.colAgencyDept')}</th>
+                  <th className="px-5 py-3 font-medium">{t('services.colPrice')}</th>
+                  <th className="px-5 py-3 font-medium">{t('services.colPromo')}</th>
+                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -311,9 +318,9 @@ export default function ServiceListPage() {
                     </td>
                     <td className="px-5 py-3">
                       {service.has_active_promotion ? (
-                        <Badge variant="success">Active</Badge>
+                        <Badge variant="success">{t('services.promoActive')}</Badge>
                       ) : (
-                        <Badge variant="neutral">—</Badge>
+                        <Badge variant="neutral">{t('common.none')}</Badge>
                       )}
                     </td>
                     <td className="px-5 py-3">
@@ -322,7 +329,7 @@ export default function ServiceListPage() {
                           type="button"
                           onClick={() => openDetail(service)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                          title="Voir le détail"
+                          title={t('common.viewDetails')}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -331,7 +338,7 @@ export default function ServiceListPage() {
                             type="button"
                             onClick={() => setFormModalState({ open: true, service })}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                            title="Modifier"
+                            title={t('common.edit')}
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
@@ -341,7 +348,7 @@ export default function ServiceListPage() {
                             type="button"
                             onClick={() => setDeleteTarget(service)}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                            title="Supprimer"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -379,9 +386,9 @@ export default function ServiceListPage() {
 
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
-        title="Archiver ce service ?"
-        message={`Le service "${deleteTarget?.name}" sera déplacé vers la corbeille. Il pourra être restauré par un super-administrateur.`}
-        confirmLabel="Archiver"
+        title={t('services.archiveTitle')}
+        message={t('services.archiveMessage', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('services.archive')}
         isLoading={isDeleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/components/ui/Spinner';
 
 export interface AutocompleteOption {
@@ -19,14 +20,15 @@ interface AutocompleteProps {
 
 export function Autocomplete({
   label,
-  placeholder = 'Rechercher...',
+  placeholder,
   value,
   onChange,
   fetchOptions,
   error,
   disabled = false,
 }: AutocompleteProps) {
-  const generatedId = useId();
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder || t('common.search');  const generatedId = useId();
   const inputId = useId();
   const [inputValue, setInputValue] = useState('');
   const [selectedLabel, setSelectedLabel] = useState('');
@@ -138,7 +140,7 @@ export function Autocomplete({
           id={inputId}
           type="text"
           value={inputValue}
-          placeholder={selectedLabel || placeholder}
+          placeholder={selectedLabel || resolvedPlaceholder}
           onChange={(e) => {
             setInputValue(e.target.value);
             if (selectedLabel) {

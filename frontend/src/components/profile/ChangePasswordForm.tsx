@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '@/api/auth.api';
 import { useToast } from '@/hooks/useToast';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -9,6 +10,7 @@ import { Alert } from '@/components/ui/Alert';
 const initialState = { current_password: '', password: '', password_confirmation: '' };
 
 export function ChangePasswordForm() {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const [form, setForm] = useState(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,13 +29,10 @@ export function ChangePasswordForm() {
 
     try {
       await authApi.changePassword(form);
-      showToast(
-        'Mot de passe changé avec succès. Vos autres sessions ont été déconnectées.',
-        'success'
-      );
+      showToast(t('profile.passwordChanged'), 'success');
       setForm(initialState);
     } catch (error) {
-      setFormError(extractErrorMessage(error, 'Impossible de changer le mot de passe.'));
+      setFormError(extractErrorMessage(error, t('profile.passwordChangeFailed')));
       setFieldErrors(extractFieldErrors(error));
     } finally {
       setIsSubmitting(false);
@@ -45,7 +44,7 @@ export function ChangePasswordForm() {
       {formError && <Alert variant="error">{formError}</Alert>}
 
       <Input
-        label="Mot de passe actuel"
+        label={t('auth.currentPassword')}
         type="password"
         autoComplete="current-password"
         required
@@ -54,17 +53,17 @@ export function ChangePasswordForm() {
         error={fieldErrors.current_password}
       />
       <Input
-        label="Nouveau mot de passe"
+        label={t('auth.newPassword')}
         type="password"
         autoComplete="new-password"
         required
-        hint="8 caractères minimum."
+        hint={t('auth.passwordHint')}
         value={form.password}
         onChange={(e) => update('password', e.target.value)}
         error={fieldErrors.password}
       />
       <Input
-        label="Confirmer le nouveau mot de passe"
+        label={t('auth.confirmNewPassword')}
         type="password"
         autoComplete="new-password"
         required
@@ -74,7 +73,7 @@ export function ChangePasswordForm() {
 
       <div className="w-full sm:w-56">
         <Button type="submit" isLoading={isSubmitting}>
-          Mettre à jour
+          {t('profile.update')}
         </Button>
       </div>
     </form>

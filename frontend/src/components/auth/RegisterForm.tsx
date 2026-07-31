@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -19,6 +20,7 @@ const initialForm: RegisterPayload = {
 };
 
 export function RegisterForm() {
+  const { t } = useTranslation();
   const { register } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -40,10 +42,10 @@ export function RegisterForm() {
 
     try {
       await register(form);
-      showToast('Compte créé avec succès. Vous pouvez maintenant vous connecter.', 'success');
+      showToast(t('auth.registerSuccess'), 'success');
       navigate('/login', { replace: true });
     } catch (error) {
-      setFormError(extractErrorMessage(error, "Inscription impossible. Réessayez."));
+      setFormError(extractErrorMessage(error, t('auth.registerFailed')));
       setFieldErrors(extractFieldErrors(error));
     } finally {
       setIsSubmitting(false);
@@ -56,14 +58,14 @@ export function RegisterForm() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input
-          label="Prénom"
+          label={t('auth.firstName')}
           name="first_name"
           value={form.first_name}
           onChange={(e) => update('first_name', e.target.value)}
           error={fieldErrors.first_name}
         />
         <Input
-          label="Nom"
+          label={t('auth.lastName')}
           name="last_name"
           value={form.last_name}
           onChange={(e) => update('last_name', e.target.value)}
@@ -72,7 +74,7 @@ export function RegisterForm() {
       </div>
 
       <Input
-        label="Nom d'utilisateur"
+        label={t('auth.username')}
         name="username"
         required
         value={form.username}
@@ -81,7 +83,7 @@ export function RegisterForm() {
       />
 
       <Input
-        label="Adresse email"
+        label={t('auth.email')}
         type="email"
         name="email"
         autoComplete="email"
@@ -92,7 +94,7 @@ export function RegisterForm() {
       />
 
       <Input
-        label="Téléphone"
+        label={t('auth.phone')}
         name="phone"
         value={form.phone}
         onChange={(e) => update('phone', e.target.value)}
@@ -100,19 +102,19 @@ export function RegisterForm() {
       />
 
       <Input
-        label="Mot de passe"
+        label={t('auth.password')}
         type="password"
         name="password"
         autoComplete="new-password"
         required
-        hint="8 caractères minimum."
+        hint={t('auth.passwordHint')}
         value={form.password}
         onChange={(e) => update('password', e.target.value)}
         error={fieldErrors.password}
       />
 
       <Input
-        label="Confirmer le mot de passe"
+        label={t('auth.confirmPassword')}
         type="password"
         name="password_confirmation"
         autoComplete="new-password"
@@ -122,13 +124,13 @@ export function RegisterForm() {
       />
 
       <Button type="submit" isLoading={isSubmitting}>
-        Créer mon compte
+        {t('auth.createMyAccount')}
       </Button>
 
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-        Déjà inscrit ?{' '}
+        {t('auth.alreadyRegistered')}{' '}
         <Link to="/login" className="font-medium text-brand-600 hover:underline">
-          Se connecter
+          {t('auth.signIn')}
         </Link>
       </p>
     </form>

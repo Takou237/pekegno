@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { currentLocale } from '@/i18n';
 import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -11,6 +13,7 @@ import type { PaginationMeta } from '@/types/agency';
 import type { Service } from '@/types/service';
 
 export default function ServiceTrashPage() {
+  const { t } = useTranslation();
   const { showToast } = useToast();
 
   const [services, setServices] = useState<Service[]>([]);
@@ -29,7 +32,7 @@ export default function ServiceTrashPage() {
       setServices(response.data);
       setMeta(response.meta);
     } catch (error) {
-      setLoadError(extractErrorMessage(error, 'Impossible de charger la corbeille.'));
+      setLoadError(extractErrorMessage(error, t('services.trashLoadFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -42,10 +45,10 @@ export default function ServiceTrashPage() {
   async function handleRestore(service: Service) {
     try {
       await servicesApi.restore(service.id);
-      showToast(`Service "${service.name}" restauré.`, 'success');
+      showToast(t('services.restored', { name: service.name }), 'success');
       setServices((prev) => prev.filter((item) => item.id !== service.id));
     } catch (error) {
-      showToast(extractErrorMessage(error, 'Impossible de restaurer ce service.'), 'error');
+      showToast(extractErrorMessage(error, t('services.restoreFailed')), 'error');
     }
   }
 
@@ -54,12 +57,12 @@ export default function ServiceTrashPage() {
     setIsForceDeleting(true);
     try {
       await servicesApi.forceDelete(forceDeleteTarget.id);
-      showToast('Service supprimé définitivement.', 'success');
+      showToast(t('services.forceDeleted'), 'success');
       setServices((prev) => prev.filter((item) => item.id !== forceDeleteTarget.id));
       setForceDeleteTarget(null);
     } catch (error) {
       showToast(
-        extractErrorMessage(error, 'Impossible de supprimer définitivement ce service.'),
+        extractErrorMessage(error, t('services.forceDeleteFailed')),
         'error'
       );
     } finally {
@@ -75,13 +78,13 @@ export default function ServiceTrashPage() {
           className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
-          Retour aux services
+          {t('services.backToServices')}
         </Link>
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-          Corbeille — Services
+          {t('services.trashTitle')}
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Services archivés. Réservé aux super-administrateurs.
+          {t('services.trashSubtitle')}
         </p>
       </div>
 
@@ -93,16 +96,16 @@ export default function ServiceTrashPage() {
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : services.length === 0 ? (
-          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">La corbeille est vide.</p>
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('common.trashEmpty')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Service</th>
-                  <th className="px-5 py-3 font-medium">Catégorie</th>
-                  <th className="px-5 py-3 font-medium">Supprimé le</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-5 py-3 font-medium">{t('services.colService')}</th>
+                  <th className="px-5 py-3 font-medium">{t('services.colCategory')}</th>
+                  <th className="px-5 py-3 font-medium">{t('services.deletedAt')}</th>
+                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -115,7 +118,7 @@ export default function ServiceTrashPage() {
                       {service.category?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {service.deleted_at ? new Date(service.deleted_at).toLocaleDateString() : '—'}
+                      {service.deleted_at ? new Date(service.deleted_at).toLocaleDateString(currentLocale()) : '—'}
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
@@ -123,7 +126,7 @@ export default function ServiceTrashPage() {
                           type="button"
                           onClick={() => handleRestore(service)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-success-600 dark:hover:bg-gray-800"
-                          title="Restaurer"
+                          title={t('common.restore')}
                         >
                           <RotateCcw className="h-4 w-4" />
                         </button>
@@ -131,7 +134,7 @@ export default function ServiceTrashPage() {
                           type="button"
                           onClick={() => setForceDeleteTarget(service)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                          title="Supprimer définitivement"
+                          title={t('common.deletePermanently')}
                         >
                           <XCircle className="h-4 w-4" />
                         </button>
@@ -159,9 +162,9 @@ export default function ServiceTrashPage() {
 
       <ConfirmDialog
         isOpen={Boolean(forceDeleteTarget)}
-        title="Suppression définitive"
-        message={`Le service "${forceDeleteTarget?.name}" sera supprimé définitivement et irréversiblement. Continuer ?`}
-        confirmLabel="Supprimer définitivement"
+        title={t('services.forceDeleteTitle')}
+        message={t('services.forceDeleteMessage', { name: forceDeleteTarget?.name ?? '' })}
+        confirmLabel={t('common.deletePermanently')}
         isLoading={isForceDeleting}
         onConfirm={handleForceDelete}
         onCancel={() => setForceDeleteTarget(null)}

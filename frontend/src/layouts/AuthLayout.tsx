@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export function AuthLayout({
   title,
@@ -9,6 +10,7 @@ export function AuthLayout({
   subtitle?: string;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-screen w-full">
       {/* Colonne formulaire */}
@@ -37,13 +39,8 @@ export function AuthLayout({
       <div className="relative hidden w-1/2 items-center justify-center bg-brand-900 lg:flex">
         <div className="absolute inset-0 bg-gradient-to-br from-brand-800 via-brand-900 to-gray-900" />
         <div className="relative z-10 max-w-md px-10 text-center text-white">
-          <h2 className="text-2xl font-semibold">
-            Une seule plateforme pour toutes vos agences
-          </h2>
-          <p className="mt-4 text-brand-100">
-            Formations, ventes, facturation, comptabilité et pilotage centralisés
-            pour l'ensemble du réseau PEKEGNO.
-          </p>
+          <h2 className="text-2xl font-semibold">{t('auth.brandTagline')}</h2>
+          <p className="mt-4 text-brand-100">{t('auth.brandTaglineSub')}</p>
         </div>
       </div>
     </div>

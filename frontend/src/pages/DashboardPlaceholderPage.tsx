@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Building2, FolderTree, Users, Mail, Phone, BadgeInfo } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { client } from '@/api/client';
 import { Spinner } from '@/components/ui/Spinner';
@@ -9,21 +10,22 @@ import type { Agency } from '@/types/agency';
 
 const ADMIN_ROLES = ['super-admin', 'direction-generale'];
 
-function roleBadge(roleName: string | null | undefined) {
+function roleBadge(roleName: string | null | undefined, t: (key: string, opts?: any) => string) {
   switch (roleName) {
-    case 'super-admin': return <Badge variant="error">Super Admin</Badge>;
-    case 'direction-generale': return <Badge variant="brand">Direction</Badge>;
-    case 'responsable-agence': return <Badge variant="warning">Resp. Agence</Badge>;
-    case 'responsable-departement': return <Badge variant="warning">Resp. Dép.</Badge>;
-    case 'commercial': return <Badge variant="success">Commercial</Badge>;
-    case 'caissier': return <Badge variant="neutral">Caissier</Badge>;
-    case 'comptable': return <Badge variant="neutral">Comptable</Badge>;
-    case 'formateur': return <Badge variant="brand">Formateur</Badge>;
-    default: return <Badge variant="neutral">Sans rôle</Badge>;
+    case 'super-admin': return <Badge variant="error">{t('roles.super-admin')}</Badge>;
+    case 'direction-generale': return <Badge variant="brand">{t('roles.direction-generale')}</Badge>;
+    case 'responsable-agence': return <Badge variant="warning">{t('roles.responsable-agence')}</Badge>;
+    case 'responsable-departement': return <Badge variant="warning">{t('roles.responsable-departement')}</Badge>;
+    case 'commercial': return <Badge variant="success">{t('roles.commercial')}</Badge>;
+    case 'caissier': return <Badge variant="neutral">{t('roles.caissier')}</Badge>;
+    case 'comptable': return <Badge variant="neutral">{t('roles.comptable')}</Badge>;
+    case 'formateur': return <Badge variant="brand">{t('roles.formateur')}</Badge>;
+    default: return <Badge variant="neutral">{t('roles.none')}</Badge>;
   }
 }
 
 function AdminDashboard() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<{ agencies: number; departments: number; users: number } | null>(null);
 
   useEffect(() => {
@@ -42,7 +44,7 @@ function AdminDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Tableau de bord</h1>
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link to="/agencies" className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -52,7 +54,7 @@ function AdminDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.agencies ?? '—'}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Agences</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.agencies')}</p>
             </div>
           </div>
         </Link>
@@ -63,7 +65,7 @@ function AdminDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.departments ?? '—'}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Départements</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.departments')}</p>
             </div>
           </div>
         </Link>
@@ -74,7 +76,7 @@ function AdminDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.users ?? '—'}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Utilisateurs</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.users')}</p>
             </div>
           </div>
         </Link>
@@ -84,6 +86,7 @@ function AdminDashboard() {
 }
 
 function AgencyChiefDashboard() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const assignments = user?.assignments?.filter((a: any) => a.pivot?.is_primary === true) ?? [];
   const [agency, setAgency] = useState<Agency | null>(null);
@@ -98,7 +101,7 @@ function AgencyChiefDashboard() {
   }, [assignments]);
 
   if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
-  if (!agency) return <p className="text-sm text-gray-400">Aucune agence assignée.</p>;
+  if (!agency) return <p className="text-sm text-gray-400">{t('dashboard.noAgencyAssigned')}</p>;
 
   const deptCount = agency.departments?.length ?? 0;
   const userCount = agency.assigned_users?.length ?? 0;
@@ -120,7 +123,7 @@ function AgencyChiefDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{deptCount}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Départements</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.departments')}</p>
             </div>
           </div>
         </Link>
@@ -131,7 +134,7 @@ function AgencyChiefDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{userCount}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Utilisateurs</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.users')}</p>
             </div>
           </div>
         </Link>
@@ -149,17 +152,17 @@ function AgencyChiefDashboard() {
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="mb-1 text-sm font-semibold text-gray-500 uppercase tracking-wide">Informations</h2>
+        <h2 className="mb-1 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('dashboard.info')}</h2>
         <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-gray-400">Adresse :</span><br /><span className="text-gray-800 dark:text-gray-100">{agency.full_address ?? '—'}</span></div>
-          <div><span className="text-gray-400">Téléphone :</span><br /><span className="text-gray-800 dark:text-gray-100">{agency.phone ?? '—'}</span></div>
-          <div><span className="text-gray-400">Email :</span><br /><span className="text-gray-800 dark:text-gray-100">{agency.email ?? '—'}</span></div>
+          <div><span className="text-gray-400">{t('dashboard.address')}</span><br /><span className="text-gray-800 dark:text-gray-100">{agency.full_address ?? '—'}</span></div>
+          <div><span className="text-gray-400">{t('dashboard.phone')}</span><br /><span className="text-gray-800 dark:text-gray-100">{agency.phone ?? '—'}</span></div>
+          <div><span className="text-gray-400">{t('dashboard.email')}</span><br /><span className="text-gray-800 dark:text-gray-100">{agency.email ?? '—'}</span></div>
         </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-          Départements ({deptCount})
+          {t('dashboard.departmentsCount', { count: deptCount })}
         </h2>
         {deptCount > 0 ? (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -171,22 +174,22 @@ function AgencyChiefDashboard() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-400">Aucun département.</p>
+          <p className="text-sm text-gray-400">{t('dashboard.noDepartments')}</p>
         )}
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-          Utilisateurs ({userCount})
+          {t('dashboard.usersCount', { count: userCount })}
         </h2>
         {userCount > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                  <th className="pb-2 pr-4 font-medium">Nom</th>
-                  <th className="pb-2 pr-4 font-medium">Email</th>
-                  <th className="pb-2 font-medium">Rôle</th>
+                  <th className="pb-2 pr-4 font-medium">{t('users.colName')}</th>
+                  <th className="pb-2 pr-4 font-medium">{t('users.colEmail')}</th>
+                  <th className="pb-2 font-medium">{t('users.colRole')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -194,14 +197,14 @@ function AgencyChiefDashboard() {
                   <tr key={u.id}>
                     <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{u.name}</td>
                     <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{u.email}</td>
-                    <td className="py-2.5">{roleBadge(u.role?.name)}</td>
+                    <td className="py-2.5">{roleBadge(u.role?.name, t)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <p className="text-sm text-gray-400">Aucun utilisateur assigné.</p>
+          <p className="text-sm text-gray-400">{t('dashboard.noUsersAssigned')}</p>
         )}
       </div>
     </div>
@@ -209,6 +212,7 @@ function AgencyChiefDashboard() {
 }
 
 function DeptChiefDashboard() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const deptChiefAssignments = (user?.assignments ?? []).filter(
     (a: any) => a.pivot?.is_department_chief === true
@@ -225,13 +229,13 @@ function DeptChiefDashboard() {
   }, []);
 
   if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
-  if (depts.length === 0) return <p className="text-sm text-gray-400">Aucun département assigné.</p>;
+  if (depts.length === 0) return <p className="text-sm text-gray-400">{t('dashboard.noDepartmentAssigned')}</p>;
 
   const totalUsers = depts.reduce((sum, d) => sum + (d.user_count ?? d.assigned_users?.length ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Mes départements</h1>
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.myDepartments')}</h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
@@ -241,7 +245,7 @@ function DeptChiefDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{depts.length}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Départements</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.departments')}</p>
             </div>
           </div>
         </div>
@@ -252,7 +256,7 @@ function DeptChiefDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalUsers}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Utilisateurs</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.users')}</p>
             </div>
           </div>
         </div>
@@ -263,7 +267,7 @@ function DeptChiefDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{depts[0]?.agency?.name ?? '—'}</p>
-              <p className="text-xs text-gray-400">Agence rattachée</p>
+              <p className="text-xs text-gray-400">{t('dashboard.linkedAgency')}</p>
             </div>
           </div>
         </div>
@@ -278,7 +282,7 @@ function DeptChiefDashboard() {
                 <p className="text-xs text-gray-400">{d.description ?? d.agency?.name ?? '—'}</p>
               </div>
               <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-300">
-                {d.user_count ?? d.assigned_users?.length ?? 0} utilisateur{(d.user_count ?? d.assigned_users?.length ?? 0) > 1 ? 's' : ''}
+                {t('dashboard.userCount', { count: d.user_count ?? d.assigned_users?.length ?? 0 })}
               </span>
             </div>
             <Link
@@ -286,7 +290,7 @@ function DeptChiefDashboard() {
               className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
             >
               <Users className="h-4 w-4" />
-              Voir les utilisateurs
+              {t('dashboard.viewUsers')}
             </Link>
           </div>
         ))}
@@ -296,16 +300,17 @@ function DeptChiefDashboard() {
 }
 
 function UserDashboard() {
+  const { t } = useTranslation();
   const { user } = useAuth();
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-        Bienvenue, {user?.first_name ?? user?.username}
+        {t('dashboard.welcome', { name: user?.first_name ?? user?.username })}
       </h1>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">Mon profil</h2>
+        <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('dashboard.myProfile')}</h2>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3 text-sm">
             <BadgeInfo className="h-4 w-4 text-gray-400" />
@@ -322,23 +327,23 @@ function UserDashboard() {
             </div>
           )}
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-gray-400">Rôle :</span>
-            {roleBadge(user?.role?.name)}
+            <span className="text-gray-400">{t('dashboard.role')}</span>
+            {roleBadge(user?.role?.name, t)}
           </div>
         </div>
       </div>
 
       {user?.assignments && user.assignments.length > 0 && (
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">Mes affectations</h2>
+          <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('dashboard.myAssignments')}</h2>
           <div className="flex flex-col gap-2">
             {user.assignments.map((a: any) => (
               <div key={a.id} className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm dark:border-gray-800 dark:bg-gray-800/50">
                 <p className="font-medium text-gray-800 dark:text-gray-100">{a.name}</p>
                 <p className="text-xs text-gray-500">
-                  {a.pivot?.is_primary ? 'Chef d\'agence' : ''}
-                  {a.pivot?.is_department_chief ? 'Chef de département' : ''}
-                  {!a.pivot?.is_primary && !a.pivot?.is_department_chief ? 'Membre' : ''}
+                  {a.pivot?.is_primary ? t('dashboard.agencyChief') : ''}
+                  {a.pivot?.is_department_chief ? t('dashboard.departmentChief') : ''}
+                  {!a.pivot?.is_primary && !a.pivot?.is_department_chief ? t('dashboard.member') : ''}
                 </p>
               </div>
             ))}

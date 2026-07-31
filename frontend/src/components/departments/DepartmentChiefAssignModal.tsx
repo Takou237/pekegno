@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +27,7 @@ export function DepartmentChiefAssignModal({
   onClose,
   onSaved,
 }: DepartmentChiefAssignModalProps) {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const [currentChiefId, setCurrentChiefId] = useState<string>('');
   const [currentChiefName, setCurrentChiefName] = useState<string>('');
@@ -62,7 +64,7 @@ export function DepartmentChiefAssignModal({
         setCurrentChiefName(chief ? `${chief.name}`.trim() || chief.email : '');
         setSelectedUserId(chiefId);
       })
-      .catch(() => setError('Impossible de charger les données.'))
+      .catch(() => setError(t('departments.chiefDataFailed')))
       .finally(() => setIsLoading(false));
 
     if (department?.agency_id) {
@@ -108,7 +110,7 @@ export function DepartmentChiefAssignModal({
         await client.put(`/departments/${department.id}/chief`, {
           user_id: selectedUserId,
         });
-        showToast('Chef de département assigné avec succès.', 'success');
+        showToast(t('departments.chiefAssigned'), 'success');
 
         if (currentChiefId && currentChiefId !== selectedUserId) {
           setShowOldChiefDialog(true);
@@ -118,7 +120,7 @@ export function DepartmentChiefAssignModal({
         }
       } else if (currentChiefId) {
         await client.delete(`/departments/${department.id}/chief`);
-        showToast('Chef de département retiré avec succès.', 'success');
+        showToast(t('departments.chiefRemoved'), 'success');
         onSaved();
         onClose();
       } else {
@@ -126,7 +128,7 @@ export function DepartmentChiefAssignModal({
         return;
       }
     } catch (err) {
-      setError(extractErrorMessage(err, "Impossible d'assigner le chef de département."));
+      setError(extractErrorMessage(err, t('departments.chiefAssignFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -137,12 +139,12 @@ export function DepartmentChiefAssignModal({
     setIsRoleSubmitting(true);
     try {
       await usersApi.assignRole(currentChiefId, newRoleId);
-      showToast('Nouveau rôle assigné à l\'ancien chef.', 'success');
+      showToast(t('departments.roleAssigned'), 'success');
       setShowOldChiefDialog(false);
       onSaved();
       onClose();
     } catch (err) {
-      showToast(extractErrorMessage(err, "Impossible d'assigner le nouveau rôle."), 'error');
+      showToast(extractErrorMessage(err, t('departments.roleAssignFailed')), 'error');
     } finally {
       setIsRoleSubmitting(false);
     }
@@ -159,13 +161,13 @@ export function DepartmentChiefAssignModal({
     setFireSubmitting(true);
     try {
       await usersApi.remove(currentChiefId);
-      showToast('Utilisateur licencié avec succès.', 'success');
+      showToast(t('departments.userFired'), 'success');
       setShowFireConfirm(false);
       setShowOldChiefDialog(false);
       onSaved();
       onClose();
     } catch (err) {
-      showToast(extractErrorMessage(err, 'Impossible de licencier cet utilisateur.'), 'error');
+      showToast(extractErrorMessage(err, t('departments.fireFailed')), 'error');
     } finally {
       setFireSubmitting(false);
     }
@@ -176,35 +178,35 @@ export function DepartmentChiefAssignModal({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={`Chef de département — ${department?.name ?? ''}`}
+        title={t('departments.chiefTitle', { name: department?.name ?? '' })}
         maxWidth="max-w-md"
       >
         <div className="flex flex-col gap-4">
           {error && <Alert variant="error">{error}</Alert>}
 
           {isLoading ? (
-            <p className="text-sm text-gray-500">Chargement...</p>
+            <p className="text-sm text-gray-500">{t('common.loading')}</p>
           ) : (
             <>
               <Autocomplete
-                label="Chef de département"
-                placeholder="Rechercher un utilisateur..."
+                label={t('departments.chiefLabel')}
+                placeholder={t('departments.chiefSearchPlaceholder')}
                 value={selectedUserId}
                 onChange={setSelectedUserId}
                 fetchOptions={fetchUsers}
               />
               <p className="text-xs text-gray-400">
-                Un seul chef par département. Un chef peut gérer plusieurs départements.
+                {t('departments.chiefHint')}
               </p>
             </>
           )}
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={onClose}>
-              Annuler
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleAssign} isLoading={isSubmitting} disabled={isLoading}>
-              Enregistrer
+              {t('common.save')}
             </Button>
           </div>
         </div>
@@ -213,24 +215,24 @@ export function DepartmentChiefAssignModal({
       <Modal
         isOpen={showOldChiefDialog}
         onClose={handleSkipRole}
-        title="Ancien chef"
+        title={t('departments.oldChiefTitle')}
         maxWidth="max-w-md"
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm text-gray-600 dark:text-gray-300">
             {currentChiefName ? (
-              <>L'ancien chef <strong>{currentChiefName}</strong> a été remplacé. Que souhaitez-vous faire de son rôle ?</>
+              <Trans t={t} i18nKey="departments.oldChiefMessage" values={{ name: currentChiefName }} />
             ) : (
-              "L'ancien chef a été remplacé. Que souhaitez-vous faire de son rôle ?"
+              t('departments.oldChiefMessageNoName')
             )}
           </p>
 
           <Select
-            label="Assigner un nouveau rôle"
+            label={t('departments.assignNewRole')}
             value={newRoleId}
             onChange={(e) => setNewRoleId(e.target.value)}
           >
-            <option value="">— Ne pas assigner de rôle —</option>
+            <option value="">{t('departments.noRole')}</option>
             {roles
               .filter((r) => r.name !== 'client' && !CHIEF_ROLE_NAMES.has(r.name))
               .map((r) => (
@@ -242,18 +244,18 @@ export function DepartmentChiefAssignModal({
 
           <div className="flex items-center justify-between gap-3">
             <Button type="button" variant="danger" onClick={() => setShowFireConfirm(true)}>
-              Licencier
+              {t('departments.fire')}
             </Button>
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={handleSkipRole}>
-                Ignorer
+                {t('departments.skip')}
               </Button>
               <Button
                 onClick={handleAssignNewRole}
                 isLoading={isRoleSubmitting}
                 disabled={!newRoleId}
               >
-                Assigner le rôle
+                {t('departments.assignRole')}
               </Button>
             </div>
           </div>
@@ -264,9 +266,9 @@ export function DepartmentChiefAssignModal({
         isOpen={showFireConfirm}
         onCancel={() => setShowFireConfirm(false)}
         onConfirm={handleFireChief}
-        title="Licencier l'ancien chef"
-        message={`Êtes-vous sûr de vouloir licencier ${currentChiefName} ? Cette action est irréversible.`}
-        confirmLabel="Licencier"
+        title={t('departments.fireTitle')}
+        message={t('departments.fireMessage', { name: currentChiefName })}
+        confirmLabel={t('departments.fire')}
         isLoading={fireSubmitting}
       />
     </>
