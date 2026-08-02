@@ -1,5 +1,3 @@
-export const CLIENT_ROLE = 'client';
-
 const ASSIGNABLE_ROLES_BY_ROLE: Record<string, string[]> = {
   'super-admin': [
     'super-admin',
@@ -21,10 +19,6 @@ const ASSIGNABLE_ROLES_BY_ROLE: Record<string, string[]> = {
 
 export function assignableRoleNames(currentRoleName: string | null | undefined): string[] {
   return ASSIGNABLE_ROLES_BY_ROLE[currentRoleName ?? ''] ?? [];
-}
-
-export function isClientRole(roleName: string | null | undefined): boolean {
-  return roleName === CLIENT_ROLE;
 }
 
 export const CHIEF_ROLE_NAMES = new Set(['responsable-agence', 'responsable-departement']);

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\LoginLog;
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -102,35 +101,6 @@ class AuthService
             ip: $ip,
             userAgent: $userAgent,
         );
-    }
-
-    public function register(array $data, ?string $ip = null, ?string $userAgent = null): array
-    {
-        $clientRole = Role::where('name', 'client')->first();
-
-        $user = User::create([
-            'username' => $data['username'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-            'first_name' => $data['first_name'] ?? null,
-            'last_name' => $data['last_name'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'role_id' => $clientRole?->id,
-        ]);
-
-        $token = $user->createToken('auth-token')->plainTextToken;
-
-        $this->log(
-            user: $user,
-            action: 'register',
-            ip: $ip,
-            userAgent: $userAgent,
-        );
-
-        return [
-            'user' => $user->load('role'),
-            'token' => $token,
-        ];
     }
 
     private function log(?User $user, string $action, ?string $ip = null, ?string $userAgent = null, ?string $reason = null, ?string $email = null): void

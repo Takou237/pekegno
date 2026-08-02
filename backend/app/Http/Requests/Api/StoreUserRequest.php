@@ -49,15 +49,6 @@ class StoreUserRequest extends FormRequest
                     return;
                 }
 
-                if (EmployeeRoles::isClient($roleName)) {
-                    $validator->errors()->add(
-                        'role_id',
-                        'Le rôle client ne peut pas être créé ici : les clients s\'inscrivent via la page d\'inscription.'
-                    );
-
-                    return;
-                }
-
                 if (! in_array($roleName, $assignable, true)) {
                     $validator->errors()->add(
                         'role_id',

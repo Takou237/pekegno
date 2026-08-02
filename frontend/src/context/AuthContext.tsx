@@ -18,7 +18,6 @@ import { useToast } from '@/hooks/useToast';
 import {
   requiresTwoFactor,
   type LoginCredentials,
-  type RegisterPayload,
   type User,
 } from '@/types/auth';
 
@@ -30,7 +29,6 @@ interface AuthContextValue {
   login: (credentials: LoginCredentials) => Promise<{ requiresTwoFactor: boolean }>;
   verifyTwoFactor: (code: string) => Promise<void>;
   cancelTwoFactorChallenge: () => void;
-  register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -124,13 +122,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPendingTwoFactorToken(null);
   }, []);
 
-  // F2 : le backend renvoie un token valide sur /auth/register, mais le
-  // parcours attendu (TASKS_AUTHENTICATION.md) est une redirection vers
-  // /login après inscription plutôt qu'une connexion automatique.
-  const register = useCallback<AuthContextValue['register']>(async (payload) => {
-    await authApi.register(payload);
-  }, []);
-
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
@@ -153,7 +144,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       verifyTwoFactor,
       cancelTwoFactorChallenge,
-      register,
       logout,
       refreshUser,
     }),
@@ -164,7 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       verifyTwoFactor,
       cancelTwoFactorChallenge,
-      register,
       logout,
       refreshUser,
     ]

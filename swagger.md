@@ -155,33 +155,7 @@ curl -s http://127.0.0.1:8000/api/departments \
 
 ---
 
-## 8. Catégories
-
-```bash
-# Créer
-curl -s -X POST http://127.0.0.1:8000/api/categories \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  -d '{"name": "Formation", "color": "#3B82F6", "icon": "book"}' | json_pp
-
-curl -s -X POST http://127.0.0.1:8000/api/categories \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  -d '{"name": "Conseil", "color": "#10B981", "icon": "briefcase"}' | json_pp
-
-curl -s -X POST http://127.0.0.1:8000/api/categories \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  -d '{"name": "Audit", "color": "#F59E0B", "icon": "clipboard"}' | json_pp
-
-# Lister
-curl -s http://127.0.0.1:8000/api/categories \
-  -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" | json_pp
-```
-
----
-
-## 9. Utilisateurs (admin)
+## 8. Utilisateurs (admin)
 
 ```bash
 # Lister (avec pagination et recherche)
@@ -207,7 +181,7 @@ curl -s -X PUT "http://127.0.0.1:8000/api/users/$USER_ID" \
 
 ---
 
-## 10. Assigner des rôles aux utilisateurs
+## 9. Assigner des rôles aux utilisateurs
 
 ```bash
 # Récupérer l'ID d'un rôle (ex: "user")
@@ -215,7 +189,7 @@ ROLE_USER=$(curl -s http://127.0.0.1:8000/api/roles \
   -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
   | grep -B1 '"name":"user"' | grep '"id"' | cut -d'"' -f4)
 
-# Récupérer un utilisateur (inscrit via register)
+# Récupérer un utilisateur
 USER_ID=019f4ac7-f76c-7393-937b-5d60d51edd17  # <= remplace par un vrai ID
 
 # Assigner le rôle "user"
@@ -235,7 +209,7 @@ curl -s -X DELETE "http://127.0.0.1:8000/api/users/$USER_ID/roles/$ROLE_USER" \
 
 ---
 
-## 11. Assigner des permissions à un rôle
+## 10. Assigner des permissions à un rôle
 
 ```bash
 # Récupérer l'ID du rôle "user"
@@ -261,7 +235,7 @@ curl -s "http://127.0.0.1:8000/api/roles/$ROLE_USER/permissions" \
 
 ---
 
-## 12. Test de déconnexion
+## 11. Test de déconnexion
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/auth/logout \
@@ -275,7 +249,6 @@ curl -s -X POST http://127.0.0.1:8000/api/auth/logout \
 | Méthode | Endpoint | Description |
 |---|---|---|
 | POST | `/api/auth/login` | Connexion |
-| POST | `/api/auth/register` | Inscription |
 | POST | `/api/auth/logout` | Déconnexion |
 | GET | `/api/user` | Profil connecté |
 | GET | `/api/users` | Lister utilisateurs |
@@ -302,11 +275,6 @@ curl -s -X POST http://127.0.0.1:8000/api/auth/logout \
 | GET | `/api/departments/{id}` | Voir un département |
 | PUT | `/api/departments/{id}` | Modifier un département |
 | DELETE | `/api/departments/{id}` | Supprimer un département |
-| GET | `/api/categories` | Lister catégories |
-| POST | `/api/categories` | Créer une catégorie |
-| GET | `/api/categories/{id}` | Voir une catégorie |
-| PUT | `/api/categories/{id}` | Modifier une catégorie |
-| DELETE | `/api/categories/{id}` | Supprimer une catégorie |
 | GET | `/api/users/{id}/roles` | Rôles d'un utilisateur |
 | POST | `/api/users/{id}/roles` | Assigner un rôle |
 | DELETE | `/api/users/{id}/roles/{id}` | Retirer un rôle |
@@ -319,6 +287,6 @@ curl -s -X POST http://127.0.0.1:8000/api/auth/logout \
 
 **Compte admin :** `admin@pekegno.com` / `password` (rôle super-admin)
 
-**Permissions pré-créées :** 24 (users, roles, permissions, agencies, departments, categories × view/create/edit/delete)
+**Permissions pré-créées :** 9 (creer, modifier, supprimer, exporter, consulter, imprimer, valider, encaisser, annuler)
 
-**Rôles pré-créés :** super-admin (24 perms), admin (23 perms), manager (12 perms), user (1 perm)
+**Rôles pré-créés :** super-admin (9 perms), direction-generale (9 perms), responsable-agence (8 perms), responsable-departement (8 perms), commercial (5 perms), caissier (3 perms), comptable (4 perms), formateur (3 perms)

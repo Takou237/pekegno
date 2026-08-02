@@ -26,10 +26,6 @@ export function currentLocale(): string {
   return i18n.resolvedLanguage === 'en' ? 'en-US' : 'fr-FR';
 }
 
-export function currentCurrency(): string {
-  return i18n.resolvedLanguage === 'en' ? 'XAF' : 'FCFA';
-}
-
 i18n.use(initReactI18next).init({
   resources: {
     fr: { translation: fr },

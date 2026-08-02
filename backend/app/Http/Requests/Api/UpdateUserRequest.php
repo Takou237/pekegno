@@ -54,15 +54,6 @@ class UpdateUserRequest extends FormRequest
                 $roleName = Role::where('id', $roleId)->value('name');
                 $assignable = EmployeeRoles::assignableRoleNames($this->user()?->role?->name);
 
-                if (EmployeeRoles::isClient($roleName)) {
-                    $validator->errors()->add(
-                        'role_id',
-                        'Le rôle client ne peut pas être attribué ici : les clients s\'inscrivent via la page d\'inscription.'
-                    );
-
-                    return;
-                }
-
                 if (! in_array($roleName, $assignable, true)) {
                     $validator->errors()->add(
                         'role_id',

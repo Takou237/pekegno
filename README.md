@@ -72,19 +72,6 @@ curl -s -X POST http://127.0.0.1:8000/api/auth/login \
   -H 'Accept: application/json' \
   -d '{"email": "admin@pekegno.com", "password": "password"}'
 
-# S'inscrire
-curl -s -X POST http://127.0.0.1:8000/api/auth/register \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json' \
-  -d '{
-    "username": "monuser",
-    "email": "monuser@email.com",
-    "password": "password",
-    "password_confirmation": "password",
-    "first_name": "Jean",
-    "last_name": "Dupont"
-  }'
-
 # Voir son profil (token requis)
 curl -s http://127.0.0.1:8000/api/user \
   -H "Authorization: Bearer $TOKEN" \
@@ -129,7 +116,6 @@ sudo -u postgres psql -d pekegno -c "\d users"
 | Méthode | Endpoint | Description |
 |---|---|---|
 | POST | `/api/auth/login` | Connexion |
-| POST | `/api/auth/register` | Inscription |
 | POST | `/api/auth/logout` | Déconnexion |
 | GET | `/api/user` | Profil utilisateur |
 | GET | `/api/users` | Lister utilisateurs (admin) |
@@ -142,8 +128,8 @@ sudo -u postgres psql -d pekegno -c "\d users"
 ### Seeders
 | Fichier | Utilité |
 |---|---|
-| `database/seeders/PermissionSeeder.php` | Crée 24 permissions (users, roles, permissions, agencies, departments, categories) |
-| `database/seeders/RoleSeeder.php` | Crée 4 rôles (super-admin, admin, manager, user) avec permissions associées |
+| `database/seeders/PermissionSeeder.php` | Crée 9 permissions (creer, modifier, supprimer, exporter, consulter, imprimer, valider, encaisser, annuler) |
+| `database/seeders/RoleSeeder.php` | Crée 8 rôles (super-admin, direction-generale, responsable-agence, responsable-departement, commercial, caissier, comptable, formateur) avec permissions associées |
 | `database/seeders/AdminUserSeeder.php` | Crée admin@pekegno.com avec rôle super-admin |
 
 ### Routes
@@ -160,9 +146,8 @@ sudo -u postgres psql -d pekegno -c "\d users"
 | `users` | Utilisateurs (UUID, authentification, profil) |
 | `agencies` | Agences |
 | `departments` | Départements liés aux agences |
-| `categories` | Catégories |
-| `roles` | Rôles (super-admin, admin, manager, user) |
-| `permissions` | Permissions (24 permissions) |
+| `roles` | Rôles (super-admin, direction-generale, responsable-agence, responsable-departement, commercial, caissier, comptable, formateur) |
+| `permissions` | Permissions (9 permissions) |
 | `model_has_roles` | Association utilisateur ↔ rôle |
 | `role_permission` | Association rôle ↔ permission |
 | `user_assignments` | Association utilisateur ↔ agence |

@@ -19,7 +19,6 @@ class RoleSeeder extends Seeder
             ['name' => 'caissier',                'description' => 'Caissier'],
             ['name' => 'comptable',               'description' => 'Comptable'],
             ['name' => 'formateur',               'description' => 'Formateur'],
-            ['name' => 'client',                  'description' => 'Client / Apprenant'],
         ];
 
         foreach ($roles as $role) {
@@ -39,7 +38,6 @@ class RoleSeeder extends Seeder
             'caissier' => ['consulter', 'encaisser', 'imprimer'],
             'comptable' => ['consulter', 'exporter', 'imprimer', 'valider'],
             'formateur' => ['consulter', 'creer', 'modifier'],
-            'client' => ['consulter'],
         ];
 
         DB::table('role_permission')->delete();

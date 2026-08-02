@@ -75,13 +75,6 @@ export function LoginForm() {
       <Button type="submit" isLoading={isSubmitting}>
         {t('auth.signIn')}
       </Button>
-
-      <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-        {t('auth.noAccount')}{' '}
-        <Link to="/register" className="font-medium text-brand-600 hover:underline">
-          {t('auth.createAccount')}
-        </Link>
-      </p>
     </form>
   );
 }

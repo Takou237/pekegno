@@ -1,0 +1,137 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 9
+skinparam entity {
+  BorderColor #2C3E50
+  BorderThickness 1
+  FontColor #1A1A2E
+  FontSize 8
+  BackgroundColor #F8F9FA
+}
+skinparam arrow {
+  Color #E74C3C
+  Thickness 1
+}
+
+hide empty members
+
+entity "agencies" as agencies {
+  + id : uuid PK
+  --
+  code : varchar(20) UNIQUE NOT NULL
+  name : varchar(255) NOT NULL
+  deleted_at : timestamp NULL
+  created_at : timestamp NOT NULL
+  updated_at : timestamp NOT NULL
+}
+
+entity "departments" as departments {
+  + id : uuid PK
+  --
+  # agency_id : uuid FK NOT NULL
+  name : varchar(255) NOT NULL
+  description : text NULL
+  deleted_at : timestamp NULL
+  created_at : timestamp NOT NULL
+  updated_at : timestamp NOT NULL
+}
+
+entity "categories" as categories {
+  + id : uuid PK
+  --
+  name : varchar(255) NOT NULL
+  description : text NULL
+  color : varchar(7) NULL
+  icon : varchar(100) NULL
+  deleted_at : timestamp NULL
+  created_at : timestamp NOT NULL
+  updated_at : timestamp NOT NULL
+}
+
+entity "services" as services {
+  + id : uuid PK
+  --
+  # agency_id : uuid FK NULL
+  # department_id : uuid FK NULL
+  # category_id : uuid FK NOT NULL
+  name : varchar(255) NOT NULL
+  description : text NULL
+  price : decimal(12,2) NOT NULL
+  cover_image : varchar(255) NULL
+  presentation_video : varchar(255) NULL
+  deleted_at : timestamp NULL
+  created_at : timestamp NOT NULL
+  updated_at : timestamp NOT NULL
+}
+note bottom of services
+  CHECK : agency_id XOR department_id
+  (un seul des deux renseigné)
+end note
+
+entity "formations" as formations {
+  + # id : uuid PK, FK -> services.id
+  --
+  type : varchar(20) NOT NULL
+  duration : varchar(50) NULL
+  conditions : text NULL
+  deposit_amount : decimal(12,2) NULL
+  installments_count : integer NULL
+  online_payment : boolean DEFAULT false
+  created_at : timestamp NOT NULL
+  updated_at : timestamp NOT NULL
+}
+note bottom of formations
+  id partagé avec services.id
+  (spécialisation 1-1)
+end note
+
+entity "modules" as modules {
+  + id : uuid PK
+  --
+  # formation_id : uuid FK NOT NULL
+  # trainer_id : uuid FK NULL
+  name : varchar(255) NOT NULL
+  order : integer NOT NULL
+  description : text NULL
+  type : varchar(20) NOT NULL
+  cover_image : varchar(255) NULL
+  video : varchar(255) NULL
+  pdf : varchar(255) NULL
+  created_at : timestamp NOT NULL
+  updated_at : timestamp NOT NULL
+}
+note bottom of modules
+  trainer_id -> users.id
+  (rôle "formateur", pas de table dédiée)
+end note
+
+entity "promotions" as promotions {
+  + id : uuid PK
+  --
+  # service_id : uuid FK NOT NULL
+  promo_price : decimal(12,2) NOT NULL
+  start_date : datetime NOT NULL
+  end_date : datetime NOT NULL
+  created_at : timestamp NOT NULL
+}
+
+entity "price_history" as pricehistory {
+  + id : uuid PK
+  --
+  # service_id : uuid FK NOT NULL
+  price : decimal(12,2) NOT NULL
+  changed_at : timestamp NOT NULL
+}
+
+' === RELATIONS ===
+agencies    ||--o{ departments   : "possède"
+agencies    |o--o{ services      : "propose (si direct)"
+departments |o--o{ services      : "rattache (si via dept)"
+categories  ||--o{ services      : "classe"
+services    ||--o| formations    : "spécialise"
+formations  ||--o{ modules       : "compose"
+services    ||--o{ promotions    : "bénéficie"
+services    ||--o{ pricehistory  : "historise"
+@enduml

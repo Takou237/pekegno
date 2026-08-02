@@ -7,7 +7,6 @@ import type {
   ForgotPasswordPayload,
   LoginCredentials,
   LoginResponse,
-  RegisterPayload,
   ResetPasswordPayload,
   TwoFactorEnableResponse,
   TwoFactorLoginPayload,
@@ -23,11 +22,6 @@ export const authApi = {
   /** POST /auth/2fa/login — étape de vérification du code TOTP après un login à 2 facteurs. */
   async twoFactorLogin(payload: TwoFactorLoginPayload): Promise<AuthSuccessResponse> {
     const { data } = await client.post<AuthSuccessResponse>('/auth/2fa/login', payload);
-    return data;
-  },
-
-  async register(payload: RegisterPayload): Promise<AuthSuccessResponse> {
-    const { data } = await client.post<AuthSuccessResponse>('/auth/register', payload);
     return data;
   },
 

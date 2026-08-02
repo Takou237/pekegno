@@ -18,7 +18,7 @@ use OpenApi\Attributes as OA;
 
 class UserAssignmentController extends Controller
 {
-    private const NON_ASSIGNABLE_ROLES = ['super-admin', 'direction-generale', 'client'];
+    private const NON_ASSIGNABLE_ROLES = ['super-admin', 'direction-generale'];
 
     private function assertUserIsAssignable(User $user): void
     {

@@ -17,11 +17,6 @@ class UserController extends Controller
 {
     private const ALLOWED_WITH = ['role', 'assignments'];
 
-    private function abortIfClient(User $user): void
-    {
-        abort_if($user->role?->name === 'client', 403, 'Les comptes clients sont gérés via la ressource dédiée /clients.');
-    }
-
     private function parseWith(Request $request): array
     {
         $with = $request->input('with');
@@ -51,18 +46,11 @@ class UserController extends Controller
     )]
     public function index(Request $request)
     {
-        $this->abortIfClient($request->user());
-
         $defaultWith = ['role', 'assignments'];
         $with = array_unique(array_merge($defaultWith, $this->parseWith($request)));
 
         $user = $request->user();
         $users = User::with($with)
-            // Le listing "employés" n'expose pas les clients (page dédiée).
-            ->where(function ($q) {
-                $q->whereNull('role_id')
-                    ->orWhereHas('role', fn ($q) => $q->where('name', '!=', 'client'));
-            })
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
@@ -148,8 +136,6 @@ class UserController extends Controller
     )]
     public function show(Request $request, User $user)
     {
-        $this->abortIfClient($user);
-
         $with = array_unique(array_merge(['role', 'assignments.agency'], $this->parseWith($request)));
 
         return new UserResource($user->load($with));
@@ -185,8 +171,6 @@ class UserController extends Controller
     )]
     public function update(UpdateUserRequest $request, User $user)
     {
-        $this->abortIfClient($user);
-
         $validated = $request->validated();
 
         if (isset($validated['password'])) {
@@ -213,8 +197,6 @@ class UserController extends Controller
     )]
     public function destroy(Request $request, User $user): JsonResponse
     {
-        $this->abortIfClient($user);
-
         if ($user->id === $request->user()->id) {
             return response()->json([
                 'message' => 'Vous ne pouvez pas supprimer votre propre compte.',

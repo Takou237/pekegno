@@ -14,7 +14,6 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             AgencySeeder::class,
             UserSeeder::class,
-            ServiceSeeder::class,
         ]);
     }
 }

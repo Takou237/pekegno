@@ -242,7 +242,7 @@ export default function UserListPage() {
     }
   }
 
-  const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale', 'client']);
+  const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale']);
 
   function openAssignModal(type: 'agency' | 'department') {
     setAssignTargetType(type);
@@ -527,7 +527,6 @@ export default function UserListPage() {
           <div className="flex flex-col items-center gap-3 p-6">
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {t('users.empty')}
-              {canManageUsers && t('users.emptyHint')}
             </p>
           </div>
         ) : (
