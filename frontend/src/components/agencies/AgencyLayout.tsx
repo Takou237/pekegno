@@ -13,6 +13,7 @@ import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { Spinner } from '@/components/ui/Spinner';
 import { UserMenu } from '@/components/common/UserMenu';
+import { MobileNav } from '@/components/layout/MobileNav';
 import { AgencySwitcher } from '@/components/agencies/AgencySwitcher';
 import type { Agency } from '@/types/agency';
 
@@ -59,13 +60,16 @@ export function AgencyLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-950">
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
-        <Link
-          to="/agencies"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t('agencies.backToList')}
-        </Link>
+        <div className="flex items-center gap-2">
+          <MobileNav contextOnly contextTitle={agency?.name} contextItems={getSubItems(t)} />
+          <Link
+            to="/agencies"
+            className="inline-flex items-center gap-1.5 rounded-lg p-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 hover:underline dark:text-brand-400 dark:hover:bg-brand-500/10"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">{t('agencies.backToList')}</span>
+          </Link>
+        </div>
         <UserMenu />
       </header>
 
@@ -83,7 +87,7 @@ export function AgencyLayout() {
             )}
           </div>
 
-          <nav className="flex flex-col gap-1">
+          <nav className="hidden flex-col gap-1 lg:flex">
             {getSubItems(t).map(({ to, label, icon: Icon, end }) => (
               <NavLink key={to || '/'} to={to} end={end} className={subLinkClass}>
                 <Icon className="h-5 w-5" />

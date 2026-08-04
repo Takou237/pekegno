@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useTranslation } from 'react-i18next';

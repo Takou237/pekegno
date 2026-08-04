@@ -36,7 +36,7 @@ export function Autocomplete({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -176,7 +176,7 @@ export function Autocomplete({
         )}
         {isLoading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <Spinner size="sm" />
+            <Spinner className="h-4 w-4" />
           </div>
         )}
         {isOpen && options.length > 0 && (

@@ -1,6 +1,7 @@
 export default {
   common: {
     loading: 'Chargement...',
+    menu: 'Menu',
     close: 'Fermer',
     cancel: 'Annuler',
     confirm: 'Confirmer',

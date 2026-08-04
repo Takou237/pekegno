@@ -39,25 +39,25 @@ export function UserMenu() {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+        className="flex min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
       >
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
           {fullName.charAt(0).toUpperCase()}
         </span>
-        <span className="hidden text-left sm:block">
-          <span className="block text-sm font-medium text-gray-800 dark:text-gray-100">
+        <span className="min-w-0 text-left">
+          <span className="block truncate text-sm font-medium text-gray-800 dark:text-gray-100">
             {fullName}
           </span>
-          <span className="block text-xs text-gray-500 dark:text-gray-400">
+          <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
             {user.role?.name ? t(`roles.${user.role.name}`, { defaultValue: user.role.name }) : t('userMenu.noRole')}
           </span>
         </span>
         {user.two_factor_enabled ? (
-          <ShieldCheck className="h-4 w-4 text-success-500" aria-label={t('userMenu.twoFactorEnabled')} />
+          <ShieldCheck className="hidden h-4 w-4 text-success-500 sm:block" aria-label={t('userMenu.twoFactorEnabled')} />
         ) : (
-          <ShieldAlert className="h-4 w-4 text-warning-500" aria-label={t('userMenu.twoFactorDisabled')} />
+          <ShieldAlert className="hidden h-4 w-4 text-warning-500 sm:block" aria-label={t('userMenu.twoFactorDisabled')} />
         )}
-        <ChevronDown className="h-4 w-4 text-gray-400" />
+        <ChevronDown className="hidden h-4 w-4 text-gray-400 sm:block" />
       </button>
 
       {isOpen && (

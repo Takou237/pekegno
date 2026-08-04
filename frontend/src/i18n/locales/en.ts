@@ -1,6 +1,7 @@
 export default {
   common: {
     loading: 'Loading...',
+    menu: 'Menu',
     close: 'Close',
     cancel: 'Cancel',
     confirm: 'Confirm',

@@ -25,6 +25,13 @@ import type { CreateUserPayload, UserListItem, RoleListItem } from '@/types/user
 import type { Agency, AssignedUser, Department, PaginationMeta } from '@/types/agency';
 import { assignableRoleNames, CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
 
+interface AssignableUser {
+  id: string;
+  name: string | null;
+  email: string;
+  role?: { name?: string } | null;
+}
+
 export default function UserListPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
@@ -62,7 +69,7 @@ export default function UserListPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignTargetType, setAssignTargetType] = useState<'agency' | 'department' | null>(null);
   const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
-  const [availableUsers, setAvailableUsers] = useState<UserListItem[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<AssignableUser[]>([]);
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
@@ -283,18 +290,18 @@ export default function UserListPage() {
       ])
         .then(([agencyRes, deptRes]) => {
           const agencyData = agencyRes.data.data ?? agencyRes.data;
-          const agencyUsers: AssignedUser[] = agencyData.assigned_users ?? [];
+          const agencyUsers: AssignableUser[] = agencyData.assigned_users ?? [];
           const deptUsersRaw: any[] = deptRes.data.data ?? deptRes.data;
           const deptUserIds = new Set(deptUsersRaw.map((u: any) => u.id));
 
           setAssignedUsers(deptUsersRaw.map((u: any) => ({ ...u, pivot: u.pivot ?? null })));
 
-          const available: UserListItem[] = agencyUsers.filter(
-            (u: AssignedUser) =>
+          const available = agencyUsers.filter(
+            (u) =>
               !deptUserIds.has(u.id) &&
-              !NON_ASSIGNABLE_ROLES.has((u as any).role?.name ?? '')
+              !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
           );
-          setAvailableUsers(available as UserListItem[]);
+          setAvailableUsers(available);
         })
         .catch(() => setAssignError(t('users.dataLoadFailed')))
         .finally(() => setAssignLoading(false));
@@ -363,18 +370,18 @@ export default function UserListPage() {
           client.get(`/departments/${selectedDepartmentId}/users`),
         ]);
         const agencyData = agencyRes.data.data ?? agencyRes.data;
-        const agencyUsers: AssignedUser[] = agencyData.assigned_users ?? [];
+        const agencyUsers: AssignableUser[] = agencyData.assigned_users ?? [];
         const deptUsersRaw: any[] = deptRes.data.data ?? deptRes.data;
         const deptUserIds = new Set(deptUsersRaw.map((u: any) => u.id));
 
         setAssignedUsers(deptUsersRaw.map((u: any) => ({ ...u, pivot: u.pivot ?? null })));
 
-        const available: UserListItem[] = agencyUsers.filter(
-          (u: AssignedUser) =>
+        const available = agencyUsers.filter(
+          (u) =>
             !deptUserIds.has(u.id) &&
-            !NON_ASSIGNABLE_ROLES.has((u as any).role?.name ?? '')
+            !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
         );
-        setAvailableUsers(available as UserListItem[]);
+        setAvailableUsers(available);
       } catch { /* silent */ }
     }
   }
@@ -415,7 +422,7 @@ export default function UserListPage() {
       });
       fetchUsers(fetchParams);
     } catch (err) {
-      const msg = extractErrorMessage(err);
+      const msg = extractErrorMessage(err, t('users.saveFailed'));
       if (msg) showToast(msg, 'error');
       setCreateErrors(extractFieldErrors(err) as Record<string, string>);
     } finally {
