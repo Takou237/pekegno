@@ -19,6 +19,11 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      // En dev, on proxy /storage pour afficher les fichiers uploadés (images de couverture)
+      '/storage': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
 });

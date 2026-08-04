@@ -26,7 +26,11 @@ import { DepartmentChiefAssignModal } from '@/components/departments/DepartmentC
 import type { Department, DepartmentPayload } from '@/types/department';
 import type { Agency, PaginationMeta } from '@/types/agency';
 
-export default function DepartmentListPage() {
+interface DepartmentListPageProps {
+  agencyId?: string;
+}
+
+export default function DepartmentListPage({ agencyId }: DepartmentListPageProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -39,7 +43,7 @@ export default function DepartmentListPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
-  const [agencyFilter, setAgencyFilter] = useState('');
+  const [agencyFilter, setAgencyFilter] = useState(agencyId ?? '');
   const [page, setPage] = useState(1);
 
   const [formModal, setFormModal] = useState<{
@@ -95,7 +99,7 @@ export default function DepartmentListPage() {
   }, []);
 
   function openCreate() {
-    setForm({ agency_id: agencies[0]?.id ?? '', name: '', description: '' });
+    setForm({ agency_id: agencyId ?? agencies[0]?.id ?? '', name: '', description: '' });
     setFormErrors({});
     setFormModal({ open: true, editing: null });
   }
@@ -196,7 +200,7 @@ export default function DepartmentListPage() {
             />
           </div>
         </div>
-        {user?.role?.name !== 'responsable-departement' && (
+        {!agencyId && user?.role?.name !== 'responsable-departement' && (
           <div className="sm:w-64">
             <Select
               label={t('departments.agency')}
@@ -233,7 +237,9 @@ export default function DepartmentListPage() {
                   <th className="px-5 py-3 font-medium">{t('departments.colName')}</th>
                   <th className="px-5 py-3 font-medium">{t('departments.colChief')}</th>
                   <th className="px-5 py-3 font-medium">{t('departments.colCount')}</th>
-                  <th className="px-5 py-3 font-medium">{t('departments.colAgency')}</th>
+                  {!agencyId && (
+                    <th className="px-5 py-3 font-medium">{t('departments.colAgency')}</th>
+                  )}
                   <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
                 </tr>
               </thead>
@@ -249,9 +255,11 @@ export default function DepartmentListPage() {
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {dept.user_count ?? 0}
                     </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {dept.agency?.name ?? '—'}
-                    </td>
+                    {!agencyId && (
+                      <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                        {dept.agency?.name ?? '—'}
+                      </td>
+                    )}
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
                         <button

@@ -8,9 +8,14 @@ use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Auth\TwoFactorController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\FormationController;
+use App\Http\Controllers\Api\ModuleController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserAssignmentController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserRoleController;
@@ -35,6 +40,22 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::post('/agencies/{agency}/restore', [AgencyController::class, 'restore']);
     Route::delete('/agencies/{agency}/force-delete', [AgencyController::class, 'forceDelete']);
     Route::apiResource('agencies', AgencyController::class);
+
+    Route::get('/categories/trash', [CategoryController::class, 'trash']);
+    Route::post('/categories/{category}/restore', [CategoryController::class, 'restore']);
+    Route::delete('/categories/{category}/force-delete', [CategoryController::class, 'forceDelete']);
+    Route::apiResource('categories', CategoryController::class);
+
+    Route::get('/services/trash', [ServiceController::class, 'trash']);
+    Route::post('/services/{service}/restore', [ServiceController::class, 'restore']);
+    Route::delete('/services/{service}/force-delete', [ServiceController::class, 'forceDelete']);
+    Route::apiResource('services', ServiceController::class);
+
+    Route::apiResource('formations', FormationController::class);
+    Route::post('/modules/reorder', [ModuleController::class, 'reorder']);
+    Route::apiResource('modules', ModuleController::class);
+
+    Route::post('/uploads', [UploadController::class, 'store']);
 
     Route::put('/agencies/{agency}/chief', [UserAssignmentController::class, 'assignChief']);
     Route::delete('/agencies/{agency}/chief', [UserAssignmentController::class, 'removeChief']);

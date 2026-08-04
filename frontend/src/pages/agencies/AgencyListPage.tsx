@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, ArrowUpDown, ShieldCheck, Users } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Trash2,
+  Pencil,
+  ArrowUpDown,
+  ShieldCheck,
+  MapPin,
+  Phone,
+  Mail,
+  FolderTree,
+  ArrowRight,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -13,7 +25,6 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
-import { AgencyDetailModal } from '@/components/agencies/AgencyDetailModal';
 import { AgencyChiefAssignModal } from '@/components/agencies/AgencyChiefAssignModal';
 import { canAssignAgencyChief, canCreateAgency, canDeleteAgency, canEditAgency, canManageTrash } from '@/utils/agencyPermissions';
 import type { Agency, AgencyListParams, PaginationMeta } from '@/types/agency';
@@ -50,7 +61,6 @@ export default function AgencyListPage() {
     open: false,
     agency: null,
   });
-  const [detailAgency, setDetailAgency] = useState<Agency | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Agency | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [chiefAgency, setChiefAgency] = useState<Agency | null>(null);
@@ -199,7 +209,7 @@ export default function AgencyListPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <div className="flex justify-center py-16">
             <Spinner />
@@ -209,91 +219,98 @@ export default function AgencyListPage() {
         ) : agencies.length === 0 ? (
           <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('agencies.empty')}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                <tr>
-                  <th className="px-5 py-3 font-medium">{t('agencies.colCode')}</th>
-                  <th className="px-5 py-3 font-medium">{t('agencies.colName')}</th>
-                  <th className="px-5 py-3 font-medium">{t('agencies.colCountryCity')}</th>
-                  <th className="px-5 py-3 font-medium">{t('agencies.colContact')}</th>
-                  <th className="px-5 py-3 font-medium">{t('agencies.colDepartments')}</th>
-                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {agencies.map((agency) => (
-                  <tr key={agency.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-5 py-3 font-mono text-xs text-gray-500">{agency.code}</td>
-                    <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
-                      {agency.name}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {agency.country}
-                      {agency.city ? `, ${agency.city}` : ''}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {agency.email ?? agency.phone ?? '—'}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {agency.departments.length}
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setDetailAgency(agency)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                          title={t('common.viewDetails')}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        {canAssignAgencyChief(user) && (
-                          <button
-                            type="button"
-                            onClick={() => setChiefAgency(agency)}
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
-                            title={t('agencies.assignChief')}
-                          >
-                            <ShieldCheck className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canEditAgency(user) && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/users?agency_id=${agency.id}`)}
-                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
-                              title={t('agencies.viewDepartments')}
-                            >
-                              <Users className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setFormModalState({ open: true, agency })}
-                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                              title={t('common.edit')}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
-                        {canDeleteAgency(user) && (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(agency)}
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                            title={t('common.delete')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {agencies.map((agency) => (
+              <div
+                key={agency.id}
+                onClick={() => navigate(`/agencies/${agency.id}`)}
+                className="group flex cursor-pointer flex-col rounded-2xl border border-gray-100 bg-white p-5 transition-shadow hover:border-brand-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+                      {agency.name.charAt(0).toUpperCase()}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">{agency.name}</p>
+                      <p className="font-mono text-xs text-gray-400">{agency.code}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {canAssignAgencyChief(user) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setChiefAgency(agency);
+                        }}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
+                        title={t('agencies.assignChief')}
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                      </button>
+                    )}
+                    {canEditAgency(user) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFormModalState({ open: true, agency });
+                        }}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
+                        title={t('common.edit')}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    )}
+                    {canDeleteAgency(user) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(agency);
+                        }}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                        title={t('common.delete')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <span className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
+                    {agency.country}
+                    {agency.city ? `, ${agency.city}` : ''}
+                  </span>
+                  {agency.phone && (
+                    <span className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 shrink-0 text-gray-400" />
+                      {agency.phone}
+                    </span>
+                  )}
+                  {agency.email && (
+                    <span className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 shrink-0 text-gray-400" />
+                      <span className="truncate">{agency.email}</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
+                  <span className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                    <FolderTree className="h-4 w-4" />
+                    {agency.departments.length} {t('agencies.colDepartments').toLowerCase()}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 dark:text-brand-400">
+                    {t('agencies.open')}
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -316,8 +333,6 @@ export default function AgencyListPage() {
         onClose={() => setFormModalState({ open: false, agency: null })}
         onSaved={handleSaved}
       />
-
-      <AgencyDetailModal agency={detailAgency} onClose={() => setDetailAgency(null)} />
 
       <AgencyChiefAssignModal
         isOpen={Boolean(chiefAgency)}

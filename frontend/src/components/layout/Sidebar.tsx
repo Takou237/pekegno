@@ -1,20 +1,22 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Building2, UserRound, Users, FolderTree, Shield } from 'lucide-react';
+import { LayoutDashboard, Building2, UserRound, Users, FolderTree, Package } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const ADMIN_ROLES = ['super-admin', 'direction-generale'];
 
 type TranslateFn = ReturnType<typeof useTranslation>['t'];
 
+function catalogItem(t: TranslateFn) {
+  return { to: '/catalog', label: t('nav.catalog'), icon: Package, end: false };
+}
+
 function getMainItems(t: TranslateFn, roleName: string | null | undefined, agencyId?: string) {
   if (ADMIN_ROLES.includes(roleName ?? '')) {
     return [
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/agencies', label: t('nav.agencies'), icon: Building2, end: false },
-      { to: '/departments', label: t('nav.departments'), icon: FolderTree, end: false },
       { to: '/users', label: t('nav.users'), icon: Users, end: false },
-      { to: '/privileges', label: t('nav.privileges'), icon: Shield, end: false },
     ];
   }
 
@@ -26,6 +28,7 @@ function getMainItems(t: TranslateFn, roleName: string | null | undefined, agenc
       ...(agencyId
         ? [{ to: `/users?agency_id=${agencyId}`, label: t('nav.myTeam'), icon: Users, end: false as const }]
         : []),
+      catalogItem(t),
     ];
   }
 
@@ -34,11 +37,13 @@ function getMainItems(t: TranslateFn, roleName: string | null | undefined, agenc
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/departments', label: t('nav.myDepartments'), icon: FolderTree, end: false },
       { to: '/users', label: t('nav.myTeam'), icon: Users, end: false },
+      catalogItem(t),
     ];
   }
 
   return [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+    catalogItem(t),
   ];
 }
 
