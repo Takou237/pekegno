@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,14 +7,13 @@ import {
   FolderTree,
   Package,
   Users,
-  MapPin,
-  Phone,
-  Mail,
+  Settings,
 } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { Spinner } from '@/components/ui/Spinner';
 import { UserMenu } from '@/components/common/UserMenu';
+import { AgencySwitcher } from '@/components/agencies/AgencySwitcher';
 import type { Agency } from '@/types/agency';
 
 function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
@@ -23,6 +22,7 @@ function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
     { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
     { to: 'services', label: t('nav.services'), icon: Package, end: false },
     { to: 'teams', label: t('nav.teams'), icon: Users, end: false },
+    { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
   ];
 }
 
@@ -33,7 +33,7 @@ export function AgencyLayout() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadAgency = useCallback(() => {
     if (!agencyId) return;
     setIsLoading(true);
     setLoadError(null);
@@ -43,6 +43,10 @@ export function AgencyLayout() {
       .catch((error) => setLoadError(extractErrorMessage(error, t('agencies.loadFailed'))))
       .finally(() => setIsLoading(false));
   }, [agencyId, t]);
+
+  useEffect(() => {
+    loadAgency();
+  }, [loadAgency]);
 
   function subLinkClass({ isActive }: { isActive: boolean }) {
     return `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -75,38 +79,7 @@ export function AgencyLayout() {
             ) : loadError || !agency ? (
               <p className="text-sm text-error-500">{loadError ?? t('agencies.empty')}</p>
             ) : (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-xl font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
-                    {agency.name.charAt(0).toUpperCase()}
-                  </span>
-                  <div>
-                    <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {agency.name}
-                    </h1>
-                    <p className="font-mono text-xs text-gray-400">{agency.code}</p>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-300">
-                  <span className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
-                    {agency.country}
-                    {agency.city ? `, ${agency.city}` : ''}
-                  </span>
-                  {agency.phone && (
-                    <span className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 shrink-0 text-gray-400" />
-                      {agency.phone}
-                    </span>
-                  )}
-                  {agency.email && (
-                    <span className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 shrink-0 text-gray-400" />
-                      <span className="truncate">{agency.email}</span>
-                    </span>
-                  )}
-                </div>
-              </div>
+              <AgencySwitcher agency={agency} />
             )}
           </div>
 
@@ -121,7 +94,7 @@ export function AgencyLayout() {
         </div>
 
         <div className="min-w-0 flex-1">
-          <Outlet context={{ agency, agencyId }} />
+          <Outlet context={{ agency, agencyId, refreshAgency: loadAgency }} />
         </div>
       </main>
     </div>

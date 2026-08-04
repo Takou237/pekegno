@@ -16,6 +16,7 @@ class PromotionResource extends JsonResource
             'start_date' => $this->start_date?->toISOString(),
             'end_date' => $this->end_date?->toISOString(),
             'is_active' => $this->isActive(),
+            'service' => new ServiceResource($this->whenLoaded('service')),
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

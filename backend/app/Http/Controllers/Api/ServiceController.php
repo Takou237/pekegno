@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreServiceRequest;
 use App\Http\Requests\Api\UpdateServiceRequest;
 use App\Http\Resources\ServiceResource;
-use App\Models\Formation;
 use App\Models\PriceHistory;
 use App\Models\Service;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +15,7 @@ use OpenApi\Attributes as OA;
 
 class ServiceController extends Controller
 {
-    private const ALLOWED_WITH = ['category', 'agency', 'department', 'promotions', 'priceHistory', 'formation'];
+    private const ALLOWED_WITH = ['category', 'agency', 'promotions', 'priceHistory'];
 
     public function __construct()
     {
@@ -40,8 +39,6 @@ class ServiceController extends Controller
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par nom ou description', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'category_id', in: 'query', description: 'Filtrer par catégorie', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'agency_id', in: 'query', description: 'Filtrer par agence', schema: new OA\Schema(type: 'string', format: 'uuid')),
-            new OA\Parameter(name: 'department_id', in: 'query', description: 'Filtrer par département', schema: new OA\Schema(type: 'string', format: 'uuid')),
-            new OA\Parameter(name: 'is_formation', in: 'query', schema: new OA\Schema(type: 'boolean')),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
             new OA\Parameter(name: 'sort_by', in: 'query', schema: new OA\Schema(type: 'string', enum: ['name', 'price', 'created_at'], default: 'name')),
             new OA\Parameter(name: 'sort_order', in: 'query', schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], default: 'asc')),
@@ -53,14 +50,12 @@ class ServiceController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $defaultWith = ['category', 'agency', 'department', 'promotions', 'formation'];
+        $defaultWith = ['category', 'agency', 'promotions'];
 
         $query = Service::with(array_merge($defaultWith, $this->parseWith($request)))
             ->search($request->input('search'))
             ->when($request->category_id, fn ($q, $v) => $q->where('category_id', $v))
-            ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
-            ->when($request->department_id, fn ($q, $v) => $q->where('department_id', $v))
-            ->when($request->boolean('is_formation'), fn ($q) => $q->whereHas('formation'));
+            ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v));
 
         $sortBy = $request->input('sort_by', 'name');
         $sortOrder = $request->input('sort_order', 'asc');
@@ -77,18 +72,17 @@ class ServiceController extends Controller
 
     #[OA\Post(
         path: '/api/services',
-        summary: 'Créer un service (et éventuellement sa formation)',
+        summary: 'Créer un service',
         tags: ['Services'],
         security: [['sanctum' => []]],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['name', 'category_id', 'price'],
+                required: ['name', 'category_id', 'agency_id', 'price'],
                 properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'Formation Excel'),
+                    new OA\Property(property: 'name', type: 'string', example: 'Conseil en organisation'),
                     new OA\Property(property: 'category_id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'agency_id', type: 'string', format: 'uuid'),
-                    new OA\Property(property: 'department_id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'description', type: 'string'),
                     new OA\Property(property: 'price', type: 'number', example: 50000),
                     new OA\Property(property: 'cover_image', type: 'string'),
@@ -104,11 +98,7 @@ class ServiceController extends Controller
     )]
     public function store(StoreServiceRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $formationData = $data['formation'] ?? null;
-        unset($data['formation']);
-
-        $service = Service::create($data);
+        $service = Service::create($request->validated());
 
         PriceHistory::create([
             'service_id' => $service->id,
@@ -116,11 +106,7 @@ class ServiceController extends Controller
             'changed_at' => now(),
         ]);
 
-        if (is_array($formationData)) {
-            Formation::create(array_merge($formationData, ['id' => $service->id]));
-        }
-
-        return (new ServiceResource($service->load(['category', 'agency', 'department', 'promotions', 'formation'])))
+        return (new ServiceResource($service->load(['category', 'agency', 'promotions'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -141,7 +127,7 @@ class ServiceController extends Controller
     public function show(Request $request, Service $service): ServiceResource
     {
         $with = array_unique(array_merge(
-            ['category', 'agency', 'department', 'promotions', 'priceHistory', 'formation'],
+            ['category', 'agency', 'promotions', 'priceHistory'],
             $this->parseWith($request)
         ));
 
@@ -162,7 +148,6 @@ class ServiceController extends Controller
                     new OA\Property(property: 'name', type: 'string'),
                     new OA\Property(property: 'category_id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'agency_id', type: 'string', format: 'uuid'),
-                    new OA\Property(property: 'department_id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'description', type: 'string'),
                     new OA\Property(property: 'price', type: 'number'),
                     new OA\Property(property: 'cover_image', type: 'string'),
@@ -178,12 +163,8 @@ class ServiceController extends Controller
     )]
     public function update(UpdateServiceRequest $request, Service $service): ServiceResource
     {
-        $data = $request->validated();
-        $formationData = $data['formation'] ?? null;
-        unset($data['formation']);
-
         $oldPrice = $service->price;
-        $service->update($data);
+        $service->update($request->validated());
 
         if ($request->filled('price') && (string) $request->input('price') !== (string) $oldPrice) {
             PriceHistory::create([
@@ -193,16 +174,8 @@ class ServiceController extends Controller
             ]);
         }
 
-        if (is_array($formationData)) {
-            if ($service->formation()->exists()) {
-                $service->formation()->update($formationData);
-            } else {
-                Formation::create(array_merge($formationData, ['id' => $service->id]));
-            }
-        }
-
         return new ServiceResource($service->fresh()->load([
-            'category', 'agency', 'department', 'promotions', 'priceHistory', 'formation',
+            'category', 'agency', 'promotions', 'priceHistory',
         ]));
     }
 
@@ -229,7 +202,8 @@ class ServiceController extends Controller
     public function trash(Request $request): AnonymousResourceCollection
     {
         $query = Service::onlyTrashed()
-            ->with(['category', 'agency', 'department', 'formation'])
+            ->with(['category', 'agency'])
+            ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
             ->search($request->input('search'))
             ->orderBy('deleted_at', 'desc');
 
@@ -245,7 +219,7 @@ class ServiceController extends Controller
         $service = Service::onlyTrashed()->findOrFail($id);
         $service->restore();
 
-        return new ServiceResource($service->load(['category', 'agency', 'department', 'promotions']));
+        return new ServiceResource($service->load(['category', 'agency', 'promotions']));
     }
 
     public function forceDelete(string $id): JsonResponse

@@ -1,16 +1,37 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FolderTree, Package, Users, MapPin, Phone, Mail } from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
+import {
+  FolderTree,
+  Package,
+  Users,
+  Tag,
+  MapPin,
+  Phone,
+  Mail,
+  AlertTriangle,
+  ShieldCheck,
+  ImageOff,
+  ArrowRight,
+} from 'lucide-react';
 import { servicesApi } from '@/api/services.api';
 import { usersApi } from '@/api/users.api';
+import { departmentsApi } from '@/api/departments.api';
+import { promotionsApi } from '@/api/promotions.api';
+import { currentLocale } from '@/i18n';
 import { Spinner } from '@/components/ui/Spinner';
+import { Badge } from '@/components/ui/Badge';
 import type { Agency } from '@/types/agency';
+import type { Department } from '@/types/department';
+import type { Service } from '@/types/service';
 
 interface AgencyLayoutContext {
   agency: Agency | null;
   agencyId?: string;
+}
+
+function formatPrice(value: string): string {
+  return `${new Intl.NumberFormat(currentLocale()).format(Number(value))} FCFA`;
 }
 
 export default function AgencyOverviewPage() {
@@ -18,6 +39,9 @@ export default function AgencyOverviewPage() {
   const { agency, agencyId } = useOutletContext<AgencyLayoutContext>();
   const [servicesCount, setServicesCount] = useState<number | null>(null);
   const [usersCount, setUsersCount] = useState<number | null>(null);
+  const [promosCount, setPromosCount] = useState<number | null>(null);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [latestServices, setLatestServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -32,6 +56,18 @@ export default function AgencyOverviewPage() {
         .list({ agency_id: agencyId, per_page: 1 })
         .then((r) => setUsersCount(r.meta.total))
         .catch(() => setUsersCount(0)),
+      promotionsApi
+        .list({ agency_id: agencyId, status: 'active', per_page: 1 })
+        .then((r) => setPromosCount(r.meta.total))
+        .catch(() => setPromosCount(0)),
+      departmentsApi
+        .list({ agency_id: agencyId, per_page: 100 })
+        .then((r) => setDepartments(r.data))
+        .catch(() => setDepartments([])),
+      servicesApi
+        .list({ agency_id: agencyId, sort_by: 'created_at', sort_order: 'desc', per_page: 4 })
+        .then((r) => setLatestServices(r.data))
+        .catch(() => setLatestServices([])),
     ]).finally(() => setIsLoading(false));
   }, [agencyId]);
 
@@ -72,11 +108,38 @@ export default function AgencyOverviewPage() {
       color: 'text-purple-600 dark:text-purple-400',
       bg: 'bg-purple-50 dark:bg-purple-500/10',
     },
+    {
+      label: t('agencies.overviewActivePromos'),
+      value: promosCount ?? 0,
+      icon: Tag,
+      to: `/agencies/${agency.id}/promotions`,
+      color: 'text-amber-600 dark:text-amber-400',
+      bg: 'bg-amber-50 dark:bg-amber-500/10',
+    },
+  ];
+
+  const chiefsMissing = departments.filter((department) => !department.department_chief);
+  const coversMissing = latestServices.filter((service) => !service.cover_image);
+  const alerts = [
+    ...chiefsMissing.map((department) => ({
+      key: `chief-${department.id}`,
+      to: `/departments/${department.id}`,
+      from: `/agencies/${agency.id}`,
+      icon: ShieldCheck,
+      text: `${t('agencies.overviewDeptNoChief')} : ${department.name}`,
+    })),
+    ...coversMissing.map((service) => ({
+      key: `cover-${service.id}`,
+      to: `/agencies/${agency.id}/services`,
+      from: `/agencies/${agency.id}`,
+      icon: ImageOff,
+      text: `${t('agencies.overviewServiceNoCover')} : ${service.name}`,
+    })),
   ];
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, to, color, bg }) => (
           <Link
             key={to}
@@ -124,6 +187,94 @@ export default function AgencyOverviewPage() {
             </dd>
           </div>
         </dl>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+            {t('agencies.overviewLatestServices')}
+          </h2>
+          <Link
+            to={`/agencies/${agency.id}/services`}
+            className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+          >
+            {t('agencies.overviewViewAll')}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        {latestServices.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">{t('agencies.overviewNoServices')}</p>
+        ) : (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {latestServices.map((service) => {
+              const hasPromo = Number(service.effective_price) !== Number(service.price);
+              return (
+                <Link
+                  key={service.id}
+                  to={`/agencies/${agency.id}/services`}
+                  className="group flex flex-col overflow-hidden rounded-xl border border-gray-100 transition-shadow hover:shadow-md dark:border-gray-800"
+                >
+                  {service.cover_image ? (
+                    <div
+                      className="h-24 w-full shrink-0 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${service.cover_image})` }}
+                      role="img"
+                      aria-label={service.name}
+                    />
+                  ) : (
+                    <div className="flex h-24 w-full shrink-0 items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700">
+                      <span className="text-[0.65rem] font-bold uppercase tracking-[0.3em] text-gray-400 dark:text-gray-600">
+                        PEKEGNO
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex flex-1 flex-col p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900 dark:text-white">
+                        {service.name}
+                      </p>
+                      {hasPromo && <Badge variant="brand">{t('agencies.overviewPromo')}</Badge>}
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-1.5">
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                        {formatPrice(service.effective_price)}
+                      </span>
+                      {hasPromo && (
+                        <span className="text-xs text-gray-400 line-through">{formatPrice(service.price)}</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          {t('agencies.overviewAlerts')}
+        </h2>
+        {alerts.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">{t('agencies.overviewNoAlerts')}</p>
+        ) : (
+          <ul className="mt-4 flex flex-col gap-2">
+            {alerts.map(({ key, to, from, icon: Icon, text }) => (
+              <li key={key}>
+                <Link
+                  to={to}
+                  state={{ from }}
+                  className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-brand-500/10"
+                >
+                  <Icon className="h-4 w-4 shrink-0 text-amber-500" />
+                  <span className="truncate">{text}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

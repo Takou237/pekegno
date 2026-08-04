@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreUserRequest;
 use App\Http\Requests\Api\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Department;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -108,9 +109,30 @@ class UserController extends Controller
                 if ($agencyId) {
                     $user->assignments()->attach($agencyId, [
                         'is_primary' => false,
+                        'is_department_chief' => false,
                         'department_id' => null,
                     ]);
                 }
+
+                return $user;
+            }
+
+            // Super-admin / direction-générale : rattachement optionnel à une
+            // agence et/ou un département fournis lors de la création.
+            $agencyId = $data['agency_id'] ?? null;
+            $departmentId = $data['department_id'] ?? null;
+
+            // Si seul le département est renseigné, on en déduit l'agence.
+            if ($departmentId && ! $agencyId) {
+                $agencyId = Department::where('id', $departmentId)->value('agency_id');
+            }
+
+            if ($agencyId) {
+                $user->assignments()->attach($agencyId, [
+                    'is_primary' => false,
+                    'is_department_chief' => false,
+                    'department_id' => $departmentId,
+                ]);
             }
 
             return $user;

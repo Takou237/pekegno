@@ -91,7 +91,7 @@ export function ResetPasswordForm() {
         onChange={(e) => setPasswordConfirmation(e.target.value)}
       />
 
-      <Button type="submit" isLoading={isSubmitting}>
+      <Button type="submit" isLoading={isSubmitting} fullWidth>
         {t('auth.resetPassword')}
       </Button>
     </form>

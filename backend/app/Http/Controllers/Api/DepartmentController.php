@@ -182,6 +182,7 @@ class DepartmentController extends Controller
     public function trash(Request $request): AnonymousResourceCollection
     {
         $query = Department::onlyTrashed()->with('agency')
+            ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
             ->when($request->search, function ($q, $search) {
                 $q->where('name', 'like', "%{$search}%");
             })

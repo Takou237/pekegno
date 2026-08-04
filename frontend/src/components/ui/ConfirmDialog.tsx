@@ -30,20 +30,16 @@ export function ConfirmDialog({
     <Modal isOpen={isOpen} onClose={onCancel} title={title} maxWidth="max-w-md">
       <p className="mb-6 text-sm text-gray-600 dark:text-gray-300">{message}</p>
       <div className="flex justify-end gap-3">
-        <div className="w-32">
-          <Button variant="outline" onClick={onCancel} disabled={isLoading}>
-            {cancelLabel || t('common.cancel')}
-          </Button>
-        </div>
-        <div className="w-32">
-          <Button
-            onClick={onConfirm}
-            isLoading={isLoading}
-            className={variant === 'danger' ? '!bg-error-500 hover:!bg-error-600' : ''}
-          >
-            {confirmLabel || t('common.confirm')}
-          </Button>
-        </div>
+        <Button variant="outline" onClick={onCancel} disabled={isLoading} className="flex-1">
+          {cancelLabel || t('common.cancel')}
+        </Button>
+        <Button
+          onClick={onConfirm}
+          isLoading={isLoading}
+          className={`flex-1 ${variant === 'danger' ? '!bg-error-500 hover:!bg-error-600' : ''}`}
+        >
+          {confirmLabel || t('common.confirm')}
+        </Button>
       </div>
     </Modal>
   );

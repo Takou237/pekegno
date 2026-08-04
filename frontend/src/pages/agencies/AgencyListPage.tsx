@@ -4,18 +4,18 @@ import {
   Plus,
   Search,
   Trash2,
-  Pencil,
   ArrowUpDown,
-  ShieldCheck,
   MapPin,
   Phone,
   Mail,
   FolderTree,
   ArrowRight,
+  Download,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
+import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
@@ -23,10 +23,9 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
-import { AgencyChiefAssignModal } from '@/components/agencies/AgencyChiefAssignModal';
-import { canAssignAgencyChief, canCreateAgency, canDeleteAgency, canEditAgency, canManageTrash } from '@/utils/agencyPermissions';
+import { canCreateAgency, canManageTrash } from '@/utils/agencyPermissions';
+import { canExportData } from '@/utils/exportPermissions';
 import type { Agency, AgencyListParams, PaginationMeta } from '@/types/agency';
 
 type TranslateFn = ReturnType<typeof useTranslation>['t'];
@@ -50,6 +49,7 @@ export default function AgencyListPage() {
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [search, setSearch] = useState('');
   const [country, setCountry] = useState('');
@@ -61,9 +61,6 @@ export default function AgencyListPage() {
     open: false,
     agency: null,
   });
-  const [deleteTarget, setDeleteTarget] = useState<Agency | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [chiefAgency, setChiefAgency] = useState<Agency | null>(null);
 
   const fetchAgencies = useCallback(async () => {
     setIsLoading(true);
@@ -105,21 +102,14 @@ export default function AgencyListPage() {
     setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
   }
 
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    setIsDeleting(true);
+  async function handleExport() {
+    setIsExporting(true);
     try {
-      await agenciesApi.remove(deleteTarget.id);
-      showToast(t('agencies.archived'), 'success');
-      setDeleteTarget(null);
-      fetchAgencies();
+      await downloadExport('agencies');
     } catch (error) {
-      showToast(
-        extractErrorMessage(error, t('agencies.deleteFailed')),
-        'error'
-      );
+      showToast(extractErrorMessage(error, t('common.exportFailed')), 'error');
     } finally {
-      setIsDeleting(false);
+      setIsExporting(false);
     }
   }
 
@@ -142,6 +132,12 @@ export default function AgencyListPage() {
           </p>
         </div>
         <div className="flex gap-3">
+          {canExportData(user) && (
+            <Button variant="outline" onClick={handleExport} isLoading={isExporting}>
+              <Download className="h-4 w-4" />
+              {t('agencies.export')}
+            </Button>
+          )}
           {canManageTrash(user) && (
             <Link to="/agencies/trash">
               <Button variant="outline">
@@ -151,12 +147,10 @@ export default function AgencyListPage() {
             </Link>
           )}
           {canCreateAgency(user) && (
-            <div className="w-48">
-              <Button onClick={() => setFormModalState({ open: true, agency: null })}>
-                <Plus className="h-4 w-4" />
-                {t('agencies.newAgency')}
-              </Button>
-            </div>
+            <Button onClick={() => setFormModalState({ open: true, agency: null })}>
+              <Plus className="h-4 w-4" />
+              {t('agencies.newAgency')}
+            </Button>
           )}
         </div>
       </div>
@@ -226,56 +220,13 @@ export default function AgencyListPage() {
                 onClick={() => navigate(`/agencies/${agency.id}`)}
                 className="group flex cursor-pointer flex-col rounded-2xl border border-gray-100 bg-white p-5 transition-shadow hover:border-brand-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
-                      {agency.name.charAt(0).toUpperCase()}
-                    </span>
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">{agency.name}</p>
-                      <p className="font-mono text-xs text-gray-400">{agency.code}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    {canAssignAgencyChief(user) && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setChiefAgency(agency);
-                        }}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
-                        title={t('agencies.assignChief')}
-                      >
-                        <ShieldCheck className="h-4 w-4" />
-                      </button>
-                    )}
-                    {canEditAgency(user) && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFormModalState({ open: true, agency });
-                        }}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                        title={t('common.edit')}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                    )}
-                    {canDeleteAgency(user) && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(agency);
-                        }}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                        title={t('common.delete')}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                <div className="flex items-center gap-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+                    {agency.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-white">{agency.name}</p>
+                    <p className="font-mono text-xs text-gray-400">{agency.code}</p>
                   </div>
                 </div>
 
@@ -332,23 +283,6 @@ export default function AgencyListPage() {
         agency={formModalState.agency}
         onClose={() => setFormModalState({ open: false, agency: null })}
         onSaved={handleSaved}
-      />
-
-      <AgencyChiefAssignModal
-        isOpen={Boolean(chiefAgency)}
-        agency={chiefAgency}
-        onClose={() => setChiefAgency(null)}
-        onSaved={fetchAgencies}
-      />
-
-      <ConfirmDialog
-        isOpen={Boolean(deleteTarget)}
-        title={t('agencies.archiveTitle')}
-        message={t('agencies.archiveMessage', { name: deleteTarget?.name ?? '' })}
-        confirmLabel={t('agencies.archive')}
-        isLoading={isDeleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );

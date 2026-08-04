@@ -9,10 +9,15 @@ import { currentLocale } from '@/i18n';
 import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { CategoryIcon } from '@/utils/categoryIcons';
 import type { Service } from '@/types/service';
 import type { PaginationMeta } from '@/types/agency';
 
-export default function ServiceTrashPage() {
+interface ServiceTrashPageProps {
+  agencyId?: string;
+}
+
+export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
 
@@ -28,7 +33,11 @@ export default function ServiceTrashPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await servicesApi.trash({ page, per_page: 15 });
+      const response = await servicesApi.trash({
+        page,
+        per_page: 15,
+        agency_id: agencyId ?? undefined,
+      });
       setServices(response.data);
       setMeta(response.meta);
     } catch (error) {
@@ -36,7 +45,7 @@ export default function ServiceTrashPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page]);
+  }, [page, agencyId]);
 
   useEffect(() => {
     fetchTrash();
@@ -67,11 +76,16 @@ export default function ServiceTrashPage() {
     }
   }
 
+  function formatDate(value: string | null): string {
+    if (!value) return '—';
+    return new Date(value).toLocaleDateString(currentLocale());
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to="/catalog/services"
+          to={agencyId ? `/agencies/${agencyId}/services` : '/catalog/services'}
           className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -93,54 +107,63 @@ export default function ServiceTrashPage() {
         ) : services.length === 0 ? (
           <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('common.trashEmpty')}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                <tr>
-                  <th className="px-5 py-3 font-medium">{t('services.colName')}</th>
-                  <th className="px-5 py-3 font-medium">{t('services.category')}</th>
-                  <th className="px-5 py-3 font-medium">{t('services.deletedAt')}</th>
-                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {services.map((service) => (
-                  <tr key={service.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
-                      {service.name}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {service.category?.name ?? '—'}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {service.deleted_at
-                        ? new Date(service.deleted_at).toLocaleDateString(currentLocale())
-                        : '—'}
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleRestore(service)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-success-600 dark:hover:bg-gray-800"
-                          title={t('common.restore')}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setForceDeleteTarget(service)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                          title={t('common.deletePermanently')}
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+            {services.map((service) => (
+              <div
+                key={service.id}
+                className="group flex flex-col rounded-2xl border border-gray-100 bg-white p-5 transition-shadow hover:border-brand-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  {service.cover_image ? (
+                    <img
+                      src={service.cover_image}
+                      alt={service.name}
+                      className="h-12 w-12 shrink-0 rounded-xl border border-gray-100 object-cover dark:border-gray-800"
+                    />
+                  ) : (
+                    <span
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                      style={{ backgroundColor: service.category?.color ?? '#CBD5E1' }}
+                    >
+                      <CategoryIcon name={service.category?.icon} className="h-6 w-6 text-white" />
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-gray-900 dark:text-white">{service.name}</p>
+                    <p className="mt-0.5 truncate text-xs text-gray-400">{service.category?.name}</p>
+                  </div>
+                  <div className="flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => handleRestore(service)}
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-success-600 dark:hover:bg-gray-800"
+                      title={t('common.restore')}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForceDeleteTarget(service)}
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                      title={t('common.deletePermanently')}
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                  {service.agency?.name ?? '—'}
+                </p>
+
+                <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('services.deletedAt')}</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {formatDate(service.deleted_at)}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

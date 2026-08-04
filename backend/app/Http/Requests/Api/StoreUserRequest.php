@@ -28,6 +28,8 @@ class StoreUserRequest extends FormRequest
             'last_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'role_id' => ['sometimes', 'nullable', 'string', 'exists:roles,id'],
+            'agency_id' => ['sometimes', 'nullable', 'string', 'exists:agencies,id'],
+            'department_id' => ['sometimes', 'nullable', 'string', 'exists:departments,id'],
         ];
     }
 
@@ -53,6 +55,23 @@ class StoreUserRequest extends FormRequest
                     $validator->errors()->add(
                         'role_id',
                         'Vous n\'êtes pas autorisé à attribuer ce rôle.'
+                    );
+                }
+            },
+            function (Validator $validator) {
+                $agencyId = $this->input('agency_id');
+                $departmentId = $this->input('department_id');
+
+                if (! $departmentId) {
+                    return;
+                }
+
+                $dept = \App\Models\Department::where('id', $departmentId)->first();
+
+                if ($dept && $agencyId && $dept->agency_id !== $agencyId) {
+                    $validator->errors()->add(
+                        'department_id',
+                        'Le département sélectionné n\'appartient pas à l\'agence choisie.'
                     );
                 }
             },

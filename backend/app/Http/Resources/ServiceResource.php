@@ -12,7 +12,6 @@ class ServiceResource extends JsonResource
         return [
             'id' => $this->id,
             'agency_id' => $this->agency_id,
-            'department_id' => $this->department_id,
             'category_id' => $this->category_id,
             'name' => $this->name,
             'description' => $this->description,
@@ -23,13 +22,10 @@ class ServiceResource extends JsonResource
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
             'deleted_at' => $this->deleted_at?->toISOString(),
-            'is_formation' => $this->is_formation,
             'category' => new CategoryResource($this->whenLoaded('category')),
             'agency' => new AgencyResource($this->whenLoaded('agency')),
-            'department' => new DepartmentResource($this->whenLoaded('department')),
             'promotions' => PromotionResource::collection($this->whenLoaded('promotions')),
             'price_history' => PriceHistoryResource::collection($this->whenLoaded('priceHistory')),
-            'formation' => new FormationResource($this->whenLoaded('formation')),
         ];
     }
 }

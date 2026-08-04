@@ -12,7 +12,7 @@ class UploadController extends Controller
 {
     #[OA\Post(
         path: '/api/uploads',
-        summary: 'Uploader une image (couverture de service ou de module)',
+        summary: 'Uploader une image (couverture de service)',
         tags: ['Uploads'],
         security: [['sanctum' => []]],
         requestBody: new OA\RequestBody(

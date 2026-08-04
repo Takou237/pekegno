@@ -1,12 +1,13 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-type Variant = 'primary' | 'outline' | 'ghost';
+type Variant = 'primary' | 'outline' | 'ghost' | 'danger';
 type Size = 'sm' | 'md';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
   isLoading?: boolean;
+  fullWidth?: boolean;
   children: ReactNode;
 }
 
@@ -16,6 +17,7 @@ const variantClasses: Record<Variant, string> = {
   outline:
     'border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800',
   ghost: 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+  danger: 'bg-error-500 text-white hover:bg-error-600',
 };
 
 const sizeClasses: Record<Size, string> = {
@@ -27,6 +29,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  fullWidth = false,
   disabled,
   className = '',
   children,
@@ -35,7 +38,7 @@ export function Button({
   return (
     <button
       disabled={disabled || isLoading}
-      className={`inline-flex w-full items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed ${fullWidth ? 'w-full' : ''} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...rest}
     >
       {isLoading && (

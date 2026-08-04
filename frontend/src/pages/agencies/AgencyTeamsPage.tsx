@@ -1,20 +1,42 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { useOutletContext } from 'react-router-dom';
+import { Search, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/api/users.api';
 import { extractErrorMessage } from '@/api/errors';
+import { useAuth } from '@/hooks/useAuth';
 import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { CreateUserModal } from '@/components/users/CreateUserModal';
+import { AssignMemberModal } from '@/components/users/AssignMemberModal';
+import type { Agency } from '@/types/agency';
 import type { UserListItem } from '@/types/user';
+
+interface AgencyLayoutContext {
+  agency: Agency | null;
+  agencyId?: string;
+}
 
 export default function AgencyTeamsPage() {
   const { t } = useTranslation();
-  const { agencyId } = useParams<{ agencyId: string }>();
+  const { user: currentUser } = useAuth();
+  const { agency, agencyId } = useOutletContext<AgencyLayoutContext>();
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const canCreateUsers = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
+    currentUser?.role?.name ?? ''
+  );
+  const canManageUsers = ['super-admin', 'direction-generale'].includes(
+    currentUser?.role?.name ?? ''
+  );
 
   const fetchUsers = useCallback(async () => {
     if (!agencyId) return;
@@ -39,11 +61,32 @@ export default function AgencyTeamsPage() {
     return () => clearTimeout(timeout);
   }, [fetchUsers]);
 
+  function openAssign() {
+    setAssignTarget({ id: agencyId ?? '', name: agency?.name ?? '' });
+    setAssignOpen(true);
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.teams')}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('users.subtitle')}</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.teams')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('users.subtitle')}</p>
+        </div>
+        <div className="flex gap-3">
+          {canCreateUsers && (
+            <Button onClick={() => setCreateOpen(true)}>
+              <UserPlus className="h-4 w-4" />
+              {t('users.createUser')}
+            </Button>
+          )}
+          {canManageUsers && agencyId && (
+            <Button variant="outline" onClick={openAssign}>
+              <UserPlus className="h-4 w-4" />
+              {t('users.assignUser')}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
@@ -111,6 +154,23 @@ export default function AgencyTeamsPage() {
           </div>
         )}
       </div>
+
+      <CreateUserModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={fetchUsers}
+        fixedAgencyId={agencyId}
+        fixedAgencyName={agency?.name}
+      />
+
+      <AssignMemberModal
+        isOpen={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        onAssigned={fetchUsers}
+        targetType="agency"
+        targetId={assignTarget?.id ?? ''}
+        targetName={assignTarget?.name ?? ''}
+      />
     </div>
   );
 }

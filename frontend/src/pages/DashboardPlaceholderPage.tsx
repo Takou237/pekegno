@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, FolderTree, Users, Mail, Phone, BadgeInfo } from 'lucide-react';
+import { Building2, FolderTree, Users, Mail, Phone, BadgeInfo, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { client } from '@/api/client';
@@ -27,18 +27,21 @@ function roleBadge(roleName: string | null | undefined, t: (key: string, opts?: 
 function AdminDashboard() {
   const { t } = useTranslation();
   const [stats, setStats] = useState<{ agencies: number; departments: number; users: number } | null>(null);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
 
   useEffect(() => {
     Promise.all([
       client.get('/agencies', { params: { per_page: 1 } }),
       client.get('/departments', { params: { per_page: 1 } }),
       client.get('/users', { params: { per_page: 1 } }),
-    ]).then(([a, d, u]) => {
+      client.get('/agencies', { params: { per_page: 12, sort_by: 'created_at', sort_order: 'desc' } }),
+    ]).then(([a, d, u, al]) => {
       setStats({
         agencies: a.data.meta?.total ?? 0,
         departments: d.data.meta?.total ?? 0,
         users: u.data.meta?.total ?? 0,
       });
+      setAgencies(al.data.data ?? []);
     }).catch(() => {});
   }, []);
 
@@ -69,7 +72,7 @@ function AdminDashboard() {
             </div>
           </div>
         </Link>
-        <Link to="/users" className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <Link to="/users" className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
               <Users className="h-5 w-5" />
@@ -79,7 +82,49 @@ function AdminDashboard() {
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.users')}</p>
             </div>
           </div>
-        </Link>
+          </Link>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {t('dashboard.agencies')}
+          </h2>
+          <Link
+            to="/agencies"
+            className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+          >
+            {t('dashboard.viewAllAgencies')}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        {agencies.length === 0 ? (
+          <p className="mt-3 text-sm text-gray-400">{t('agencies.empty')}</p>
+        ) : (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {agencies.map((a) => (
+              <Link
+                key={a.id}
+                to={`/agencies/${a.id}`}
+                className="group flex items-center gap-3 rounded-xl border border-gray-100 p-3 transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:hover:border-brand-500/40"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-sm font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+                  {a.name.charAt(0).toUpperCase()}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-gray-900 dark:text-white">
+                    {a.name}
+                  </span>
+                  <span className="block truncate text-xs text-gray-400">
+                    {a.code}
+                    {a.country ? ` · ${a.country}${a.city ? `, ${a.city}` : ''}` : ''}
+                  </span>
+                </span>
+                <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

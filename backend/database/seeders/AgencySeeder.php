@@ -30,8 +30,8 @@ class AgencySeeder extends Seeder
         ];
 
         $departments = [
-            0 => ['Commercial', 'Formation', 'Comptabilité'],
-            1 => ['Commercial', 'Formation'],
+            0 => ['Commercial', 'Ressources Humaines', 'Comptabilité'],
+            1 => ['Commercial', 'Ressources Humaines'],
         ];
 
         foreach ($agencies as $index => $data) {

@@ -72,7 +72,7 @@ export function ChangePasswordForm() {
       />
 
       <div className="w-full sm:w-56">
-        <Button type="submit" isLoading={isSubmitting}>
+        <Button type="submit" isLoading={isSubmitting} fullWidth>
           {t('profile.update')}
         </Button>
       </div>

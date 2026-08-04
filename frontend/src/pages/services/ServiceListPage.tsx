@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, ArrowUpDown, GraduationCap } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { categoriesApi } from '@/api/categories.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
+import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { Select } from '@/components/ui/Select';
@@ -13,7 +14,6 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Badge } from '@/components/ui/Badge';
 import { ServiceFormModal } from '@/components/services/ServiceFormModal';
 import { ServiceDetailModal } from '@/components/services/ServiceDetailModal';
 import { CategoryFormModal } from '@/components/categories/CategoryFormModal';
@@ -23,8 +23,8 @@ import {
   canEditService,
   canManageCatalogTrash,
 } from '@/utils/catalogPermissions';
+import { canExportData } from '@/utils/exportPermissions';
 import { currentLocale } from '@/i18n';
-import { CategoryIcon } from '@/utils/categoryIcons';
 import type { Service } from '@/types/service';
 import type { Category } from '@/types/category';
 import type { Agency, PaginationMeta } from '@/types/agency';
@@ -45,11 +45,11 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category_id') ?? '');
   const [agencyFilter, setAgencyFilter] = useState(agencyId ?? '');
-  const [isFormationFilter, setIsFormationFilter] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'created_at'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
@@ -58,6 +58,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     open: false,
     service: null,
   });
+  const [duplicateSource, setDuplicateSource] = useState<Service | null>(null);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailService, setDetailService] = useState<Service | null>(null);
@@ -72,7 +73,6 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
         search: search || undefined,
         category_id: categoryFilter || undefined,
         agency_id: agencyFilter || undefined,
-        is_formation: isFormationFilter || undefined,
         sort_by: sortBy,
         sort_order: sortOrder,
         page,
@@ -85,7 +85,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [search, categoryFilter, agencyFilter, isFormationFilter, sortBy, sortOrder, page]);
+  }, [search, categoryFilter, agencyFilter, sortBy, sortOrder, page]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -94,7 +94,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     }, 350);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, categoryFilter, agencyFilter, isFormationFilter, sortBy, sortOrder]);
+  }, [search, categoryFilter, agencyFilter, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchServices();
@@ -114,6 +114,17 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     fetchCategories();
     agenciesApi.list({ per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
   }, [fetchCategories]);
+
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      await downloadExport('services');
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('common.exportFailed')), 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   function handleCategorySaved(saved: Category) {
     setCategoryFilter(saved.id);
@@ -153,6 +164,12 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     setDetailId(service.id);
   }
 
+  function formatPrice(value: string): string {
+    return `${new Intl.NumberFormat(currentLocale()).format(Number(value))} FCFA`;
+  }
+
+  const hasPromo = (service: Service) => Number(service.effective_price) !== Number(service.price);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -160,9 +177,15 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('services.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('services.subtitle')}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          {canExportData(user) && (
+            <Button variant="outline" onClick={handleExport} isLoading={isExporting}>
+              <Download className="h-4 w-4" />
+              {t('services.export')}
+            </Button>
+          )}
           {canManageCatalogTrash(user) && (
-            <Link to="/catalog/services/trash">
+            <Link to={agencyId ? `/agencies/${agencyId}/services/trash` : '/catalog/services/trash'}>
               <Button variant="outline">
                 <Trash2 className="h-4 w-4" />
                 {t('common.trash')}
@@ -229,16 +252,6 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
             </Select>
           </div>
         )}
-        <div className="sm:w-44">
-          <Select
-            label={t('services.formationFilter')}
-            value={isFormationFilter ? 'formations' : ''}
-            onChange={(e) => setIsFormationFilter(e.target.value === 'formations')}
-          >
-            <option value="">{t('services.allServices')}</option>
-            <option value="formations">{t('services.onlyFormations')}</option>
-          </Select>
-        </div>
         <div className="sm:w-40">
           <Select
             label={t('common.sortBy')}
@@ -272,131 +285,116 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
         ) : services.length === 0 ? (
           <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('services.empty')}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                <tr>
-                  <th className="px-5 py-3 font-medium">{t('services.colName')}</th>
-                  <th className="px-5 py-3 font-medium">{t('services.category')}</th>
-                  <th className="px-5 py-3 font-medium">{t('services.attachedTo')}</th>
-                  <th className="px-5 py-3 font-medium">{t('services.colPrice')}</th>
-                  <th className="px-5 py-3 font-medium">{t('services.colType')}</th>
-                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {services.map((service) => (
-                  <tr key={service.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        {service.cover_image ? (
-                          <img
-                            src={service.cover_image}
-                            alt={service.name}
-                            className="h-10 w-10 rounded-lg border border-gray-200 object-cover dark:border-gray-700"
-                          />
-                        ) : (
-                          <div
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700"
-                            style={{ backgroundColor: service.category?.color ?? '#CBD5E1' }}
-                          >
-                            <CategoryIcon
-                              name={service.category?.icon}
-                              className="h-5 w-5 text-white"
-                            />
-                          </div>
-                        )}
-                        <p className="font-medium text-gray-800 dark:text-gray-100">
-                          {service.name}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3">
-                      {service.category ? (
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                            style={{ backgroundColor: service.category.color ?? '#CBD5E1' }}
-                          >
-                            <CategoryIcon
-                              name={service.category.icon}
-                              className="h-3.5 w-3.5 text-white"
-                            />
-                          </span>
-                          <span className="text-gray-600 dark:text-gray-300">
-                            {service.category.name}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {service.agency?.name ?? service.department?.name ?? '—'}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {Number(service.effective_price) !== Number(service.price) ? (
-                        <div className="flex flex-col">
-                          <span className="text-xs text-gray-400 line-through">
-                            {new Intl.NumberFormat(currentLocale()).format(Number(service.price))}
-                          </span>
-                          <span className="font-medium text-brand-600 dark:text-brand-400">
-                            {new Intl.NumberFormat(currentLocale()).format(Number(service.effective_price))}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="font-medium text-gray-800 dark:text-gray-100">
-                          {new Intl.NumberFormat(currentLocale()).format(Number(service.price))}
-                        </span>
-                      )}
-                      <span className="ml-1 text-xs text-gray-400">FCFA</span>
-                    </td>
-                    <td className="px-5 py-3">
-                      {service.is_formation ? (
-                        <Badge variant="success">
-                          <GraduationCap className="mr-1 h-3 w-3" />
-                          {t('services.formation')}
-                        </Badge>
-                      ) : (
-                        <Badge variant="neutral">{t('services.service')}</Badge>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex justify-end gap-1.5">
+          <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+            {services.map((service) => (
+              <div
+                key={service.id}
+                onClick={() => openDetail(service)}
+                className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-shadow hover:border-brand-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40"
+              >
+                {service.cover_image ? (
+                  <div
+                    className="h-32 w-full shrink-0 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${service.cover_image})` }}
+                    role="img"
+                    aria-label={service.name}
+                  />
+                ) : (
+                  <div className="flex h-32 w-full shrink-0 items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700">
+                    <span className="text-sm font-bold uppercase tracking-[0.35em] text-gray-400 dark:text-gray-600">
+                      PEKEGNO
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-gray-900 dark:text-white">{service.name}</p>
+                      <p className="mt-0.5 truncate text-xs text-gray-400">{service.category?.name}</p>
+                    </div>
+                    <div className="flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDetail(service);
+                        }}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                        title={t('common.viewDetails')}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      {canCreateService(user) && (
                         <button
                           type="button"
-                          onClick={() => openDetail(service)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                          title={t('common.viewDetails')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDuplicateSource(service);
+                          }}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
+                          title={t('services.duplicate')}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Copy className="h-4 w-4" />
                         </button>
-                        {canEditService(user) && (
-                          <button
-                            type="button"
-                            onClick={() => setFormModalState({ open: true, service })}
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                            title={t('common.edit')}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canDeleteService(user) && (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(service)}
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                            title={t('common.delete')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      )}
+                      {canEditService(user) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormModalState({ open: true, service });
+                          }}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
+                          title={t('common.edit')}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canDeleteService(user) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(service);
+                          }}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                          title={t('common.delete')}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {service.description && (
+                    <p className="mt-3 line-clamp-2 flex-1 text-sm text-gray-500 dark:text-gray-400">
+                      {service.description}
+                    </p>
+                  )}
+
+                  <div className="mt-4 flex items-baseline gap-2">
+                    <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {formatPrice(service.effective_price)}
+                    </span>
+                    {hasPromo(service) && (
+                      <span className="text-xs text-gray-400 line-through">{formatPrice(service.price)}</span>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
+                    <span className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                      <Building2 className="h-4 w-4 shrink-0 text-gray-400" />
+                      <span className="truncate">{service.agency?.name ?? '—'}</span>
+                    </span>
+                    <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-brand-600 dark:text-brand-400">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {service.agency?.city ?? ''}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -414,9 +412,14 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
       </div>
 
       <ServiceFormModal
-        isOpen={formModalState.open}
+        isOpen={formModalState.open || Boolean(duplicateSource)}
         service={formModalState.service}
-        onClose={() => setFormModalState({ open: false, service: null })}
+        duplicateSource={duplicateSource}
+        agencyId={agencyId}
+        onClose={() => {
+          setFormModalState({ open: false, service: null });
+          setDuplicateSource(null);
+        }}
         onSaved={handleSaved}
       />
 

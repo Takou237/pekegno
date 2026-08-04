@@ -14,16 +14,23 @@ import AgencyOverviewPage from '@/pages/agencies/AgencyOverviewPage';
 import AgencyDepartmentsPage from '@/pages/agencies/AgencyDepartmentsPage';
 import AgencyServicesPage from '@/pages/agencies/AgencyServicesPage';
 import AgencyTeamsPage from '@/pages/agencies/AgencyTeamsPage';
+import AgencySettingsPage from '@/pages/agencies/AgencySettingsPage';
+import AgencyPromotionsPage from '@/pages/agencies/AgencyPromotionsPage';
+import AgencyServiceTrashPage from '@/pages/agencies/AgencyServiceTrashPage';
+import AgencyDepartmentTrashPage from '@/pages/agencies/AgencyDepartmentTrashPage';
 import { AgencyLayout } from '@/components/agencies/AgencyLayout';
 import UserListPage from '@/pages/users/UserListPage';
 import DepartmentListPage from '@/pages/departments/DepartmentListPage';
 import DepartmentTrashPage from '@/pages/departments/DepartmentTrashPage';
+import DepartmentOverviewPage from '@/pages/departments/DepartmentOverviewPage';
+import DepartmentTeamsPage from '@/pages/departments/DepartmentTeamsPage';
+import DepartmentSettingsPage from '@/pages/departments/DepartmentSettingsPage';
+import { DepartmentLayout } from '@/components/departments/DepartmentLayout';
 import RolesPrivilegesPage from '@/pages/RolesPrivilegesPage';
 import CategoryListPage from '@/pages/categories/CategoryListPage';
 import CategoryTrashPage from '@/pages/categories/CategoryTrashPage';
 import ServiceListPage from '@/pages/services/ServiceListPage';
 import ServiceTrashPage from '@/pages/services/ServiceTrashPage';
-import FormationListPage from '@/pages/formations/FormationListPage';
 
 export const router = createBrowserRouter([
   {
@@ -56,7 +63,6 @@ export const router = createBrowserRouter([
           { path: '/catalog/categories/trash', element: <CategoryTrashPage /> },
           { path: '/catalog/services', element: <ServiceListPage /> },
           { path: '/catalog/services/trash', element: <ServiceTrashPage /> },
-          { path: '/catalog/formations', element: <FormationListPage /> },
         ],
       },
       {
@@ -65,8 +71,21 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AgencyOverviewPage /> },
           { path: 'departments', element: <AgencyDepartmentsPage /> },
+          { path: 'departments/trash', element: <AgencyDepartmentTrashPage /> },
           { path: 'services', element: <AgencyServicesPage /> },
+          { path: 'services/trash', element: <AgencyServiceTrashPage /> },
           { path: 'teams', element: <AgencyTeamsPage /> },
+          { path: 'promotions', element: <AgencyPromotionsPage /> },
+          { path: 'settings', element: <AgencySettingsPage /> },
+        ],
+      },
+      {
+        path: '/departments/:departmentId',
+        element: <DepartmentLayout />,
+        children: [
+          { index: true, element: <DepartmentOverviewPage /> },
+          { path: 'team', element: <DepartmentTeamsPage /> },
+          { path: 'settings', element: <DepartmentSettingsPage /> },
         ],
       },
     ],

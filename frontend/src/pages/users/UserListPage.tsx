@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search, Pencil, Eye, Trash2, UserPlus, UserMinus } from 'lucide-react';
+import { Search, Pencil, Eye, Trash2, UserPlus, UserMinus, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { usersApi } from '@/api/users.api';
@@ -7,6 +7,7 @@ import { agenciesApi } from '@/api/agencies.api';
 import { departmentsApi } from '@/api/departments.api';
 import { client } from '@/api/client';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
+import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
@@ -19,6 +20,7 @@ import { Select } from '@/components/ui/Select';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { canExportData } from '@/utils/exportPermissions';
 import type { CreateUserPayload, UserListItem, RoleListItem } from '@/types/user';
 import type { Agency, AssignedUser, Department, PaginationMeta } from '@/types/agency';
 import { assignableRoleNames, CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
@@ -68,6 +70,7 @@ export default function UserListPage() {
   const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [createForm, setCreateForm] = useState<CreateUserPayload>({
     username: '',
     email: '',
@@ -77,6 +80,8 @@ export default function UserListPage() {
     last_name: '',
     phone: '',
     role_id: '',
+    agency_id: '',
+    department_id: '',
   });
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -405,6 +410,8 @@ export default function UserListPage() {
         last_name: '',
         phone: '',
         role_id: '',
+        agency_id: '',
+        department_id: '',
       });
       fetchUsers(fetchParams);
     } catch (err) {
@@ -439,13 +446,32 @@ export default function UserListPage() {
     }
   }
 
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      await downloadExport('users');
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('common.exportFailed')), 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('users.title')}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {t('users.subtitle')}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('users.title')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {t('users.subtitle')}
+          </p>
+        </div>
+        {canExportData(currentUser) && (
+          <Button variant="outline" onClick={handleExport} isLoading={isExporting}>
+            <Download className="h-4 w-4" />
+            {t('users.export')}
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-end">
@@ -706,10 +732,10 @@ export default function UserListPage() {
               )}
           </Select>
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setEditUser(null)}>
+            <Button type="button" variant="outline" onClick={() => setEditUser(null)} className="flex-1">
               {t('common.cancel')}
             </Button>
-            <Button type="submit" isLoading={editSubmitting}>
+            <Button type="submit" isLoading={editSubmitting} className="flex-1">
               {t('common.save')}
             </Button>
           </div>
@@ -909,11 +935,59 @@ export default function UserListPage() {
             ))}
           </Select>
 
+          <Autocomplete
+            label={t('users.optionalAgency')}
+            placeholder={t('users.agencyPlaceholder')}
+            value={createForm.agency_id ?? ''}
+            onChange={(agencyId) =>
+              setCreateForm((p) => ({ ...p, agency_id: agencyId, department_id: '' }))
+            }
+            fetchOptions={async (query) => {
+              const q = query.trim();
+              const res = await agenciesApi.list({ search: q || undefined, per_page: 20 });
+              return res.data.map((a) => ({
+                id: a.id,
+                label: a.name,
+                subtitle: [a.code, a.city].filter(Boolean).join(' — '),
+              }));
+            }}
+            error={createErrors.agency_id}
+          />
+
+          <Autocomplete
+            key={createForm.agency_id || 'none'}
+            label={t('users.optionalDepartment')}
+            placeholder={
+              createForm.agency_id
+                ? t('users.departmentPlaceholder')
+                : t('users.selectAgencyFirst')
+            }
+            value={createForm.department_id ?? ''}
+            onChange={(departmentId) =>
+              setCreateForm((p) => ({ ...p, department_id: departmentId }))
+            }
+            disabled={!createForm.agency_id}
+            fetchOptions={async (query) => {
+              if (!createForm.agency_id) return [];
+              const q = query.trim();
+              const res = await departmentsApi.list({
+                search: q || undefined,
+                agency_id: createForm.agency_id,
+                per_page: 20,
+              });
+              return res.data.map((d) => ({
+                id: d.id,
+                label: d.name,
+              }));
+            }}
+            error={createErrors.department_id}
+          />
+
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} className="flex-1">
               {t('common.cancel')}
             </Button>
-            <Button type="submit" isLoading={createSubmitting}>
+            <Button type="submit" isLoading={createSubmitting} className="flex-1">
               {t('common.create')}
             </Button>
           </div>

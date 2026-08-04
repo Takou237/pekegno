@@ -113,11 +113,11 @@ export function TwoFactorSettings() {
         </div>
         <div className="w-48 shrink-0">
           {user.two_factor_enabled ? (
-            <Button variant="outline" onClick={() => setIsDisableModalOpen(true)}>
+            <Button variant="outline" onClick={() => setIsDisableModalOpen(true)} fullWidth>
               {t('profile.twoFactorDisable')}
             </Button>
           ) : (
-            <Button onClick={handleStartSetup} isLoading={isEnabling}>
+            <Button onClick={handleStartSetup} isLoading={isEnabling} fullWidth>
               {t('profile.twoFactorEnable')}
             </Button>
           )}
@@ -151,7 +151,7 @@ export function TwoFactorSettings() {
               />
             </div>
             <div className="w-full sm:w-48">
-              <Button type="submit" isLoading={isVerifying}>
+              <Button type="submit" isLoading={isVerifying} fullWidth>
                 {t('profile.twoFactorConfirmActivation')}
               </Button>
             </div>
@@ -182,7 +182,7 @@ export function TwoFactorSettings() {
             onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ''))}
             placeholder="123456"
           />
-          <Button type="submit" isLoading={isDisabling} className="!bg-error-500 hover:!bg-error-600">
+          <Button type="submit" isLoading={isDisabling} fullWidth className="!bg-error-500 hover:!bg-error-600">
             {t('profile.twoFactorDisableButton')}
           </Button>
         </form>

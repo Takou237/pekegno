@@ -61,7 +61,7 @@ export function ForgotPasswordForm() {
         placeholder={t('auth.emailPlaceholder')}
       />
 
-      <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting}>
+      <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting} fullWidth>
         {t('auth.sendResetLink')}
       </Button>
 

@@ -10,9 +10,10 @@ use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DepartmentController;
-use App\Http\Controllers\Api\FormationController;
-use App\Http\Controllers\Api\ModuleController;
+use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\UploadController;
@@ -51,11 +52,16 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::delete('/services/{service}/force-delete', [ServiceController::class, 'forceDelete']);
     Route::apiResource('services', ServiceController::class);
 
-    Route::apiResource('formations', FormationController::class);
-    Route::post('/modules/reorder', [ModuleController::class, 'reorder']);
-    Route::apiResource('modules', ModuleController::class);
-
     Route::post('/uploads', [UploadController::class, 'store']);
+
+    Route::get('/promotions', [PromotionController::class, 'index']);
+    Route::post('/services/{service}/promotions', [PromotionController::class, 'store']);
+    Route::put('/promotions/{promotion}', [PromotionController::class, 'update']);
+    Route::delete('/promotions/{promotion}', [PromotionController::class, 'destroy']);
+
+    Route::get('/exports/agencies', [ExportController::class, 'agencies']);
+    Route::get('/exports/users', [ExportController::class, 'users']);
+    Route::get('/exports/services', [ExportController::class, 'services']);
 
     Route::put('/agencies/{agency}/chief', [UserAssignmentController::class, 'assignChief']);
     Route::delete('/agencies/{agency}/chief', [UserAssignmentController::class, 'removeChief']);
@@ -78,4 +84,13 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::put('/users/{user}/role', [UserRoleController::class, 'update']);
 
     Route::get('/roles', [RoleController::class, 'index']);
+    Route::post('/roles', [RoleController::class, 'store']);
+    Route::put('/roles/{role}', [RoleController::class, 'update']);
+    Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
+    Route::put('/roles/{role}/permissions', [RoleController::class, 'syncPermissions']);
+
+    Route::get('/permissions', [PermissionController::class, 'index']);
+    Route::post('/permissions', [PermissionController::class, 'store']);
+    Route::put('/permissions/{permission}', [PermissionController::class, 'update']);
+    Route::delete('/permissions/{permission}', [PermissionController::class, 'destroy']);
 });

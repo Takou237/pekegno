@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Service extends Model
@@ -16,7 +15,6 @@ class Service extends Model
 
     protected $fillable = [
         'agency_id',
-        'department_id',
         'category_id',
         'name',
         'description',
@@ -42,11 +40,6 @@ class Service extends Model
         return $this->belongsTo(Agency::class);
     }
 
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class);
-    }
-
     public function promotions(): HasMany
     {
         return $this->hasMany(Promotion::class)->orderBy('start_date');
@@ -55,11 +48,6 @@ class Service extends Model
     public function priceHistory(): HasMany
     {
         return $this->hasMany(PriceHistory::class)->orderByDesc('changed_at');
-    }
-
-    public function formation(): HasOne
-    {
-        return $this->hasOne(Formation::class, 'id', 'id');
     }
 
     public function scopeSearch(Builder $query, ?string $search): Builder
@@ -87,14 +75,5 @@ class Service extends Model
         $active = $this->activePromotion();
 
         return $active ? (string) $active->promo_price : (string) $this->price;
-    }
-
-    public function getIsFormationAttribute(): bool
-    {
-        if ($this->relationLoaded('formation')) {
-            return $this->formation !== null;
-        }
-
-        return $this->formation()->exists();
     }
 }

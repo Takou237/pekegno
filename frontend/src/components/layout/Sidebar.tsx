@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Building2, UserRound, Users, FolderTree, Package } from 'lucide-react';
+import { LayoutDashboard, Building2, UserRound, Users, FolderTree, Package, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const ADMIN_ROLES = ['super-admin', 'direction-generale'];
@@ -17,6 +17,7 @@ function getMainItems(t: TranslateFn, roleName: string | null | undefined, agenc
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/agencies', label: t('nav.agencies'), icon: Building2, end: false },
       { to: '/users', label: t('nav.users'), icon: Users, end: false },
+      { to: '/privileges', label: t('nav.privileges'), icon: Shield, end: false },
     ];
   }
 
@@ -62,7 +63,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-100 bg-white px-4 py-6 dark:border-gray-800 dark:bg-gray-900 lg:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-100 bg-white px-4 py-6 dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-0 lg:flex lg:h-screen lg:overflow-y-auto">
       <div className="mb-8 px-2">
         <span className="text-xl font-semibold tracking-tight text-brand-600 dark:text-brand-400">
           PEKEGNO

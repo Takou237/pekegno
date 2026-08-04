@@ -81,9 +81,7 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{service.name}</h3>
               <div className="flex flex-wrap gap-2">
                 {service.category && <Badge variant="brand">{service.category.name}</Badge>}
-                {service.is_formation && <Badge variant="success">{t('services.formation')}</Badge>}
                 {service.agency && <Badge>{t('services.badgeAgency')}</Badge>}
-                {service.department && <Badge>{t('services.badgeDepartment')}</Badge>}
               </div>
             </div>
           </div>
@@ -112,11 +110,7 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
           <div>
             <dt className="text-xs uppercase text-gray-400">{t('services.attachedTo')}</dt>
             <dd className="mt-1 text-sm text-gray-700 dark:text-gray-200">
-              {service.agency
-                ? `${service.agency.name} (${t('services.anAgency')})`
-                : service.department
-                  ? `${service.department.name} (${t('services.aDepartment')})`
-                  : '—'}
+              {service.agency ? `${service.agency.name} (${t('services.anAgency')})` : '—'}
             </dd>
           </div>
 
@@ -142,64 +136,6 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
                   {service.presentation_video}
                 </a>
               </dd>
-            </div>
-          )}
-
-          {service.formation && (
-            <div className="rounded-xl bg-success-50 p-4 dark:bg-success-500/10">
-              <h4 className="mb-2 text-sm font-semibold text-success-700 dark:text-success-400">
-                {t('services.formationInfo')}
-              </h4>
-              <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs uppercase text-success-600/70 dark:text-success-400/70">
-                    {t('formations.type')}
-                  </dt>
-                  <dd className="mt-0.5 font-medium text-success-700 dark:text-success-300">
-                    {service.formation.type === 'presentiel'
-                      ? t('formations.presentiel')
-                      : t('formations.distanciel')}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase text-success-600/70 dark:text-success-400/70">
-                    {t('formations.duration')}
-                  </dt>
-                  <dd className="mt-0.5 font-medium text-success-700 dark:text-success-300">
-                    {service.formation.duration ?? '—'}
-                  </dd>
-                </div>
-                {service.formation.deposit_amount && (
-                  <div>
-                    <dt className="text-xs uppercase text-success-600/70 dark:text-success-400/70">
-                      {t('formations.depositAmount')}
-                    </dt>
-                    <dd className="mt-0.5 font-medium text-success-700 dark:text-success-300">
-                      {formatPrice(service.formation.deposit_amount)}
-                    </dd>
-                  </div>
-                )}
-                {service.formation.installments_count && (
-                  <div>
-                    <dt className="text-xs uppercase text-success-600/70 dark:text-success-400/70">
-                      {t('formations.installmentsCount')}
-                    </dt>
-                    <dd className="mt-0.5 font-medium text-success-700 dark:text-success-300">
-                      {service.formation.installments_count}
-                    </dd>
-                  </div>
-                )}
-                {service.formation.conditions && (
-                  <div className="sm:col-span-2">
-                    <dt className="text-xs uppercase text-success-600/70 dark:text-success-400/70">
-                      {t('formations.conditions')}
-                    </dt>
-                    <dd className="mt-0.5 whitespace-pre-wrap text-success-700 dark:text-success-300">
-                      {service.formation.conditions}
-                    </dd>
-                  </div>
-                )}
-              </dl>
             </div>
           )}
 

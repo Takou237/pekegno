@@ -177,74 +177,81 @@ export default function CategoryListPage() {
         ) : categories.length === 0 ? (
           <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('categories.empty')}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                <tr>
-                  <th className="px-5 py-3 font-medium">{t('categories.colName')}</th>
-                  <th className="px-5 py-3 font-medium">{t('categories.colDescription')}</th>
-                  <th className="px-5 py-3 font-medium">{t('categories.colServices')}</th>
-                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {categories.map((category) => (
-                  <tr key={category.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700"
-                          style={{ backgroundColor: category.color ?? '#CBD5E1' }}
-                        >
-                          <CategoryIcon name={category.icon} className="h-5 w-5 text-white" />
-                        </span>
-                        <span className="font-medium text-gray-800 dark:text-gray-100">
-                          {category.name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="max-w-xs truncate px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {category.description ?? '—'}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {category.services_count ?? 0}
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setDetailCategory(category)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                          title={t('common.viewDetails')}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        {canEditService(user) && (
-                          <button
-                            type="button"
-                            onClick={() => setFormModalState({ open: true, category })}
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                            title={t('common.edit')}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canDeleteService(user) && (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(category)}
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                            title={t('common.delete')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+            {categories.map((category) => (
+              <div
+                key={category.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setDetailCategory(category)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') setDetailCategory(category);
+                }}
+                className="group flex cursor-pointer flex-col rounded-2xl border border-gray-100 bg-white p-5 transition-shadow hover:border-brand-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: category.color ?? '#CBD5E1' }}
+                  >
+                    <CategoryIcon name={category.icon} className="h-6 w-6 text-white" />
+                  </span>
+                  <div className="flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailCategory(category);
+                      }}
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                      title={t('common.viewDetails')}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    {canEditService(user) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFormModalState({ open: true, category });
+                        }}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
+                        title={t('common.edit')}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    )}
+                    {canDeleteService(user) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(category);
+                        }}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                        title={t('common.delete')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-3 font-semibold text-gray-900 dark:text-white">{category.name}</p>
+                <p className="mt-1 line-clamp-2 flex-1 text-sm text-gray-500 dark:text-gray-400">
+                  {category.description ?? '—'}
+                </p>
+
+                <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('categories.colServices')}
+                  </span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {category.services_count ?? 0}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

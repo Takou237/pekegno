@@ -63,7 +63,7 @@ class CategoryController extends Controller
             content: new OA\JsonContent(
                 required: ['name'],
                 properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'Formations'),
+                    new OA\Property(property: 'name', type: 'string', example: 'Conseil'),
                     new OA\Property(property: 'description', type: 'string'),
                     new OA\Property(property: 'color', type: 'string', example: '#3B82F6'),
                     new OA\Property(property: 'icon', type: 'string', example: 'book'),

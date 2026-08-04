@@ -146,16 +146,12 @@ export function AgencyFormModal({ isOpen, agency, onClose, onSaved }: AgencyForm
         </div>
 
         <div className="mt-2 flex justify-end gap-3">
-          <div className="w-32">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              {t('common.cancel')}
-            </Button>
-          </div>
-          <div className="w-40">
-            <Button type="submit" isLoading={isSubmitting}>
-              {isEditing ? t('common.save') : t('common.create')}
-            </Button>
-          </div>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting} className="flex-1">
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" isLoading={isSubmitting} className="flex-1">
+            {isEditing ? t('common.save') : t('common.create')}
+          </Button>
         </div>
       </form>
     </Modal>

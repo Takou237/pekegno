@@ -83,7 +83,7 @@ export function TwoFactorForm() {
         ))}
       </div>
 
-      <Button type="submit" isLoading={isSubmitting}>
+      <Button type="submit" isLoading={isSubmitting} fullWidth>
         {t('auth.twoFactorVerify')}
       </Button>
     </form>

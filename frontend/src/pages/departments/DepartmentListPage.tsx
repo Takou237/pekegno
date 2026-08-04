@@ -1,28 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, Users, ShieldCheck } from 'lucide-react';
+import { Plus, Search, Trash2, Users, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { departmentsApi } from '@/api/departments.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { currentLocale } from '@/i18n';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
-import {
-  canCreateDepartment,
-  canDeleteDepartment,
-  canEditDepartment,
-  canManageDepartmentTrash,
-} from '@/utils/departmentPermissions';
-import { DepartmentChiefAssignModal } from '@/components/departments/DepartmentChiefAssignModal';
+import { canCreateDepartment, canManageDepartmentTrash } from '@/utils/departmentPermissions';
 import type { Department, DepartmentPayload } from '@/types/department';
 import type { Agency, PaginationMeta } from '@/types/agency';
 
@@ -57,11 +49,6 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formSubmitting, setFormSubmitting] = useState(false);
-
-  const [detailDepartment, setDetailDepartment] = useState<Department | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Department | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [chiefDepartment, setChiefDepartment] = useState<Department | null>(null);
 
   const fetchDepartments = useCallback(async () => {
     setIsLoading(true);
@@ -104,16 +91,6 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
     setFormModal({ open: true, editing: null });
   }
 
-  function openEdit(dept: Department) {
-    setForm({
-      agency_id: dept.agency_id,
-      name: dept.name,
-      description: dept.description ?? '',
-    });
-    setFormErrors({});
-    setFormModal({ open: true, editing: dept });
-  }
-
   async function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormSubmitting(true);
@@ -141,21 +118,6 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
     }
   }
 
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    setIsDeleting(true);
-    try {
-      await departmentsApi.remove(deleteTarget.id);
-      showToast(t('departments.archived'), 'success');
-      setDeleteTarget(null);
-      fetchDepartments();
-    } catch (error) {
-      showToast(extractErrorMessage(error, t('departments.deleteFailed')), 'error');
-    } finally {
-      setIsDeleting(false);
-    }
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -167,7 +129,7 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
         </div>
         <div className="flex gap-3">
           {canManageDepartmentTrash(user) && (
-            <Link to="/departments/trash">
+            <Link to={agencyId ? `/agencies/${agencyId}/departments/trash` : '/departments/trash'}>
               <Button variant="outline">
                 <Trash2 className="h-4 w-4" />
                 {t('common.trash')}
@@ -175,12 +137,10 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
             </Link>
           )}
           {canCreateDepartment(user) && (
-            <div className="w-52">
-              <Button onClick={openCreate}>
-                <Plus className="h-4 w-4" />
-                {t('departments.newDepartment')}
-              </Button>
-            </div>
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              {t('departments.newDepartment')}
+            </Button>
           )}
         </div>
       </div>
@@ -218,7 +178,7 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
         )}
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <div className="flex justify-center py-16">
             <Spinner />
@@ -230,90 +190,55 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
             {t('departments.empty')}
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                <tr>
-                  <th className="px-5 py-3 font-medium">{t('departments.colName')}</th>
-                  <th className="px-5 py-3 font-medium">{t('departments.colChief')}</th>
-                  <th className="px-5 py-3 font-medium">{t('departments.colCount')}</th>
-                  {!agencyId && (
-                    <th className="px-5 py-3 font-medium">{t('departments.colAgency')}</th>
-                  )}
-                  <th className="px-5 py-3 font-medium text-right">{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {departments.map((dept) => (
-                  <tr key={dept.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
-                      {dept.name}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {dept.department_chief?.name ?? '—'}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {dept.user_count ?? 0}
-                    </td>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {departments.map((dept) => (
+              <div
+                key={dept.id}
+                onClick={() =>
+                  navigate(`/departments/${dept.id}`, {
+                    state: {
+                      from: agencyId ? `/agencies/${agencyId}/departments` : '/departments',
+                    },
+                  })
+                }
+                className="group flex cursor-pointer flex-col rounded-2xl border border-gray-100 bg-white p-5 transition-shadow hover:border-brand-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+                    {dept.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-gray-900 dark:text-white">{dept.name}</p>
                     {!agencyId && (
-                      <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                        {dept.agency?.name ?? '—'}
-                      </td>
+                      <p className="truncate text-xs text-gray-400">{dept.agency?.name ?? '—'}</p>
                     )}
-                    <td className="px-5 py-3">
-                      <div className="flex justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setDetailDepartment(dept)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                          title={t('common.viewDetails')}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/users?agency_id=${dept.agency_id}&department_id=${dept.id}`)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-800"
-                          title={t('departments.viewUsers')}
-                        >
-                          <Users className="h-4 w-4" />
-                        </button>
-                        {canEditDepartment(user) && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setChiefDepartment(dept)}
-                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
-                              title={t('departments.assignChief')}
-                            >
-                              <ShieldCheck className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openEdit(dept)}
-                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                              title={t('common.edit')}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
-                        {canDeleteDepartment(user) && (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(dept)}
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                            title={t('common.delete')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
+                  <div className="flex min-w-0 items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                    <span
+                      className="inline-flex items-center gap-1.5"
+                      title={t('departments.colChief')}
+                    >
+                      <ShieldCheck className="h-4 w-4 shrink-0 text-gray-400" />
+                      <span className="truncate">{dept.department_chief?.name ?? '—'}</span>
+                    </span>
+                    <span
+                      className="inline-flex items-center gap-1.5"
+                      title={t('departments.colCount')}
+                    >
+                      <Users className="h-4 w-4 shrink-0 text-gray-400" />
+                      {dept.user_count ?? 0}
+                    </span>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-brand-600 dark:text-brand-400">
+                    {t('agencies.open')}
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -329,41 +254,6 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
           </div>
         )}
       </div>
-
-      {/* Modal détail */}
-      <Modal
-        isOpen={Boolean(detailDepartment)}
-        onClose={() => setDetailDepartment(null)}
-        title={t('departments.detailTitle')}
-        maxWidth="max-w-md"
-      >
-        {detailDepartment && (
-          <dl className="flex flex-col gap-3 text-sm">
-            <div>
-              <dt className="font-medium text-gray-500">{t('departments.colName')}</dt>
-              <dd className="text-gray-800 dark:text-gray-100">{detailDepartment.name}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-gray-500">{t('departments.chiefOfDepartment')}</dt>
-              <dd className="text-gray-800 dark:text-gray-100">
-                {detailDepartment.department_chief?.name ?? '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-gray-500">{t('departments.agency')}</dt>
-              <dd className="text-gray-800 dark:text-gray-100">
-                {detailDepartment.agency?.name ?? '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-gray-500">{t('departments.createdAt')}</dt>
-              <dd className="text-gray-800 dark:text-gray-100">
-                {new Date(detailDepartment.created_at).toLocaleDateString(currentLocale())}
-              </dd>
-            </div>
-          </dl>
-        )}
-      </Modal>
 
       {/* Modal création / édition */}
       <Modal
@@ -407,34 +297,16 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
               type="button"
               variant="outline"
               onClick={() => setFormModal({ open: false, editing: null })}
+              className="flex-1"
             >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" isLoading={formSubmitting}>
+            <Button type="submit" isLoading={formSubmitting} className="flex-1">
               {formModal.editing ? t('common.save') : t('common.create')}
             </Button>
           </div>
         </form>
       </Modal>
-
-      {/* Confirm delete */}
-      <ConfirmDialog
-        isOpen={Boolean(deleteTarget)}
-        title={t('departments.archiveTitle')}
-        message={t('departments.archiveMessage', { name: deleteTarget?.name ?? '' })}
-        confirmLabel={t('departments.archive')}
-        isLoading={isDeleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
-
-      {/* Modal chef de département */}
-      <DepartmentChiefAssignModal
-        isOpen={Boolean(chiefDepartment)}
-        department={chiefDepartment}
-        onClose={() => setChiefDepartment(null)}
-        onSaved={fetchDepartments}
-      />
     </div>
   );
 }

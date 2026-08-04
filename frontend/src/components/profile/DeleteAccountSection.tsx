@@ -58,6 +58,7 @@ export function DeleteAccountSection() {
             variant="outline"
             className="!border-error-300 !text-error-600 hover:!bg-error-50"
             onClick={() => setIsModalOpen(true)}
+            fullWidth
           >
             {t('profile.deleteAccountTitle')}
           </Button>
@@ -83,6 +84,7 @@ export function DeleteAccountSection() {
             type="submit"
             isLoading={isSubmitting}
             disabled={!password || isSubmitting}
+            fullWidth
             className="!bg-error-500 hover:!bg-error-600"
           >
             {t('profile.deleteAccountConfirm')}

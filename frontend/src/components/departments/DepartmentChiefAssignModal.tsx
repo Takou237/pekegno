@@ -202,10 +202,10 @@ export function DepartmentChiefAssignModal({
           )}
 
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleAssign} isLoading={isSubmitting} disabled={isLoading}>
+            <Button onClick={handleAssign} isLoading={isSubmitting} disabled={isLoading} className="flex-1">
               {t('common.save')}
             </Button>
           </div>
