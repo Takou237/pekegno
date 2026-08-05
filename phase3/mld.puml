@@ -1,0 +1,308 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 9
+skinparam entity {
+  BorderColor #2C3E50
+  BorderThickness 1
+  FontColor #1A1A2E
+  FontSize 8
+  BackgroundColor #F8F9FA
+}
+skinparam arrow {
+  Color #E74C3C
+  Thickness 1
+}
+
+hide empty members
+
+' ============ EXISTANT (résumé) ============
+
+entity "roles" as roles {
+  + id : uuid PK
+  --
+  name : varchar(100) UNIQUE NOT NULL
+  description : text NULL
+  timestamps
+}
+note bottom of roles
+  + rôle "client" (invisible côté frontend)
+  + "commercial" déjà présent
+end note
+
+entity "users" as users {
+  + id : uuid PK
+  --
+  username : varchar(100) UNIQUE NOT NULL
+  email : varchar(255) UNIQUE NOT NULL
+  password : varchar NOT NULL
+  first_name : varchar(150) NULL
+  last_name : varchar(150) NULL
+  phone : varchar(50) NULL
+  # role_id : uuid FK NOT NULL
+  is_active : boolean DEFAULT true
+  client_number : varchar(20) UNIQUE NULL   <<Nouveau>>
+  city : varchar(100) NULL                  <<Nouveau>>
+  country : varchar(100) NULL               <<Nouveau>>
+  address : varchar(255) NULL               <<Nouveau>>
+  two_factor_enabled : boolean DEFAULT false
+  is_password_change_required : boolean
+  last_activity_at : timestamp NULL
+  timestamps
+}
+note bottom of users
+  Un client = un users avec rôle "client"
+  Un commercial peut être lié à un users de rôle "commercial"
+end note
+
+entity "user_assignments" as userassignments {
+  + # user_id : uuid FK
+  + # agency_id : uuid FK
+  --
+  # department_id : uuid FK NULL
+  is_primary : boolean DEFAULT false
+  is_department_chief : boolean DEFAULT false
+  timestamps
+}
+note bottom of userassignments
+  pivot users <-> agences (département facultatif)
+end note
+
+entity "agencies" as agencies {
+  + id : uuid PK
+  --
+  code : varchar(20) UNIQUE NOT NULL
+  name : varchar(255) NOT NULL
+  deleted_at : timestamp NULL
+  timestamps
+}
+
+entity "departments" as departments {
+  + id : uuid PK
+  --
+  # agency_id : uuid FK NOT NULL
+  name : varchar(255) NOT NULL
+  description : text NULL
+  deleted_at : timestamp NULL
+  timestamps
+}
+
+entity "categories" as categories {
+  + id : uuid PK
+  --
+  name : varchar(255) NOT NULL
+  description : text NULL
+  color : varchar(7) NULL
+  icon : varchar(100) NULL
+  deleted_at : timestamp NULL
+  timestamps
+}
+
+entity "services" as services {
+  + id : uuid PK
+  --
+  # agency_id : uuid FK NULL
+  # category_id : uuid FK NOT NULL
+  name : varchar(255) NOT NULL
+  description : text NULL
+  price : decimal(12,2) NOT NULL
+  cover_image : varchar(255) NULL
+  presentation_video : varchar(255) NULL
+  deleted_at : timestamp NULL
+  timestamps
+}
+note bottom of services
+  XOR agency_id / department_id conservé
+  (department_id supprimé → rattachement par agence)
+end note
+
+entity "price_history" as pricehistory {
+  + id : uuid PK
+  --
+  # service_id : uuid FK NOT NULL
+  price : decimal(12,2) NOT NULL
+  changed_at : timestamp NOT NULL
+  timestamps
+}
+
+' ============ NOUVEAU ============
+
+entity "commercials" as commercials {
+  + id : uuid PK
+  --
+  # user_id : uuid FK NULL (rôle "commercial")
+  # agency_id : uuid FK NULL
+  first_name : varchar(150) NOT NULL
+  last_name : varchar(150) NOT NULL
+  email : varchar(255) NULL
+  phone : varchar(50) NULL
+  commission_type : enum(none, percent, fixed) DEFAULT 'none'
+  commission_value : decimal(12,2) NULL
+  points_balance : integer DEFAULT 0
+  is_active : boolean DEFAULT true
+  deleted_at : timestamp NULL
+  timestamps
+}
+note bottom of commercials
+  user_id UNIQUE (nullable) — profil lié à un compte
+  de connexion, sinon profil "non connectable".
+  points_balance = cache (SUM de commercial_points)
+end note
+
+entity "commercial_points" as commercialpoints {
+  + id : uuid PK
+  --
+  # commercial_id : uuid FK NOT NULL
+  points : integer NOT NULL   (+/- signé)
+  reason : enum(sale, penalty, adjustment) NOT NULL
+  # invoice_id : uuid FK NULL
+  # created_by : uuid FK NULL (users)
+  created_at : timestamp NOT NULL
+}
+note bottom of commercialpoints
+  journal des points : +3/vente (réglable),
+  -N/pénalité d'inactivité, ajustement manuel.
+  Idempotent par facture (raison "sale").
+end note
+
+entity "settings" as settings {
+  + id : uuid PK
+  --
+  key : varchar(100) UNIQUE NOT NULL
+  value : json NOT NULL
+  description : text NULL
+  # updated_by : uuid FK NULL
+  timestamps
+}
+note bottom of settings
+  sales_points_per_sale (3)
+  inactivity_period_days (14)
+  inactivity_penalty_points (5)
+  default_commission_type/value
+  invoice_prefix (PK)
+end note
+
+entity "promotions" as promotions {
+  + id : uuid PK
+  --
+  # service_id : uuid FK NOT NULL
+  type : enum(amount, percent) DEFAULT 'amount'  <<Modifié>>
+  promo_price : decimal(12,2) NULL               <<Modifié>>
+  discount_percent : decimal(5,2) NULL           <<Nouveau>>
+  start_date : datetime NOT NULL
+  end_date : datetime NOT NULL
+  timestamps
+}
+note bottom of promotions
+  amount  → promo_price (nouveau prix, base barrée)
+  percent → discount_percent ∈ ]0,100]
+  Une promo active max par service à l'instant T.
+end note
+
+entity "invoices" as invoices {
+  + id : uuid PK
+  --
+  number : varchar(30) UNIQUE NOT NULL  -- PK-AAAAMMJJ-NNN
+  # agency_id : uuid FK NULL            (agence vendeuse)
+  # client_id : uuid FK NULL            (users rôle "client")
+  # commercial_id : uuid FK NULL        (optionnel)
+  # seller_user_id : uuid FK NOT NULL   (utilisateur connecté)
+  invoice_date : datetime NOT NULL
+  payment_type : enum(cash, mobile) NULL
+  total_amount : decimal(12,2) NOT NULL
+  amount_paid : decimal(12,2) DEFAULT 0
+  status : enum(unpaid, partial, paid) DEFAULT 'unpaid'
+  commission_amount : decimal(12,2) NULL   (snapshot)
+  points_awarded : integer DEFAULT 0       (snapshot)
+  comment : text NULL
+  cancelled_at : timestamp NULL
+  timestamps
+}
+note bottom of invoices
+  Statut dérivé de amount_paid vs total_amount.
+  Points + commission attribués quand status = paid.
+  Imprimable (logo + infos agence) et comptabilisée
+  comme vente quand paid.
+end note
+
+entity "invoice_items" as invoiceitems {
+  + id : uuid PK
+  --
+  # invoice_id : uuid FK NOT NULL
+  # service_id : uuid FK NULL
+  label : varchar(255) NOT NULL         (snapshot)
+  unit_price : decimal(12,2) NOT NULL   (prix effectif post-promo)
+  quantity : integer NOT NULL DEFAULT 1
+  line_total : decimal(12,2) NOT NULL
+}
+
+entity "invoice_payments" as invoicepayments {
+  + id : uuid PK
+  --
+  # invoice_id : uuid FK NOT NULL
+  amount : decimal(12,2) NOT NULL
+  payment_method : varchar(20) NULL
+  is_advance : boolean DEFAULT false
+  paid_at : datetime NOT NULL
+  # received_by : uuid FK NULL (users)
+  comment : text NULL
+  timestamps
+}
+note bottom of invoicepayments
+  Encaissements en plusieurs tranches.
+  Acompte = paiement avec is_advance = true.
+  amount_paid de la facture = SUM(amount).
+end note
+
+entity "activity_logs" as activitylogs {
+  + id : uuid PK
+  --
+  # user_id : uuid FK NULL
+  # agency_id : uuid FK NULL
+  action : varchar(100) NOT NULL
+  entity_type : varchar(100) NOT NULL
+  entity_id : varchar(100) NULL
+  description : text NULL
+  old_values : json NULL
+  new_values : json NULL
+  ip_address : varchar(45) NULL
+  user_agent : text NULL
+  created_at : timestamp NOT NULL (index)
+}
+
+entity "login_logs" as loginlogs {
+  + id : uuid PK
+  --
+  # user_id : uuid FK NULL
+  action : varchar(20) NOT NULL
+  ip_address : varchar(45) NULL
+  user_agent : text NULL
+  session_id : varchar NULL
+  failure_reason : varchar NULL
+  created_at : timestamp NOT NULL
+}
+
+' ============ RELATIONS ============
+
+users      ||--o| commercials        : "profil lié (0,1)"
+users      ||--o{ activitylogs       : "trace"
+users      ||--o{ loginlogs          : "trace"
+roles      ||--o{ users              : "définit"
+
+agencies   ||--o{ departments        : "possède"
+agencies   ||--o{ commercials        : "emploie"
+agencies   ||--o{ services           : "propose"
+agencies   ||--o{ invoices           : "émet (0,1)"
+categories ||--o{ services           : "classe"
+services   ||--o{ promotions         : "bénéficie"
+services   ||--o{ pricehistory       : "historise"
+
+users      ||--o{ invoices           : "client associé (0,1)"
+commercials||--o{ invoices          : "vend (0,1)"
+commercials||--o{ commercialpoints  : "collecte"
+invoices   ||--o{ commercialpoints  : "déclenche (quand payée)"
+invoices   ||--o{ invoiceitems      : "compose"
+invoiceitems |o--o{ services        : "référence (0,1)"
+invoices   ||--o{ invoicepayments   : "règle"
+@enduml

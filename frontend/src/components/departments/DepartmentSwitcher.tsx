@@ -23,7 +23,7 @@ export function DepartmentSwitcher({ department }: DepartmentSwitcherProps) {
   useEffect(() => {
     let active = true;
     departmentsApi
-      .list({ per_page: 100 })
+      .list({ per_page: 100, agency_id: department.agency_id })
       .then((r) => {
         if (active) setDepartments(r.data);
       })
@@ -31,7 +31,7 @@ export function DepartmentSwitcher({ department }: DepartmentSwitcherProps) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [department.agency_id]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
