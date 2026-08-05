@@ -85,10 +85,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'pay'])->middleware('permission:invoices.encaisser');
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:invoices.annuler');
 
-    Route::get('/promotions', [PromotionController::class, 'index']);
-    Route::post('/services/{service}/promotions', [PromotionController::class, 'store']);
-    Route::put('/promotions/{promotion}', [PromotionController::class, 'update']);
-    Route::delete('/promotions/{promotion}', [PromotionController::class, 'destroy']);
+    Route::get('/promotions', [PromotionController::class, 'index'])->middleware('permission:promotions.consulter');
+    Route::post('/services/{service}/promotions', [PromotionController::class, 'store'])->middleware('permission:promotions.creer');
+    Route::put('/promotions/{promotion}', [PromotionController::class, 'update'])->middleware('permission:promotions.modifier');
+    Route::delete('/promotions/{promotion}', [PromotionController::class, 'destroy'])->middleware('permission:promotions.supprimer');
 
     Route::get('/exports/agencies', [ExportController::class, 'agencies']);
     Route::get('/exports/users', [ExportController::class, 'users']);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StorePromotionRequest;
 use App\Http\Resources\PromotionResource;
+use App\Models\PriceHistory;
 use App\Models\Promotion;
 use App\Models\Service;
 use Illuminate\Http\JsonResponse;
@@ -14,13 +15,6 @@ use OpenApi\Attributes as OA;
 
 class PromotionController extends Controller
 {
-    private function canManagePromotions(Request $request): bool
-    {
-        return in_array($request->user()?->role?->name, [
-            'super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement',
-        ]);
-    }
-
     #[OA\Get(
         path: '/api/promotions',
         summary: 'Lister les promotions avec filtres',
@@ -63,7 +57,7 @@ class PromotionController extends Controller
 
     #[OA\Post(
         path: '/api/services/{service}/promotions',
-        summary: 'Créer une promotion sur un service',
+        summary: 'Créer une promotion (amount ou percent) sur un service',
         tags: ['Promotions'],
         security: [['sanctum' => []]],
         parameters: [
@@ -72,9 +66,11 @@ class PromotionController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['promo_price', 'start_date', 'end_date'],
+                required: ['type', 'start_date', 'end_date'],
                 properties: [
+                    new OA\Property(property: 'type', type: 'string', enum: ['amount', 'percent'], example: 'percent'),
                     new OA\Property(property: 'promo_price', type: 'number', example: 40000),
+                    new OA\Property(property: 'discount_percent', type: 'number', example: 20),
                     new OA\Property(property: 'start_date', type: 'string', format: 'date-time'),
                     new OA\Property(property: 'end_date', type: 'string', format: 'date-time'),
                 ]
@@ -82,15 +78,15 @@ class PromotionController extends Controller
         ),
         responses: [
             new OA\Response(response: 201, description: 'Promotion créée'),
-            new OA\Response(response: 422, description: 'Erreur de validation'),
+            new OA\Response(response: 422, description: 'Erreur de validation ou chevauchement de période'),
             new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
     public function store(StorePromotionRequest $request, Service $service): JsonResponse
     {
-        abort_unless($this->canManagePromotions($request), 403);
-
         $promotion = $service->promotions()->create($request->validated());
+
+        $this->recordPriceHistory($promotion);
 
         return (new PromotionResource($promotion->load('service')))
             ->response()
@@ -108,9 +104,11 @@ class PromotionController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['promo_price', 'start_date', 'end_date'],
+                required: ['type', 'start_date', 'end_date'],
                 properties: [
+                    new OA\Property(property: 'type', type: 'string', enum: ['amount', 'percent']),
                     new OA\Property(property: 'promo_price', type: 'number'),
+                    new OA\Property(property: 'discount_percent', type: 'number'),
                     new OA\Property(property: 'start_date', type: 'string', format: 'date-time'),
                     new OA\Property(property: 'end_date', type: 'string', format: 'date-time'),
                 ]
@@ -118,22 +116,22 @@ class PromotionController extends Controller
         ),
         responses: [
             new OA\Response(response: 200, description: 'Promotion modifiée'),
-            new OA\Response(response: 422, description: 'Erreur de validation'),
-            new OA\Response(response: 404, description: 'Promotion non trouvée'),
+            new OA\Response(response: 422, description: 'Erreur de validation ou chevauchement de période'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
     public function update(StorePromotionRequest $request, Promotion $promotion): PromotionResource
     {
-        abort_unless($this->canManagePromotions($request), 403);
-
         $promotion->update($request->validated());
+
+        $this->recordPriceHistory($promotion);
 
         return new PromotionResource($promotion->load('service'));
     }
 
     #[OA\Delete(
         path: '/api/promotions/{promotion}',
-        summary: 'Supprimer une promotion',
+        summary: 'Supprimer une promotion (le prix redevient celui du service)',
         tags: ['Promotions'],
         security: [['sanctum' => []]],
         parameters: [
@@ -146,10 +144,35 @@ class PromotionController extends Controller
     )]
     public function destroy(Request $request, Promotion $promotion): JsonResponse
     {
-        abort_unless($this->canManagePromotions($request), 403);
+        $service = $promotion->service;
 
         $promotion->delete();
 
+        if ($service) {
+            PriceHistory::create([
+                'service_id' => $service->id,
+                'price' => $service->price,
+                'changed_at' => now(),
+            ]);
+        }
+
         return response()->json(null, 204);
+    }
+
+    /**
+     * Trace dans price_history le prix effectif appliqué au service pendant la promotion.
+     */
+    private function recordPriceHistory(Promotion $promotion): void
+    {
+        $service = $promotion->service;
+        if (! $service) {
+            return;
+        }
+
+        PriceHistory::create([
+            'service_id' => $service->id,
+            'price' => $promotion->effectivePrice((float) $service->price) ?? $service->price,
+            'changed_at' => $promotion->start_date,
+        ]);
     }
 }

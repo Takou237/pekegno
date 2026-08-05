@@ -9,10 +9,17 @@ class PromotionResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $basePrice = $this->resource->relationLoaded('service')
+            ? (float) $this->service->price
+            : null;
+
         return [
             'id' => $this->id,
             'service_id' => $this->service_id,
-            'promo_price' => (string) $this->promo_price,
+            'type' => $this->type,
+            'promo_price' => $this->promo_price !== null ? (string) $this->promo_price : null,
+            'discount_percent' => $this->discount_percent !== null ? (string) $this->discount_percent : null,
+            'effective_price' => $this->effectivePrice($basePrice),
             'start_date' => $this->start_date?->toISOString(),
             'end_date' => $this->end_date?->toISOString(),
             'is_active' => $this->isActive(),

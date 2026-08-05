@@ -73,10 +73,16 @@ class Service extends Model
 
     public function activePromotion(): ?Promotion
     {
-        return $this->promotions
-            ->filter(fn (Promotion $promotion) => $promotion->isActive())
-            ->sortBy('start_date')
-            ->first();
+        // Si la collection des promotions est déjà chargée (catalogue), on filtre en mémoire.
+        if ($this->relationLoaded('promotions')) {
+            return $this->promotions
+                ->filter(fn (Promotion $promotion) => $promotion->isActive())
+                ->sortBy('start_date')
+                ->first();
+        }
+
+        // Sinon requête ciblée unique via la relation (évite le chargement de toute la collection).
+        return $this->oneActivePromotion()->first();
     }
 
     public function getEffectivePriceAttribute(): string
