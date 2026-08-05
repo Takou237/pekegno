@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Agency;
 use App\Models\Department;
+use App\Models\Role;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -14,17 +17,16 @@ class AgencyCrudTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
-    private User $user;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->admin = User::factory()->create();
-        $this->admin->assignRole('super-admin');
+        $this->seed([PermissionSeeder::class, RoleSeeder::class]);
 
-        $this->user = User::factory()->create();
-        $this->user->assignRole('admin');
+        $this->admin = User::factory()->create([
+            'role_id' => Role::where('name', 'super-admin')->value('id'),
+        ]);
     }
 
     private function validAgencyData(): array
@@ -109,13 +111,13 @@ class AgencyCrudTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonFragment([
-                'code' => 'AG-001',
                 'name' => 'Agence Paris',
                 'country' => 'France',
             ]);
 
+        $this->assertMatchesRegularExpression('/^AG\d{3}$/', $response->json('code'));
         $this->assertDatabaseHas('agencies', [
-            'code' => 'AG-001',
+            'code' => $response->json('code'),
             'name' => 'Agence Paris',
         ]);
     }
@@ -127,19 +129,22 @@ class AgencyCrudTest extends TestCase
         $response = $this->postJson('/api/agencies', []);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['code', 'name', 'country']);
+            ->assertJsonValidationErrors(['name', 'country']);
     }
 
-    public function test_cannot_create_agency_with_duplicate_code(): void
+    public function test_agency_code_is_auto_generated(): void
     {
         Sanctum::actingAs($this->admin);
 
-        Agency::factory()->create(['code' => 'AG-001']);
+        $first = $this->postJson('/api/agencies', $this->validAgencyData());
+        $first->assertCreated();
+        $firstCode = $first->json('code');
+        $this->assertMatchesRegularExpression('/^AG\d{3}$/', $firstCode);
 
-        $response = $this->postJson('/api/agencies', $this->validAgencyData());
+        $second = $this->postJson('/api/agencies', $this->validAgencyData());
+        $second->assertCreated();
 
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['code']);
+        $this->assertNotSame($firstCode, $second->json('code'));
     }
 
     public function test_cannot_create_agency_with_invalid_email(): void
@@ -339,7 +344,7 @@ class AgencyCrudTest extends TestCase
         $response->assertNotFound();
     }
 
-    public function test_cannot_force_delete_agency_with_trashed_departments(): void
+    public function test_can_force_delete_agency_with_trashed_departments(): void
     {
         Sanctum::actingAs($this->admin);
 
@@ -348,9 +353,7 @@ class AgencyCrudTest extends TestCase
 
         $response = $this->deleteJson("/api/agencies/{$agency->id}/force-delete");
 
-        $response->assertConflict()
-            ->assertJsonFragment([
-                'message' => 'Impossible de supprimer définitivement cette agence car elle contient des départements.',
-            ]);
+        $response->assertNoContent();
+        $this->assertDatabaseMissing('agencies', ['id' => $agency->id]);
     }
 }

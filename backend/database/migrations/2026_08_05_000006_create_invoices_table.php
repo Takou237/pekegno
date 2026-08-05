@@ -19,7 +19,7 @@ return new class extends Migration
             $table->enum('payment_type', ['cash', 'mobile'])->nullable();
             $table->decimal('total_amount', 12, 2);
             $table->decimal('amount_paid', 12, 2)->default(0);
-            $table->enum('status', ['unpaid', 'partial', 'paid'])->default('unpaid');
+            $table->enum('status', ['unpaid', 'partial', 'paid', 'cancelled'])->default('unpaid');
             $table->decimal('commission_amount', 12, 2)->nullable();
             $table->integer('points_awarded')->default(0);
             $table->text('comment')->nullable();

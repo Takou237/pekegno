@@ -23,15 +23,20 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::statement(
-            'ALTER TABLE services ADD CONSTRAINT services_agency_department_xor
-             CHECK ((agency_id IS NOT NULL) != (department_id IS NOT NULL))'
-        );
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement(
+                'ALTER TABLE services ADD CONSTRAINT services_agency_department_xor
+                 CHECK ((agency_id IS NOT NULL) != (department_id IS NOT NULL))'
+            );
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE services DROP CONSTRAINT IF EXISTS services_agency_department_xor');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE services DROP CONSTRAINT IF EXISTS services_agency_department_xor');
+        }
+
         Schema::dropIfExists('services');
     }
 };

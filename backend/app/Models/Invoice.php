@@ -28,6 +28,8 @@ class Invoice extends Model
         'cancelled_at',
     ];
 
+    protected $appends = ['balance_due'];
+
     protected function casts(): array
     {
         return [
@@ -112,6 +114,7 @@ class Invoice extends Model
     public function refreshStatus(): void
     {
         $this->status = match (true) {
+            $this->cancelled_at !== null => 'cancelled',
             (float) $this->amount_paid >= (float) $this->total_amount => 'paid',
             (float) $this->amount_paid > 0 => 'partial',
             default => 'unpaid',

@@ -8,7 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE services DROP CONSTRAINT IF EXISTS services_agency_department_xor');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE services DROP CONSTRAINT IF EXISTS services_agency_department_xor');
+        }
 
         if (Schema::hasColumn('services', 'department_id')) {
             Schema::table('services', function ($table) {
@@ -26,9 +28,11 @@ return new class extends Migration
             });
         }
 
-        DB::statement(
-            'ALTER TABLE services ADD CONSTRAINT services_agency_department_xor
-             CHECK ((agency_id IS NOT NULL) != (department_id IS NOT NULL))'
-        );
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement(
+                'ALTER TABLE services ADD CONSTRAINT services_agency_department_xor
+                 CHECK ((agency_id IS NOT NULL) != (department_id IS NOT NULL))'
+            );
+        }
     }
 };

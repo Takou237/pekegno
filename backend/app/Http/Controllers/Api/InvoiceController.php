@@ -284,6 +284,8 @@ class InvoiceController extends Controller
         abort_if($invoice->is_cancelled, 422, 'Cette facture est déjà annulée.');
 
         $invoice->update(['cancelled_at' => now()]);
+        $invoice->refreshStatus();
+        $invoice->save();
 
         $this->logger->log('cancelled', 'invoice', $invoice->id, "Facture {$invoice->number} annulée");
 

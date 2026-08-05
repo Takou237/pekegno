@@ -15,20 +15,24 @@ return new class extends Migration
             $table->decimal('promo_price', 12, 2)->nullable()->change();
         });
 
-        DB::statement(<<<'SQL'
-            ALTER TABLE promotions
-                ADD CONSTRAINT promotions_type_coherence CHECK (
-                    (type = 'amount' AND promo_price IS NOT NULL AND discount_percent IS NULL)
-                    OR (type = 'percent' AND discount_percent IS NOT NULL
-                        AND discount_percent > 0 AND discount_percent <= 100
-                        AND promo_price IS NULL)
-                )
-        SQL);
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement(<<<'SQL'
+                ALTER TABLE promotions
+                    ADD CONSTRAINT promotions_type_coherence CHECK (
+                        (type = 'amount' AND promo_price IS NOT NULL AND discount_percent IS NULL)
+                        OR (type = 'percent' AND discount_percent IS NOT NULL
+                            AND discount_percent > 0 AND discount_percent <= 100
+                            AND promo_price IS NULL)
+                    )
+            SQL);
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE promotions DROP CONSTRAINT promotions_type_coherence');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE promotions DROP CONSTRAINT promotions_type_coherence');
+        }
 
         Schema::table('promotions', function (Blueprint $table) {
             $table->decimal('promo_price', 12, 2)->change();

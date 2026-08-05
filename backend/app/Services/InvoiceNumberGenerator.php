@@ -19,7 +19,9 @@ class InvoiceNumberGenerator
 
         return DB::transaction(function () use ($date, $prefix) {
             // Verrou conseil PostgreSQL : exclusion mutuelle sur séquence journalière
-            DB::select('SELECT pg_advisory_xact_lock(?)', [$this->lockKey($prefix, $date)]);
+            if (DB::getDriverName() === 'pgsql') {
+                DB::select('SELECT pg_advisory_xact_lock(?)', [$this->lockKey($prefix, $date)]);
+            }
 
             $last = Invoice::where('number', 'like', $prefix.'-'.$date.'-%')
                 ->orderByDesc('number')
