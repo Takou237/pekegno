@@ -2,26 +2,86 @@
 
 namespace Database\Seeders;
 
+use App\Models\Permission;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class PermissionSeeder extends Seeder
 {
+    /**
+     * Matrice entité × action. Chaque permission est nommée "entité.action".
+     */
+    private const GROUPS = [
+        'users' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'roles' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'agencies' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'departments' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'categories' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'services' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'promotions' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'clients' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'commercials' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'invoices' => ['consulter', 'creer', 'modifier', 'imprimer', 'annuler', 'encaisser', 'exporter'],
+        'activity-logs' => ['consulter', 'exporter'],
+        'settings' => ['modifier'],
+        'stats' => ['consulter'],
+    ];
+
+    private const ACTION_LABELS = [
+        'consulter' => 'Consulter',
+        'creer' => 'Créer',
+        'modifier' => 'Modifier',
+        'supprimer' => 'Supprimer',
+        'exporter' => 'Exporter',
+        'imprimer' => 'Imprimer',
+        'annuler' => 'Annuler',
+        'encaisser' => 'Encaisser',
+    ];
+
+    private const ENTITY_LABELS = [
+        'users' => 'les utilisateurs',
+        'roles' => 'les rôles',
+        'agencies' => 'les agences',
+        'departments' => 'les départements',
+        'categories' => 'les catégories',
+        'services' => 'les services',
+        'promotions' => 'les promotions',
+        'clients' => 'les clients',
+        'commercials' => 'les commerciaux',
+        'invoices' => 'les factures',
+        'activity-logs' => "le journal d'activité",
+        'settings' => 'les réglages',
+        'stats' => 'les statistiques',
+    ];
+
+    public static function permissionNames(): array
+    {
+        $names = [];
+
+        foreach (self::GROUPS as $entity => $actions) {
+            foreach ($actions as $action) {
+                $names[] = "$entity.$action";
+            }
+        }
+
+        return $names;
+    }
+
     public function run(): void
     {
-        $permissions = [
-            ['id' => Str::uuid(), 'name' => 'creer',      'description' => 'Permet de créer de nouveaux éléments'],
-            ['id' => Str::uuid(), 'name' => 'modifier',   'description' => 'Permet de modifier des éléments existants'],
-            ['id' => Str::uuid(), 'name' => 'supprimer',  'description' => 'Permet de supprimer des éléments'],
-            ['id' => Str::uuid(), 'name' => 'exporter',   'description' => 'Permet d\'exporter des données'],
-            ['id' => Str::uuid(), 'name' => 'consulter',  'description' => 'Permet de consulter des données'],
-            ['id' => Str::uuid(), 'name' => 'imprimer',   'description' => 'Permet d\'imprimer des documents'],
-            ['id' => Str::uuid(), 'name' => 'valider',    'description' => 'Permet de valider des opérations'],
-            ['id' => Str::uuid(), 'name' => 'encaisser',  'description' => 'Permet d\'encaisser des paiements'],
-            ['id' => Str::uuid(), 'name' => 'annuler',    'description' => 'Permet d\'annuler des opérations'],
-        ];
+        // Anciennes permissions génériques (Phase 1/2), remplacées par la matrice entité.action
+        Permission::whereIn('name', [
+            'creer', 'modifier', 'supprimer', 'exporter', 'consulter', 'imprimer', 'valider', 'encaisser', 'annuler',
+        ])->delete();
 
-        DB::table('permissions')->insert($permissions);
+        foreach (self::GROUPS as $entity => $actions) {
+            foreach ($actions as $action) {
+                Permission::updateOrCreate(
+                    ['name' => "$entity.$action"],
+                    [
+                        'description' => sprintf('%s : %s', self::ACTION_LABELS[$action], self::ENTITY_LABELS[$entity]),
+                    ],
+                );
+            }
+        }
     }
 }

@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
 
 class RoleController extends Controller
 {
-    private const PROTECTED_ROLES = ['super-admin', 'direction-generale'];
+    private const PROTECTED_ROLES = ['super-admin', 'direction-generale', 'client'];
 
     #[OA\Get(
         path: '/api/roles',

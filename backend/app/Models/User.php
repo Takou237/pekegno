@@ -2,19 +2,17 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, HasUuids;
+    use HasApiTokens, HasFactory, HasUuids, Notifiable;
 
     protected $fillable = [
         'username',
@@ -30,6 +28,10 @@ class User extends Authenticatable
         'active_session_id',
         'is_password_change_required',
         'last_activity_at',
+        'client_number',
+        'city',
+        'country',
+        'address',
     ];
 
     protected $hidden = [
@@ -73,4 +75,33 @@ class User extends Authenticatable
             ->withPivot('department_id', 'is_primary', 'is_department_chief')
             ->withTimestamps();
     }
+
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->role?->name === 'super-admin') {
+            return true;
+        }
+
+        return in_array($permission, $this->permissionNames(), true);
+    }
+
+    public function hasAnyPermission(array $permissions): bool
+    {
+        if ($this->role?->name === 'super-admin') {
+            return true;
+        }
+
+        return count(array_intersect($permissions, $this->permissionNames())) > 0;
+    }
+
+    private function permissionNames(): array
+    {
+        if ($this->cachedPermissionNames === null) {
+            $this->cachedPermissionNames = $this->role?->permissions()->pluck('name')->all() ?? [];
+        }
+
+        return $this->cachedPermissionNames;
+    }
+
+    private ?array $cachedPermissionNames = null;
 }
