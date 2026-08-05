@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { UserMinus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { client } from '@/api/client';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
-import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { UserListItem } from '@/types/user';
@@ -37,8 +36,11 @@ export function AssignMemberModal({
 
   const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
   const [availableUsers, setAvailableUsers] = useState<UserListItem[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetKey, setResetKey] = useState(0);
 
   async function loadData() {
     if (!isOpen || !targetId) return;
@@ -62,7 +64,7 @@ export function AssignMemberModal({
           )
         );
       } else {
-        const [deptRes, agencyRes] = await Promise.all([
+        const [deptRes, usersRes] = await Promise.all([
           client.get(`/departments/${targetId}`),
           client.get('/users', { params: { per_page: 100 } }),
         ]);
@@ -71,16 +73,13 @@ export function AssignMemberModal({
         const deptUserIds = new Set(deptUsers.map((u: AssignedUser) => u.id));
         setAssignedUsers(deptUsers);
 
-        const agencyId = dept.agency_id;
-        const allUsers: UserListItem[] = agencyRes.data.data ?? agencyRes.data;
         setAvailableUsers(
-          allUsers.filter(
+          (usersRes.data.data ?? usersRes.data).filter(
             (u: UserListItem) =>
               !deptUserIds.has(u.id) &&
               !NON_ASSIGNABLE_ROLES.has(u.role?.name ?? '')
           )
         );
-        void agencyId;
       }
     } catch {
       setError(t('users.dataLoadFailed'));
@@ -90,38 +89,32 @@ export function AssignMemberModal({
   }
 
   useEffect(() => {
+    setSelectedUserId('');
+    setResetKey((k) => k + 1);
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, targetType, targetId]);
 
-  async function handleAssign(userId: string) {
+  async function handleAssign() {
+    if (!selectedUserId) return;
     const endpoint =
       targetType === 'agency'
         ? `/agencies/${targetId}/users`
         : `/departments/${targetId}/users`;
+    setIsSubmitting(true);
     try {
-      await client.post(endpoint, { user_id: userId });
+      await client.post(endpoint, { user_id: selectedUserId });
       showToast(t('users.assigned'), 'success');
+      setSelectedUserId('');
+      setResetKey((k) => k + 1);
       onAssigned();
       await loadData();
     } catch (err) {
-      showToast(extractErrorMessage(err, t('users.assignFailed')), 'error');
-      setError(extractErrorMessage(err, t('users.assignFailed')));
-    }
-  }
-
-  async function handleRemove(userId: string) {
-    const endpoint =
-      targetType === 'agency'
-        ? `/agencies/${targetId}/users/${userId}`
-        : `/departments/${targetId}/users/${userId}`;
-    try {
-      await client.delete(endpoint);
-      showToast(t('users.removed'), 'success');
-      onAssigned();
-      await loadData();
-    } catch (err) {
-      showToast(extractErrorMessage(err, t('users.removeFailed')), 'error');
+      const message = extractErrorMessage(err, t('users.assignFailed'));
+      showToast(message, 'error');
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -141,53 +134,24 @@ export function AssignMemberModal({
           </div>
         ) : (
           <>
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase text-gray-400">
-                {t('users.assignedCount', { count: assignedUsers.length })}
-              </p>
-              {assignedUsers.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('users.noAssigned')}</p>
-              ) : (
-                <ul className="flex flex-col gap-1">
-                  {assignedUsers.map((u) => (
-                    <li
-                      key={u.id}
-                      className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                    >
-                      <div className="flex items-center gap-2 text-sm">
-                        {targetType === 'agency' && u.pivot?.is_primary && (
-                          <Badge variant="warning">{t('users.chief')}</Badge>
-                        )}
-                        {targetType === 'department' && u.pivot?.is_department_chief && (
-                          <Badge variant="warning">{t('users.chief')}</Badge>
-                        )}
-                        <span className="font-medium text-gray-800 dark:text-gray-100">{u.name}</span>
-                        <span className="text-gray-400">{u.email}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(u.id)}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                        title={t('users.remove')}
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {t('users.assignedCount', { count: assignedUsers.length })}
+            </p>
 
             <div>
-              <p className="mb-2 text-xs font-medium uppercase text-gray-400">{t('users.add')}</p>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase text-gray-400">
+                <Search className="h-3.5 w-3.5" />
+                {t('users.add')}
+              </p>
               <Autocomplete
+                key={resetKey}
                 placeholder={
-                  availableUsers.length === 0 ? t('users.noAvailableUsers') : t('users.searchByNameEmail')
+                  availableUsers.length === 0
+                    ? t('users.noAvailableUsers')
+                    : t('users.searchByNameEmail')
                 }
                 value=""
-                onChange={(userId) => {
-                  if (userId) handleAssign(userId);
-                }}
+                onChange={setSelectedUserId}
                 fetchOptions={async (query) => {
                   const q = query.toLowerCase();
                   return availableUsers
@@ -205,6 +169,14 @@ export function AssignMemberModal({
                 }}
                 disabled={availableUsers.length === 0}
               />
+              <Button
+                className="mt-3 w-full"
+                onClick={handleAssign}
+                disabled={!selectedUserId || isSubmitting || availableUsers.length === 0}
+              >
+                <Plus className="h-4 w-4" />
+                {isSubmitting ? t('common.loading') : t('users.add')}
+              </Button>
             </div>
           </>
         )}

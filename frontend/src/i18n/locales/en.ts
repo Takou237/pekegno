@@ -431,6 +431,7 @@ export default {
     assignFailed: 'Unable to assign the user.',
     removed: 'User removed successfully.',
     removeFailed: 'Unable to remove the user.',
+    removeConfirm: 'Remove {{name}} from this team?',
     fireUserTitle: 'Dismiss this user?',
     fireUserMessage:
       'You are about to remove this user\'s role. They will no longer have access to the application. Do you confirm?',
@@ -905,6 +906,7 @@ export default {
     balanceDueShort: 'Due',
     alreadyPaid: 'Fully paid',
     cancelBlocked: 'Already cancelled',
+    agencyLockedHint: 'Agency imposed by the navigation context.',
   },
 
   audit: {

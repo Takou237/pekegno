@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Search, UserPlus } from 'lucide-react';
+import { Search, UserPlus, UserMinus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { client } from '@/api/client';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/useToast';
 import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +22,7 @@ interface DepartmentLayoutContext {
 
 export default function DepartmentTeamsPage() {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const { department, departmentId, refreshDepartment } =
     useOutletContext<DepartmentLayoutContext>();
@@ -68,6 +70,19 @@ export default function DepartmentTeamsPage() {
     const timeout = setTimeout(fetchUsers, 350);
     return () => clearTimeout(timeout);
   }, [fetchUsers]);
+
+  async function handleRemove(userId: string, userName: string) {
+    if (!departmentId) return;
+    if (!window.confirm(t('users.removeConfirm', { name: userName }))) return;
+    try {
+      await client.delete(`/departments/${departmentId}/users/${userId}`);
+      showToast(t('users.removed'), 'success');
+      fetchUsers();
+      refreshDepartment?.();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('users.removeFailed')), 'error');
+    }
+  }
 
   if (!department) {
     return <p className="text-sm text-error-500">{t('departments.empty')}</p>;
@@ -126,6 +141,7 @@ export default function DepartmentTeamsPage() {
                   <th className="px-5 py-3 font-medium">{t('users.colEmail')}</th>
                   <th className="px-5 py-3 font-medium">{t('users.colPhone')}</th>
                   <th className="px-5 py-3 font-medium">{t('users.colRole')}</th>
+                  {canManageUsers && <th className="px-5 py-3" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -154,6 +170,18 @@ export default function DepartmentTeamsPage() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
+                    {canManageUsers && (
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(user.id, user.name ?? user.username)}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                          title={t('users.remove')}
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

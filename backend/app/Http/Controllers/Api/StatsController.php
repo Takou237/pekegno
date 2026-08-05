@@ -159,6 +159,10 @@ class StatsController extends Controller
         summary: 'Chiffre d\'affaires par mois (12 derniers mois)',
         tags: ['Statistiques'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency_id', in: 'query', description: 'Filtrer par agence', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'months', in: 'query', description: 'Nombre de mois', schema: new OA\Schema(type: 'integer', default: 12)),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Série mensuelle'),
         ]
@@ -170,9 +174,12 @@ class StatsController extends Controller
 
         $start = Carbon::now()->subMonths($months - 1)->startOfMonth();
 
-        $rows = Invoice::whereNull('cancelled_at')
+        $query = Invoice::whereNull('cancelled_at')
             ->where('invoice_date', '>=', $start)
             ->where('status', 'paid')
+            ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId));
+
+        $rows = (clone $query)
             ->selectRaw(
                 "to_char(invoice_date, 'YYYY-MM') as month, "
                 .'sum(total_amount) as total, count(*) as count'

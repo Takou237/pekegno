@@ -131,7 +131,7 @@ export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: str
               {t('invoices.export')}
             </Button>
           )}
-          <Button onClick={() => navigate(fixedAgencyId ? `/invoices/new?agency_id=${fixedAgencyId}` : '/invoices/new')}>
+          <Button onClick={() => navigate(fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/new` : '/invoices/new')}>
             <Plus className="h-4 w-4" />
             {t('invoices.newInvoice')}
           </Button>

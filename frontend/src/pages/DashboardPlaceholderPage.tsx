@@ -7,6 +7,7 @@ import { client } from '@/api/client';
 import { statsApi } from '@/api/stats.api';
 import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
+import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import { currentLocale } from '@/i18n';
 import type { Agency } from '@/types/agency';
 import type { DashboardStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, AgencyStats } from '@/types/stats';
@@ -57,37 +58,6 @@ function StatCard({
           {sub && <p className="truncate text-xs text-gray-400">{sub}</p>}
         </div>
       </div>
-    </div>
-  );
-}
-
-function MonthlyRevenueChart({ data }: { data: MonthlyRevenuePoint[] }) {
-  const { t } = useTranslation();
-  const max = Math.max(1, ...data.map((d) => d.revenue));
-
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-      <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-        {t('dashboard.monthlyRevenue')}
-      </h2>
-      {data.length === 0 ? (
-        <p className="text-sm text-gray-400">{t('dashboard.noData')}</p>
-      ) : (
-        <div className="flex h-48 items-end gap-2">
-          {data.map((d) => (
-            <div key={d.month} className="group flex flex-1 flex-col items-center gap-1">
-              <span className="text-[10px] font-medium text-gray-400 opacity-0 transition group-hover:opacity-100">
-                {formatCurrency(d.revenue)}
-              </span>
-              <div
-                className="w-full rounded-t-md bg-brand-500/80 transition group-hover:bg-brand-500 dark:bg-brand-500/40"
-                style={{ height: `${Math.max(2, (d.revenue / max) * 100)}%` }}
-              />
-              <span className="truncate text-[10px] text-gray-400">{d.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -393,7 +363,7 @@ function AgencyChiefDashboard() {
     Promise.all([
       client.get(`/agencies/${agencyId}`),
       statsApi.agency(agencyId),
-      statsApi.monthlyRevenue({ months: 12 }),
+      statsApi.monthlyRevenue({ months: 12, agencyId }),
     ])
       .then(([a, s, m]) => {
         setAgency(a.data.data ?? a.data);

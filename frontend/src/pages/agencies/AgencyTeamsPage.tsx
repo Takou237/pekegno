@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Search, UserPlus } from 'lucide-react';
+import { Search, UserPlus, UserMinus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { client } from '@/api/client';
 import { usersApi } from '@/api/users.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/useToast';
 import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +22,7 @@ interface AgencyLayoutContext {
 
 export default function AgencyTeamsPage() {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const { agency, agencyId } = useOutletContext<AgencyLayoutContext>();
   const [users, setUsers] = useState<UserListItem[]>([]);
@@ -64,6 +67,18 @@ export default function AgencyTeamsPage() {
   function openAssign() {
     setAssignTarget({ id: agencyId ?? '', name: agency?.name ?? '' });
     setAssignOpen(true);
+  }
+
+  async function handleRemove(userId: string, userName: string) {
+    if (!agencyId) return;
+    if (!window.confirm(t('users.removeConfirm', { name: userName }))) return;
+    try {
+      await client.delete(`/agencies/${agencyId}/users/${userId}`);
+      showToast(t('users.removed'), 'success');
+      fetchUsers();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('users.removeFailed')), 'error');
+    }
   }
 
   return (
@@ -119,6 +134,7 @@ export default function AgencyTeamsPage() {
                   <th className="px-5 py-3 font-medium">{t('users.colEmail')}</th>
                   <th className="px-5 py-3 font-medium">{t('users.colPhone')}</th>
                   <th className="px-5 py-3 font-medium">{t('users.colRole')}</th>
+                  {canManageUsers && <th className="px-5 py-3" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -147,6 +163,18 @@ export default function AgencyTeamsPage() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
+                    {canManageUsers && (
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(user.id, user.name ?? user.username)}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                          title={t('users.remove')}
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

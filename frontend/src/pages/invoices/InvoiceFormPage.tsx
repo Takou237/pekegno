@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useNavigate, Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
@@ -40,11 +40,16 @@ export default function InvoiceFormPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const { agencyId: routeAgencyId } = useParams<{ agencyId?: string }>();
   const [searchParams] = useSearchParams();
+
+  const presetAgencyId = routeAgencyId ?? searchParams.get('agency_id') ?? '';
+  const [agencyLocked] = useState(Boolean(presetAgencyId));
+  const [lockedAgencyName, setLockedAgencyName] = useState('');
 
   const [clientId, setClientId] = useState('');
   const [commercialId, setCommercialId] = useState('');
-  const [agencyId, setAgencyId] = useState(() => searchParams.get('agency_id') ?? '');
+  const [agencyId, setAgencyId] = useState(presetAgencyId);
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('');
   const [advance, setAdvance] = useState('');
@@ -53,6 +58,20 @@ export default function InvoiceFormPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const serviceResultsRef = useRef<Record<string, ServiceSearchItem[]>>({});
+
+  useEffect(() => {
+    if (!agencyLocked || !presetAgencyId) return;
+    let active = true;
+    agenciesApi
+      .get(presetAgencyId)
+      .then((a) => {
+        if (active) setLockedAgencyName(a.name);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [agencyLocked, presetAgencyId]);
 
   const totals = useMemo(() => {
     const total = lines.reduce(
@@ -114,7 +133,7 @@ export default function InvoiceFormPage() {
         })),
       });
       showToast(t('invoices.created'), 'success');
-      navigate('/invoices');
+      navigate(agencyLocked ? `/agencies/${presetAgencyId}/invoices` : '/invoices');
     } catch (error) {
       setErrors(extractFieldErrors(error));
       const msg = extractErrorMessage(error, t('invoices.saveFailed'));
@@ -128,7 +147,7 @@ export default function InvoiceFormPage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to="/invoices"
+          to={agencyLocked ? `/agencies/${presetAgencyId}/invoices` : '/invoices'}
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -153,7 +172,7 @@ export default function InvoiceFormPage() {
                 const res = await clientsApi.search(query.trim());
                 return res.map((c) => ({
                   id: c.id,
-                  label: c.name,
+                  label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
                   subtitle: [c.email, c.client_number].filter(Boolean).join(' — '),
                 }));
               }}
@@ -173,21 +192,30 @@ export default function InvoiceFormPage() {
                 }));
               }}
             />
-            <Autocomplete
-              label={t('invoices.headerAgency')}
-              placeholder={t('commercials.agencyPlaceholder')}
-              value={agencyId}
-              onChange={setAgencyId}
-              fetchOptions={async (query) => {
-                const res = await agenciesApi.list({ search: query.trim() || undefined, per_page: 20 });
-                return res.data.map((a) => ({
-                  id: a.id,
-                  label: a.name,
-                  subtitle: [a.code, a.city].filter(Boolean).join(' — '),
-                }));
-              }}
-              error={errors.agency_id}
-            />
+            {agencyLocked ? (
+              <Input
+                label={t('invoices.headerAgency')}
+                value={lockedAgencyName}
+                disabled
+                hint={t('invoices.agencyLockedHint')}
+              />
+            ) : (
+              <Autocomplete
+                label={t('invoices.headerAgency')}
+                placeholder={t('commercials.agencyPlaceholder')}
+                value={agencyId}
+                onChange={setAgencyId}
+                fetchOptions={async (query) => {
+                  const res = await agenciesApi.list({ search: query.trim() || undefined, per_page: 20 });
+                  return res.data.map((a) => ({
+                    id: a.id,
+                    label: a.name,
+                    subtitle: [a.code, a.city].filter(Boolean).join(' — '),
+                  }));
+                }}
+                error={errors.agency_id}
+              />
+            )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input
                 label={t('invoices.headerDate')}

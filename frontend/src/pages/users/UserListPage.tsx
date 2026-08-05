@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search, Pencil, Eye, Trash2, UserPlus, UserMinus, Download } from 'lucide-react';
+import { Search, Pencil, Eye, Trash2, UserPlus, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { usersApi } from '@/api/users.api';
@@ -70,6 +70,9 @@ export default function UserListPage() {
   const [assignTargetType, setAssignTargetType] = useState<'agency' | 'department' | null>(null);
   const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
   const [availableUsers, setAvailableUsers] = useState<AssignableUser[]>([]);
+  const [assignSelectedUserId, setAssignSelectedUserId] = useState('');
+  const [assignResetKey, setAssignResetKey] = useState(0);
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
@@ -261,6 +264,8 @@ export default function UserListPage() {
     setAssignModalOpen(true);
     setAssignLoading(true);
     setAssignError(null);
+    setAssignSelectedUserId('');
+    setAssignResetKey((k) => k + 1);
 
     if (type === 'agency') {
       client.get(`/agencies/${selectedAgencyId}`)
@@ -308,36 +313,26 @@ export default function UserListPage() {
     }
   }
 
-  async function handleAssignUser(userId: string) {
+  async function handleAssignUser() {
+    const userId = assignSelectedUserId;
+    if (!userId) return;
     const targetId = assignTargetType === 'agency' ? selectedAgencyId : selectedDepartmentId;
     if (!targetId) return;
     const endpoint = assignTargetType === 'agency' ? `/agencies/${targetId}/users` : `/departments/${targetId}/users`;
 
+    setAssignSubmitting(true);
     try {
       await client.post(endpoint, { user_id: userId });
       showToast(t('users.assigned'), 'success');
+      setAssignSelectedUserId('');
+      setAssignResetKey((k) => k + 1);
       fetchUsers(fetchParams);
       await reloadAssignData();
     } catch (err) {
       showToast(extractErrorMessage(err, t('users.assignFailed')), 'error');
       setAssignError(extractErrorMessage(err, t('users.assignFailed')));
-    }
-  }
-
-  async function handleRemoveUser(userId: string) {
-    const targetId = assignTargetType === 'agency' ? selectedAgencyId : selectedDepartmentId;
-    if (!targetId) return;
-    const endpoint = assignTargetType === 'agency'
-      ? `/agencies/${targetId}/users/${userId}`
-      : `/departments/${targetId}/users/${userId}`;
-
-    try {
-      await client.delete(endpoint);
-      showToast(t('users.removed'), 'success');
-      fetchUsers(fetchParams);
-      await reloadAssignData();
-    } catch (err) {
-      showToast(extractErrorMessage(err, t('users.removeFailed')), 'error');
+    } finally {
+      setAssignSubmitting(false);
     }
   }
 
@@ -769,51 +764,19 @@ export default function UserListPage() {
             </div>
           ) : (
             <>
-              <div>
-                <p className="mb-2 text-xs font-medium uppercase text-gray-400">
-                  {t('users.assignedCount', { count: assignedUsers.length })}
-                </p>
-                {assignedUsers.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('users.noAssigned')}</p>
-                ) : (
-                  <ul className="flex flex-col gap-1">
-                    {assignedUsers.map((u) => (
-                      <li
-                        key={u.id}
-                        className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                      >
-                        <div className="flex items-center gap-2 text-sm">
-                          {assignTargetType === 'agency' && u.pivot?.is_primary && <Badge variant="warning">{t('users.chief')}</Badge>}
-                          {assignTargetType === 'department' && u.pivot?.is_department_chief && <Badge variant="warning">{t('users.chief')}</Badge>}
-                          <span className="font-medium text-gray-800 dark:text-gray-100">
-                            {u.name}
-                          </span>
-                          <span className="text-gray-400">{u.email}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveUser(u.id)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                          title={t('users.remove')}
-                        >
-                          <UserMinus className="h-4 w-4" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t('users.assignedCount', { count: assignedUsers.length })}
+              </p>
 
               <div>
                 <p className="mb-2 text-xs font-medium uppercase text-gray-400">
                   {t('users.add')}
                 </p>
                 <Autocomplete
+                  key={assignResetKey}
                   placeholder={availableUsers.length === 0 ? t('users.noAvailableUsers') : t('users.searchByNameEmail')}
                   value=""
-                  onChange={(userId) => {
-                    if (userId) handleAssignUser(userId);
-                  }}
+                  onChange={setAssignSelectedUserId}
                   fetchOptions={async (query) => {
                     const q = query.toLowerCase();
                     return availableUsers
@@ -831,8 +794,16 @@ export default function UserListPage() {
                   }}
                   disabled={availableUsers.length === 0}
                 />
+                <Button
+                  className="mt-3 w-full"
+                  onClick={handleAssignUser}
+                  disabled={!assignSelectedUserId || assignSubmitting || availableUsers.length === 0}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  {assignSubmitting ? t('common.loading') : t('users.add')}
+                </Button>
               </div>
-            </> 
+            </>
           )}
 
           <div className="flex justify-end">

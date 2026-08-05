@@ -111,6 +111,7 @@ export const router = createBrowserRouter([
           { path: 'services/trash', element: page(<AgencyServiceTrashPage />) },
           { path: 'commercials', element: page(<AgencyCommercialsPage />) },
           { path: 'invoices', element: page(<AgencyInvoicesPage />) },
+          { path: 'invoices/new', element: page(<InvoiceFormPage />) },
           { path: 'teams', element: page(<AgencyTeamsPage />) },
           { path: 'promotions', element: page(<AgencyPromotionsPage />) },
           { path: 'settings', element: page(<AgencySettingsPage />) },

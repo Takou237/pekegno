@@ -426,7 +426,7 @@ export default function InvoiceDetailPage() {
               const res = await clientsApi.search(query.trim());
               return res.map((c) => ({
                 id: c.id,
-                label: c.name,
+                label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
                 subtitle: c.email,
               }));
             }}

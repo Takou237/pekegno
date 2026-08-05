@@ -436,6 +436,7 @@ export default {
     assignFailed: 'Impossible d\'assigner l\'utilisateur.',
     removed: 'Utilisateur retiré avec succès.',
     removeFailed: 'Impossible de retirer l\'utilisateur.',
+    removeConfirm: 'Retirer {{name}} de cette équipe ?',
     fireUserTitle: 'Licencier cet utilisateur ?',
     fireUserMessage:
       'Vous êtes sur le point de retirer le rôle de cet utilisateur. Cela signifie qu\'il n\'aura plus accès à l\'application. Confirmez-vous ?',
@@ -912,6 +913,7 @@ export default {
     balanceDueShort: 'Reste dû',
     alreadyPaid: 'Déjà soldée',
     cancelBlocked: 'Déjà annulée',
+    agencyLockedHint: 'Agence imposée par le contexte de navigation.',
   },
 
   audit: {

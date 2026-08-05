@@ -19,8 +19,10 @@ export const statsApi = {
     return data;
   },
 
-  async monthlyRevenue(params: { months?: number } = {}): Promise<MonthlyRevenuePoint[]> {
-    const { data } = await client.get<MonthlyRevenuePoint[]>('/stats/monthly-revenue', { params });
+  async monthlyRevenue(params: { months?: number; agencyId?: string } = {}): Promise<MonthlyRevenuePoint[]> {
+    const { data } = await client.get<MonthlyRevenuePoint[]>('/stats/monthly-revenue', {
+      params: { months: params.months, agency_id: params.agencyId },
+    });
     return data;
   },
 
