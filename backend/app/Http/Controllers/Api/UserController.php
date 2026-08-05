@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Department;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,10 @@ use OpenApi\Attributes as OA;
 class UserController extends Controller
 {
     private const ALLOWED_WITH = ['role', 'assignments'];
+
+    public function __construct(
+        private readonly ActivityLogger $logger,
+    ) {}
 
     private function parseWith(Request $request): array
     {
@@ -196,11 +201,25 @@ class UserController extends Controller
     {
         $validated = $request->validated();
 
+        $oldRoleId = $user->role_id;
+
         if (isset($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         }
 
         $user->update($validated);
+
+        if (isset($validated['role_id']) && (string) $validated['role_id'] !== (string) $oldRoleId) {
+            $this->logger->log(
+                action: 'role_changed',
+                entityType: 'user',
+                entityId: $user->id,
+                description: "Rôle de {$user->first_name} {$user->last_name} modifié",
+                oldValues: ['role_id' => $oldRoleId],
+                newValues: ['role_id' => $validated['role_id']],
+                request: $request,
+            );
+        }
 
         return new UserResource($user->fresh()->load('role', 'assignments'));
     }
@@ -237,6 +256,14 @@ class UserController extends Controller
 
         $user->tokens()->delete();
         $user->delete();
+
+        $this->logger->log(
+            action: 'deleted',
+            entityType: 'user',
+            entityId: $user->id,
+            description: "Utilisateur {$user->first_name} {$user->last_name} supprimé",
+            request: $request,
+        );
 
         return response()->json(null, 204);
     }

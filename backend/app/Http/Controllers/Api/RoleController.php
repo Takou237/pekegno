@@ -7,12 +7,17 @@ use App\Http\Requests\Api\StoreRoleRequest;
 use App\Http\Requests\Api\SyncRolePermissionsRequest;
 use App\Http\Requests\Api\UpdateRoleRequest;
 use App\Models\Role;
+use App\Services\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use OpenApi\Attributes as OA;
 
 class RoleController extends Controller
 {
     private const PROTECTED_ROLES = ['super-admin', 'direction-generale', 'client'];
+
+    public function __construct(
+        private readonly ActivityLogger $logger,
+    ) {}
 
     #[OA\Get(
         path: '/api/roles',
@@ -52,6 +57,15 @@ class RoleController extends Controller
             $role->permissions()->sync($request->input('permissions'));
         }
 
+        $this->logger->log(
+            action: 'created',
+            entityType: 'role',
+            entityId: $role->id,
+            description: "Rôle {$role->name} créé",
+            newValues: $role->only(['name', 'description']),
+            request: $request,
+        );
+
         return response()->json($role->load('permissions'), 201);
     }
 
@@ -71,11 +85,22 @@ class RoleController extends Controller
     )]
     public function update(UpdateRoleRequest $request, Role $role): JsonResponse
     {
+        $old = $role->only(['name', 'description']);
         $role->update($request->only(['name', 'description']));
 
         if ($request->has('permissions')) {
             $role->permissions()->sync($request->input('permissions', []));
         }
+
+        $this->logger->log(
+            action: 'updated',
+            entityType: 'role',
+            entityId: $role->id,
+            description: "Rôle {$role->name} modifié",
+            oldValues: $old,
+            newValues: $role->only(['name', 'description']),
+            request: $request,
+        );
 
         return response()->json($role->fresh()->load('permissions'));
     }
@@ -97,6 +122,15 @@ class RoleController extends Controller
     public function syncPermissions(SyncRolePermissionsRequest $request, Role $role): JsonResponse
     {
         $role->permissions()->sync($request->input('permissions', []));
+
+        $this->logger->log(
+            action: 'permissions_synced',
+            entityType: 'role',
+            entityId: $role->id,
+            description: "Permissions du rôle {$role->name} synchronisées",
+            newValues: ['permissions' => $request->input('permissions', [])],
+            request: $request,
+        );
 
         return response()->json($role->fresh()->load('permissions'));
     }
@@ -139,6 +173,14 @@ class RoleController extends Controller
 
         $role->permissions()->detach();
         $role->delete();
+
+        $this->logger->log(
+            action: 'deleted',
+            entityType: 'role',
+            entityId: $role->id,
+            description: "Rôle {$role->name} supprimé",
+            request: request(),
+        );
 
         return response()->json(['message' => 'Rôle supprimé avec succès.']);
     }

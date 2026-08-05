@@ -10,6 +10,7 @@ use App\Models\Agency;
 use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,10 @@ use OpenApi\Attributes as OA;
 class UserAssignmentController extends Controller
 {
     private const NON_ASSIGNABLE_ROLES = ['super-admin', 'direction-generale'];
+
+    public function __construct(
+        private readonly ActivityLogger $logger,
+    ) {}
 
     private function assertUserIsAssignable(User $user): void
     {
@@ -146,6 +151,15 @@ class UserAssignmentController extends Controller
         $this->syncRole($user, 'responsable-agence');
         $agency->load('assignedUsers');
 
+        $this->logger->log(
+            action: 'assigned',
+            entityType: 'agency',
+            entityId: $agency->id,
+            description: "{$user->first_name} {$user->last_name} nommé chef d'agence {$agency->code}",
+            newValues: ['user_id' => $userId],
+            request: $request,
+        );
+
         return response()->json([
             'message' => 'Chef d\'agence assigné avec succès.',
             'data' => new AgencyResource($agency),
@@ -184,6 +198,16 @@ class UserAssignmentController extends Controller
                 $this->clearRoleIfOrphaned($oldChief);
             }
         }
+
+        $removedChiefId = $oldChiefAssignment?->user_id ?? 'inconnu';
+
+        $this->logger->log(
+            action: 'unassigned',
+            entityType: 'agency',
+            entityId: $agency->id,
+            description: "Chef d'agence retiré ({$removedChiefId})",
+            request: $request,
+        );
 
         return response()->json(['message' => 'Chef d\'agence retiré avec succès.']);
     }
@@ -289,6 +313,15 @@ class UserAssignmentController extends Controller
 
         $agency->load('assignedUsers');
 
+        $this->logger->log(
+            action: $exists ? 'updated' : 'assigned',
+            entityType: 'agency',
+            entityId: $agency->id,
+            description: "{$user->first_name} {$user->last_name} assigné à l'agence {$agency->code}",
+            newValues: ['user_id' => $userId, 'department_id' => $departmentId],
+            request: $request,
+        );
+
         return response()->json([
             'message' => 'Utilisateur assigné avec succès.',
             'data' => new AgencyResource($agency),
@@ -331,6 +364,14 @@ class UserAssignmentController extends Controller
         }
 
         $agency->load('assignedUsers');
+
+        $this->logger->log(
+            action: 'unassigned',
+            entityType: 'agency',
+            entityId: $agency->id,
+            description: "{$user->first_name} {$user->last_name} retiré de l'agence {$agency->code}",
+            request: $request,
+        );
 
         return response()->json([
             'message' => 'Utilisateur retiré de l\'agence avec succès.',
@@ -423,6 +464,15 @@ class UserAssignmentController extends Controller
         $this->syncRole($user, 'responsable-departement');
         $department->load('assignedUsers');
 
+        $this->logger->log(
+            action: 'assigned',
+            entityType: 'department',
+            entityId: $department->id,
+            description: "{$user->first_name} {$user->last_name} nommé chef du département {$department->name}",
+            newValues: ['user_id' => $userId],
+            request: $request,
+        );
+
         return response()->json([
             'message' => 'Chef de département assigné avec succès.',
             'data' => new DepartmentResource($department),
@@ -464,6 +514,16 @@ class UserAssignmentController extends Controller
                 $this->clearRoleIfOrphaned($oldChiefUser);
             }
         }
+
+        $removedChiefId = $oldChief?->user_id ?? 'inconnu';
+
+        $this->logger->log(
+            action: 'unassigned',
+            entityType: 'department',
+            entityId: $department->id,
+            description: "Chef du département {$department->name} retiré ({$removedChiefId})",
+            request: $request,
+        );
 
         return response()->json(['message' => 'Chef de département retiré avec succès.']);
     }
@@ -555,6 +615,15 @@ class UserAssignmentController extends Controller
 
         $department->load('assignedUsers');
 
+        $this->logger->log(
+            action: $exists ? 'updated' : 'assigned',
+            entityType: 'department',
+            entityId: $department->id,
+            description: "{$user->first_name} {$user->last_name} assigné au département {$department->name}",
+            newValues: ['user_id' => $userId],
+            request: $request,
+        );
+
         return response()->json([
             'message' => 'Utilisateur assigné au département avec succès.',
             'data' => new DepartmentResource($department),
@@ -594,6 +663,14 @@ class UserAssignmentController extends Controller
         }
 
         $department->load('assignedUsers');
+
+        $this->logger->log(
+            action: 'unassigned',
+            entityType: 'department',
+            entityId: $department->id,
+            description: "{$user->first_name} {$user->last_name} retiré du département {$department->name}",
+            request: $request,
+        );
 
         return response()->json([
             'message' => 'Utilisateur retiré du département avec succès.',

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Agency;
 use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
@@ -259,5 +260,31 @@ class Phase3Test extends TestCase
 
         $this->assertDatabaseHas('login_logs', ['user_id' => $user->id, 'action' => 'login']);
         $this->assertDatabaseHas('activity_logs', ['user_id' => $user->id, 'entity_type' => 'auth', 'action' => 'login']);
+    }
+
+    public function test_role_change_and_assignments_are_logged(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $commercialRoleId = Role::where('name', 'commercial')->value('id');
+
+        $user = User::factory()->create();
+        $this->putJson("/api/users/{$user->id}", ['role_id' => $commercialRoleId])->assertOk();
+
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $admin->id,
+            'entity_type' => 'user',
+            'action' => 'role_changed',
+            'entity_id' => $user->id,
+        ]);
+
+        $agency = Agency::factory()->create();
+        $this->postJson("/api/agencies/{$agency->id}/users", ['user_id' => $user->id])->assertStatus(201);
+
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $admin->id,
+            'entity_type' => 'agency',
+            'action' => 'assigned',
+            'entity_id' => $agency->id,
+        ]);
     }
 }
