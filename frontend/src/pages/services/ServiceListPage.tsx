@@ -22,6 +22,7 @@ import {
   canDeleteService,
   canEditService,
   canManageCatalogTrash,
+  canViewAgencies,
 } from '@/utils/catalogPermissions';
 import { canExportData } from '@/utils/exportPermissions';
 import { currentLocale } from '@/i18n';
@@ -112,8 +113,10 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
 
   useEffect(() => {
     fetchCategories();
-    agenciesApi.list({ per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
-  }, [fetchCategories]);
+    if (canViewAgencies(user)) {
+      agenciesApi.list({ per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
+    }
+  }, [fetchCategories, user]);
 
   async function handleExport() {
     setIsExporting(true);
@@ -169,6 +172,19 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
   }
 
   const hasPromo = (service: Service) => Number(service.effective_price) !== Number(service.price);
+
+  const activePromotion = (service: Service) =>
+    (service.promotions ?? [])
+      .filter((promotion) => promotion.is_active)
+      .sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
+
+  const discountPercent = (service: Service): number | null => {
+    const promotion = activePromotion(service);
+    if (!promotion || promotion.type !== 'percent' || promotion.discount_percent == null) {
+      return null;
+    }
+    return Number(promotion.discount_percent);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -236,7 +252,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
             ))}
           </Select>
         </div>
-        {!agencyId && (
+        {!agencyId && canViewAgencies(user) && (
           <div className="sm:w-48">
             <Select
               label={t('services.agency')}
@@ -379,6 +395,11 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
                     </span>
                     {hasPromo(service) && (
                       <span className="text-xs text-gray-400 line-through">{formatPrice(service.price)}</span>
+                    )}
+                    {discountPercent(service) != null && (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                        -{new Intl.NumberFormat(currentLocale(), { maximumFractionDigits: 0 }).format(discountPercent(service) as number)}%
+                      </span>
                     )}
                   </div>
 

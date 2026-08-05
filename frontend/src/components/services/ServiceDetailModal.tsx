@@ -47,6 +47,16 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
     }).format(Number(value));
   }
 
+  function discountPercent(service: Service): number | null {
+    const promotion = (service.promotions ?? [])
+      .filter((p) => p.is_active)
+      .sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
+    if (!promotion || promotion.type !== 'percent' || promotion.discount_percent == null) {
+      return null;
+    }
+    return Number(promotion.discount_percent);
+  }
+
   return (
     <Modal
       isOpen={Boolean(serviceId)}
@@ -95,8 +105,13 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
             </div>
             <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/50">
               <dt className="text-xs uppercase text-gray-400">{t('services.effectivePrice')}</dt>
-              <dd className="mt-1 text-lg font-semibold text-brand-600 dark:text-brand-400">
+              <dd className="mt-1 flex items-center gap-2 text-lg font-semibold text-brand-600 dark:text-brand-400">
                 {formatPrice(service.effective_price)}
+                {discountPercent(service) != null && (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                    -{discountPercent(service)}%
+                  </span>
+                )}
               </dd>
             </div>
             <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/50">

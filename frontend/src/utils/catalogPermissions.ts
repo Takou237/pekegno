@@ -16,6 +16,10 @@ export function canViewCatalog(user: User | null): boolean {
   return ALL_EMPLOYEES.includes(user?.role?.name ?? '');
 }
 
+export function canViewAgencies(user: User | null): boolean {
+  return MANAGERS.includes(user?.role?.name ?? '');
+}
+
 export function canCreateService(user: User | null): boolean {
   return MANAGERS.includes(user?.role?.name ?? '');
 }
