@@ -6,11 +6,15 @@ use App\Http\Controllers\Api\Auth\DeleteAccountController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\LogoutController;
+use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\ClientController;
+use App\Http\Controllers\Api\CommercialController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\ExportController;
+use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\PromotionController;
@@ -23,6 +27,7 @@ use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', LoginController::class);
+Route::post('/auth/register', RegisterController::class);
 Route::post('/auth/forgot-password', ForgotPasswordController::class);
 Route::post('/auth/reset-password', ResetPasswordController::class);
 Route::post('/auth/2fa/login', [TwoFactorController::class, 'login']);
@@ -48,11 +53,37 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::apiResource('categories', CategoryController::class);
 
     Route::get('/services/trash', [ServiceController::class, 'trash']);
+    Route::get('/services/search', [ServiceController::class, 'search'])->middleware('permission:services.consulter');
     Route::post('/services/{service}/restore', [ServiceController::class, 'restore']);
     Route::delete('/services/{service}/force-delete', [ServiceController::class, 'forceDelete']);
     Route::apiResource('services', ServiceController::class);
 
     Route::post('/uploads', [UploadController::class, 'store']);
+
+    Route::get('/clients/search', [ClientController::class, 'search'])->middleware('permission:clients.consulter');
+    Route::get('/clients', [ClientController::class, 'index'])->middleware('permission:clients.consulter');
+    Route::post('/clients', [ClientController::class, 'store'])->middleware('permission:clients.creer');
+    Route::get('/clients/{client}', [ClientController::class, 'show'])->middleware('permission:clients.consulter');
+    Route::put('/clients/{client}', [ClientController::class, 'update'])->middleware('permission:clients.modifier');
+    Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->middleware('permission:clients.supprimer');
+
+    Route::get('/commercials/search', [CommercialController::class, 'search'])->middleware('permission:commercials.consulter');
+    Route::get('/commercials/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:commercials.consulter');
+    Route::get('/commercials/ranking', [CommercialController::class, 'ranking'])->middleware('permission:commercials.consulter');
+    Route::get('/commercials/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:commercials.consulter');
+    Route::post('/commercials/{commercial}/points', [CommercialController::class, 'adjustPoints'])->middleware('permission:commercials.modifier');
+    Route::get('/commercials', [CommercialController::class, 'index'])->middleware('permission:commercials.consulter');
+    Route::post('/commercials', [CommercialController::class, 'store'])->middleware('permission:commercials.creer');
+    Route::get('/commercials/{commercial}', [CommercialController::class, 'show'])->middleware('permission:commercials.consulter');
+    Route::put('/commercials/{commercial}', [CommercialController::class, 'update'])->middleware('permission:commercials.modifier');
+    Route::delete('/commercials/{commercial}', [CommercialController::class, 'destroy'])->middleware('permission:commercials.supprimer');
+
+    Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('permission:invoices.consulter');
+    Route::post('/invoices', [InvoiceController::class, 'store'])->middleware('permission:invoices.creer');
+    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoices.consulter');
+    Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->middleware('permission:invoices.modifier');
+    Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'pay'])->middleware('permission:invoices.encaisser');
+    Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:invoices.annuler');
 
     Route::get('/promotions', [PromotionController::class, 'index']);
     Route::post('/services/{service}/promotions', [PromotionController::class, 'store']);

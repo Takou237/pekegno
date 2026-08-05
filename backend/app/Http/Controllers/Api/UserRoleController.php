@@ -63,6 +63,12 @@ class UserRoleController extends Controller
             ], 422);
         }
 
+        if ($role && $role->name === 'client') {
+            return response()->json([
+                'message' => 'Le rôle client est attribué via l\'inscription publique ou la page Clients.',
+            ], 422);
+        }
+
         $user->update(['role_id' => $roleId]);
 
         return response()->json($user->fresh()->load('role'));

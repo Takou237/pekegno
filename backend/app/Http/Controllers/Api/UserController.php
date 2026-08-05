@@ -52,6 +52,7 @@ class UserController extends Controller
 
         $user = $request->user();
         $users = User::with($with)
+            ->whereHas('role', fn ($q) => $q->where('name', '!=', 'client'))
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")

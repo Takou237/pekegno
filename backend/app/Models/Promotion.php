@@ -12,7 +12,9 @@ class Promotion extends Model
 
     protected $fillable = [
         'service_id',
+        'type',
         'promo_price',
+        'discount_percent',
         'start_date',
         'end_date',
     ];
@@ -21,6 +23,7 @@ class Promotion extends Model
     {
         return [
             'promo_price' => 'decimal:2',
+            'discount_percent' => 'decimal:2',
             'start_date' => 'datetime',
             'end_date' => 'datetime',
         ];
@@ -34,5 +37,17 @@ class Promotion extends Model
     public function isActive(): bool
     {
         return $this->start_date <= now() && $this->end_date >= now();
+    }
+
+    /**
+     * Prix effectif de la promotion (rebasé sur le prix du service pour le type percent).
+     */
+    public function effectivePrice(?float $basePrice = null): ?float
+    {
+        if ($this->type === 'percent' && $this->discount_percent !== null && $basePrice !== null) {
+            return round($basePrice * (1 - (float) $this->discount_percent / 100), 2);
+        }
+
+        return $this->promo_price !== null ? (float) $this->promo_price : null;
     }
 }

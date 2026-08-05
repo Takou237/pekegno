@@ -41,6 +41,22 @@ class Agency extends Model
         return $this->hasMany(ActivityLog::class);
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * Chiffre d'affaires : somme des factures payées non annulées.
+     */
+    public function getTurnoverAttribute(): float
+    {
+        return round((float) $this->invoices()
+            ->where('status', 'paid')
+            ->whereNull('cancelled_at')
+            ->sum('total_amount'), 2);
+    }
+
     public function scopeSearch($query, ?string $search)
     {
         if (! $search) {

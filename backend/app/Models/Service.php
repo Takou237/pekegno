@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Service extends Model
@@ -45,6 +46,14 @@ class Service extends Model
         return $this->hasMany(Promotion::class)->orderBy('start_date');
     }
 
+    public function oneActivePromotion(): HasOne
+    {
+        return $this->hasOne(Promotion::class)
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->orderByDesc('start_date');
+    }
+
     public function priceHistory(): HasMany
     {
         return $this->hasMany(PriceHistory::class)->orderByDesc('changed_at');
@@ -74,6 +83,16 @@ class Service extends Model
     {
         $active = $this->activePromotion();
 
-        return $active ? (string) $active->promo_price : (string) $this->price;
+        if (! $active) {
+            return (string) $this->price;
+        }
+
+        if ($active->type === 'percent' && $active->discount_percent !== null) {
+            $discounted = (float) $this->price * (1 - (float) $active->discount_percent / 100);
+
+            return (string) round($discounted, 2);
+        }
+
+        return (string) ($active->promo_price ?? $this->price);
     }
 }

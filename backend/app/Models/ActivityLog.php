@@ -10,6 +10,8 @@ class ActivityLog extends Model
 {
     use HasUuids;
 
+    const UPDATED_AT = null;
+
     protected $fillable = [
         'user_id',
         'agency_id',

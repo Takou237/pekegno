@@ -25,8 +25,11 @@ class ServiceController extends Controller
     private function parseWith(Request $request): array
     {
         $with = $request->input('with');
-        if (!$with) return [];
+        if (! $with) {
+            return [];
+        }
         $relations = array_map('trim', explode(',', $with));
+
         return array_intersect($relations, self::ALLOWED_WITH);
     }
 
@@ -210,6 +213,40 @@ class ServiceController extends Controller
         $perPage = min((int) $request->input('per_page', 15), 100);
 
         return ServiceResource::collection($query->paginate($perPage));
+    }
+
+    #[OA\Get(
+        path: '/api/services/search',
+        summary: 'Autocomplétion de services (prix effectif renvoyé)',
+        tags: ['Services'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'q', in: 'query', required: true, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Résultats'),
+        ]
+    )]
+    public function search(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->query('q'));
+
+        $services = Service::with(['category'])
+            ->when($q, fn ($query) => $query->search($q))
+            ->when($request->agency_id, fn ($query, $agencyId) => $query->where('agency_id', $agencyId))
+            ->limit(10)
+            ->get()
+            ->map(fn (Service $service) => [
+                'id' => $service->id,
+                'name' => $service->name,
+                'price' => $service->price,
+                'effective_price' => $service->effective_price,
+                'has_promotion' => $service->activePromotion() !== null,
+                'category' => $service->category?->name,
+            ]);
+
+        return response()->json($services);
     }
 
     public function restore(string $id): ServiceResource
