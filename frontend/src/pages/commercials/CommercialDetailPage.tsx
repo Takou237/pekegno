@@ -25,7 +25,8 @@ function formatCurrency(value: number | string | null | undefined): string {
 }
 
 export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
-  const { id = '' } = useParams();
+  const { id: routeId, commercialId } = useParams();
+  const id = commercialId ?? routeId ?? '';
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
