@@ -89,7 +89,10 @@ class RoleSeeder extends Seeder
                 $p('categories', ['consulter']),
                 $p('promotions', ['consulter']),
             ),
-            'client' => [],
+            'client' => array_merge(
+                $p('services', ['consulter']),
+                $p('categories', ['consulter']),
+            ),
         ];
 
         $permissions = DB::table('permissions')->pluck('id', 'name');

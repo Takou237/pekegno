@@ -42,7 +42,10 @@ class StatsController extends Controller
         $paidCount = (clone $invoices)->where('status', 'paid')->count();
 
         $payments = InvoicePayment::whereBetween('paid_at', [$from, $to])->sum('amount');
-        $advances = InvoicePayment::whereBetween('paid_at', [$from, $to])->where('is_advance', true)->sum('amount');
+        $advances = InvoicePayment::whereBetween('paid_at', [$from, $to])
+            ->where('is_advance', true)
+            ->whereHas('invoice', fn ($q) => $q->whereNull('cancelled_at')->whereIn('status', ['unpaid', 'partial']))
+            ->sum('amount');
 
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))->count();
         $activeCommercials = Commercial::where('is_active', true)->count();

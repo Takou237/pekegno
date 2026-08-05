@@ -14,7 +14,7 @@ class ServicePolicy
     {
         return in_array($user->role?->name, [
             'super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement',
-            'commercial', 'caissier', 'comptable', 'formateur',
+            'commercial', 'caissier', 'comptable', 'formateur', 'client',
         ]);
     }
 
@@ -22,7 +22,7 @@ class ServicePolicy
     {
         return in_array($user->role?->name, [
             'super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement',
-            'commercial', 'caissier', 'comptable', 'formateur',
+            'commercial', 'caissier', 'comptable', 'formateur', 'client',
         ]);
     }
 

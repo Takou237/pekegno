@@ -62,6 +62,7 @@ class InvoiceController extends Controller
         )->first();
 
         $advances = (clone $base)
+            ->whereIn('status', ['unpaid', 'partial'])
             ->join('invoice_payments', 'invoice_payments.invoice_id', '=', 'invoices.id')
             ->where('invoice_payments.is_advance', true)
             ->sum('invoice_payments.amount');

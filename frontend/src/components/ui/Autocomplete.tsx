@@ -77,7 +77,8 @@ export function Autocomplete({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!String(inputValue ?? '').trim()) {
+    const q = String(inputValue ?? '').trim();
+    if (!q || (selectedLabel !== '' && inputValue === selectedLabel)) {
       setOptions([]);
       setIsOpen(false);
       return;
@@ -86,7 +87,7 @@ export function Autocomplete({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [inputValue, search]);
+  }, [inputValue, selectedLabel, search]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
