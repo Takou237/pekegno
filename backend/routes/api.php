@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AgencyController;
 use App\Http\Controllers\Api\Auth\ChangePasswordController;
 use App\Http\Controllers\Api\Auth\DeleteAccountController;
@@ -15,8 +16,8 @@ use App\Http\Controllers\Api\CommercialController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\InvoiceController;
-use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ServiceController;
@@ -98,11 +99,15 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::get('/exports/clients', [ExportController::class, 'clients'])->middleware('permission:clients.exporter');
     Route::get('/exports/commercials', [ExportController::class, 'commercials'])->middleware('permission:commercials.exporter');
     Route::get('/exports/invoices', [ExportController::class, 'invoices'])->middleware('permission:invoices.exporter');
+    Route::get('/exports/activity-logs', [ExportController::class, 'activityLogs'])->middleware('permission:activity-logs.exporter');
+
+    Route::get('/activity-logs', [ActivityLogController::class, 'index'])->middleware('permission:activity-logs.consulter');
 
     Route::get('/settings', [SettingController::class, 'index'])->middleware('permission:settings.modifier');
     Route::put('/settings', [SettingController::class, 'update'])->middleware('permission:settings.modifier');
 
     Route::get('/stats/overview', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
+    Route::get('/stats/agency/{agency}', [StatsController::class, 'agency'])->middleware('permission:stats.consulter');
     Route::get('/stats/monthly-revenue', [StatsController::class, 'monthlyRevenue'])->middleware('permission:stats.consulter');
     Route::get('/stats/top-commercials', [StatsController::class, 'topCommercials'])->middleware('permission:stats.consulter');
     Route::get('/stats/sales-by-category', [StatsController::class, 'salesByCategory'])->middleware('permission:stats.consulter');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Agency;
 use App\Models\Commercial;
 use App\Models\Invoice;
@@ -268,6 +269,52 @@ class ExportController extends Controller
         return $this->stream(
             'factures.csv',
             ['N°', 'Date', 'Agence', 'N° client', 'Client', 'Commercial', 'Montant', 'Payé', 'Statut', 'Paiement'],
+            $rows
+        );
+    }
+
+    #[OA\Get(
+        path: '/api/exports/activity-logs',
+        summary: 'Exporter le journal d\'activité en CSV',
+        tags: ['Exports'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'from', in: 'query', description: 'Date début (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'to', in: 'query', description: 'Date fin (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Fichier CSV'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
+        ]
+    )]
+    public function activityLogs(Request $request): StreamedResponse
+    {
+        $query = ActivityLog::query()
+            ->with('user:id,first_name,last_name,email', 'agency:id,name,code');
+
+        if ($request->from) {
+            $query->whereDate('created_at', '>=', $request->from);
+        }
+        if ($request->to) {
+            $query->whereDate('created_at', '<=', $request->to);
+        }
+
+        $rows = $query->orderByDesc('created_at')->get()
+            ->map(fn (ActivityLog $l) => [
+                $l->created_at?->format('Y-m-d H:i:s'),
+                $l->user ? $l->user->first_name.' '.$l->user->last_name : '',
+                $l->user?->email ?? '',
+                $l->agency?->name ?? '',
+                $l->action,
+                $l->entity_type,
+                $l->entity_id ?? '',
+                $l->description ?? '',
+                $l->ip_address ?? '',
+            ]);
+
+        return $this->stream(
+            'activite.csv',
+            ['Date', 'Utilisateur', 'Email', 'Agence', 'Action', 'Entité', 'ID entité', 'Description', 'IP'],
             $rows
         );
     }

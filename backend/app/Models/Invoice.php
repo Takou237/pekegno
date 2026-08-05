@@ -86,6 +86,27 @@ class Invoice extends Model
     }
 
     /**
+     * Snapshot des informations d'agence pour l'impression (choix plan §4.8 : jointure + accesseur).
+     */
+    public function getAgencySnapshotAttribute(): ?array
+    {
+        $agency = $this->agency;
+
+        if (! $agency) {
+            return null;
+        }
+
+        return [
+            'name' => $agency->name,
+            'code' => $agency->code,
+            'city' => $agency->city,
+            'address' => $agency->address,
+            'phone' => $agency->phone,
+            'email' => $agency->email,
+        ];
+    }
+
+    /**
      * Déduit le statut de amount_paid vs total_amount (règle métier du plan §2.4).
      */
     public function refreshStatus(): void

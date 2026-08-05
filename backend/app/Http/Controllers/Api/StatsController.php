@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Agency;
 use App\Models\Commercial;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -58,6 +59,71 @@ class StatsController extends Controller
             'invoices_paid' => $paidCount,
             'clients_total' => $clientCount,
             'commercials_active' => $activeCommercials,
+        ]);
+    }
+
+    #[OA\Get(
+        path: '/api/stats/agency/{agency}',
+        summary: 'Indicateurs d\'une agence (CA, ventes, top commerciaux)',
+        tags: ['Statistiques'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'from', in: 'query', description: 'Date début (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'to', in: 'query', description: 'Date fin (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Indicateurs de l\'agence'),
+        ]
+    )]
+    public function agency(Agency $agency, Request $request): JsonResponse
+    {
+        $from = $request->date('from') ?? Carbon::now()->startOfMonth();
+        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+
+        $invoices = Invoice::where('agency_id', $agency->id)
+            ->whereBetween('invoice_date', [$from, $to])
+            ->whereNull('cancelled_at');
+
+        $revenue = (clone $invoices)->where('status', 'paid')->sum('total_amount');
+        $salesCount = (clone $invoices)->count();
+        $outstanding = (clone $invoices)
+            ->whereIn('status', ['unpaid', 'partial'])
+            ->get(['total_amount', 'amount_paid'])
+            ->sum(fn (Invoice $i) => $i->balance_due);
+
+        $top = (clone $invoices)
+            ->where('status', 'paid')
+            ->selectRaw('commercial_id, sum(total_amount) as turnover, count(*) as sales')
+            ->whereNotNull('commercial_id')
+            ->groupBy('commercial_id')
+            ->orderByDesc('turnover')
+            ->limit(5)
+            ->get()
+            ->map(function ($row) {
+                $commercial = Commercial::find($row->commercial_id);
+
+                return [
+                    'id' => $row->commercial_id,
+                    'full_name' => $commercial?->full_name ?? 'Supprimé',
+                    'turnover' => (float) $row->turnover,
+                    'sales_count' => (int) $row->sales,
+                ];
+            });
+
+        return response()->json([
+            'agency' => [
+                'id' => $agency->id,
+                'name' => $agency->name,
+            ],
+            'period' => [
+                'from' => $from->toISOString(),
+                'to' => $to->toISOString(),
+            ],
+            'revenue' => (float) $revenue,
+            'outstanding' => (float) $outstanding,
+            'sales_count' => $salesCount,
+            'top_commercials' => $top,
         ]);
     }
 
