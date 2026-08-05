@@ -1,12 +1,25 @@
 import { client } from './client';
 
-const FILENAMES: Record<string, string> = {
+export type ExportKind =
+  | 'agencies'
+  | 'users'
+  | 'services'
+  | 'clients'
+  | 'commercials'
+  | 'invoices'
+  | 'activity-logs';
+
+const FILENAMES: Record<ExportKind, string> = {
   agencies: 'agences.csv',
   users: 'utilisateurs.csv',
   services: 'services.csv',
+  clients: 'clients.csv',
+  commercials: 'commerciaux.csv',
+  invoices: 'factures.csv',
+  'activity-logs': 'journal-activite.csv',
 };
 
-export async function downloadExport(kind: 'agencies' | 'users' | 'services'): Promise<void> {
+export async function downloadExport(kind: ExportKind): Promise<void> {
   const { data } = await client.get<Blob>(`/exports/${kind}`, { responseType: 'blob' });
   const url = URL.createObjectURL(data);
   const anchor = document.createElement('a');

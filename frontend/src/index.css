@@ -45,3 +45,23 @@
     @apply bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100;
   }
 }
+
+/* Impression facture : seuls les éléments de #invoice-print sont visibles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #invoice-print,
+  #invoice-print * {
+    visibility: visible;
+  }
+  #invoice-print {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: #fff;
+  }
+}
+

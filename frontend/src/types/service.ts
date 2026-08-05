@@ -4,7 +4,10 @@ import type { Category } from '@/types/category';
 export interface Promotion {
   id: string;
   service_id: string;
-  promo_price: string;
+  type?: 'amount' | 'percent';
+  promo_price: string | null;
+  discount_percent: string | null;
+  effective_price?: string | null;
   start_date: string;
   end_date: string;
   is_active: boolean;
@@ -34,6 +37,15 @@ export interface Service {
   agency?: Agency | null;
   promotions?: Promotion[];
   price_history?: PriceHistoryEntry[];
+}
+
+export interface ServiceSearchItem {
+  id: string;
+  name: string;
+  price: string;
+  effective_price: string;
+  has_promotion: boolean;
+  category: string | null;
 }
 
 export interface ServicePayload {

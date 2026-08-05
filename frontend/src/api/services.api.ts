@@ -1,6 +1,6 @@
 import { client } from './client';
 import type { PaginatedResponse } from '@/types/agency';
-import type { Service, ServiceListParams, ServicePayload } from '@/types/service';
+import type { Service, ServiceListParams, ServicePayload, ServiceSearchItem } from '@/types/service';
 
 export const servicesApi = {
   async list(params: ServiceListParams = {}): Promise<PaginatedResponse<Service>> {
@@ -41,5 +41,10 @@ export const servicesApi = {
 
   async forceDelete(id: string): Promise<void> {
     await client.delete(`/services/${id}/force-delete`);
+  },
+
+  async search(q: string): Promise<ServiceSearchItem[]> {
+    const { data } = await client.get<ServiceSearchItem[]>('/services/search', { params: { q } });
+    return data;
   },
 };

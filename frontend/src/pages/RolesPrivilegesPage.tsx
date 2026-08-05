@@ -265,13 +265,17 @@ export default function RolesPrivilegesPage() {
                 <th className="px-5 py-3 text-left font-medium text-gray-500">
                   {t('privileges.colRole')}
                 </th>
-                {permissions.map((permission) => (
-                  <th key={permission.id} className="px-3 py-3 text-center font-medium text-gray-500">
-                    <span className="text-xs uppercase">
-                      {t(PERMISSION_KEYS[permission.name] ?? '', { defaultValue: permission.label || permission.name })}
-                    </span>
-                  </th>
-                ))}
+                {permissions.map((permission) => {
+                  const action = permission.name.split('.').pop() ?? '';
+                  const label = t(PERMISSION_KEYS[action] ?? '', {
+                    defaultValue: permission.name,
+                  });
+                  return (
+                    <th key={permission.id} className="px-3 py-3 text-center font-medium text-gray-500">
+                      <span className="text-xs uppercase">{label}</span>
+                    </th>
+                  );
+                })}
                 {canManage && (
                   <th className="px-5 py-3 text-right font-medium text-gray-500">
                     {t('common.actions')}

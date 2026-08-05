@@ -8,6 +8,8 @@ import {
   Package,
   Users,
   Settings,
+  Briefcase,
+  FileText,
 } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -22,6 +24,8 @@ function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
     { to: '', label: t('nav.overview'), icon: LayoutDashboard, end: true },
     { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
     { to: 'services', label: t('nav.services'), icon: Package, end: false },
+    { to: 'commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
+    { to: 'invoices', label: t('nav.invoices'), icon: FileText, end: false },
     { to: 'teams', label: t('nav.teams'), icon: Users, end: false },
     { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
   ];

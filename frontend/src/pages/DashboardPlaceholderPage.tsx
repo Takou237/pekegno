@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, FolderTree, Users, Mail, Phone, BadgeInfo, ArrowRight } from 'lucide-react';
+import { Building2, FolderTree, Users, Mail, Phone, BadgeInfo, ArrowRight, TrendingUp, Wallet, HandCoins, Clock, Trophy, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { client } from '@/api/client';
+import { statsApi } from '@/api/stats.api';
 import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
+import { currentLocale } from '@/i18n';
 import type { Agency } from '@/types/agency';
+import type { DashboardStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, AgencyStats } from '@/types/stats';
 
 const ADMIN_ROLES = ['super-admin', 'direction-generale'];
 
@@ -24,30 +27,157 @@ function roleBadge(roleName: string | null | undefined, t: (key: string, opts?: 
   }
 }
 
+function formatCurrency(value: number | string | null | undefined): string {
+  const n = Number(value ?? 0);
+  return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
+}
+
+function StatCard({
+  label,
+  value,
+  icon,
+  tone,
+  sub,
+}: {
+  label: string;
+  value: string;
+  icon: ReactNode;
+  tone: string;
+  sub?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex items-center gap-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+          <p className="truncate text-sm text-gray-500 dark:text-gray-400">{label}</p>
+          {sub && <p className="truncate text-xs text-gray-400">{sub}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MonthlyRevenueChart({ data }: { data: MonthlyRevenuePoint[] }) {
+  const { t } = useTranslation();
+  const max = Math.max(1, ...data.map((d) => d.revenue));
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+      <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+        {t('dashboard.monthlyRevenue')}
+      </h2>
+      {data.length === 0 ? (
+        <p className="text-sm text-gray-400">{t('dashboard.noData')}</p>
+      ) : (
+        <div className="flex h-48 items-end gap-2">
+          {data.map((d) => (
+            <div key={d.month} className="group flex flex-1 flex-col items-center gap-1">
+              <span className="text-[10px] font-medium text-gray-400 opacity-0 transition group-hover:opacity-100">
+                {formatCurrency(d.revenue)}
+              </span>
+              <div
+                className="w-full rounded-t-md bg-brand-500/80 transition group-hover:bg-brand-500 dark:bg-brand-500/40"
+                style={{ height: `${Math.max(2, (d.revenue / max) * 100)}%` }}
+              />
+              <span className="truncate text-[10px] text-gray-400">{d.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminDashboard() {
   const { t } = useTranslation();
-  const [stats, setStats] = useState<{ agencies: number; departments: number; users: number } | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [monthly, setMonthly] = useState<MonthlyRevenuePoint[]>([]);
+  const [categories, setCategories] = useState<CategorySales[]>([]);
+  const [payments, setPayments] = useState<PaymentMethodStat[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+    setLoading(true);
     Promise.all([
-      client.get('/agencies', { params: { per_page: 1 } }),
-      client.get('/departments', { params: { per_page: 1 } }),
-      client.get('/users', { params: { per_page: 1 } }),
+      statsApi.dashboard(),
+      statsApi.monthlyRevenue({ months: 12 }),
+      statsApi.salesByCategory(),
+      statsApi.paymentMethods(),
       client.get('/agencies', { params: { per_page: 12, sort_by: 'created_at', sort_order: 'desc' } }),
-    ]).then(([a, d, u, al]) => {
-      setStats({
-        agencies: a.data.meta?.total ?? 0,
-        departments: d.data.meta?.total ?? 0,
-        users: u.data.meta?.total ?? 0,
+    ])
+      .then(([d, m, c, pm, al]) => {
+        if (!active) return;
+        setStats(d);
+        setMonthly(m);
+        setCategories(c);
+        setPayments(pm);
+        setAgencies(al.data.data ?? []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoading(false);
       });
-      setAgencies(al.data.data ?? []);
-    }).catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Spinner />
+      </div>
+    );
+  }
+
+  const totalMethods = payments.reduce((sum, p) => sum + p.total, 0);
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
+        {stats && (
+          <span className="text-sm text-gray-400">
+            {t('dashboard.thisPeriod')} :{' '}
+            {new Date(stats.period.from).toLocaleDateString(currentLocale())} →{' '}
+            {new Date(stats.period.to).toLocaleDateString(currentLocale())}
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label={t('dashboard.revenue')}
+          value={formatCurrency(stats?.revenue ?? 0)}
+          icon={<TrendingUp className="h-5 w-5" />}
+          tone="bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
+        />
+        <StatCard
+          label={t('dashboard.paymentsTotal')}
+          value={formatCurrency(stats?.payments_total ?? 0)}
+          icon={<Wallet className="h-5 w-5" />}
+          tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
+        />
+        <StatCard
+          label={t('dashboard.advancesTotal')}
+          value={formatCurrency(stats?.advances_total ?? 0)}
+          icon={<HandCoins className="h-5 w-5" />}
+          tone="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"
+        />
+        <StatCard
+          label={t('dashboard.outstanding')}
+          value={formatCurrency(stats?.outstanding ?? 0)}
+          icon={<Clock className="h-5 w-5" />}
+          tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+          sub={t('dashboard.invoicesUnpaid')}
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link to="/agencies" className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -56,7 +186,7 @@ function AdminDashboard() {
               <Building2 className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.agencies ?? '—'}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.agencies_total ?? '—'}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.agencies')}</p>
             </div>
           </div>
@@ -67,22 +197,140 @@ function AdminDashboard() {
               <FolderTree className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.departments ?? '—'}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.departments_total ?? '—'}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.departments')}</p>
             </div>
           </div>
         </Link>
-          <Link to="/users" className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <Link to="/users" className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.users ?? '—'}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.users_total ?? '—'}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.users')}</p>
             </div>
           </div>
-          </Link>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <MonthlyRevenueChart data={monthly} />
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+            {t('dashboard.paymentMethods')}
+          </h2>
+          {payments.length === 0 ? (
+            <p className="text-sm text-gray-400">{t('dashboard.noData')}</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {payments.map((p) => (
+                <div key={p.method}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-300">{p.method}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-100">
+                      {formatCurrency(p.total)}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div
+                      className="h-full rounded-full bg-brand-500/80"
+                      style={{ width: `${totalMethods > 0 ? (p.total / totalMethods) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <p className="mt-0.5 text-xs text-gray-400">
+                    {p.count} {t('dashboard.invoices')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+            {t('dashboard.salesByCategory')}
+          </h2>
+          {categories.length === 0 ? (
+            <p className="text-sm text-gray-400">{t('dashboard.noData')}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                  <tr>
+                    <th className="pb-2 pr-4 font-medium">{t('dashboard.category')}</th>
+                    <th className="pb-2 pr-4 font-medium">{t('dashboard.items')}</th>
+                    <th className="pb-2 text-right font-medium">{t('dashboard.revenue')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {categories.map((c) => (
+                    <tr key={c.category}>
+                      <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{c.category}</td>
+                      <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.items}</td>
+                      <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
+                        {formatCurrency(c.revenue)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+              {t('dashboard.topCommercials')}
+            </h2>
+            <Link
+              to="/commercials"
+              className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+            >
+              {t('dashboard.viewAllAgencies')}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          {stats?.top_commercials?.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                  <tr>
+                    <th className="pb-2 pr-4 font-medium">{t('dashboard.commercials')}</th>
+                    <th className="pb-2 pr-4 font-medium">
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="h-3 w-3" />
+                        {t('commercials.colPoints')}
+                      </span>
+                    </th>
+                    <th className="pb-2 text-right font-medium">{t('dashboard.revenue')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {stats.top_commercials.map((c) => (
+                    <tr key={c.id}>
+                      <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
+                        {[c.first_name, c.last_name].filter(Boolean).join(' ')}
+                      </td>
+                      <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.points_balance}</td>
+                      <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
+                        {formatCurrency(c.revenue)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">{t('dashboard.noData')}</p>
+          )}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
@@ -135,12 +383,23 @@ function AgencyChiefDashboard() {
   const { user } = useAuth();
   const assignments = user?.assignments?.filter((a: any) => a.pivot?.is_primary === true) ?? [];
   const [agency, setAgency] = useState<Agency | null>(null);
+  const [agencyStats, setAgencyStats] = useState<AgencyStats | null>(null);
+  const [monthly, setMonthly] = useState<MonthlyRevenuePoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (assignments.length === 0) { setLoading(false); return; }
-    client.get(`/agencies/${assignments[0].id}`)
-      .then(({ data }) => setAgency(data.data ?? data))
+    const agencyId = assignments[0].id;
+    Promise.all([
+      client.get(`/agencies/${agencyId}`),
+      statsApi.agency(agencyId),
+      statsApi.monthlyRevenue({ months: 12 }),
+    ])
+      .then(([a, s, m]) => {
+        setAgency(a.data.data ?? a.data);
+        setAgencyStats(s);
+        setMonthly(m);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [assignments]);
@@ -159,6 +418,72 @@ function AgencyChiefDashboard() {
           {agency.code}
         </span>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label={t('dashboard.revenue')}
+          value={formatCurrency(agencyStats?.revenue ?? 0)}
+          icon={<TrendingUp className="h-5 w-5" />}
+          tone="bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
+        />
+        <StatCard
+          label={t('dashboard.salesCount')}
+          value={String(agencyStats?.sales_count ?? 0)}
+          icon={<HandCoins className="h-5 w-5" />}
+          tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
+        />
+        <StatCard
+          label={t('dashboard.outstanding')}
+          value={formatCurrency(agencyStats?.outstanding ?? 0)}
+          icon={<Clock className="h-5 w-5" />}
+          tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+        />
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
+              <Trophy className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {agencyStats?.top_commercials?.length ?? 0}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.topCommercials')}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <MonthlyRevenueChart data={monthly} />
+
+      {agencyStats && agencyStats.top_commercials.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+            {t('dashboard.topCommercials')}
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="pb-2 pr-4 font-medium">{t('dashboard.commercials')}</th>
+                  <th className="pb-2 pr-4 font-medium">{t('dashboard.salesCount')}</th>
+                  <th className="pb-2 text-right font-medium">{t('dashboard.revenue')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {agencyStats.top_commercials.map((c) => (
+                  <tr key={c.id}>
+                    <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{c.full_name}</td>
+                    <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.sales_count}</td>
+                    <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
+                      {formatCurrency(c.turnover)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link to={`/departments?agency_id=${agency.id}`} className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">

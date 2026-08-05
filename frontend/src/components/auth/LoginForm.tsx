@@ -81,6 +81,16 @@ export function LoginForm() {
       <Button type="submit" isLoading={isSubmitting} fullWidth>
         {t('auth.signIn')}
       </Button>
+
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('auth.noAccount')}</p>
+        <Link
+          to="/register"
+          className="text-sm font-semibold text-brand-600 hover:underline dark:text-brand-400"
+        >
+          {t('auth.createAccount')}
+        </Link>
+      </div>
     </form>
   );
 }

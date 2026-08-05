@@ -18,7 +18,7 @@ import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { Agency } from '@/types/agency';
 import type { Service } from '@/types/service';
-import type { Promotion, PromotionPayload } from '@/types/promotion';
+import type { Promotion, PromotionPayload, PromotionType } from '@/types/promotion';
 
 interface AgencyLayoutContext {
   agency: Agency | null;
@@ -55,7 +55,9 @@ export default function AgencyPromotionsPage() {
   const [editing, setEditing] = useState<Promotion | null>(null);
   const [form, setForm] = useState<PromotionPayload & { service_id: string }>({
     service_id: '',
+    type: 'amount',
     promo_price: '',
+    discount_percent: '',
     start_date: '',
     end_date: '',
   });
@@ -94,7 +96,7 @@ export default function AgencyPromotionsPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ service_id: '', promo_price: '', start_date: '', end_date: '' });
+    setForm({ service_id: '', type: 'amount', promo_price: '', discount_percent: '', start_date: '', end_date: '' });
     setFormErrors({});
     setFormOpen(true);
   }
@@ -103,7 +105,9 @@ export default function AgencyPromotionsPage() {
     setEditing(promotion);
     setForm({
       service_id: promotion.service_id,
-      promo_price: promotion.promo_price,
+      type: promotion.type,
+      promo_price: promotion.promo_price ?? '',
+      discount_percent: promotion.discount_percent ?? '',
       start_date: toDateInput(promotion.start_date),
       end_date: toDateInput(promotion.end_date),
     });
@@ -117,7 +121,9 @@ export default function AgencyPromotionsPage() {
     setIsSubmitting(true);
     try {
       const payload: PromotionPayload = {
-        promo_price: form.promo_price,
+        type: form.type,
+        promo_price: form.type === 'amount' ? form.promo_price : null,
+        discount_percent: form.type === 'percent' ? form.discount_percent : null,
         start_date: form.start_date,
         end_date: form.end_date,
       };
@@ -209,8 +215,17 @@ export default function AgencyPromotionsPage() {
                           {promotion.service?.name ?? '—'}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-gray-800 dark:text-gray-100">
-                        {formatPrice(promotion.promo_price)}
+                      <td className="px-5 py-3">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-800 dark:text-gray-100">
+                            {formatPrice(promotion.effective_price ?? '0')}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {promotion.type === 'percent'
+                              ? `${promotion.discount_percent}%`
+                              : formatPrice(promotion.promo_price ?? '0')}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                         {new Date(promotion.start_date).toLocaleDateString(currentLocale())}
@@ -296,17 +311,43 @@ export default function AgencyPromotionsPage() {
             </div>
           )}
 
-          <Input
-            label={t('promotions.price')}
+          <Select
+            label={t('promotions.type')}
             required
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.promo_price}
-            onChange={(e) => setForm((p) => ({ ...p, promo_price: e.target.value }))}
-            error={formErrors.promo_price}
-            placeholder="0.00"
-          />
+            value={form.type}
+            onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as PromotionType }))}
+            error={formErrors.type}
+          >
+            <option value="amount">{t('promotions.typeAmount')}</option>
+            <option value="percent">{t('promotions.typePercent')}</option>
+          </Select>
+
+          {form.type === 'amount' ? (
+            <Input
+              label={t('promotions.price')}
+              required
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.promo_price ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, promo_price: e.target.value }))}
+              error={formErrors.promo_price}
+              placeholder="0.00"
+            />
+          ) : (
+            <Input
+              label={t('promotions.discountPercent')}
+              required
+              type="number"
+              step="0.01"
+              min="0.01"
+              max="100"
+              value={form.discount_percent ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, discount_percent: e.target.value }))}
+              error={formErrors.discount_percent}
+              placeholder="20"
+            />
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input

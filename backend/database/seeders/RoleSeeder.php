@@ -11,15 +11,15 @@ class RoleSeeder extends Seeder
     public function run(): void
     {
         $roles = [
-            ['name' => 'super-admin', 'description' => 'Super Administrateur'],
-            ['name' => 'direction-generale', 'description' => 'Direction Générale'],
-            ['name' => 'responsable-agence', 'description' => 'Responsable Agence'],
-            ['name' => 'responsable-departement', 'description' => 'Responsable Département'],
-            ['name' => 'commercial', 'description' => 'Commercial'],
-            ['name' => 'caissier', 'description' => 'Caissier'],
-            ['name' => 'comptable', 'description' => 'Comptable'],
-            ['name' => 'formateur', 'description' => 'Formateur'],
-            ['name' => 'client', 'description' => 'Client'],
+            ['name' => 'super-admin', 'description' => 'Accès complet à l\'ensemble de l\'application'],
+            ['name' => 'direction-generale', 'description' => 'Pilote toutes les agences, les équipes et la comptabilité'],
+            ['name' => 'responsable-agence', 'description' => 'Gère une agence, ses commerciaux, factures et promotions'],
+            ['name' => 'responsable-departement', 'description' => 'Gère un département et ses équipes'],
+            ['name' => 'commercial', 'description' => 'Suit sa clientèle, crée des factures et gagne des points'],
+            ['name' => 'caissier', 'description' => 'Encaisse les paiements et édite les factures'],
+            ['name' => 'comptable', 'description' => 'Consulte et exporte les factures et la comptabilité'],
+            ['name' => 'formateur', 'description' => 'Consulte le catalogue de services et les promotions'],
+            ['name' => 'client', 'description' => 'Compte client enregistré lors de l\'inscription en ligne'],
         ];
 
         foreach ($roles as $role) {

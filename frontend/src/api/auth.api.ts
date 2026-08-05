@@ -12,10 +12,17 @@ import type {
   TwoFactorLoginPayload,
   User,
 } from '@/types/auth';
+import type { RegisterPayload } from '@/types/client';
 
 export const authApi = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     const { data } = await client.post<LoginResponse>('/auth/login', credentials);
+    return data;
+  },
+
+  /** POST /auth/register — inscription publique du client (rôle client). */
+  async register(payload: RegisterPayload): Promise<ApiMessageResponse> {
+    const { data } = await client.post<ApiMessageResponse>('/auth/register', payload);
     return data;
   },
 

@@ -42,16 +42,18 @@ export function Autocomplete({
 
   const search = useCallback(
     async (query: string) => {
-      if (!query.trim()) {
+      const q = String(query ?? '').trim();
+      if (!q) {
         setOptions([]);
         setIsOpen(false);
         return;
       }
       setIsLoading(true);
       try {
-        const result = await fetchOptions(query.trim());
-        setOptions(result);
-        setIsOpen(result.length > 0);
+        const result = await fetchOptions(q);
+        const list = Array.isArray(result) ? result : [];
+        setOptions(list);
+        setIsOpen(list.length > 0);
         setHighlightedIndex(-1);
       } catch {
         setOptions([]);
@@ -64,16 +66,18 @@ export function Autocomplete({
 
   useEffect(() => {
     if (value && !selectedLabel) {
-      fetchOptions('').then((all) => {
-        const found = all.find((o) => o.id === value);
-        if (found) setSelectedLabel(found.label);
-      });
+      fetchOptions('')
+        .then((all) => {
+          const found = (Array.isArray(all) ? all : []).find((o) => o.id === value);
+          if (found) setSelectedLabel(found.label);
+        })
+        .catch(() => {});
     }
   }, [value, selectedLabel, fetchOptions]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!inputValue.trim()) {
+    if (!String(inputValue ?? '').trim()) {
       setOptions([]);
       setIsOpen(false);
       return;
