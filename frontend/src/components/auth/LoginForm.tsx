@@ -26,7 +26,13 @@ export function LoginForm() {
 
     try {
       const result = await login({ email, password });
-      navigate(result.requiresTwoFactor ? '/two-factor' : '/', { replace: true });
+      // Sans 2FA, c'est GuestRoute qui redirige via <Navigate> dès que la
+      // session est posée. On évite ici une double navigation simultanée
+      // (impérative + <Navigate>) qui fait échouer la réconciliation React
+      // avec un "insertBefore ... not a child of this node".
+      if (result.requiresTwoFactor) {
+        navigate('/two-factor', { replace: true });
+      }
     } catch (error) {
       setFormError(extractErrorMessage(error, t('auth.loginFailed')));
       setFieldErrors(extractFieldErrors(error));

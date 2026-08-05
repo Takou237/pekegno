@@ -1,5 +1,4 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { extractErrorMessage } from '@/api/errors';
@@ -11,7 +10,6 @@ const CODE_LENGTH = 6;
 export function TwoFactorForm() {
   const { t } = useTranslation();
   const { verifyTwoFactor, pendingTwoFactorToken } = useAuth();
-  const navigate = useNavigate();
 
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,8 +47,10 @@ export function TwoFactorForm() {
 
     setIsSubmitting(true);
     try {
+      // La redirection vers "/" est gérée par GuestRoute (<Navigate>) dès que
+      // la session est posée. Éviter la double navigation impérative ici
+      // empêche l'erreur React "insertBefore ... not a child of this node".
       await verifyTwoFactor(code);
-      navigate('/', { replace: true });
     } catch (error) {
       setFormError(extractErrorMessage(error, t('auth.twoFactorInvalid')));
     } finally {
