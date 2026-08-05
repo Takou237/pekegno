@@ -33,6 +33,9 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  const commercialPath = (cId: string) =>
+    fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials/${cId}` : `/commercials/${cId}`;
+
   const [commercials, setCommercials] = useState<Commercial[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -304,7 +307,7 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
                     <td className="px-5 py-3">
                       <button
                         type="button"
-                        onClick={() => navigate(`/commercials/${c.id}`)}
+                        onClick={() => navigate(commercialPath(c.id))}
                         className="font-medium text-gray-800 hover:text-brand-600 dark:text-gray-100"
                       >
                         {[c.first_name, c.last_name].filter(Boolean).join(' ')}
@@ -333,7 +336,7 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
                       <div className="flex justify-end gap-1.5">
                         <button
                           type="button"
-                          onClick={() => navigate(`/commercials/${c.id}`)}
+                          onClick={() => navigate(commercialPath(c.id))}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
                           title={t('commercials.viewDetail')}
                         >

@@ -9,6 +9,7 @@ function formatCurrency(value: number): string {
 export function MonthlyRevenueChart({ data }: { data: MonthlyRevenuePoint[] }) {
   const { t } = useTranslation();
   const max = Math.max(1, ...data.map((d) => d.revenue));
+  const barMaxHeight = 150;
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
@@ -20,13 +21,13 @@ export function MonthlyRevenueChart({ data }: { data: MonthlyRevenuePoint[] }) {
       ) : (
         <div className="flex h-48 items-end gap-2">
           {data.map((d) => (
-            <div key={d.month} className="group flex flex-1 flex-col items-center gap-1">
+            <div key={d.month} className="group flex h-48 flex-1 flex-col items-center justify-end gap-1">
               <span className="text-[10px] font-medium text-gray-400 opacity-0 transition group-hover:opacity-100">
                 {formatCurrency(d.revenue)}
               </span>
               <div
                 className="w-full rounded-t-md bg-brand-500/80 transition group-hover:bg-brand-500 dark:bg-brand-500/40"
-                style={{ height: `${Math.max(2, (d.revenue / max) * 100)}%` }}
+                style={{ height: `${Math.max(3, Math.round((d.revenue / max) * barMaxHeight))}px` }}
               />
               <span className="truncate text-[10px] text-gray-400">{d.label}</span>
             </div>

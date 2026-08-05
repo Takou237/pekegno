@@ -9,8 +9,6 @@ import {
   MapPin,
   Phone,
   Mail,
-  AlertTriangle,
-  ImageOff,
   ArrowRight,
   TrendingUp,
   Wallet,
@@ -122,17 +120,6 @@ export default function AgencyOverviewPage() {
       color: 'text-amber-600 dark:text-amber-400',
       bg: 'bg-amber-50 dark:bg-amber-500/10',
     },
-  ];
-
-  const coversMissing = latestServices.filter((service) => !service.cover_image);
-  const alerts = [
-    ...coversMissing.map((service) => ({
-      key: `cover-${service.id}`,
-      to: `/agencies/${agency.id}/services`,
-      from: `/agencies/${agency.id}`,
-      icon: ImageOff,
-      text: `${t('agencies.overviewServiceNoCover')} : ${service.name}`,
-    })),
   ];
 
   return (
@@ -334,31 +321,6 @@ export default function AgencyOverviewPage() {
               );
             })}
           </div>
-        )}
-      </div>
-
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-          {t('agencies.overviewAlerts')}
-        </h2>
-        {alerts.length === 0 ? (
-          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">{t('agencies.overviewNoAlerts')}</p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-2">
-            {alerts.map(({ key, to, from, icon: Icon, text }) => (
-              <li key={key}>
-                <Link
-                  to={to}
-                  state={{ from }}
-                  className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-brand-500/10"
-                >
-                  <Icon className="h-4 w-4 shrink-0 text-amber-500" />
-                  <span className="truncate">{text}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
         )}
       </div>
     </div>

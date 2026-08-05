@@ -24,12 +24,14 @@ function formatCurrency(value: number | string | null | undefined): string {
   return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
 }
 
-export default function CommercialDetailPage() {
+export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { id = '' } = useParams();
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  const backTo = fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials` : '/commercials';
 
   const [commercial, setCommercial] = useState<Commercial | null>(null);
   const [stats, setStats] = useState<CommercialStats | null>(null);
@@ -152,7 +154,7 @@ export default function CommercialDetailPage() {
     return (
       <div className="flex flex-col gap-4">
         <Link
-          to="/commercials"
+          to={backTo}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -167,7 +169,7 @@ export default function CommercialDetailPage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to="/commercials"
+          to={backTo}
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -204,7 +206,16 @@ export default function CommercialDetailPage() {
                 {t('common.edit')}
               </Button>
             )}
-            <Button variant="outline" onClick={() => navigate(`/invoices?commercial_id=${id}`)}>
+            <Button
+              variant="outline"
+              onClick={() =>
+                navigate(
+                  fixedAgencyId
+                    ? `/agencies/${fixedAgencyId}/invoices?commercial_id=${id}`
+                    : `/invoices?commercial_id=${id}`
+                )
+              }
+            >
               <FileText className="h-4 w-4" />
               {t('commercials.viewInvoices')}
             </Button>
