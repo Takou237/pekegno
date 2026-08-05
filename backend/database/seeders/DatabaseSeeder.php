@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             AgencySeeder::class,
             UserSeeder::class,
             CatalogSeeder::class,
+            SettingSeeder::class,
         ]);
     }
 }
