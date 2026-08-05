@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserAssignmentController;
 use App\Http\Controllers\Api\UserController;
@@ -90,9 +92,21 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::put('/promotions/{promotion}', [PromotionController::class, 'update'])->middleware('permission:promotions.modifier');
     Route::delete('/promotions/{promotion}', [PromotionController::class, 'destroy'])->middleware('permission:promotions.supprimer');
 
-    Route::get('/exports/agencies', [ExportController::class, 'agencies']);
-    Route::get('/exports/users', [ExportController::class, 'users']);
-    Route::get('/exports/services', [ExportController::class, 'services']);
+    Route::get('/exports/agencies', [ExportController::class, 'agencies'])->middleware('permission:agencies.exporter');
+    Route::get('/exports/users', [ExportController::class, 'users'])->middleware('permission:users.exporter');
+    Route::get('/exports/services', [ExportController::class, 'services'])->middleware('permission:services.exporter');
+    Route::get('/exports/clients', [ExportController::class, 'clients'])->middleware('permission:clients.exporter');
+    Route::get('/exports/commercials', [ExportController::class, 'commercials'])->middleware('permission:commercials.exporter');
+    Route::get('/exports/invoices', [ExportController::class, 'invoices'])->middleware('permission:invoices.exporter');
+
+    Route::get('/settings', [SettingController::class, 'index'])->middleware('permission:settings.modifier');
+    Route::put('/settings', [SettingController::class, 'update'])->middleware('permission:settings.modifier');
+
+    Route::get('/stats/overview', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
+    Route::get('/stats/monthly-revenue', [StatsController::class, 'monthlyRevenue'])->middleware('permission:stats.consulter');
+    Route::get('/stats/top-commercials', [StatsController::class, 'topCommercials'])->middleware('permission:stats.consulter');
+    Route::get('/stats/sales-by-category', [StatsController::class, 'salesByCategory'])->middleware('permission:stats.consulter');
+    Route::get('/stats/payment-methods', [StatsController::class, 'paymentMethods'])->middleware('permission:stats.consulter');
 
     Route::put('/agencies/{agency}/chief', [UserAssignmentController::class, 'assignChief']);
     Route::delete('/agencies/{agency}/chief', [UserAssignmentController::class, 'removeChief']);

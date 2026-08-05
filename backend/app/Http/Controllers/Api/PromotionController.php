@@ -8,6 +8,7 @@ use App\Http\Resources\PromotionResource;
 use App\Models\PriceHistory;
 use App\Models\Promotion;
 use App\Models\Service;
+use App\Services\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -15,6 +16,8 @@ use OpenApi\Attributes as OA;
 
 class PromotionController extends Controller
 {
+    public function __construct(private readonly ActivityLogger $logger) {}
+
     #[OA\Get(
         path: '/api/promotions',
         summary: 'Lister les promotions avec filtres',
@@ -88,6 +91,17 @@ class PromotionController extends Controller
 
         $this->recordPriceHistory($promotion);
 
+        $this->logger->log(
+            'created',
+            'promotion',
+            $promotion->id,
+            "Promotion créée sur le service {$service->name}"
+                .($promotion->type === 'percent'
+                    ? " ({$promotion->discount_percent}%)"
+                    : " ({$promotion->promo_price} FCFA)"),
+            newValues: $promotion->only(['type', 'promo_price', 'discount_percent', 'start_date', 'end_date']),
+        );
+
         return (new PromotionResource($promotion->load('service')))
             ->response()
             ->setStatusCode(201);
@@ -122,9 +136,20 @@ class PromotionController extends Controller
     )]
     public function update(StorePromotionRequest $request, Promotion $promotion): PromotionResource
     {
+        $old = $promotion->only(['type', 'promo_price', 'discount_percent', 'start_date', 'end_date']);
+
         $promotion->update($request->validated());
 
         $this->recordPriceHistory($promotion);
+
+        $this->logger->log(
+            'updated',
+            'promotion',
+            $promotion->id,
+            'Promotion modifiée',
+            oldValues: $old,
+            newValues: $promotion->only(['type', 'promo_price', 'discount_percent', 'start_date', 'end_date']),
+        );
 
         return new PromotionResource($promotion->load('service'));
     }
@@ -155,6 +180,13 @@ class PromotionController extends Controller
                 'changed_at' => now(),
             ]);
         }
+
+        $this->logger->log(
+            'deleted',
+            'promotion',
+            $promotion->id,
+            'Promotion supprimée sur le service '.($service?->name ?? '?'),
+        );
 
         return response()->json(null, 204);
     }
