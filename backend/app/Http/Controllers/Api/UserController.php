@@ -144,6 +144,15 @@ class UserController extends Controller
             return $user;
         });
 
+        $this->logger->log(
+            action: 'created',
+            entityType: 'user',
+            entityId: $user->id,
+            description: "Utilisateur {$user->first_name} {$user->last_name} créé",
+            newValues: ['email' => $user->email],
+            request: $request,
+        );
+
         return (new UserResource($user->fresh()->load('role', 'assignments')))
             ->response()
             ->setStatusCode(201);
@@ -209,17 +218,15 @@ class UserController extends Controller
 
         $user->update($validated);
 
-        if (isset($validated['role_id']) && (string) $validated['role_id'] !== (string) $oldRoleId) {
-            $this->logger->log(
-                action: 'role_changed',
-                entityType: 'user',
-                entityId: $user->id,
-                description: "Rôle de {$user->first_name} {$user->last_name} modifié",
-                oldValues: ['role_id' => $oldRoleId],
-                newValues: ['role_id' => $validated['role_id']],
-                request: $request,
-            );
-        }
+        $this->logger->log(
+            action: isset($validated['role_id']) && (string) $validated['role_id'] !== (string) $oldRoleId ? 'role_changed' : 'updated',
+            entityType: 'user',
+            entityId: $user->id,
+            description: "Utilisateur {$user->first_name} {$user->last_name} modifié",
+            oldValues: isset($validated['role_id']) ? ['role_id' => $oldRoleId] : null,
+            newValues: isset($validated['role_id']) ? ['role_id' => $validated['role_id']] : $user->getChanges(),
+            request: $request,
+        );
 
         return new UserResource($user->fresh()->load('role', 'assignments'));
     }

@@ -287,4 +287,23 @@ class Phase3Test extends TestCase
             'entity_id' => $agency->id,
         ]);
     }
+
+    public function test_agency_crud_is_logged_and_client_cannot_be_assigned(): void
+    {
+        $admin = $this->actingAsAdmin();
+
+        $agency = Agency::factory()->create();
+
+        $this->assertDatabaseHas('activity_logs', [
+            'entity_type' => 'agency',
+            'action' => 'created',
+            'entity_id' => $agency->id,
+        ]);
+
+        $client = $this->userWithRole('client');
+
+        $this->postJson("/api/agencies/{$agency->id}/users", ['user_id' => $client->id])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Ce profil ne peut pas être assigné à une agence ou un département.');
+    }
 }
