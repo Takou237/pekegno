@@ -107,6 +107,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'update.activity', 'inactiv
     Route::put('/settings', [SettingController::class, 'update'])->middleware('permission:settings.modifier');
 
     Route::get('/stats/overview', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
+    Route::get('/stats/dashboard', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
     Route::get('/stats/agency/{agency}', [StatsController::class, 'agency'])->middleware('permission:stats.consulter');
     Route::get('/stats/monthly-revenue', [StatsController::class, 'monthlyRevenue'])->middleware('permission:stats.consulter');
     Route::get('/stats/top-commercials', [StatsController::class, 'topCommercials'])->middleware('permission:stats.consulter');

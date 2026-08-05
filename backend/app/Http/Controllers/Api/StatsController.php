@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Agency;
 use App\Models\Commercial;
+use App\Models\Department;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
@@ -46,6 +47,25 @@ class StatsController extends Controller
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))->count();
         $activeCommercials = Commercial::where('is_active', true)->count();
 
+        $topCommercials = Commercial::query()
+            ->with('user:id,first_name,last_name,email')
+            ->withCount([
+                'invoices as sales_count' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at'),
+                'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->where('status', 'paid'),
+            ])
+            ->orderByDesc('revenue')
+            ->limit(5)
+            ->get()
+            ->map(fn (Commercial $c) => [
+                'id' => $c->id,
+                'first_name' => $c->first_name,
+                'last_name' => $c->last_name,
+                'email' => $c->email,
+                'points_balance' => $c->points_balance,
+                'sales_count' => $c->sales_count,
+                'revenue' => (float) $c->revenue,
+            ]);
+
         return response()->json([
             'period' => [
                 'from' => $from->toISOString(),
@@ -59,6 +79,10 @@ class StatsController extends Controller
             'invoices_paid' => $paidCount,
             'clients_total' => $clientCount,
             'commercials_active' => $activeCommercials,
+            'agencies_total' => Agency::count(),
+            'departments_total' => Department::count(),
+            'users_total' => User::count(),
+            'top_commercials' => $topCommercials,
         ]);
     }
 

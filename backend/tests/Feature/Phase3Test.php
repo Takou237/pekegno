@@ -223,4 +223,41 @@ class Phase3Test extends TestCase
             'email' => 'xy@example.com',
         ])->assertStatus(403);
     }
+
+    public function test_stats_overview_exposes_counters_and_top_commercials(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->postJson('/api/commercials', [
+            'first_name' => 'Top',
+            'last_name' => 'Vendeur',
+            'email' => 'top@example.com',
+            'commission_type' => 'percent',
+            'commission_value' => 5,
+        ])->assertStatus(201);
+
+        $this->getJson('/api/stats/overview')
+            ->assertOk()
+            ->assertJsonStructure([
+                'revenue', 'outstanding', 'invoices_total', 'clients_total',
+                'commercials_active', 'agencies_total', 'departments_total', 'users_total',
+                'top_commercials' => [],
+            ])
+            ->assertJsonPath('commercials_active', 1);
+
+        $this->getJson('/api/stats/dashboard')->assertOk();
+    }
+
+    public function test_login_logs_activity(): void
+    {
+        $user = $this->userWithRole('client');
+
+        $this->postJson('/api/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('login_logs', ['user_id' => $user->id, 'action' => 'login']);
+        $this->assertDatabaseHas('activity_logs', ['user_id' => $user->id, 'entity_type' => 'auth', 'action' => 'login']);
+    }
 }

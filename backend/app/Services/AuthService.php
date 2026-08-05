@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\LoginLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
@@ -112,5 +113,19 @@ class AuthService
             'user_agent' => $userAgent,
             'failure_reason' => $reason,
         ]);
+
+        // Reflet dans activity_logs pour connexions/déconnexions réussies (plan §4.4)
+        if ($user !== null && in_array($action, ['login', 'logout'], true)) {
+            ActivityLog::create([
+                'user_id' => $user->id,
+                'agency_id' => $user->primaryAgency()->value('agencies.id'),
+                'action' => $action,
+                'entity_type' => 'auth',
+                'entity_id' => $user->id,
+                'description' => $action === 'login' ? "Connexion de {$user->email}" : "Déconnexion de {$user->email}",
+                'ip_address' => $ip,
+                'user_agent' => $userAgent,
+            ]);
+        }
     }
 }
