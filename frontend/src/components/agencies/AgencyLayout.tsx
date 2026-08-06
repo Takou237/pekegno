@@ -62,7 +62,7 @@ export function AgencyLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen flex-col bg-gray-100 dark:bg-gray-950">
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
         <div className="flex items-center gap-2">
           <MobileNav contextOnly contextTitle={agency?.name} contextItems={getSubItems(t)} />
@@ -91,7 +91,7 @@ export function AgencyLayout() {
             )}
           </div>
 
-          <nav className="hidden flex-col gap-1 lg:flex">
+          <nav className="hidden flex-col gap-1 rounded-2xl border border-gray-100 bg-white p-3 lg:flex dark:border-gray-800 dark:bg-gray-900">
             {getSubItems(t).map(({ to, label, icon: Icon, end }) => (
               <NavLink key={to || '/'} to={to} end={end} className={subLinkClass}>
                 <Icon className="h-5 w-5" />

@@ -5,7 +5,7 @@ import { UserMenu } from '@/components/common/UserMenu';
 
 export function AppLayout() {
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen bg-gray-100 dark:bg-gray-950">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b border-gray-100 bg-white px-4 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
