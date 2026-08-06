@@ -12,7 +12,7 @@ const TwoFactorPage = lazy(() => import('@/pages/auth/TwoFactorPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
 const RegisterPage = lazy(() => import('@/pages/register/RegisterPage'));
-const DashboardPage = lazy(() => import('@/pages/DashboardPlaceholderPage'));
+const DashboardPage = lazy(() => import('@/pages/AdminDashboardPage'));
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 const AgencyListPage = lazy(() => import('@/pages/agencies/AgencyListPage'));
 const AgencyTrashPage = lazy(() => import('@/pages/agencies/AgencyTrashPage'));
@@ -36,6 +36,7 @@ const CategoryTrashPage = lazy(() => import('@/pages/categories/CategoryTrashPag
 const ServiceListPage = lazy(() => import('@/pages/services/ServiceListPage'));
 const ServiceTrashPage = lazy(() => import('@/pages/services/ServiceTrashPage'));
 const ClientListPage = lazy(() => import('@/pages/clients/ClientListPage'));
+const ClientDetailPage = lazy(() => import('@/pages/clients/ClientDetailPage'));
 const CommercialListPage = lazy(() => import('@/pages/commercials/CommercialListPage'));
 const CommercialDetailPage = lazy(() => import('@/pages/commercials/CommercialDetailPage'));
 const AgencyCommercialsPage = lazy(() => import('@/pages/commercials/AgencyCommercialsPage'));
@@ -44,6 +45,7 @@ const AgencyCommercialDetailPage = lazy(
 );
 const InvoiceListPage = lazy(() => import('@/pages/invoices/InvoiceListPage'));
 const InvoiceFormPage = lazy(() => import('@/pages/invoices/InvoiceFormPage'));
+const QuickSalePage = lazy(() => import('@/pages/invoices/QuickSalePage'));
 const InvoiceDetailPage = lazy(() => import('@/pages/invoices/InvoiceDetailPage'));
 const AgencyInvoicesPage = lazy(() => import('@/pages/invoices/AgencyInvoicesPage'));
 const ActivityLogPage = lazy(() => import('@/pages/audit/ActivityLogPage'));
@@ -89,10 +91,12 @@ export const router = createBrowserRouter([
           { path: '/departments/trash', element: page(<DepartmentTrashPage />) },
           { path: '/privileges', element: page(<RolesPrivilegesPage />) },
           { path: '/clients', element: page(<ClientListPage />) },
+          { path: '/clients/:id', element: page(<ClientDetailPage />) },
           { path: '/commercials', element: page(<CommercialListPage />) },
           { path: '/commercials/:id', element: page(<CommercialDetailPage />) },
           { path: '/invoices', element: page(<InvoiceListPage />) },
           { path: '/invoices/new', element: page(<InvoiceFormPage />) },
+          { path: '/invoices/quick', element: page(<QuickSalePage />) },
           { path: '/invoices/:id', element: page(<InvoiceDetailPage />) },
           { path: '/audit', element: page(<ActivityLogPage />) },
           { path: '/settings', element: page(<SettingsPage />) },

@@ -342,8 +342,16 @@ class CommercialController extends Controller
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
 
+        $dateExpr = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql'
+            ? "to_char(invoice_date, 'YYYY-MM')"
+            : "strftime('%Y-%m', invoice_date)";
+
         $monthly = (clone $base)
-            ->selectRaw("to_char(invoice_date, 'YYYY-MM') as month, sum(total_amount) as total, count(*) as count")
+            ->select(
+                \Illuminate\Support\Facades\DB::raw($dateExpr.' as month'),
+                \Illuminate\Support\Facades\DB::raw('sum(total_amount) as total'),
+                \Illuminate\Support\Facades\DB::raw('count(*) as count'),
+            )
             ->groupBy('month')
             ->orderBy('month')
             ->get();

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, Pencil, FileText, BadgeCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -143,6 +143,29 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
     }
   }
 
+  const monthlyPoints = useMemo(() => {
+    if (!commercial?.points || commercial.points.length === 0) return [];
+    const byMonth: Record<string, number> = {};
+    commercial.points.forEach((p) => {
+      const d = new Date(p.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      byMonth[key] = (byMonth[key] || 0) + p.points;
+    });
+    const sorted = Object.entries(byMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6);
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return sorted.map(([month, value]) => {
+      const [y, m] = month.split('-');
+      return { month, value, label: `${MONTHS[Number(m) - 1]} ${y.slice(2)}` };
+    });
+  }, [commercial?.points]);
+
+  const maxAbsPoints = useMemo(() => {
+    if (monthlyPoints.length === 0) return 0;
+    return Math.max(...monthlyPoints.map((m) => Math.abs(m.value)));
+  }, [monthlyPoints]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-16">
@@ -250,6 +273,36 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
           </p>
         </div>
       </div>
+
+      {monthlyPoints.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+              {t('commercials.pointsChart')}
+            </h2>
+          </div>
+          <div className="px-5 py-4">
+            <div className="flex items-end gap-2 h-28">
+              {monthlyPoints.map((m) => (
+                <div key={m.month} className="flex flex-col items-center flex-1">
+                  <span className="text-xs font-medium text-gray-500">
+                    {m.value > 0 ? '+' : ''}{m.value}
+                  </span>
+                  <div
+                    className="mt-1 w-full rounded-t"
+                    style={{
+                      height: `${maxAbsPoints > 0 ? (Math.abs(m.value) / maxAbsPoints) * 80 : 0}px`,
+                      minHeight: m.value !== 0 ? '4px' : '0px',
+                      backgroundColor: m.value >= 0 ? '#10b981' : '#ef4444',
+                    }}
+                  />
+                  <span className="mt-1 text-[10px] text-gray-400">{m.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">

@@ -51,10 +51,18 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
     const promotion = (service.promotions ?? [])
       .filter((p) => p.is_active)
       .sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
-    if (!promotion || promotion.type !== 'percent' || promotion.discount_percent == null) {
-      return null;
+    if (!promotion) return null;
+    if (promotion.type === 'percent' && promotion.discount_percent != null) {
+      return Number(promotion.discount_percent);
     }
-    return Number(promotion.discount_percent);
+    if (promotion.type === 'amount' && promotion.promo_price != null) {
+      const original = Number(service.price);
+      const promo = Number(promotion.promo_price);
+      if (original > 0 && promo < original) {
+        return Math.round(((original - promo) / original) * 100);
+      }
+    }
+    return null;
   }
 
   return (

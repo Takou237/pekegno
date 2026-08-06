@@ -179,10 +179,15 @@ class StatsController extends Controller
             ->where('status', 'paid')
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId));
 
+        $dateExpr = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql'
+            ? "to_char(invoice_date, 'YYYY-MM')"
+            : "strftime('%Y-%m', invoice_date)";
+
         $rows = (clone $query)
-            ->selectRaw(
-                "to_char(invoice_date, 'YYYY-MM') as month, "
-                .'sum(total_amount) as total, count(*) as count'
+            ->select(
+                \Illuminate\Support\Facades\DB::raw($dateExpr.' as month'),
+                \Illuminate\Support\Facades\DB::raw('sum(total_amount) as total'),
+                \Illuminate\Support\Facades\DB::raw('count(*) as count'),
             )
             ->groupBy('month')
             ->orderBy('month')
@@ -198,7 +203,7 @@ class StatsController extends Controller
 
             $series->push([
                 'month' => $month->format('Y-m'),
-                'label' => $month->translatedFormat('M Y'),
+                'label' => $month->format('M Y'),
                 'revenue' => (float) ($row->total ?? 0),
                 'invoices' => (int) ($row->count ?? 0),
             ]);

@@ -3,7 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Menu, UserRound, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { getMainItems, navLinkClass, type NavItem } from '@/components/layout/navItems';
+import { getMainItems, navLinkClass, INVOICES_ROLES, type NavItem } from '@/components/layout/navItems';
+import { invoicesApi } from '@/api/invoices.api';
 
 interface MobileNavProps {
   contextTitle?: string;
@@ -16,8 +17,20 @@ export function MobileNav({ contextTitle, contextItems = [], contextOnly = false
   const { user } = useAuth();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [unpaidBadge, setUnpaidBadge] = useState<number>(0);
   const agencyAssignment = user?.assignments?.find((a: any) => a.pivot?.is_primary === true);
-  const mainItems = getMainItems(t, user?.role?.name, agencyAssignment?.id);
+  const roleName = user?.role?.name;
+
+  useEffect(() => {
+    if (!roleName || !INVOICES_ROLES.has(roleName)) return;
+    let cancelled = false;
+    invoicesApi.list({ status: 'unpaid', per_page: 1 }).then((res) => {
+      if (!cancelled) setUnpaidBadge(res.invoices.meta.total);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [roleName]);
+
+  const mainItems = getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge);
   const fullName =
     [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username || '—';
 
@@ -81,10 +94,18 @@ export function MobileNav({ contextTitle, contextItems = [], contextOnly = false
                   </p>
                 )}
                 <nav className="flex flex-1 flex-col gap-1">
-                  {contextItems.map(({ to, label, icon: Icon, end }) => (
+                  {contextItems.map(({ to, label, icon: Icon, end, badge }) => (
                     <NavLink key={to || '/'} to={to} end={end} className={navLinkClass}>
                       <Icon className="h-5 w-5" />
                       {label}
+                      {badge != null && badge > 0 && (
+                        <span
+                          className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                          aria-label={t('nav.unpaidBadge', { count: badge })}
+                        >
+                          {badge > 99 ? '99+' : badge}
+                        </span>
+                      )}
                     </NavLink>
                   ))}
                 </nav>
@@ -113,10 +134,18 @@ export function MobileNav({ contextTitle, contextItems = [], contextOnly = false
                       {contextTitle}
                     </p>
                     <nav className="mb-4 flex flex-col gap-1 border-b border-gray-100 pb-4 dark:border-gray-800">
-                      {contextItems.map(({ to, label, icon: Icon, end }) => (
+                      {contextItems.map(({ to, label, icon: Icon, end, badge }) => (
                         <NavLink key={to || '/'} to={to} end={end} className={navLinkClass}>
                           <Icon className="h-5 w-5" />
                           {label}
+                          {badge != null && badge > 0 && (
+                            <span
+                              className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                              aria-label={t('nav.unpaidBadge', { count: badge })}
+                            >
+                              {badge > 99 ? '99+' : badge}
+                            </span>
+                          )}
                         </NavLink>
                       ))}
                     </nav>
@@ -124,10 +153,18 @@ export function MobileNav({ contextTitle, contextItems = [], contextOnly = false
                 )}
 
                 <nav className="flex flex-1 flex-col gap-1">
-                  {mainItems.map(({ to, label, icon: Icon, end }) => (
+                  {mainItems.map(({ to, label, icon: Icon, end, badge }) => (
                     <NavLink key={to} to={to} end={end} className={navLinkClass}>
                       <Icon className="h-5 w-5" />
                       {label}
+                      {badge != null && badge > 0 && (
+                        <span
+                          className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                          aria-label={t('nav.unpaidBadge', { count: badge })}
+                        >
+                          {badge > 99 ? '99+' : badge}
+                        </span>
+                      )}
                     </NavLink>
                   ))}
                 </nav>

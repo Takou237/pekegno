@@ -23,13 +23,20 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   end: boolean;
+  badge?: number;
 }
 
 function catalogItem(t: TranslateFn): NavItem {
   return { to: '/catalog', label: t('nav.catalog'), icon: Package, end: false };
 }
 
-export function getMainItems(t: TranslateFn, roleName: string | null | undefined, agencyId?: string): NavItem[] {
+export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-departement', 'caissier', 'comptable', 'commercial']);
+
+function invoiceItem(t: TranslateFn, badge?: number): NavItem {
+  return { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false, badge };
+}
+
+export function getMainItems(t: TranslateFn, roleName: string | null | undefined, agencyId?: string, unpaidBadge?: number): NavItem[] {
   const baseItems: NavItem[] = [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
     { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
@@ -38,7 +45,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   const commercialItems: NavItem[] = [
     ...baseItems,
     { to: '/commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
-    { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false },
+    invoiceItem(t, unpaidBadge),
   ];
 
   if (ADMIN_ROLES.includes(roleName ?? '')) {
@@ -78,7 +85,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     return [
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
-      { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false },
+      invoiceItem(t, unpaidBadge),
       catalogItem(t),
     ];
   }
@@ -88,7 +95,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       { to: '/commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
-      { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false },
+      invoiceItem(t, unpaidBadge),
       catalogItem(t),
     ];
   }

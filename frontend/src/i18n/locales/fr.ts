@@ -96,6 +96,7 @@ export default {
     invoices: 'Factures',
     audit: 'Audit',
     register: 'Inscription',
+    unpaidBadge: '{{count}} impayé(s)',
   },
 
   auth: {
@@ -553,6 +554,31 @@ export default {
     items: 'Lignes',
     month: 'Mois',
     salesCount: 'Ventes',
+    quickActions: 'Actions rapides',
+    quickInvoice: 'Nouvelle facture',
+    quickClient: 'Nouveau client',
+    quickCommercial: 'Commerciaux',
+    quickInvoices: 'Factures',
+    cashier: {
+      title: 'Caisse du jour',
+      todayRevenue: 'CA du jour',
+      todayInvoices: 'Factures du jour',
+      todayPaid: 'payées',
+      todayPartial: 'partielles',
+      todayUnpaid: 'impayées',
+      todayCollections: 'Encaissements du jour',
+      recentInvoices: 'Dernières factures',
+      newQuickSale: 'Nouvelle vente rapide',
+    },
+    commercialDashboard: {
+      myStats: 'Mes statistiques',
+      myRanking: 'Mon classement',
+      rank: '{{rank}} / {{total}}',
+      myRecentInvoices: 'Mes dernières factures',
+      viewMyInvoices: 'Voir toutes mes factures',
+      penaltyDue: 'Pénalité due',
+      noRanking: 'Aucun classement',
+    },
   },
 
   categories: {
@@ -742,6 +768,16 @@ export default {
     lastInvoice: 'Dernière facture',
   },
 
+  clientDetail: {
+    title: 'Détail du client',
+    subtitle: 'Informations, factures et historique.',
+    invoices: 'Factures',
+    totalRevenue: 'Chiffre d\'affaires',
+    noInvoices: 'Aucune facture pour ce client.',
+    loadFailed: 'Impossible de charger les informations du client.',
+    backToClients: 'Retour aux clients',
+  },
+
   commercials: {
     title: 'Commerciaux',
     subtitle: 'Gestion des commerciaux, points et commissions.',
@@ -812,6 +848,7 @@ export default {
     viewDetail: 'Voir le détail',
     viewInvoices: 'Voir les factures',
     noMonthly: 'Aucune donnée mensuelle.',
+    pointsChart: 'Évolution mensuelle',
   },
 
   invoices: {
@@ -914,6 +951,16 @@ export default {
     alreadyPaid: 'Déjà soldée',
     cancelBlocked: 'Déjà annulée',
     agencyLockedHint: 'Agence imposée par le contexte de navigation.',
+    quickTitle: 'Vente rapide',
+    quickSubtitle: 'Facture simplifiée avec encaissement immédiat.',
+    quickSubmit: 'Encaisser et créer la facture',
+    quickSuccess: 'Vente enregistrée avec succès.',
+    quickReceiveAmount: 'Montant reçu',
+    quickReceiveAmountHint: 'Laissez vide si le client ne paie pas maintenant.',
+    quickSelectService: 'Sélectionnez un service.',
+    quickSelectPaymentType: 'Sélectionnez un mode de paiement.',
+    quickReceiveAmountRequired: 'Saisissez le montant reçu.',
+    quickOptional: 'Informations optionnelles',
   },
 
   audit: {

@@ -96,6 +96,7 @@ export default {
     invoices: 'Invoices',
     audit: 'Audit',
     register: 'Register',
+    unpaidBadge: '{{count}} unpaid',
   },
 
   auth: {
@@ -548,6 +549,31 @@ export default {
     items: 'Items',
     month: 'Month',
     salesCount: 'Sales',
+    quickActions: 'Quick actions',
+    quickInvoice: 'New invoice',
+    quickClient: 'New client',
+    quickCommercial: 'Sales staff',
+    quickInvoices: 'Invoices',
+    cashier: {
+      title: 'Today\'s Cash Desk',
+      todayRevenue: 'Today\'s Revenue',
+      todayInvoices: 'Today\'s Invoices',
+      todayPaid: 'paid',
+      todayPartial: 'partial',
+      todayUnpaid: 'unpaid',
+      todayCollections: 'Today\'s Collections',
+      recentInvoices: 'Recent Invoices',
+      newQuickSale: 'New Quick Sale',
+    },
+    commercialDashboard: {
+      myStats: 'My Stats',
+      myRanking: 'My Ranking',
+      rank: '{{rank}} / {{total}}',
+      myRecentInvoices: 'My Recent Invoices',
+      viewMyInvoices: 'View All My Invoices',
+      penaltyDue: 'Penalty Due',
+      noRanking: 'No ranking',
+    },
   },
 
   categories: {
@@ -735,6 +761,16 @@ export default {
     lastInvoice: 'Last invoice',
   },
 
+  clientDetail: {
+    title: 'Client details',
+    subtitle: 'Information, invoices and history.',
+    invoices: 'Invoices',
+    totalRevenue: 'Total revenue',
+    noInvoices: 'No invoices for this client.',
+    loadFailed: 'Unable to load client information.',
+    backToClients: 'Back to clients',
+  },
+
   commercials: {
     title: 'Sales staff',
     subtitle: 'Manage salespeople, points and commissions.',
@@ -805,6 +841,7 @@ export default {
     viewDetail: 'View details',
     viewInvoices: 'View invoices',
     noMonthly: 'No monthly data.',
+    pointsChart: 'Monthly evolution',
   },
 
   invoices: {
@@ -907,6 +944,16 @@ export default {
     alreadyPaid: 'Fully paid',
     cancelBlocked: 'Already cancelled',
     agencyLockedHint: 'Agency imposed by the navigation context.',
+    quickTitle: 'Quick sale',
+    quickSubtitle: 'Simplified invoice with immediate payment.',
+    quickSubmit: 'Collect and create invoice',
+    quickSuccess: 'Sale recorded successfully.',
+    quickReceiveAmount: 'Amount received',
+    quickReceiveAmountHint: 'Leave empty if the client does not pay now.',
+    quickSelectService: 'Select a service.',
+    quickSelectPaymentType: 'Select a payment method.',
+    quickReceiveAmountRequired: 'Enter the amount received.',
+    quickOptional: 'Optional information',
   },
 
   audit: {
