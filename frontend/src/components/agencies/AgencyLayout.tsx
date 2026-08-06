@@ -102,7 +102,11 @@ export function AgencyLayout() {
         </div>
 
         <div className="min-w-0 flex-1">
-          <Outlet context={{ agency, agencyId, refreshAgency: loadAgency }} />
+          {isLoading ? (
+            <div className="flex justify-center py-16"><Spinner /></div>
+          ) : (
+            <Outlet context={{ agency, agencyId, refreshAgency: loadAgency }} />
+          )}
         </div>
       </main>
     </div>

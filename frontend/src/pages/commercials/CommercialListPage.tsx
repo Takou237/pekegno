@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Search, Pencil, Eye, Trash2, UserPlus, Download, Trophy, Star } from 'lucide-react';
+import { Search, Pencil, Eye, Trash2, UserPlus, Download, Trophy, Star, BadgeCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { commercialsApi } from '@/api/commercials.api';
@@ -312,6 +312,11 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
                       >
                         {[c.first_name, c.last_name].filter(Boolean).join(' ')}
                       </button>
+                      {c.user && (
+                        <span className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-brand-600 dark:text-brand-400" title={`${c.user.first_name ?? ''} ${c.user.last_name ?? ''} (${c.user.email})`.trim()}>
+                          <BadgeCheck className="h-3 w-3" />
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {c.agency?.name ?? '—'}

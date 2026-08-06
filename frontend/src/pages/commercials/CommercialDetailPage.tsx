@@ -213,7 +213,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
               {commercial.user && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400">
                   <BadgeCheck className="h-3.5 w-3.5" />
-                  {t('commercials.linkedUser')}
+                  {t('commercials.linkedUser')} : {[commercial.user.first_name, commercial.user.last_name].filter(Boolean).join(' ') || commercial.user.email}
                 </span>
               )}
             </div>
@@ -252,6 +252,22 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
           </div>
         </div>
       </div>
+
+      {commercial.user && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+              <BadgeCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                {t('commercials.linkedUser')} : {[commercial.user.first_name, commercial.user.last_name].filter(Boolean).join(' ') || commercial.user.email}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{commercial.user.email}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">

@@ -102,7 +102,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
 
   if (roleName === 'commercial') {
     return [
-      ...commercialItems,
+      ...baseItems,
+      invoiceItem(t, unpaidBadge),
       catalogItem(t),
     ];
   }
