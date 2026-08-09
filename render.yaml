@@ -7,6 +7,7 @@ services:
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
     plan: free
+    autoDeploy: true
     envVars:
       - key: APP_ENV
         value: production
