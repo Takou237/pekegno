@@ -20,7 +20,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        if (empty(config('app.key'))) {
+            config(['app.key' => 'base64:'.base64_encode(random_bytes(32))]);
+        }
     }
 
     /**

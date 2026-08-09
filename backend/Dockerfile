@@ -4,8 +4,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libzip-dev \
     unzip \
-    && docker-php-ext-install pdo_pgsql zip \
+    && docker-php-ext-install pdo_pgsql zip opcache \
     && rm -rf /var/lib/apt/lists/*
+
+COPY opcache.ini $PHP_INI_DIR/conf.d/opcache.ini
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
