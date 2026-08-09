@@ -38,7 +38,7 @@ export default function ClientDetailPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const data = await clientsApi.get(id);
+        const data = await clientsApi.get(id!);
         setClient(data);
       } catch (error) {
         setLoadError(extractErrorMessage(error, t('clientDetail.loadFailed')));

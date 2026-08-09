@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, FolderTree, Users, Mail, Phone, BadgeInfo, ArrowRight, TrendingUp, Wallet, HandCoins, Clock, Trophy, Star, Plus, UserPlus, FileText, Contact, Briefcase, Receipt, ShoppingCart, DollarSign, Award } from 'lucide-react';
+import { Building2, FolderTree, Users, Mail, Phone, BadgeInfo, ArrowRight, TrendingUp, Wallet, HandCoins, Clock, Trophy, Star, Receipt, ShoppingCart, DollarSign, Award } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { client } from '@/api/client';
 import { statsApi } from '@/api/stats.api';
 import { commercialsApi } from '@/api/commercials.api';
-import { invoicesApi } from '@/api/invoices.api';
+import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
 import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
@@ -66,35 +66,6 @@ function StatCard({
   );
 }
 
-function QuickActions() {
-  const { t } = useTranslation();
-  const actions = [
-    { to: '/invoices/new', label: t('dashboard.quickInvoice'), icon: <Plus className="h-4 w-4" />, tone: 'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400' },
-    { to: '/clients', label: t('dashboard.quickClient'), icon: <UserPlus className="h-4 w-4" />, tone: 'bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400' },
-    { to: '/commercials', label: t('dashboard.quickCommercial'), icon: <Briefcase className="h-4 w-4" />, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' },
-    { to: '/invoices', label: t('dashboard.quickInvoices'), icon: <FileText className="h-4 w-4" />, tone: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400' },
-  ];
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-      <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('dashboard.quickActions')}</h2>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {actions.map((a) => (
-          <Link
-            key={a.to}
-            to={a.to}
-            className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 p-4 text-center transition hover:border-brand-200 hover:shadow-sm dark:border-gray-700 dark:hover:border-brand-500/40"
-          >
-            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${a.tone}`}>
-              {a.icon}
-            </div>
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{a.label}</span>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function AdminDashboard() {
   const { t } = useTranslation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -123,11 +94,11 @@ function AdminDashboard() {
           const key = results[i].key;
           if (result.status === 'fulfilled') {
             switch (key) {
-              case 'dashboard': setStats(result.value); break;
-              case 'monthlyRevenue': setMonthly(result.value); break;
-              case 'salesByCategory': setCategories(result.value); break;
-              case 'paymentMethods': setPayments(result.value); break;
-              case 'agencies': setAgencies(result.value.data.data ?? []); break;
+              case 'dashboard': setStats(result.value as DashboardStats); break;
+              case 'monthlyRevenue': setMonthly(result.value as MonthlyRevenuePoint[]); break;
+              case 'salesByCategory': setCategories(result.value as CategorySales[]); break;
+              case 'paymentMethods': setPayments(result.value as PaymentMethodStat[]); break;
+              case 'agencies': setAgencies((result.value as any).data?.data ?? []); break;
             }
           } else {
             const errMsg = result.reason?.response?.data?.message
@@ -432,9 +403,9 @@ function AgencyChiefDashboard() {
           const key = results[i].key;
           if (result.status === 'fulfilled') {
             switch (key) {
-              case 'agency': setAgency(result.value.data.data ?? result.value.data); break;
-              case 'stats': setAgencyStats(result.value); break;
-              case 'monthlyRevenue': setMonthly(result.value); break;
+              case 'agency': setAgency((result.value as any).data?.data ?? (result.value as any).data); break;
+              case 'stats': setAgencyStats(result.value as AgencyStats); break;
+              case 'monthlyRevenue': setMonthly(result.value as MonthlyRevenuePoint[]); break;
             }
           } else {
             console.error(`[AgencyChief] Failed to load ${key}:`, result.reason);
@@ -711,7 +682,6 @@ function DeptChiefDashboard() {
 
 function CashierDashboard() {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const today = new Date().toISOString().slice(0, 10);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
@@ -731,8 +701,8 @@ function CashierDashboard() {
           const key = results[i].key;
           if (result.status === 'fulfilled') {
             switch (key) {
-              case 'stats': setStats(result.value); break;
-              case 'invoices': setRecentInvoices(result.value.invoices.data ?? []); break;
+              case 'stats': setStats(result.value as DashboardStats); break;
+              case 'invoices': setRecentInvoices((result.value as InvoiceIndexResponse).invoices.data ?? []); break;
             }
           } else {
             console.error(`[CashierDashboard] Failed to load ${key}:`, result.reason);
@@ -897,9 +867,9 @@ function CommercialDashboard() {
             const key = results[i].key;
             if (result.status === 'fulfilled') {
               switch (key) {
-                case 'stats': setStats(result.value); break;
-                case 'ranking': setRanking(result.value); break;
-                case 'invoices': setRecentInvoices(result.value.invoices.data ?? []); break;
+                case 'stats': setStats(result.value as CommercialStats); break;
+                case 'ranking': setRanking(result.value as RankingEntry[]); break;
+                case 'invoices': setRecentInvoices((result.value as InvoiceIndexResponse).invoices.data ?? []); break;
               }
             } else {
               console.error(`[CommercialDashboard] Failed to load ${key}:`, result.reason);
