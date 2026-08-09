@@ -1,0 +1,17 @@
+[databases]
+postgres = host=${SUPABASE_HOST} port=${SUPABASE_PORT} dbname=${DB_DATABASE} user=${DB_USERNAME} password=${DB_PASSWORD}
+
+[pgbouncer]
+user = postgres
+listen_addr = 127.0.0.1
+listen_port = 6432
+auth_type = trust
+pool_mode = transaction
+max_client_conn = 100
+default_pool_size = 6
+min_pool_size = 2
+server_idle_timeout = 600
+server_lifetime = 3600
+server_tls_sslmode = require
+logfile = /tmp/pgbouncer.log
+pidfile = /tmp/pgbouncer.pid

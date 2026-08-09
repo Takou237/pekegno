@@ -4,10 +4,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libzip-dev \
     unzip \
+    pgbouncer \
+    gettext-base \
     && docker-php-ext-install pdo_pgsql zip opcache \
     && rm -rf /var/lib/apt/lists/*
 
 COPY opcache.ini $PHP_INI_DIR/conf.d/opcache.ini
+COPY docker/pgbouncer.ini.template /etc/pgbouncer/pgbouncer.ini.template
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
@@ -25,4 +30,4 @@ RUN mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache \
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "php artisan storage:link && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
+CMD ["/usr/local/bin/entrypoint.sh"]
