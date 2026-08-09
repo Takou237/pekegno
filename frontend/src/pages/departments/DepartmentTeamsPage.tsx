@@ -6,7 +6,7 @@ import { client } from '@/api/client';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { CreateUserModal } from '@/components/users/CreateUserModal';
@@ -125,9 +125,7 @@ export default function DepartmentTeamsPage() {
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Spinner />
-          </div>
+          <SkeletonTable />
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : users.length === 0 ? (

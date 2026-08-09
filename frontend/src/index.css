@@ -34,6 +34,17 @@
   --color-warning-500: #f79009;
 
   --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+
+  --animate-shimmer: shimmer 1.8s infinite linear;
+
+  @keyframes shimmer {
+    0% {
+      background-position: -400px 0;
+    }
+    100% {
+      background-position: 400px 0;
+    }
+  }
 }
 
 @layer base {

@@ -7,7 +7,8 @@ import { invoicesApi } from '@/api/invoices.api';
 import { extractErrorMessage } from '@/api/errors';
 import { currentLocale } from '@/i18n';
 import { Badge } from '@/components/ui/Badge';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonDetail,
+  SkeletonTable } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import type { ClientListItem } from '@/types/client';
@@ -76,9 +77,7 @@ export default function ClientDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
+      <SkeletonDetail />
     );
   }
 
@@ -179,9 +178,7 @@ export default function ClientDetailPage() {
           </h2>
         </div>
         {invoicesLoading ? (
-          <div className="flex justify-center py-12">
-            <Spinner />
-          </div>
+          <SkeletonTable rows={3} />
         ) : invoices.length === 0 ? (
           <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
             {t('clientDetail.noInvoices')}

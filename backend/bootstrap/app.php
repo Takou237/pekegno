@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CompressResponse;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsureSingleSession;
 use App\Http\Middleware\InactivityLogout;
@@ -17,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(CompressResponse::class);
+
         $middleware->alias([
             'single.session' => EnsureSingleSession::class,
             'inactivity.logout' => InactivityLogout::class,

@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
@@ -168,9 +168,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
+      <SkeletonDetail />
     );
   }
 

@@ -20,7 +20,7 @@ import { usersApi } from '@/api/users.api';
 import { promotionsApi } from '@/api/promotions.api';
 import { statsApi } from '@/api/stats.api';
 import { currentLocale } from '@/i18n';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import type { Agency } from '@/types/agency';
@@ -77,9 +77,7 @@ export default function AgencyOverviewPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
+      <SkeletonDashboard />
     );
   }
 

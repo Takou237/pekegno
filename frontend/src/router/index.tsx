@@ -5,7 +5,14 @@ import { GuestRoute } from '@/router/GuestRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AgencyLayout } from '@/components/agencies/AgencyLayout';
 import { DepartmentLayout } from '@/components/departments/DepartmentLayout';
-import { Spinner } from '@/components/ui/Spinner';
+import {
+  PageSkeleton,
+  SkeletonCards,
+  SkeletonDashboard,
+  SkeletonDetail,
+  SkeletonForm,
+  SkeletonTable,
+} from '@/components/ui/Skeleton';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const TwoFactorPage = lazy(() => import('@/pages/auth/TwoFactorPage'));
@@ -51,29 +58,27 @@ const AgencyInvoicesPage = lazy(() => import('@/pages/invoices/AgencyInvoicesPag
 const ActivityLogPage = lazy(() => import('@/pages/audit/ActivityLogPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 
-function PageFallback() {
-  return (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <Spinner />
-    </div>
-  );
+function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
+  return <Suspense fallback={fallback}>{node}</Suspense>;
 }
 
-function page(node: ReactNode) {
-  return <Suspense fallback={<PageFallback />}>{node}</Suspense>;
-}
+const cards = <SkeletonCards />;
+const table = <SkeletonTable rows={5} />;
+const detail = <SkeletonDetail />;
+const dashboard = <SkeletonDashboard />;
+const form = <SkeletonForm />;
 
 export const router = createBrowserRouter([
   {
     element: <GuestRoute />,
     children: [
-      { path: '/login', element: page(<LoginPage />) },
-      { path: '/forgot-password', element: page(<ForgotPasswordPage />) },
-      { path: '/reset-password', element: page(<ResetPasswordPage />) },
+      { path: '/login', element: page(<LoginPage />, form) },
+      { path: '/forgot-password', element: page(<ForgotPasswordPage />, form) },
+      { path: '/reset-password', element: page(<ResetPasswordPage />, form) },
       // Le 2FA est accessible même sans session complète (token en attente
       // stocké côté AuthContext), donc via GuestRoute plutôt que ProtectedRoute.
-      { path: '/two-factor', element: page(<TwoFactorPage />) },
-      { path: '/register', element: page(<RegisterPage />) },
+      { path: '/two-factor', element: page(<TwoFactorPage />, form) },
+      { path: '/register', element: page(<RegisterPage />, form) },
     ],
   },
   {
@@ -82,56 +87,56 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: page(<DashboardPage />) },
-          { path: '/profile', element: page(<ProfilePage />) },
-          { path: '/agencies', element: page(<AgencyListPage />) },
-          { path: '/agencies/trash', element: page(<AgencyTrashPage />) },
-          { path: '/users', element: page(<UserListPage />) },
-          { path: '/departments', element: page(<DepartmentListPage />) },
-          { path: '/departments/trash', element: page(<DepartmentTrashPage />) },
-          { path: '/privileges', element: page(<RolesPrivilegesPage />) },
-          { path: '/clients', element: page(<ClientListPage />) },
-          { path: '/clients/:id', element: page(<ClientDetailPage />) },
-          { path: '/commercials', element: page(<CommercialListPage />) },
-          { path: '/commercials/:id', element: page(<CommercialDetailPage />) },
-          { path: '/invoices', element: page(<InvoiceListPage />) },
-          { path: '/invoices/new', element: page(<InvoiceFormPage />) },
-          { path: '/invoices/quick', element: page(<QuickSalePage />) },
-          { path: '/invoices/:id', element: page(<InvoiceDetailPage />) },
-          { path: '/audit', element: page(<ActivityLogPage />) },
-          { path: '/settings', element: page(<SettingsPage />) },
+          { path: '/', element: page(<DashboardPage />, dashboard) },
+          { path: '/profile', element: page(<ProfilePage />, detail) },
+          { path: '/agencies', element: page(<AgencyListPage />, cards) },
+          { path: '/agencies/trash', element: page(<AgencyTrashPage />, table) },
+          { path: '/users', element: page(<UserListPage />, table) },
+          { path: '/departments', element: page(<DepartmentListPage />, cards) },
+          { path: '/departments/trash', element: page(<DepartmentTrashPage />, table) },
+          { path: '/privileges', element: page(<RolesPrivilegesPage />, table) },
+          { path: '/clients', element: page(<ClientListPage />, table) },
+          { path: '/clients/:id', element: page(<ClientDetailPage />, detail) },
+          { path: '/commercials', element: page(<CommercialListPage />, table) },
+          { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },
+          { path: '/invoices', element: page(<InvoiceListPage />, table) },
+          { path: '/invoices/new', element: page(<InvoiceFormPage />, form) },
+          { path: '/invoices/quick', element: page(<QuickSalePage />, form) },
+          { path: '/invoices/:id', element: page(<InvoiceDetailPage />, detail) },
+          { path: '/audit', element: page(<ActivityLogPage />, table) },
+          { path: '/settings', element: page(<SettingsPage />, detail) },
           { path: '/catalog', element: <Navigate to="/catalog/services" replace /> },
-          { path: '/catalog/categories', element: page(<CategoryListPage />) },
-          { path: '/catalog/categories/trash', element: page(<CategoryTrashPage />) },
-          { path: '/catalog/services', element: page(<ServiceListPage />) },
-          { path: '/catalog/services/trash', element: page(<ServiceTrashPage />) },
+          { path: '/catalog/categories', element: page(<CategoryListPage />, table) },
+          { path: '/catalog/categories/trash', element: page(<CategoryTrashPage />, table) },
+          { path: '/catalog/services', element: page(<ServiceListPage />, cards) },
+          { path: '/catalog/services/trash', element: page(<ServiceTrashPage />, table) },
         ],
       },
       {
         path: '/agencies/:agencyId',
         element: <AgencyLayout />,
         children: [
-          { index: true, element: page(<AgencyOverviewPage />) },
-          { path: 'departments', element: page(<AgencyDepartmentsPage />) },
-          { path: 'departments/trash', element: page(<AgencyDepartmentTrashPage />) },
-          { path: 'services', element: page(<AgencyServicesPage />) },
-          { path: 'services/trash', element: page(<AgencyServiceTrashPage />) },
-          { path: 'commercials', element: page(<AgencyCommercialsPage />) },
-          { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />) },
-          { path: 'invoices', element: page(<AgencyInvoicesPage />) },
-          { path: 'invoices/new', element: page(<InvoiceFormPage />) },
-          { path: 'teams', element: page(<AgencyTeamsPage />) },
-          { path: 'promotions', element: page(<AgencyPromotionsPage />) },
-          { path: 'settings', element: page(<AgencySettingsPage />) },
+          { index: true, element: page(<AgencyOverviewPage />, dashboard) },
+          { path: 'departments', element: page(<AgencyDepartmentsPage />, cards) },
+          { path: 'departments/trash', element: page(<AgencyDepartmentTrashPage />, table) },
+          { path: 'services', element: page(<AgencyServicesPage />, cards) },
+          { path: 'services/trash', element: page(<AgencyServiceTrashPage />, table) },
+          { path: 'commercials', element: page(<AgencyCommercialsPage />, table) },
+          { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />, detail) },
+          { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
+          { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
+          { path: 'teams', element: page(<AgencyTeamsPage />, table) },
+          { path: 'promotions', element: page(<AgencyPromotionsPage />, cards) },
+          { path: 'settings', element: page(<AgencySettingsPage />, detail) },
         ],
       },
       {
         path: '/departments/:departmentId',
         element: <DepartmentLayout />,
         children: [
-          { index: true, element: page(<DepartmentOverviewPage />) },
-          { path: 'team', element: page(<DepartmentTeamsPage />) },
-          { path: 'settings', element: page(<DepartmentSettingsPage />) },
+          { index: true, element: page(<DepartmentOverviewPage />, dashboard) },
+          { path: 'team', element: page(<DepartmentTeamsPage />, table) },
+          { path: 'settings', element: page(<DepartmentSettingsPage />, detail) },
         ],
       },
     ],

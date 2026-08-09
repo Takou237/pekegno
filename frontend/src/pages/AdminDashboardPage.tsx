@@ -7,7 +7,8 @@ import { client } from '@/api/client';
 import { statsApi } from '@/api/stats.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonDashboard,
+  SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import { currentLocale } from '@/i18n';
@@ -119,9 +120,7 @@ function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
+      <SkeletonDashboard />
     );
   }
 
@@ -415,7 +414,7 @@ function AgencyChiefDashboard() {
       .finally(() => setLoading(false));
   }, [assignments]);
 
-  if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
+  if (loading) return <SkeletonTable rows={3} />;
   if (!agency) return <p className="text-sm text-gray-400">{t('dashboard.noAgencyAssigned')}</p>;
 
   const deptCount = agency.departments?.length ?? 0;
@@ -609,7 +608,7 @@ function DeptChiefDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
+  if (loading) return <SkeletonTable rows={3} />;
   if (depts.length === 0) return <p className="text-sm text-gray-400">{t('dashboard.noDepartmentAssigned')}</p>;
 
   const totalUsers = depts.reduce((sum, d) => sum + (d.user_count ?? d.assigned_users?.length ?? 0), 0);
@@ -719,9 +718,7 @@ function CashierDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
+      <SkeletonTable rows={3} />
     );
   }
 
@@ -890,9 +887,7 @@ function CommercialDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
+      <SkeletonTable rows={3} />
     );
   }
 

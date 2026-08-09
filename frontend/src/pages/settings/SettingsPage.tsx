@@ -8,7 +8,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonDetail } from '@/components/ui/Skeleton';
 import type { CommissionType } from '@/types/settings';
 
 interface SettingsForm {
@@ -84,9 +84,7 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
+      <SkeletonDetail />
     );
   }
 

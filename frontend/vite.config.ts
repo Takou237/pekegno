@@ -26,4 +26,25 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          // React, ReactDOM et scheduler restent DANS LE MÊME chunk :
+          // un split entre react et react-dom cassait React 19.2
+          // ("Cannot set properties of undefined (setting 'Activity')").
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/scheduler/')
+          ) {
+            return 'react';
+          }
+          return 'vendor';
+        },
+      },
+    },
+  },
 });

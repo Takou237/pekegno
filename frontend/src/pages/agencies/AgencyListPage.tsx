@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonCards } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
 import { canCreateAgency, canManageTrash } from '@/utils/agencyPermissions';
@@ -205,9 +205,7 @@ export default function AgencyListPage() {
 
       <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Spinner />
-          </div>
+          <SkeletonCards />
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : agencies.length === 0 ? (

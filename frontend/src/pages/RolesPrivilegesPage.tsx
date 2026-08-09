@@ -5,7 +5,7 @@ import { rolesApi } from '@/api/roles.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -254,9 +254,7 @@ export default function RolesPrivilegesPage() {
       {error && <Alert variant="error">{error}</Alert>}
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner />
-        </div>
+        <SkeletonTable rows={4} />
       ) : tab === 'roles' ? (
         <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
           <table className="w-full text-sm">

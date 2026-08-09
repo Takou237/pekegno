@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
@@ -546,9 +546,7 @@ export default function UserListPage() {
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Spinner />
-          </div>
+          <SkeletonTable />
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : users.length === 0 ? (
@@ -759,9 +757,7 @@ export default function UserListPage() {
           {assignError && <Alert variant="error">{assignError}</Alert>}
 
           {assignLoading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
-            </div>
+            <SkeletonTable rows={3} />
           ) : (
             <>
               <p className="text-sm text-gray-500 dark:text-gray-400">

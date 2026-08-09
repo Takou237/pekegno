@@ -6,7 +6,7 @@ import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { CategoryIcon } from '@/utils/categoryIcons';
@@ -99,9 +99,7 @@ export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Spinner />
-          </div>
+          <SkeletonTable />
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : services.length === 0 ? (

@@ -8,7 +8,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { currentLocale } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { Spinner } from '@/components/ui/Spinner';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -184,9 +184,7 @@ export default function AgencyPromotionsPage() {
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Spinner />
-          </div>
+          <SkeletonTable />
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : promotions.length === 0 ? (

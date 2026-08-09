@@ -34,13 +34,13 @@ services:
       - key: DB_SSLMODE
         value: require
       - key: SESSION_DRIVER
-        value: database
+        value: file
       - key: SESSION_LIFETIME
         value: "120"
       - key: QUEUE_CONNECTION
         value: database
       - key: CACHE_STORE
-        value: database
+        value: file
       - key: LOG_CHANNEL
         value: stack
       - key: MAIL_MAILER

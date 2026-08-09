@@ -18,8 +18,11 @@ RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist --opti
 
 COPY . .
 
-RUN mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache && chmod -R 775 storage bootstrap/cache
+RUN mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache \
+    && composer dump-autoload --optimize --no-dev \
+    && php artisan package:discover --ansi || true
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "php artisan storage:link && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
+CMD ["sh", "-c", "php artisan storage:link && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
