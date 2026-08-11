@@ -3,16 +3,20 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, Pencil, FileText, BadgeCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { commercialsApi } from '@/api/commercials.api';
+import { invoicesApi } from '@/api/invoices.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
+import { formatRelativeDate } from '@/utils/date';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
+import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
+import type { Invoice } from '@/types/invoice';
 import {
   CommercialForm,
   commercialFormFrom,
@@ -36,6 +40,8 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
 
   const [commercial, setCommercial] = useState<Commercial | null>(null);
   const [stats, setStats] = useState<CommercialStats | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -62,6 +68,14 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
       const [c, s] = await Promise.all([commercialsApi.get(id), commercialsApi.stats(id)]);
       setCommercial(c);
       setStats(s);
+      try {
+        const res = await invoicesApi.list({ commercial_id: id, per_page: 10 });
+        setInvoices(res.invoices.data);
+      } catch {
+        setInvoices([]);
+      } finally {
+        setInvoicesLoading(false);
+      }
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('commercials.loadFailed')));
     } finally {
@@ -286,6 +300,108 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
             {formatCurrency(stats?.commissions ?? 0)}
           </p>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {t('commercials.servicesSold')}
+          </h2>
+        </div>
+        {!stats?.services_sold || stats.services_sold.length === 0 ? (
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">
+            {t('commercials.servicesSoldEmpty')}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="px-5 py-3 font-medium">{t('invoices.itemLabel')}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t('invoices.quantity')}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t('invoices.colTotal')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {stats.services_sold.map((s) => (
+                  <tr key={s.label} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
+                      {s.label}
+                    </td>
+                    <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                      {s.quantity}
+                    </td>
+                    <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
+                      {formatCurrency(s.total)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {t('commercials.invoicesLinked')}
+          </h2>
+        </div>
+        {invoicesLoading ? (
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">…</p>
+        ) : invoices.length === 0 ? (
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">
+            {t('commercials.invoicesLinkedEmpty')}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="px-5 py-3 font-medium">{t('invoices.colNumber')}</th>
+                  <th className="px-5 py-3 font-medium">{t('invoices.colDate')}</th>
+                  <th className="px-5 py-3 font-medium">{t('invoices.colClient')}</th>
+                  <th className="px-5 py-3 font-medium">{t('invoices.colStatus')}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t('invoices.colTotal')}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {invoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
+                      {inv.number}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {formatRelativeDate(inv.invoice_date)}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {inv.client
+                        ? [inv.client.first_name, inv.client.last_name].filter(Boolean).join(' ') ||
+                          inv.client.email
+                        : '—'}
+                    </td>
+                    <td className="px-5 py-3">
+                      <InvoiceStatusBadge status={inv.status} />
+                    </td>
+                    <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
+                      {formatCurrency(inv.total_amount)}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <Link
+                        to={`/invoices/${inv.id}`}
+                        className="text-brand-600 hover:underline dark:text-brand-400"
+                      >
+                        {t('common.open')}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {monthlyPoints.length > 0 && (

@@ -55,6 +55,7 @@ const InvoiceFormPage = lazy(() => import('@/pages/invoices/InvoiceFormPage'));
 const QuickSalePage = lazy(() => import('@/pages/invoices/QuickSalePage'));
 const InvoiceDetailPage = lazy(() => import('@/pages/invoices/InvoiceDetailPage'));
 const AgencyInvoicesPage = lazy(() => import('@/pages/invoices/AgencyInvoicesPage'));
+const AgencyInvoiceDetailPage = lazy(() => import('@/pages/invoices/AgencyInvoiceDetailPage'));
 const ActivityLogPage = lazy(() => import('@/pages/audit/ActivityLogPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 
@@ -125,6 +126,7 @@ export const router = createBrowserRouter([
           { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />, detail) },
           { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
           { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
+          { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },
           { path: 'teams', element: page(<AgencyTeamsPage />, table) },
           { path: 'promotions', element: page(<AgencyPromotionsPage />, cards) },
           { path: 'settings', element: page(<AgencySettingsPage />, detail) },

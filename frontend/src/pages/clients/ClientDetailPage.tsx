@@ -73,6 +73,12 @@ export default function ClientDetailPage() {
       .reduce((sum, inv) => sum + Number(inv.total_amount ?? 0), 0);
   }, [invoices]);
 
+  const receivables = useMemo(() => {
+    return invoices
+      .filter((inv) => !inv.is_cancelled)
+      .reduce((sum, inv) => sum + Number(inv.balance_due ?? 0), 0);
+  }, [invoices]);
+
   const totalInvoices = invoicesMeta?.total ?? invoices.length;
 
   if (isLoading) {
@@ -155,7 +161,7 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('clientDetail.invoices')}</p>
           <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
@@ -166,6 +172,12 @@ export default function ClientDetailPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('clientDetail.totalRevenue')}</p>
           <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
             {formatCurrency(totalRevenue)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('clientDetail.receivables')}</p>
+          <p className="mt-1 text-2xl font-semibold text-error-500">
+            {formatCurrency(receivables)}
           </p>
         </div>
       </div>

@@ -148,16 +148,13 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
 
           {service.presentation_video && (
             <div>
-              <dt className="text-xs uppercase text-gray-400">{t('services.presentationVideo')}</dt>
+              <dt className="mb-2 text-xs uppercase text-gray-400">{t('services.presentationVideo')}</dt>
               <dd className="mt-1">
-                <a
-                  href={service.presentation_video}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-brand-600 hover:underline dark:text-brand-400"
-                >
-                  {service.presentation_video}
-                </a>
+                <video
+                  src={service.presentation_video}
+                  controls
+                  className="aspect-video w-full rounded-xl border border-gray-100 bg-black dark:border-gray-800"
+                />
               </dd>
             </div>
           )}
@@ -203,38 +200,6 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
               </div>
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('services.noPromotions')}</p>
-            )}
-          </div>
-
-          <div>
-            <h4 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-              {t('services.priceHistory')}
-            </h4>
-            {service.price_history && service.price_history.length > 0 ? (
-              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                    <tr>
-                      <th className="px-4 py-2 font-medium">{t('services.price')}</th>
-                      <th className="px-4 py-2 font-medium">{t('services.priceChangedAt')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {service.price_history.map((entry) => (
-                      <tr key={entry.id}>
-                        <td className="px-4 py-2 font-medium text-gray-800 dark:text-gray-100">
-                          {formatPrice(entry.price)}
-                        </td>
-                        <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
-                          {new Date(entry.changed_at).toLocaleString(currentLocale())}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('services.noPriceHistory')}</p>
             )}
           </div>
         </div>

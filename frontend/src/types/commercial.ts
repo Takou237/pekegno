@@ -71,6 +71,7 @@ export interface CommercialStats {
   commissions: number;
   points_balance: number;
   monthly: { month: string; total: string | number; count: number }[];
+  services_sold: { label: string; quantity: number; total: number }[];
 }
 
 export interface RankingEntry {

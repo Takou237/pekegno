@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { categoriesApi } from '@/api/categories.api';
@@ -315,12 +315,21 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
                 className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-shadow hover:border-brand-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40"
               >
                 {service.cover_image ? (
-                  <div
-                    className="h-32 w-full shrink-0 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${service.cover_image})` }}
-                    role="img"
-                    aria-label={service.name}
-                  />
+                  <div className="relative">
+                    <div
+                      className="h-32 w-full shrink-0 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${service.cover_image})` }}
+                      role="img"
+                      aria-label={service.name}
+                    />
+                    {service.presentation_video && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-brand-600 shadow-lg">
+                          <Play className="ml-0.5 h-5 w-5" />
+                        </span>
+                      </span>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex h-32 w-full shrink-0 items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700">
                     <span className="text-sm font-bold uppercase tracking-[0.35em] text-gray-400 dark:text-gray-600">

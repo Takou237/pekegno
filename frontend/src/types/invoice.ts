@@ -45,6 +45,9 @@ export interface Invoice {
   payment_type: PaymentMethod | null;
   total_amount: string;
   amount_paid: string;
+  discount: string;
+  vat_rate: string;
+  vat_amount: number;
   status: InvoiceStatus;
   commission_amount: string | null;
   points_awarded: number | null;
@@ -56,8 +59,8 @@ export interface Invoice {
   is_cancelled: boolean;
   agency_snapshot: AgencySnapshot | null;
   agency?: Pick<Agency, 'id' | 'name' | 'code'> | null;
-  client?: { id: string; first_name: string | null; last_name: string | null; email: string; client_number: string | null } | null;
-  commercial?: { id: string; first_name: string; last_name: string } | null;
+  client?: { id: string; first_name: string | null; last_name: string | null; email: string; client_number: string | null; phone: string | null } | null;
+  commercial?: { id: string; first_name: string; last_name: string; email?: string | null } | null;
   seller?: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
   items?: InvoiceItem[];
   payments?: InvoicePayment[];
@@ -97,6 +100,8 @@ export interface CreateInvoicePayload {
   payment_type?: PaymentMethod;
   comment?: string;
   advance?: number;
+  discount?: number;
+  vat_rate?: number;
   items: InvoiceLinePayload[];
 }
 

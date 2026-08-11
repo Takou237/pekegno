@@ -14,6 +14,7 @@ use App\Services\PointsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
 class InvoiceController extends Controller
@@ -70,7 +71,7 @@ class InvoiceController extends Controller
         $perPage = min((int) $request->input('per_page', 15), 100);
 
         $invoices = $base
-            ->with(['client:id,first_name,last_name,email,client_number', 'commercial:id,first_name,last_name', 'agency:id,name,code'])
+            ->with(['client:id,first_name,last_name,email,client_number,phone', 'commercial:id,first_name,last_name,email,phone', 'agency:id,name,code'])
             ->orderByDesc('invoice_date')
             ->paginate($perPage);
 
@@ -110,7 +111,25 @@ class InvoiceController extends Controller
                 ];
             });
 
-            $total = round($items->sum(fn ($l) => $l['unit_price'] * $l['quantity']), 2);
+            $subtotal = round($items->sum(fn ($l) => $l['unit_price'] * $l['quantity']), 2);
+
+            $discount = round((float) ($data['discount'] ?? 0), 2);
+            if ($discount < 0 || $discount > $subtotal) {
+                throw ValidationException::withMessages([
+                    'discount' => 'La remise ne peut pas dépasser le montant total de la facture.',
+                ]);
+            }
+
+            $vatRate = round((float) ($data['vat_rate'] ?? 0), 2);
+            $afterDiscount = max(0, $subtotal - $discount);
+            $vatAmount = round($afterDiscount * ($vatRate / 100), 2);
+            $total = round($afterDiscount + $vatAmount, 2);
+
+            if (! empty($data['advance']) && (float) $data['advance'] > $total) {
+                throw ValidationException::withMessages([
+                    'advance' => "L'avance ne peut pas dépasser le total de la facture ({$total} FCFA).",
+                ]);
+            }
 
             $invoice = Invoice::create([
                 'number' => $this->numberGenerator->next(),
@@ -122,6 +141,8 @@ class InvoiceController extends Controller
                 'payment_type' => $data['payment_type'] ?? null,
                 'total_amount' => $total,
                 'amount_paid' => 0,
+                'discount' => $discount,
+                'vat_rate' => $vatRate,
                 'status' => 'unpaid',
                 'comment' => $data['comment'] ?? null,
             ]);

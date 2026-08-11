@@ -9,6 +9,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
+import { formatRelativeDate } from '@/utils/date';
 import { Button } from '@/components/ui/Button';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
@@ -26,11 +27,14 @@ function formatCurrency(value: number | string | null | undefined): string {
   return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
 }
 
-export default function InvoiceDetailPage() {
-  const { id = '' } = useParams();
+export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
+  const { id: routeId = '', invoiceId = '' } = useParams();
+  const id = invoiceId || routeId;
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
+
+  const backToList = fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices` : '/invoices';
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -168,7 +172,7 @@ export default function InvoiceDetailPage() {
     return (
       <div className="flex flex-col gap-4">
         <Link
-          to="/invoices"
+          to={backToList}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -183,7 +187,7 @@ export default function InvoiceDetailPage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to="/invoices"
+          to={backToList}
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -244,6 +248,68 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.invoiceDate')}</p>
+          <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {formatRelativeDate(invoice.invoice_date)}
+          </p>
+          <p className="text-xs text-gray-400">
+            {new Date(invoice.invoice_date).toLocaleString(currentLocale())}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.clientLabel')}</p>
+          {invoice.client ? (
+            <div className="mt-1 text-sm">
+              <p className="font-semibold text-gray-800 dark:text-gray-100">
+                {[invoice.client.first_name, invoice.client.last_name].filter(Boolean).join(' ') || invoice.client.email}
+              </p>
+              <p className="text-gray-600 dark:text-gray-300">{invoice.client.email}</p>
+              {invoice.client.phone && (
+                <p className="text-gray-600 dark:text-gray-300">{invoice.client.phone}</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-gray-400">—</p>
+          )}
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.commercialLabel')}</p>
+          {invoice.commercial ? (
+            <div className="mt-1 text-sm">
+              <p className="font-semibold text-gray-800 dark:text-gray-100">
+                {[invoice.commercial.first_name, invoice.commercial.last_name].filter(Boolean).join(' ')}
+              </p>
+              {invoice.commercial.email && (
+                <p className="text-gray-600 dark:text-gray-300">{invoice.commercial.email}</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-gray-400">—</p>
+          )}
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.seller')}</p>
+          {invoice.seller ? (
+            <div className="mt-1 text-sm">
+              <p className="font-semibold text-gray-800 dark:text-gray-100">
+                {[invoice.seller.first_name, invoice.seller.last_name].filter(Boolean).join(' ') || invoice.seller.email}
+              </p>
+              {invoice.payment_type && (
+                <p className="text-gray-600 dark:text-gray-300">
+                  {invoice.payment_type === 'cash'
+                    ? t('invoices.paymentCash')
+                    : t('invoices.paymentMobile')}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-gray-400">—</p>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <h2 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">
@@ -254,8 +320,8 @@ export default function InvoiceDetailPage() {
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
                   <th className="py-2 pr-3 font-medium">{t('invoices.itemLabel')}</th>
-                  <th className="py-2 pr-3 text-right font-medium">{t('invoices.unitPrice')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('invoices.quantity')}</th>
+                  <th className="py-2 pr-3 text-right font-medium">{t('invoices.unitPrice')}</th>
                   <th className="py-2 text-right font-medium">{t('invoices.lineTotal')}</th>
                 </tr>
               </thead>
@@ -264,10 +330,10 @@ export default function InvoiceDetailPage() {
                   <tr key={item.id}>
                     <td className="py-2 pr-3 text-gray-800 dark:text-gray-100">{item.label}</td>
                     <td className="py-2 pr-3 text-right text-gray-600 dark:text-gray-300">
-                      {formatCurrency(item.unit_price)}
+                      {item.quantity}
                     </td>
                     <td className="py-2 pr-3 text-right text-gray-600 dark:text-gray-300">
-                      {item.quantity}
+                      {formatCurrency(item.unit_price)}
                     </td>
                     <td className="py-2 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(item.line_total)}
@@ -276,6 +342,20 @@ export default function InvoiceDetailPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="mt-4 ml-auto w-56 space-y-1 text-sm">
+            {Number(invoice.discount) > 0 && (
+              <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                <span>{t('invoices.discount')}</span>
+                <span className="text-error-500">- {formatCurrency(invoice.discount)}</span>
+              </div>
+            )}
+            {Number(invoice.vat_rate) > 0 && (
+              <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                <span>{t('invoices.vatAmount')} ({invoice.vat_rate}%)</span>
+                <span>+ {formatCurrency(Number(invoice.total_amount) - (Number(invoice.total_amount) / (1 + Number(invoice.vat_rate) / 100)))}</span>
+              </div>
+            )}
           </div>
           {invoice.comment && (
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
@@ -286,44 +366,40 @@ export default function InvoiceDetailPage() {
 
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <h2 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">
-            {t('invoices.paymentHistory')}
+            {t('invoices.totalAmount')}
           </h2>
-          {(invoice.payments ?? []).length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.noPayments')}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                  <tr>
-                    <th className="py-2 pr-3 font-medium">{t('invoices.paymentAmount')}</th>
-                    <th className="py-2 pr-3 font-medium">{t('invoices.paymentMethod')}</th>
-                    <th className="py-2 pr-3 font-medium">{t('invoices.paymentDate')}</th>
-                    <th className="py-2 font-medium">{t('invoices.paymentIsAdvance')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {(invoice.payments ?? []).map((p) => (
-                    <tr key={p.id}>
-                      <td className="py-2 pr-3 font-medium text-gray-800 dark:text-gray-100">
-                        {formatCurrency(p.amount)}
-                      </td>
-                      <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                        {p.payment_method === 'cash'
-                          ? t('invoices.paymentCash')
-                          : t('invoices.paymentMobile')}
-                      </td>
-                      <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                        {new Date(p.paid_at).toLocaleDateString(currentLocale())}
-                      </td>
-                      <td className="py-2 text-gray-600 dark:text-gray-300">
-                        {p.is_advance ? t('common.yes') : t('common.no')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between text-gray-600 dark:text-gray-300">
+              <span>{t('invoices.totalAfterDiscount')}</span>
+              <span>
+                {formatCurrency(Number(invoice.total_amount) + Number(invoice.discount) - Number(invoice.vat_amount))}
+              </span>
             </div>
-          )}
+            {Number(invoice.discount) > 0 && (
+              <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                <span>{t('invoices.discount')}</span>
+                <span className="text-error-500">- {formatCurrency(invoice.discount)}</span>
+              </div>
+            )}
+            {Number(invoice.vat_rate) > 0 && (
+              <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                <span>{t('invoices.vatAmount')} ({invoice.vat_rate}%)</span>
+                <span>+ {formatCurrency(invoice.vat_amount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-medium text-gray-800 dark:text-gray-100">
+              <span>{t('invoices.totalAmount')}</span>
+              <span>{formatCurrency(invoice.total_amount)}</span>
+            </div>
+            <div className="flex justify-between text-gray-600 dark:text-gray-300">
+              <span>{t('invoices.paid')}</span>
+              <span className="text-success-500">{formatCurrency(invoice.amount_paid)}</span>
+            </div>
+            <div className="flex justify-between text-base font-semibold text-gray-900 dark:text-white">
+              <span>{t('invoices.balanceDue')}</span>
+              <span className="text-error-500">{formatCurrency(invoice.balance_due)}</span>
+            </div>
+          </div>
         </div>
       </div>
 

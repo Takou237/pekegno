@@ -53,6 +53,8 @@ export default function InvoiceFormPage() {
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('');
   const [advance, setAdvance] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [vatRate, setVatRate] = useState('');
   const [comment, setComment] = useState('');
   const [lines, setLines] = useState<InvoiceLineDraft[]>([newLine()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -74,13 +76,24 @@ export default function InvoiceFormPage() {
   }, [agencyLocked, presetAgencyId]);
 
   const totals = useMemo(() => {
-    const total = lines.reduce(
+    const subtotal = lines.reduce(
       (sum, line) => sum + (Number(line.unit_price) || 0) * (Number(line.quantity) || 0),
       0
     );
+    const discountValue = Math.min(Math.max(Number(discount) || 0, 0), subtotal);
+    const afterDiscount = subtotal - discountValue;
+    const vatValue = (Number(vatRate) || 0) / 100;
+    const total = afterDiscount * (1 + vatValue);
     const advanceValue = Number(advance) || 0;
-    return { total, advance: advanceValue, balance: Math.max(0, total - advanceValue) };
-  }, [lines, advance]);
+    return {
+      subtotal,
+      discount: discountValue,
+      vat: total - afterDiscount,
+      total: Math.round(total * 100) / 100,
+      advance: advanceValue,
+      balance: Math.max(0, Math.round(total * 100) / 100 - advanceValue),
+    };
+  }, [lines, advance, discount, vatRate]);
 
   function updateLine(key: string, patch: Partial<InvoiceLineDraft>) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -94,6 +107,11 @@ export default function InvoiceFormPage() {
     const results = serviceResultsRef.current[key] ?? [];
     const service = results.find((s) => s.id === serviceId);
     if (!service) return;
+    const alreadyUsed = lines.some((l) => l.key !== key && l.service_id === serviceId);
+    if (alreadyUsed) {
+      showToast(t('invoices.duplicateService'), 'error');
+      return;
+    }
     updateLine(key, {
       service_id: service.id,
       label: service.name,
@@ -114,6 +132,10 @@ export default function InvoiceFormPage() {
       setErrors({ client_id: t('invoices.colClient') });
       return;
     }
+    if (Number(advance) > totals.total) {
+      setErrors({ advance: t('invoices.advanceExceedsTotal') });
+      return;
+    }
     setSubmitting(true);
     setErrors({});
     try {
@@ -125,6 +147,8 @@ export default function InvoiceFormPage() {
         payment_type: paymentType || undefined,
         comment: comment || undefined,
         advance: Number(advance) || undefined,
+        discount: Number(discount) || undefined,
+        vat_rate: Number(vatRate) || undefined,
         items: validLines.map((l) => ({
           service_id: l.service_id || undefined,
           label: l.label.trim() || undefined,
@@ -271,17 +295,6 @@ export default function InvoiceFormPage() {
                     error={errors[`items.${index}.label`]}
                   />
                 </div>
-                <div className="w-full sm:w-36">
-                  <Input
-                    label={index === 0 ? t('invoices.itemUnitPrice') : ''}
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={line.unit_price}
-                    onChange={(e) => updateLine(line.key, { unit_price: e.target.value })}
-                    error={errors[`items.${index}.unit_price`]}
-                  />
-                </div>
                 <div className="w-full sm:w-24">
                   <Input
                     label={index === 0 ? t('invoices.itemQuantity') : ''}
@@ -291,6 +304,17 @@ export default function InvoiceFormPage() {
                     value={line.quantity}
                     onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
                     error={errors[`items.${index}.quantity`]}
+                  />
+                </div>
+                <div className="w-full sm:w-36">
+                  <Input
+                    label={index === 0 ? t('invoices.itemUnitPrice') : ''}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={line.unit_price}
+                    onChange={(e) => updateLine(line.key, { unit_price: e.target.value })}
+                    error={errors[`items.${index}.unit_price`]}
                   />
                 </div>
                 <div className="flex items-center gap-3 sm:flex-col sm:items-end">
@@ -325,6 +349,29 @@ export default function InvoiceFormPage() {
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
+              label={t('invoices.discount')}
+              type="number"
+              min={0}
+              step="0.01"
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+              error={errors.discount}
+              hint={t('invoices.discountHint')}
+            />
+            <Input
+              label={t('invoices.vatRate')}
+              type="number"
+              min={0}
+              max={100}
+              step="0.01"
+              value={vatRate}
+              onChange={(e) => setVatRate(e.target.value)}
+              error={errors.vat_rate}
+              hint={t('invoices.vatHint')}
+            />
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
               label={t('invoices.advance')}
               type="number"
               min={0}
@@ -349,6 +396,28 @@ export default function InvoiceFormPage() {
           </div>
 
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+            <div className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-500 dark:text-gray-400">{t('invoices.totalAfterDiscount')}</span>
+              <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                {formatCurrency(totals.subtotal)}
+              </span>
+            </div>
+            {totals.discount > 0 && (
+              <div className="flex flex-col gap-1 text-sm">
+                <span className="text-gray-500 dark:text-gray-400">- {t('invoices.discount')}</span>
+                <span className="text-lg font-semibold text-error-500">
+                  - {formatCurrency(totals.discount)}
+                </span>
+              </div>
+            )}
+            {totals.vat > 0 && (
+              <div className="flex flex-col gap-1 text-sm">
+                <span className="text-gray-500 dark:text-gray-400">{t('invoices.vatAmount')}</span>
+                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                  + {formatCurrency(totals.vat)}
+                </span>
+              </div>
+            )}
             <div className="flex flex-col gap-1 text-sm">
               <span className="text-gray-500 dark:text-gray-400">{t('invoices.totalAmount')}</span>
               <span className="text-lg font-semibold text-gray-900 dark:text-white">

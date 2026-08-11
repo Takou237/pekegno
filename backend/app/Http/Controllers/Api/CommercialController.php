@@ -356,12 +356,25 @@ class CommercialController extends Controller
             ->orderBy('month')
             ->get();
 
+        $servicesSold = \Illuminate\Support\Facades\DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->where('invoices.commercial_id', $commercial->id)
+            ->where('invoices.status', 'paid')
+            ->whereNull('invoices.cancelled_at')
+            ->when($from, fn ($q) => $q->whereDate('invoices.invoice_date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('invoices.invoice_date', '<=', $to))
+            ->selectRaw('coalesce(label, \'\') as label, sum(quantity) as quantity, sum(line_total) as total')
+            ->groupBy('label')
+            ->orderByDesc('total')
+            ->get();
+
         return response()->json([
             'commercial' => $commercial->only(['id', 'first_name', 'last_name', 'email', 'points_balance', 'commission_type', 'commission_value', 'is_active']),
             'turnover' => round((float) (clone $base)->sum('total_amount'), 2),
             'sales_count' => (clone $base)->count(),
             'commissions' => round((float) (clone $base)->sum('commission_amount'), 2),
             'points_balance' => $commercial->points_balance,
+            'services_sold' => $servicesSold,
             'monthly' => $monthly,
         ]);
     }

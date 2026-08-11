@@ -9,6 +9,7 @@ import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
+import { formatRelativeDate } from '@/utils/date';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -22,6 +23,10 @@ import type { Agency, PaginationMeta } from '@/types/agency';
 function formatCurrency(value: number | string | null | undefined): string {
   const n = Number(value ?? 0);
   return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
+}
+
+export function invoiceDetailPath(invoiceId: string, agencyId?: string): string {
+  return agencyId ? `/agencies/${agencyId}/invoices/${invoiceId}` : `/invoices/${invoiceId}`;
 }
 
 export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
@@ -212,6 +217,8 @@ export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: str
                   <th className="px-5 py-3 font-medium">{t('invoices.colClient')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colCommercial')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colAgency')}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t('invoices.colAdvance')}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t('invoices.colBalance')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('invoices.colTotal')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colStatus')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('common.actions')}</th>
@@ -221,14 +228,14 @@ export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: str
                 {invoices.map((inv) => (
                   <tr
                     key={inv.id}
-                    onClick={() => navigate(`/invoices/${inv.id}`)}
+                    onClick={() => navigate(invoiceDetailPath(inv.id, fixedAgencyId))}
                     className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
                   >
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
                       {inv.number}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {new Date(inv.invoice_date).toLocaleDateString(currentLocale())}
+                      {formatRelativeDate(inv.invoice_date)}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {inv.client
@@ -243,7 +250,19 @@ export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: str
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {inv.agency?.name ?? '—'}
                     </td>
+                    <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                      {formatCurrency(inv.amount_paid)}
+                    </td>
                     <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
+                      {formatCurrency(inv.balance_due)}
+                    </td>
+                    <td
+                      className={`px-5 py-3 text-right font-medium ${
+                        inv.status === 'partial'
+                          ? 'text-error-600 dark:text-error-400'
+                          : 'text-gray-800 dark:text-gray-100'
+                      }`}
+                    >
                       {formatCurrency(inv.total_amount)}
                     </td>
                     <td className="px-5 py-3">{<InvoiceStatusBadge status={inv.status} />}</td>
@@ -252,7 +271,7 @@ export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: str
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/invoices/${inv.id}`);
+                          navigate(invoiceDetailPath(inv.id, fixedAgencyId));
                         }}
                         className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
                         title={t('invoices.detailTitle', { number: inv.number })}

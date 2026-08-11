@@ -21,6 +21,8 @@ class Invoice extends Model
         'payment_type',
         'total_amount',
         'amount_paid',
+        'discount',
+        'vat_rate',
         'status',
         'commission_amount',
         'points_awarded',
@@ -28,7 +30,7 @@ class Invoice extends Model
         'cancelled_at',
     ];
 
-    protected $appends = ['balance_due'];
+    protected $appends = ['balance_due', 'vat_amount'];
 
     protected function casts(): array
     {
@@ -37,6 +39,8 @@ class Invoice extends Model
             'cancelled_at' => 'datetime',
             'total_amount' => 'decimal:2',
             'amount_paid' => 'decimal:2',
+            'discount' => 'decimal:2',
+            'vat_rate' => 'decimal:2',
             'commission_amount' => 'decimal:2',
             'points_awarded' => 'integer',
         ];
@@ -80,6 +84,13 @@ class Invoice extends Model
     public function getBalanceDueAttribute(): float
     {
         return round(max(0, (float) $this->total_amount - (float) $this->amount_paid), 2);
+    }
+
+    public function getVatAmountAttribute(): float
+    {
+        $afterDiscount = (float) $this->total_amount / (1 + (float) $this->vat_rate / 100);
+
+        return round((float) $this->total_amount - $afterDiscount, 2);
     }
 
     public function getIsCancelledAttribute(): bool

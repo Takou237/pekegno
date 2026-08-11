@@ -21,6 +21,8 @@ class StoreInvoiceRequest extends FormRequest
             'payment_type' => ['nullable', 'in:cash,mobile'],
             'comment' => ['nullable', 'string', 'max:1000'],
             'advance' => ['nullable', 'numeric', 'min:0.01'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
+            'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.service_id' => ['nullable', 'uuid', 'exists:services,id'],
             'items.*.label' => ['required_without:items.*.service_id', 'nullable', 'string', 'max:255'],

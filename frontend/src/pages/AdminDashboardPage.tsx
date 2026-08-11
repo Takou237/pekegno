@@ -38,6 +38,10 @@ function formatCurrency(value: number | string | null | undefined): string {
   return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
 }
 
+function formatNumber(value: number | string | null | undefined): string {
+  return new Intl.NumberFormat(currentLocale()).format(Number(value ?? 0));
+}
+
 function StatCard({
   label,
   value,
@@ -243,7 +247,7 @@ function AdminDashboard() {
                     />
                   </div>
                   <p className="mt-0.5 text-xs text-gray-400">
-                    {p.count} {t('dashboard.invoices')}
+                    {formatNumber(p.count)} {t('dashboard.invoices')}
                   </p>
                 </div>
               ))}
@@ -438,7 +442,7 @@ function AgencyChiefDashboard() {
         />
         <StatCard
           label={t('dashboard.salesCount')}
-          value={String(agencyStats?.sales_count ?? 0)}
+          value={formatNumber(agencyStats?.sales_count ?? 0)}
           icon={<HandCoins className="h-5 w-5" />}
           tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
         />
@@ -483,7 +487,7 @@ function AgencyChiefDashboard() {
                 {agencyStats.top_commercials.map((c) => (
                   <tr key={c.id}>
                     <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{c.full_name}</td>
-                    <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.sales_count}</td>
+                    <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{formatNumber(c.sales_count)}</td>
                     <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
                       {formatCurrency(c.turnover)}
                     </td>
@@ -932,7 +936,7 @@ function CommercialDashboard() {
         />
         <StatCard
           label={t('dashboard.salesCount')}
-          value={String(stats?.sales_count ?? 0)}
+          value={formatNumber(stats?.sales_count ?? 0)}
           icon={<HandCoins className="h-5 w-5" />}
           tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
         />
