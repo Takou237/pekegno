@@ -132,7 +132,7 @@ class ClientController extends Controller
             return response()->json(['message' => 'Client non trouvé.'], 404);
         }
 
-        return new UserResource($client->load('role', 'clientInvoices'));
+        return (new UserResource($client->load('role', 'clientInvoices')))->response();
     }
 
     #[OA\Put(
@@ -174,7 +174,7 @@ class ClientController extends Controller
             request: $request,
         );
 
-        return new UserResource($client->fresh()->load('role'));
+        return (new UserResource($client->fresh()->load('role')))->response();
     }
 
     #[OA\Delete(

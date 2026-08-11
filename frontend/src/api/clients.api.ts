@@ -9,18 +9,18 @@ export const clientsApi = {
   },
 
   async create(payload: ClientPayload): Promise<ClientListItem> {
-    const { data } = await client.post<{ data: ClientListItem }>('/clients', payload);
-    return data.data;
+    const { data } = await client.post<ClientListItem>('/clients', payload);
+    return data;
   },
 
   async get(id: string): Promise<ClientListItem> {
-    const { data } = await client.get<{ data: ClientListItem }>(`/clients/${id}`);
-    return data.data;
+    const { data } = await client.get<ClientListItem>(`/clients/${id}`);
+    return data;
   },
 
   async update(id: string, payload: Partial<ClientPayload>): Promise<ClientListItem> {
-    const { data } = await client.put<{ data: ClientListItem }>(`/clients/${id}`, payload);
-    return data.data;
+    const { data } = await client.put<ClientListItem>(`/clients/${id}`, payload);
+    return data;
   },
 
   async remove(id: string): Promise<void> {
