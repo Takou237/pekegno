@@ -4,7 +4,7 @@ import type { Invoice } from '@/types/invoice';
 
 function formatCurrency(value: number | string | null | undefined): string {
   const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
+  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
 }
 
 export function InvoicePrint({ invoice }: { invoice: Invoice }) {
@@ -114,8 +114,8 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
         </div>
         {Number(invoice.discount) > 0 && (
           <div className="flex justify-between py-1">
-            <span className="text-gray-600">{t('invoices.discount')}</span>
-            <span className="text-error-500">- {formatCurrency(invoice.discount)}</span>
+            <span className="text-gray-600">{t('invoices.discountLabel')}</span>
+            <span className="text-gray-800">- {formatCurrency(invoice.discount)}</span>
           </div>
         )}
         {Number(invoice.vat_rate) > 0 && (
@@ -132,8 +132,8 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
         </div>
         {Number(invoice.amount_paid) > 0 && (
           <div className="flex justify-between py-1">
-            <span className="text-gray-600">{t('invoices.paid')}</span>
-            <span className="text-success-500">- {formatCurrency(invoice.amount_paid)}</span>
+            <span className="text-gray-600">{t('invoices.paidAmount')}</span>
+            <span className="text-gray-800">- {formatCurrency(invoice.amount_paid)}</span>
           </div>
         )}
         <div className="flex justify-between border-t border-gray-300 py-1">

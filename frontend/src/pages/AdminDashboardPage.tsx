@@ -35,11 +35,11 @@ function roleBadge(roleName: string | null | undefined, t: (key: string, opts?: 
 
 function formatCurrency(value: number | string | null | undefined): string {
   const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
+  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
 }
 
 function formatNumber(value: number | string | null | undefined): string {
-  return new Intl.NumberFormat(currentLocale()).format(Number(value ?? 0));
+  return new Intl.NumberFormat('fr-FR').format(Number(value ?? 0));
 }
 
 function StatCard({

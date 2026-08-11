@@ -24,7 +24,7 @@ import type { Invoice, PaymentMethod } from '@/types/invoice';
 
 function formatCurrency(value: number | string | null | undefined): string {
   const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
+  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
 }
 
 export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
@@ -235,14 +235,14 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           </p>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.paid')}</p>
-          <p className="mt-1 text-2xl font-semibold text-success-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.paidAmount')}</p>
+          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
             {formatCurrency(invoice.amount_paid)}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.balanceDue')}</p>
-          <p className="mt-1 text-2xl font-semibold text-error-500">
+          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
             {formatCurrency(invoice.balance_due)}
           </p>
         </div>
@@ -343,20 +343,6 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               </tbody>
             </table>
           </div>
-          <div className="mt-4 ml-auto w-56 space-y-1 text-sm">
-            {Number(invoice.discount) > 0 && (
-              <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                <span>{t('invoices.discount')}</span>
-                <span className="text-error-500">- {formatCurrency(invoice.discount)}</span>
-              </div>
-            )}
-            {Number(invoice.vat_rate) > 0 && (
-              <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                <span>{t('invoices.vatAmount')} ({invoice.vat_rate}%)</span>
-                <span>+ {formatCurrency(Number(invoice.total_amount) - (Number(invoice.total_amount) / (1 + Number(invoice.vat_rate) / 100)))}</span>
-              </div>
-            )}
-          </div>
           {invoice.comment && (
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
               {t('invoices.headerComment')} : {invoice.comment}
@@ -377,8 +363,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             </div>
             {Number(invoice.discount) > 0 && (
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                <span>{t('invoices.discount')}</span>
-                <span className="text-error-500">- {formatCurrency(invoice.discount)}</span>
+                <span>{t('invoices.discountLabel')}</span>
+                <span>- {formatCurrency(invoice.discount)}</span>
               </div>
             )}
             {Number(invoice.vat_rate) > 0 && (
@@ -392,12 +378,12 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               <span>{formatCurrency(invoice.total_amount)}</span>
             </div>
             <div className="flex justify-between text-gray-600 dark:text-gray-300">
-              <span>{t('invoices.paid')}</span>
-              <span className="text-success-500">{formatCurrency(invoice.amount_paid)}</span>
+              <span>{t('invoices.paidAmount')}</span>
+              <span>{formatCurrency(invoice.amount_paid)}</span>
             </div>
-            <div className="flex justify-between text-base font-semibold text-gray-900 dark:text-white">
+            <div className="flex justify-between text-base font-semibold text-gray-800 dark:text-gray-100">
               <span>{t('invoices.balanceDue')}</span>
-              <span className="text-error-500">{formatCurrency(invoice.balance_due)}</span>
+              <span>{formatCurrency(invoice.balance_due)}</span>
             </div>
           </div>
         </div>

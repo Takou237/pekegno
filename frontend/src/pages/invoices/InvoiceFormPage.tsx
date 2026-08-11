@@ -9,7 +9,6 @@ import { agenciesApi } from '@/api/agencies.api';
 import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
-import { currentLocale } from '@/i18n';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -33,7 +32,7 @@ function newLine(): InvoiceLineDraft {
 }
 
 function formatCurrency(value: number): string {
-  return `${new Intl.NumberFormat(currentLocale()).format(value)} FCFA`;
+  return `${new Intl.NumberFormat('fr-FR').format(value)} FCFA`;
 }
 
 export default function InvoiceFormPage() {

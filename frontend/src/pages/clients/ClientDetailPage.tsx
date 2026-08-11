@@ -17,7 +17,7 @@ import type { PaginationMeta } from '@/types/agency';
 
 function formatCurrency(value: number | string | null | undefined): string {
   const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
+  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
 }
 
 export default function ClientDetailPage() {
