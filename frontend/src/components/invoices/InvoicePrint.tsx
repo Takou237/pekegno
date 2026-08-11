@@ -36,41 +36,23 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
         </div>
       </div>
 
-      <div className="mt-8 flex items-start justify-between gap-6 text-sm">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            {t('invoices.agencySnapshot')}
-          </p>
-          {agency ? (
-            <div className="mt-1 text-gray-800">
-              <p className="font-medium">{agency.name}</p>
-              {agency.address && <p>{agency.address}</p>}
-              {agency.city && <p>{agency.city}</p>}
-              {agency.phone && <p>{agency.phone}</p>}
-              {agency.email && <p>{agency.email}</p>}
-            </div>
-          ) : (
-            <p className="mt-1 text-gray-500">—</p>
-          )}
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            {t('invoices.clientLabel')}
-          </p>
-          {invoice.client ? (
-            <div className="mt-1 text-gray-800">
-              <p className="font-medium">
-                {[invoice.client.first_name, invoice.client.last_name]
-                  .filter(Boolean)
-                  .join(' ')}
-              </p>
-              <p>{invoice.client.email}</p>
-              {invoice.client.phone && <p>{invoice.client.phone}</p>}
-            </div>
-          ) : (
-            <p className="mt-1 text-gray-500">—</p>
-          )}
-        </div>
+      <div className="mt-8 text-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          {t('invoices.clientLabel')}
+        </p>
+        {invoice.client ? (
+          <div className="mt-1 text-gray-800">
+            <p className="font-medium">
+              {[invoice.client.first_name, invoice.client.last_name]
+                .filter(Boolean)
+                .join(' ')}
+            </p>
+            <p>{invoice.client.email}</p>
+            {invoice.client.phone && <p>{invoice.client.phone}</p>}
+          </div>
+        ) : (
+          <p className="mt-1 text-gray-500">—</p>
+        )}
       </div>
 
       <table className="mt-8 w-full text-sm">
