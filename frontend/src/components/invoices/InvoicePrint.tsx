@@ -39,23 +39,15 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
       <div className="mt-8 flex items-start justify-between gap-6 text-sm">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            {t('invoices.seller')}
+            {t('invoices.agencySnapshot')}
           </p>
-          {invoice.seller ? (
+          {agency ? (
             <div className="mt-1 text-gray-800">
-              <p className="font-medium">
-                {[invoice.seller.first_name, invoice.seller.last_name]
-                  .filter(Boolean)
-                  .join(' ') || invoice.seller.email}
-              </p>
-              {invoice.payment_type && (
-                <p className="mt-1 text-gray-600">
-                  {t('invoices.headerPaymentType')} :{' '}
-                  {invoice.payment_type === 'cash'
-                    ? t('invoices.paymentCash')
-                    : t('invoices.paymentMobile')}
-                </p>
-              )}
+              <p className="font-medium">{agency.name}</p>
+              {agency.address && <p>{agency.address}</p>}
+              {agency.city && <p>{agency.city}</p>}
+              {agency.phone && <p>{agency.phone}</p>}
+              {agency.email && <p>{agency.email}</p>}
             </div>
           ) : (
             <p className="mt-1 text-gray-500">—</p>
@@ -74,11 +66,6 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
               </p>
               <p>{invoice.client.email}</p>
               {invoice.client.phone && <p>{invoice.client.phone}</p>}
-              {invoice.client.client_number && (
-                <p>
-                  {t('invoices.clientNumber')} : {invoice.client.client_number}
-                </p>
-              )}
             </div>
           ) : (
             <p className="mt-1 text-gray-500">—</p>
