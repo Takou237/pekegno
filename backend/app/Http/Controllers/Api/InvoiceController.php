@@ -71,7 +71,7 @@ class InvoiceController extends Controller
         $perPage = min((int) $request->input('per_page', 15), 100);
 
         $invoices = $base
-            ->with(['client:id,first_name,last_name,email,client_number,phone', 'commercial:id,first_name,last_name,email,phone', 'agency:id,name,code'])
+            ->with(['client:id,first_name,last_name,email,client_number,phone', 'commercial:id,first_name,last_name,email,phone', 'agency:id,name,code,city,address,phone,email'])
             ->orderByDesc('invoice_date')
             ->paginate($perPage);
 

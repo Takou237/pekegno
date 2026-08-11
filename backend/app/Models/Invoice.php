@@ -30,7 +30,7 @@ class Invoice extends Model
         'cancelled_at',
     ];
 
-    protected $appends = ['balance_due', 'vat_amount'];
+    protected $appends = ['balance_due', 'vat_amount', 'agency_snapshot'];
 
     protected function casts(): array
     {
