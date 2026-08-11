@@ -36,23 +36,25 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
         </div>
       </div>
 
-      <div className="mt-8 text-sm">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          {t('invoices.clientLabel')}
-        </p>
-        {invoice.client ? (
-          <div className="mt-1 text-gray-800">
-            <p className="font-medium">
-              {[invoice.client.first_name, invoice.client.last_name]
-                .filter(Boolean)
-                .join(' ')}
-            </p>
-            <p>{invoice.client.email}</p>
-            {invoice.client.phone && <p>{invoice.client.phone}</p>}
-          </div>
-        ) : (
-          <p className="mt-1 text-gray-500">—</p>
-        )}
+      <div className="mt-8 flex justify-end text-sm">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            {t('invoices.clientLabel')}
+          </p>
+          {invoice.client ? (
+            <div className="mt-1 text-right text-gray-800">
+              <p className="font-medium">
+                {[invoice.client.first_name, invoice.client.last_name]
+                  .filter(Boolean)
+                  .join(' ')}
+              </p>
+              <p>{invoice.client.email}</p>
+              {invoice.client.phone && <p>{invoice.client.phone}</p>}
+            </div>
+          ) : (
+            <p className="mt-1 text-gray-500">—</p>
+          )}
+        </div>
       </div>
 
       <table className="mt-8 w-full text-sm">
