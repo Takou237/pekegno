@@ -33,14 +33,7 @@ function roleBadge(roleName: string | null | undefined, t: (key: string, opts?: 
   }
 }
 
-function formatCurrency(value: number | string | null | undefined): string {
-  const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
-}
-
-function formatNumber(value: number | string | null | undefined): string {
-  return new Intl.NumberFormat('fr-FR').format(Number(value ?? 0));
-}
+import { formatCurrency, formatNumber } from '@/utils/number';
 
 function StatCard({
   label,
@@ -180,7 +173,6 @@ function AdminDashboard() {
           value={formatCurrency(stats?.outstanding ?? 0)}
           icon={<Clock className="h-5 w-5" />}
           tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
-          sub={t('dashboard.invoicesUnpaid')}
         />
       </div>
 

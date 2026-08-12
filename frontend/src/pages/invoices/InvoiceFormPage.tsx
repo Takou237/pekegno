@@ -9,6 +9,7 @@ import { agenciesApi } from '@/api/agencies.api';
 import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { formatCurrency } from '@/utils/number';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -29,10 +30,6 @@ let lineCounter = 0;
 function newLine(): InvoiceLineDraft {
   lineCounter += 1;
   return { key: `line-${lineCounter}`, service_id: '', label: '', unit_price: '', quantity: '1' };
-}
-
-function formatCurrency(value: number): string {
-  return `${new Intl.NumberFormat('fr-FR').format(value)} FCFA`;
 }
 
 export default function InvoiceFormPage() {

@@ -7,7 +7,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { currentLocale } from '@/i18n';
+import { formatCurrency } from '@/utils/number';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -21,11 +21,6 @@ import { CommercialForm, commercialFormFrom, type CommercialFormValues } from '@
 import { canExportData } from '@/utils/exportPermissions';
 import type { Commercial, RankingEntry } from '@/types/commercial';
 import type { PaginationMeta } from '@/types/agency';
-
-function formatCurrency(value: number | string | null | undefined): string {
-  const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
-}
 
 export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { t } = useTranslation();

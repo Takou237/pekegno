@@ -6,6 +6,7 @@ import { clientsApi } from '@/api/clients.api';
 import { invoicesApi } from '@/api/invoices.api';
 import { extractErrorMessage } from '@/api/errors';
 import { currentLocale } from '@/i18n';
+import { formatCurrency } from '@/utils/number';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonDetail,
   SkeletonTable } from '@/components/ui/Skeleton';
@@ -14,11 +15,6 @@ import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import type { ClientListItem } from '@/types/client';
 import type { Invoice } from '@/types/invoice';
 import type { PaginationMeta } from '@/types/agency';
-
-function formatCurrency(value: number | string | null | undefined): string {
-  const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
-}
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();

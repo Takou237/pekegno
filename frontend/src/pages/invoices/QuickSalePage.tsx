@@ -7,7 +7,7 @@ import { clientsApi } from '@/api/clients.api';
 import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
-import { currentLocale } from '@/i18n';
+import { formatCurrency } from '@/utils/number';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -15,10 +15,6 @@ import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem } from '@/types/service';
-
-function formatCurrency(value: number): string {
-  return `${new Intl.NumberFormat(currentLocale()).format(value)} FCFA`;
-}
 
 export default function QuickSalePage() {
   const { t } = useTranslation();

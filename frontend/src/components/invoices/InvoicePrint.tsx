@@ -1,11 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { currentLocale } from '@/i18n';
+import { formatCurrency } from '@/utils/number';
 import type { Invoice } from '@/types/invoice';
-
-function formatCurrency(value: number | string | null | undefined): string {
-  const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
-}
 
 export function InvoicePrint({ invoice }: { invoice: Invoice }) {
   const { t } = useTranslation();
@@ -36,7 +32,7 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
         </div>
       </div>
 
-      <div className="mt-8 flex justify-end text-sm">
+      <div className="mt-8 flex justify-end pr-8 text-sm">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
             {t('invoices.clientLabel')}

@@ -9,6 +9,7 @@ import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { formatRelativeDate } from '@/utils/date';
+import { formatCurrency } from '@/utils/number';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -18,11 +19,6 @@ import { Input } from '@/components/ui/Input';
 import { canExportData } from '@/utils/exportPermissions';
 import type { Invoice, InvoiceStatus } from '@/types/invoice';
 import type { Agency, PaginationMeta } from '@/types/agency';
-
-function formatCurrency(value: number | string | null | undefined): string {
-  const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
-}
 
 export function invoiceDetailPath(invoiceId: string, agencyId?: string): string {
   return agencyId ? `/agencies/${agencyId}/invoices/${invoiceId}` : `/invoices/${invoiceId}`;

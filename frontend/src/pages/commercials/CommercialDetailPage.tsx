@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
 import { formatRelativeDate } from '@/utils/date';
+import { formatCurrency } from '@/utils/number';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
@@ -22,11 +23,6 @@ import {
   commercialFormFrom,
 } from '@/components/commercials/CommercialForm';
 import type { Commercial, CommercialStats } from '@/types/commercial';
-
-function formatCurrency(value: number | string | null | undefined): string {
-  const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
-}
 
 export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { id: routeId, commercialId } = useParams();

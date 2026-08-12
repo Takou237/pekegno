@@ -10,6 +10,7 @@ import { SkeletonDashboard,
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import { currentLocale } from '@/i18n';
+import { formatCurrency } from '@/utils/number';
 import type { Agency } from '@/types/agency';
 import type { DashboardStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, AgencyStats } from '@/types/stats';
 
@@ -27,11 +28,6 @@ function roleBadge(roleName: string | null | undefined, t: (key: string, opts?: 
     case 'formateur': return <Badge variant="brand">{t('roles.formateur')}</Badge>;
     default: return <Badge variant="neutral">{t('roles.none')}</Badge>;
   }
-}
-
-function formatCurrency(value: number | string | null | undefined): string {
-  const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat(currentLocale()).format(n)} FCFA`;
 }
 
 function StatCard({

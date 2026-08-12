@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
 import { formatRelativeDate } from '@/utils/date';
+import { formatCurrency } from '@/utils/number';
 import { Button } from '@/components/ui/Button';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
@@ -21,11 +22,6 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoicePrint } from '@/components/invoices/InvoicePrint';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import type { Invoice, PaymentMethod } from '@/types/invoice';
-
-function formatCurrency(value: number | string | null | undefined): string {
-  const n = Number(value ?? 0);
-  return `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
-}
 
 export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { id: routeId = '', invoiceId = '' } = useParams();

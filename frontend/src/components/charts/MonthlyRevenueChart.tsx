@@ -1,10 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { MonthlyRevenuePoint } from '@/types/stats';
-import { currentLocale } from '@/i18n';
-
-function formatCurrency(value: number): string {
-  return `${new Intl.NumberFormat(currentLocale()).format(value)} FCFA`;
-}
+import { formatCurrency } from '@/utils/number';
 
 export function MonthlyRevenueChart({ data }: { data: MonthlyRevenuePoint[] }) {
   const { t } = useTranslation();
