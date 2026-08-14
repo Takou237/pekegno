@@ -1,11 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import { currentLocale } from '@/i18n';
-import { formatCurrency, formatNumber } from '@/utils/number';
+import { formatCurrency, formatNumber, numberToWords } from '@/utils/number';
 import type { Invoice } from '@/types/invoice';
 
 export function InvoicePrint({ invoice }: { invoice: Invoice }) {
   const { t } = useTranslation();
   const agency = invoice.agency_snapshot;
+  const subtotal = Number(invoice.total_amount) + Number(invoice.discount) - Number(invoice.vat_amount);
+  const totalTtc = subtotal - Number(invoice.discount);
+  const grandTotal = totalTtc + Number(invoice.vat_amount);
 
   return (
     <div id="invoice-print" className="bg-white p-8 text-gray-900">
@@ -36,7 +39,7 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
               {t('invoices.clientLabel')}
             </p>
             {invoice.client_label ? (
-              <div className="flex items-center justify-end gap-2 text-gray-800">
+              <div className="flex flex-col items-end text-gray-800">
                 <p className="font-medium">{invoice.client_label}</p>
                 {invoice.client && (
                   <>
@@ -76,35 +79,29 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
       <div className="mt-6 ml-auto w-64 text-sm">
         <div className="flex justify-between py-1">
           <span className="text-gray-600">{t('invoices.totalAfterDiscount')}</span>
-          <span className="text-gray-800">{formatCurrency(Number(invoice.total_amount) + Number(invoice.discount) - Number(invoice.vat_amount))}</span>
+          <span className="text-gray-800">{formatCurrency(subtotal)}</span>
         </div>
         {Number(invoice.discount) > 0 && (
           <div className="flex justify-between py-1">
             <span className="text-gray-600">{t('invoices.discountLabel')}</span>
-            <span className="text-gray-800">- {formatCurrency(invoice.discount)}</span>
+            <span className="text-gray-800">{formatCurrency(invoice.discount)}</span>
           </div>
         )}
+        <div className="flex justify-between py-1">
+          <span className="text-gray-600">{t('invoices.totalTtc')}</span>
+          <span className="text-gray-800">{formatCurrency(totalTtc)}</span>
+        </div>
         {Number(invoice.vat_rate) > 0 && (
           <div className="flex justify-between py-1">
             <span className="text-gray-600">
               {t('invoices.vatAmount')} ({invoice.vat_rate}%)
             </span>
-            <span className="text-gray-800">+ {formatCurrency(invoice.vat_amount)}</span>
+            <span className="text-gray-800">{formatCurrency(invoice.vat_amount)}</span>
           </div>
         )}
         <div className="flex justify-between border-t border-gray-300 py-1">
-          <span className="font-semibold">{t('invoices.totalAmount')}</span>
-          <span className="font-semibold">{formatCurrency(invoice.total_amount)}</span>
-        </div>
-        {Number(invoice.amount_paid) > 0 && (
-          <div className="flex justify-between py-1">
-            <span className="text-gray-600">{t('invoices.paidAmount')}</span>
-            <span className="text-gray-800">- {formatCurrency(invoice.amount_paid)}</span>
-          </div>
-        )}
-        <div className="flex justify-between border-t border-gray-300 py-1">
-          <span className="font-semibold">{t('invoices.balanceDue')}</span>
-          <span className="font-semibold">{formatCurrency(invoice.balance_due)}</span>
+          <span className="font-semibold">{t('invoices.grandTotalTtc')}</span>
+          <span className="font-semibold">{formatCurrency(grandTotal)}</span>
         </div>
       </div>
 
@@ -113,6 +110,11 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
           {t('invoices.headerComment')} : {invoice.comment}
         </p>
       )}
+
+      <p className="mt-2 text-center text-sm text-gray-800">
+        {t('invoices.amountInWords')} {numberToWords(grandTotal)} francs CFA (
+        {formatCurrency(grandTotal)}).
+      </p>
     </div>
   );
 }
