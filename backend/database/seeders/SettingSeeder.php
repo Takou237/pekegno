@@ -15,5 +15,7 @@ class SettingSeeder extends Seeder
         Setting::set('default_commission_type', 'none', 'Type de commission par défaut (none, percent, fixed)');
         Setting::set('default_commission_value', 0, 'Valeur de commission par défaut');
         Setting::set('invoice_prefix', 'PK', 'Préfixe des numéros de facture');
+        Setting::set('prospect_points_per_add', 2, 'Points attribués par prospect ramené');
+        Setting::set('prospect_points_per_conversion', 5, 'Points attribués lors de la conversion d\'un prospect en client');
     }
 }

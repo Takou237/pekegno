@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromotionController;
+use App\Http\Controllers\Api\ProspectController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SettingController;
@@ -69,6 +70,13 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/clients/{client}', [ClientController::class, 'show'])->middleware('permission:clients.consulter');
     Route::put('/clients/{client}', [ClientController::class, 'update'])->middleware('permission:clients.modifier');
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->middleware('permission:clients.supprimer');
+
+    Route::get('/prospects', [ProspectController::class, 'index'])->middleware('permission:prospects.consulter');
+    Route::post('/prospects', [ProspectController::class, 'store'])->middleware('permission:prospects.creer');
+    Route::get('/prospects/{prospect}', [ProspectController::class, 'show'])->middleware('permission:prospects.consulter');
+    Route::put('/prospects/{prospect}', [ProspectController::class, 'update'])->middleware('permission:prospects.modifier');
+    Route::delete('/prospects/{prospect}', [ProspectController::class, 'destroy'])->middleware('permission:prospects.supprimer');
+    Route::post('/prospects/{prospect}/convert', [ProspectController::class, 'convert'])->middleware('permission:prospects.modifier');
 
     Route::get('/commercials/search', [CommercialController::class, 'search'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:commercials.consulter');

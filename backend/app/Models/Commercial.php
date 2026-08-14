@@ -54,6 +54,11 @@ class Commercial extends Model
         return $this->hasMany(CommercialPoint::class);
     }
 
+    public function prospects(): HasMany
+    {
+        return $this->hasMany(Prospect::class);
+    }
+
     public function getFullNameAttribute(): string
     {
         return trim($this->first_name.' '.$this->last_name);

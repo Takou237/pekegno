@@ -38,6 +38,7 @@ class RoleSeeder extends Seeder
             'super-admin' => $all,
             'direction-generale' => $all,
             'responsable-agence' => array_merge(
+                $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('agencies', ['consulter', 'modifier', 'exporter']),
                 $p('departments', ['consulter', 'creer', 'modifier', 'exporter']),
                 $p('categories', ['consulter', 'creer', 'modifier']),
@@ -50,6 +51,7 @@ class RoleSeeder extends Seeder
                 $p('stats', ['consulter']),
             ),
             'responsable-departement' => array_merge(
+                $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('agencies', ['consulter', 'modifier', 'exporter']),
                 $p('departments', ['consulter', 'creer', 'modifier', 'exporter']),
                 $p('categories', ['consulter', 'creer', 'modifier']),
@@ -62,6 +64,7 @@ class RoleSeeder extends Seeder
                 $p('stats', ['consulter']),
             ),
             'commercial' => array_merge(
+                $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('clients', ['consulter']),
                 $p('commercials', ['consulter']),
                 $p('services', ['consulter']),

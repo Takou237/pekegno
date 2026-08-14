@@ -1,4 +1,5 @@
 import type { Agency } from './agency';
+import type { Prospect } from './prospect';
 
 export interface CommercialUserLink {
   id: string;
@@ -36,6 +37,7 @@ export interface Commercial {
   agency?: Agency | null;
   user?: CommercialUserLink | null;
   points?: CommercialPoint[];
+  prospects?: Prospect[];
   created_at: string;
   updated_at: string;
 }

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { currentLocale } from '@/i18n';
-import { formatCurrency } from '@/utils/number';
+import { formatCurrency, formatNumber } from '@/utils/number';
 import type { Invoice } from '@/types/invoice';
 
 export function InvoicePrint({ invoice }: { invoice: Invoice }) {
@@ -32,13 +32,13 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
         </div>
       </div>
 
-      <div className="mt-8 flex justify-end pr-8 text-sm">
-        <div>
+      <div className="mt-8 flex justify-end text-sm">
+        <div className="text-right">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
             {t('invoices.clientLabel')}
           </p>
           {invoice.client ? (
-            <div className="mt-1 text-right text-gray-800">
+            <div className="mt-1 text-gray-800">
               <p className="font-medium">
                 {[invoice.client.first_name, invoice.client.last_name]
                   .filter(Boolean)
@@ -66,7 +66,7 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
           {(invoice.items ?? []).map((item) => (
             <tr key={item.id} className="border-b border-gray-200">
               <td className="py-2 pr-3">{item.label}</td>
-              <td className="py-2 pr-3 text-right">{item.quantity}</td>
+              <td className="py-2 pr-3 text-right">{formatNumber(item.quantity)}</td>
               <td className="py-2 pr-3 text-right">{formatCurrency(item.unit_price)}</td>
               <td className="py-2 text-right">{formatCurrency(item.line_total)}</td>
             </tr>

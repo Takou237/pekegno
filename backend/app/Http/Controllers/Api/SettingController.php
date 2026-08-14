@@ -14,6 +14,8 @@ class SettingController extends Controller
 {
     private const ALLOWED_KEYS = [
         'sales_points_per_sale',
+        'prospect_points_per_add',
+        'prospect_points_per_conversion',
         'inactivity_period_days',
         'inactivity_penalty_points',
         'default_commission_type',
@@ -55,6 +57,8 @@ class SettingController extends Controller
             content: new OA\JsonContent(
                 properties: [
                     new OA\Property(property: 'sales_points_per_sale', type: 'integer', example: 3),
+                    new OA\Property(property: 'prospect_points_per_add', type: 'integer', example: 2),
+                    new OA\Property(property: 'prospect_points_per_conversion', type: 'integer', example: 5),
                     new OA\Property(property: 'inactivity_period_days', type: 'integer', example: 14),
                     new OA\Property(property: 'inactivity_penalty_points', type: 'integer', example: 5),
                     new OA\Property(property: 'default_commission_type', type: 'string', enum: ['none', 'percent', 'fixed']),
@@ -79,6 +83,8 @@ class SettingController extends Controller
 
         $data = $request->validate([
             'sales_points_per_sale' => ['sometimes', 'integer', 'min:0', 'max:1000'],
+            'prospect_points_per_add' => ['sometimes', 'integer', 'min:0', 'max:1000'],
+            'prospect_points_per_conversion' => ['sometimes', 'integer', 'min:0', 'max:1000'],
             'inactivity_period_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
             'inactivity_penalty_points' => ['sometimes', 'integer', 'min:0', 'max:1000'],
             'default_commission_type' => ['sometimes', Rule::in(['none', 'percent', 'fixed'])],

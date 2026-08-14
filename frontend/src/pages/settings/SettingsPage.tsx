@@ -13,6 +13,8 @@ import type { CommissionType } from '@/types/settings';
 
 interface SettingsForm {
   sales_points_per_sale: string;
+  prospect_points_per_add: string;
+  prospect_points_per_conversion: string;
   inactivity_period_days: string;
   inactivity_penalty_points: string;
   default_commission_type: CommissionType;
@@ -22,6 +24,8 @@ interface SettingsForm {
 
 const EMPTY_FORM: SettingsForm = {
   sales_points_per_sale: '',
+  prospect_points_per_add: '',
+  prospect_points_per_conversion: '',
   inactivity_period_days: '',
   inactivity_penalty_points: '',
   default_commission_type: 'none',
@@ -46,6 +50,8 @@ export default function SettingsPage() {
         const map = new Map(settings.map((s) => [s.key, s.value]));
         setForm({
           sales_points_per_sale: String(map.get('sales_points_per_sale') ?? 3),
+          prospect_points_per_add: String(map.get('prospect_points_per_add') ?? 2),
+          prospect_points_per_conversion: String(map.get('prospect_points_per_conversion') ?? 5),
           inactivity_period_days: String(map.get('inactivity_period_days') ?? 14),
           inactivity_penalty_points: String(map.get('inactivity_penalty_points') ?? 5),
           default_commission_type: (map.get('default_commission_type') as CommissionType) ?? 'none',
@@ -66,6 +72,8 @@ export default function SettingsPage() {
     try {
       await settingsApi.update({
         sales_points_per_sale: Number(form.sales_points_per_sale),
+        prospect_points_per_add: Number(form.prospect_points_per_add),
+        prospect_points_per_conversion: Number(form.prospect_points_per_conversion),
         inactivity_period_days: Number(form.inactivity_period_days),
         inactivity_penalty_points: Number(form.inactivity_penalty_points),
         default_commission_type: form.default_commission_type,
@@ -115,6 +123,34 @@ export default function SettingsPage() {
             value={form.sales_points_per_sale}
             onChange={(e) => setForm((p) => ({ ...p, sales_points_per_sale: e.target.value }))}
           />
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+            {t('settingsPage.prospects')}
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label={t('settingsPage.prospectPointsPerAdd')}
+              hint={t('settingsPage.prospectPointsPerAddHint')}
+              type="number"
+              min="0"
+              max="1000"
+              required
+              value={form.prospect_points_per_add}
+              onChange={(e) => setForm((p) => ({ ...p, prospect_points_per_add: e.target.value }))}
+            />
+            <Input
+              label={t('settingsPage.prospectPointsPerConversion')}
+              hint={t('settingsPage.prospectPointsPerConversionHint')}
+              type="number"
+              min="0"
+              max="1000"
+              required
+              value={form.prospect_points_per_conversion}
+              onChange={(e) => setForm((p) => ({ ...p, prospect_points_per_conversion: e.target.value }))}
+            />
+          </div>
         </div>
 
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">

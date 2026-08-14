@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Pencil, FileText, BadgeCheck } from 'lucide-react';
+import { ArrowLeft, Star, Pencil, FileText, BadgeCheck, UserPlus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { commercialsApi } from '@/api/commercials.api';
 import { invoicesApi } from '@/api/invoices.api';
+import { prospectsApi } from '@/api/prospects.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -16,6 +17,7 @@ import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import type { Invoice } from '@/types/invoice';
 import {
@@ -23,6 +25,29 @@ import {
   commercialFormFrom,
 } from '@/components/commercials/CommercialForm';
 import type { Commercial, CommercialStats } from '@/types/commercial';
+import type { Prospect } from '@/types/prospect';
+
+interface ProspectForm {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  city: string;
+  country: string;
+  address: string;
+  notes: string;
+}
+
+const EMPTY_PROSPECT_FORM: ProspectForm = {
+  first_name: '',
+  last_name: '',
+  email: '',
+  phone: '',
+  city: '',
+  country: '',
+  address: '',
+  notes: '',
+};
 
 export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { id: routeId, commercialId } = useParams();
@@ -50,9 +75,20 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
   const [adjustSubmitting, setAdjustSubmitting] = useState(false);
   const [adjustError, setAdjustError] = useState<string | null>(null);
 
+  const [prospectOpen, setProspectOpen] = useState(false);
+  const [prospectEditingId, setProspectEditingId] = useState<string | null>(null);
+  const [prospectForm, setProspectForm] = useState<ProspectForm>(EMPTY_PROSPECT_FORM);
+  const [prospectErrors, setProspectErrors] = useState<Record<string, string>>({});
+  const [prospectSubmitting, setProspectSubmitting] = useState(false);
+  const [convertTarget, setConvertTarget] = useState<Prospect | null>(null);
+  const [convertSubmitting, setConvertSubmitting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Prospect | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
   const canManage = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
     currentUser?.role?.name ?? ''
   );
+  const canManageProspects = canManage || currentUser?.role?.name === 'commercial';
   const canAdjustPoints = ['super-admin', 'direction-generale'].includes(
     currentUser?.role?.name ?? ''
   );
@@ -140,6 +176,90 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
     }
   }
 
+  function openAddProspect() {
+    setProspectForm(EMPTY_PROSPECT_FORM);
+    setProspectEditingId(null);
+    setProspectErrors({});
+    setProspectOpen(true);
+  }
+
+  function openEditProspect(p: Prospect) {
+    setProspectForm({
+      first_name: p.first_name,
+      last_name: p.last_name,
+      email: p.email ?? '',
+      phone: p.phone ?? '',
+      city: p.city ?? '',
+      country: p.country ?? '',
+      address: p.address ?? '',
+      notes: p.notes ?? '',
+    });
+    setProspectEditingId(p.id);
+    setProspectErrors({});
+    setProspectOpen(true);
+  }
+
+  async function handleProspectSubmit(event: FormEvent) {
+    event.preventDefault();
+    setProspectSubmitting(true);
+    setProspectErrors({});
+    const payload = {
+      first_name: prospectForm.first_name,
+      last_name: prospectForm.last_name,
+      email: prospectForm.email || null,
+      phone: prospectForm.phone || null,
+      city: prospectForm.city || null,
+      country: prospectForm.country || null,
+      address: prospectForm.address || null,
+      notes: prospectForm.notes || null,
+    };
+    try {
+      if (prospectEditingId) {
+        await prospectsApi.update(prospectEditingId, payload);
+        showToast(t('prospects.updated'), 'success');
+      } else {
+        await prospectsApi.create({ ...payload, commercial_id: id });
+        showToast(t('prospects.created'), 'success');
+      }
+      setProspectOpen(false);
+      fetchAll();
+    } catch (error) {
+      setProspectErrors(extractFieldErrors(error));
+      const msg = extractErrorMessage(error, t('prospects.saveFailed'));
+      if (msg) showToast(msg, 'error');
+    } finally {
+      setProspectSubmitting(false);
+    }
+  }
+
+  async function handleConvert(prospect: Prospect) {
+    setConvertSubmitting(true);
+    try {
+      await prospectsApi.convert(prospect.id);
+      showToast(t('prospects.converted'), 'success');
+      setConvertTarget(null);
+      fetchAll();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('prospects.convertFailed')), 'error');
+    } finally {
+      setConvertSubmitting(false);
+    }
+  }
+
+  async function handleDeleteProspect(prospect: Prospect) {
+    setDeleteSubmitting(true);
+    try {
+      await prospectsApi.remove(prospect.id);
+      showToast(t('prospects.deleted'), 'success');
+      setDeleteTarget(null);
+      fetchAll();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('prospects.deleteFailed')), 'error');
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }
+
   function pointReasonLabel(reason: string): string {
     switch (reason) {
       case 'sale':
@@ -148,6 +268,10 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
         return t('commercials.pointsReasonPenalty');
       case 'adjustment':
         return t('commercials.pointsReasonAdjustment');
+      case 'prospect':
+        return t('commercials.pointsReasonProspect');
+      case 'conversion':
+        return t('commercials.pointsReasonConversion');
       default:
         return reason;
     }
@@ -296,6 +420,84 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
             {formatCurrency(stats?.commissions ?? 0)}
           </p>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {t('prospects.title')}
+          </h2>
+          {canManageProspects && (
+            <Button variant="outline" size="sm" onClick={openAddProspect}>
+              <UserPlus className="h-4 w-4" />
+              {t('prospects.addProspect')}
+            </Button>
+          )}
+        </div>
+        {!commercial.prospects || commercial.prospects.length === 0 ? (
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">
+            {t('prospects.empty')}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="px-5 py-3 font-medium">{t('prospects.colName')}</th>
+                  <th className="px-5 py-3 font-medium">{t('prospects.colContact')}</th>
+                  <th className="px-5 py-3 font-medium">{t('prospects.colCity')}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {commercial.prospects.map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
+                      {[p.first_name, p.last_name].filter(Boolean).join(' ')}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      <div>{p.email || '—'}</div>
+                      {p.phone && <div className="text-xs text-gray-400">{p.phone}</div>}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {p.city || '—'}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        {canManageProspects && (
+                          <Button variant="primary" size="sm" onClick={() => setConvertTarget(p)}>
+                            <UserPlus className="h-3.5 w-3.5" />
+                            {t('prospects.becomeClient')}
+                          </Button>
+                        )}
+                        {canManageProspects && (
+                          <button
+                            type="button"
+                            onClick={() => openEditProspect(p)}
+                            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800"
+                            aria-label={t('common.edit')}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canManageProspects && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(p)}
+                            className="rounded-md p-1.5 text-gray-400 hover:bg-error-50 hover:text-error-600 dark:hover:bg-error-500/10"
+                            aria-label={t('common.delete')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
@@ -475,6 +677,102 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={prospectOpen}
+        onClose={() => setProspectOpen(false)}
+        title={prospectEditingId ? t('prospects.editTitle') : t('prospects.createTitle')}
+        maxWidth="max-w-lg"
+      >
+        <form onSubmit={handleProspectSubmit} className="flex flex-col gap-4">
+          {Object.keys(prospectErrors).length > 0 && (
+            <Alert variant="error">{Object.values(prospectErrors).join(' ')}</Alert>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label={t('prospects.firstName')}
+              required
+              value={prospectForm.first_name}
+              onChange={(e) => setProspectForm((p) => ({ ...p, first_name: e.target.value }))}
+              error={prospectErrors.first_name}
+            />
+            <Input
+              label={t('prospects.lastName')}
+              required
+              value={prospectForm.last_name}
+              onChange={(e) => setProspectForm((p) => ({ ...p, last_name: e.target.value }))}
+              error={prospectErrors.last_name}
+            />
+          </div>
+          <Input
+            label={t('prospects.email')}
+            type="email"
+            value={prospectForm.email}
+            onChange={(e) => setProspectForm((p) => ({ ...p, email: e.target.value }))}
+            error={prospectErrors.email}
+          />
+          <Input
+            label={t('prospects.phone')}
+            value={prospectForm.phone}
+            onChange={(e) => setProspectForm((p) => ({ ...p, phone: e.target.value }))}
+            error={prospectErrors.phone}
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label={t('prospects.city')}
+              value={prospectForm.city}
+              onChange={(e) => setProspectForm((p) => ({ ...p, city: e.target.value }))}
+            />
+            <Input
+              label={t('prospects.country')}
+              value={prospectForm.country}
+              onChange={(e) => setProspectForm((p) => ({ ...p, country: e.target.value }))}
+            />
+          </div>
+          <Input
+            label={t('prospects.address')}
+            value={prospectForm.address}
+            onChange={(e) => setProspectForm((p) => ({ ...p, address: e.target.value }))}
+          />
+          <Input
+            label={t('prospects.notes')}
+            value={prospectForm.notes}
+            onChange={(e) => setProspectForm((p) => ({ ...p, notes: e.target.value }))}
+          />
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setProspectOpen(false)} className="flex-1">
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" isLoading={prospectSubmitting} className="flex-1">
+              {t('common.confirm')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        isOpen={convertTarget !== null}
+        title={t('prospects.convertTitle')}
+        message={t('prospects.convertMessage', {
+          name: convertTarget ? [convertTarget.first_name, convertTarget.last_name].filter(Boolean).join(' ') : '',
+        })}
+        variant="primary"
+        confirmLabel={t('prospects.becomeClient')}
+        isLoading={convertSubmitting}
+        onCancel={() => setConvertTarget(null)}
+        onConfirm={() => convertTarget && handleConvert(convertTarget)}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title={t('prospects.deleteTitle')}
+        message={t('prospects.deleteMessage', {
+          name: deleteTarget ? [deleteTarget.first_name, deleteTarget.last_name].filter(Boolean).join(' ') : '',
+        })}
+        isLoading={deleteSubmitting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDeleteProspect(deleteTarget)}
+      />
 
       <Modal
         isOpen={editOpen}

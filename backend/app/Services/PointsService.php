@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Commercial;
 use App\Models\CommercialPoint;
 use App\Models\Invoice;
+use App\Models\Prospect;
 use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
 
@@ -42,6 +43,44 @@ class PointsService
         $commercial->update([
             'points_balance' => (int) $commercial->points()->sum('points'),
         ]);
+    }
+
+    /**
+     * Attribue les points liés à l'apport d'un prospect (règle métier).
+     */
+    public function awardForProspect(Prospect $prospect, ?string $actorUserId = null): void
+    {
+        $points = (int) Setting::get('prospect_points_per_add', 2);
+
+        DB::transaction(function () use ($prospect, $points, $actorUserId) {
+            CommercialPoint::create([
+                'commercial_id' => $prospect->commercial_id,
+                'points' => $points,
+                'reason' => 'prospect',
+                'created_by' => $actorUserId,
+            ]);
+
+            $this->recomputeBalance($prospect->commercial);
+        });
+    }
+
+    /**
+     * Récompense la conversion d'un prospect en client (règle métier).
+     */
+    public function awardForConversion(Commercial $commercial, ?string $actorUserId = null): void
+    {
+        $points = (int) Setting::get('prospect_points_per_conversion', 5);
+
+        DB::transaction(function () use ($commercial, $points, $actorUserId) {
+            CommercialPoint::create([
+                'commercial_id' => $commercial->id,
+                'points' => $points,
+                'reason' => 'conversion',
+                'created_by' => $actorUserId,
+            ]);
+
+            $this->recomputeBalance($commercial);
+        });
     }
 
     /**

@@ -128,7 +128,12 @@ class CommercialController extends Controller
     {
         $this->scopeByRole(Commercial::whereKey($commercial->id), $request->user())->firstOrFail();
 
-        $commercial->load(['agency', 'user', 'points' => fn ($q) => $q->orderByDesc('created_at')->limit(50)]);
+        $commercial->load([
+            'agency',
+            'user',
+            'points' => fn ($q) => $q->orderByDesc('created_at')->limit(50),
+            'prospects' => fn ($q) => $q->orderByDesc('created_at'),
+        ]);
 
         return response()->json($commercial);
     }

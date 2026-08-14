@@ -10,6 +10,8 @@ export interface Setting {
 
 export interface SettingsPayload {
   sales_points_per_sale?: number;
+  prospect_points_per_add?: number;
+  prospect_points_per_conversion?: number;
   inactivity_period_days?: number;
   inactivity_penalty_points?: number;
   default_commission_type?: CommissionType;
