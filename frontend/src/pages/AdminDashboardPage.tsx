@@ -803,9 +803,7 @@ function CashierDashboard() {
                       </Link>
                     </td>
                     <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
-                      {inv.client
-                        ? [inv.client.first_name, inv.client.last_name].filter(Boolean).join(' ') || inv.client.email
-                        : '—'}
+                      {inv.client_label ?? '—'}
                     </td>
                     <td className="py-2.5 pr-4">
                       {inv.status === 'paid' ? (
@@ -1008,9 +1006,7 @@ function CommercialDashboard() {
                       </Link>
                     </td>
                     <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
-                      {inv.client
-                        ? [inv.client.first_name, inv.client.last_name].filter(Boolean).join(' ') || inv.client.email
-                        : '—'}
+                      {inv.client_label ?? '—'}
                     </td>
                     <td className="py-2.5 pr-4">
                       {inv.status === 'paid' ? (

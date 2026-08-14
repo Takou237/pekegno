@@ -16,6 +16,13 @@ interface AutocompleteProps {
   fetchOptions: (query: string) => Promise<AutocompleteOption[]>;
   error?: string;
   disabled?: boolean;
+  freeText?: boolean;
+}
+
+export const FREE_TEXT_PREFIX = '__free__:';
+
+function isFreeTextValue(value: string): boolean {
+  return value.startsWith(FREE_TEXT_PREFIX);
 }
 
 export function Autocomplete({
@@ -26,6 +33,7 @@ export function Autocomplete({
   fetchOptions,
   error,
   disabled = false,
+  freeText = false,
 }: AutocompleteProps) {
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder || t('common.search');  const generatedId = useId();
@@ -53,7 +61,7 @@ export function Autocomplete({
         const result = await fetchOptions(q);
         const list = Array.isArray(result) ? result : [];
         setOptions(list);
-        setIsOpen(list.length > 0);
+        setIsOpen(list.length > 0 || freeText);
         setHighlightedIndex(-1);
       } catch {
         setOptions([]);
@@ -61,11 +69,15 @@ export function Autocomplete({
         setIsLoading(false);
       }
     },
-    [fetchOptions],
+    [fetchOptions, freeText],
   );
 
   useEffect(() => {
     if (value && !selectedLabel) {
+      if (isFreeTextValue(value)) {
+        setSelectedLabel(value.slice(FREE_TEXT_PREFIX.length));
+        return;
+      }
       fetchOptions('')
         .then((all) => {
           const found = (Array.isArray(all) ? all : []).find((o) => o.id === value);
@@ -111,13 +123,20 @@ export function Autocomplete({
     if (!isOpen) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setHighlightedIndex((prev) => Math.min(prev + 1, options.length - 1));
+      setHighlightedIndex((prev) => Math.min(prev + 1, options.length + (freeText && inputValue.trim() ? 1 : 0) - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlightedIndex((prev) => Math.max(prev - 1, 0));
     } else if (e.key === 'Enter' && highlightedIndex >= 0) {
       e.preventDefault();
-      handleSelect(options[highlightedIndex]);
+      if (freeText && highlightedIndex === options.length && inputValue.trim()) {
+        handleSelect({
+          id: FREE_TEXT_PREFIX + inputValue.trim(),
+          label: inputValue.trim(),
+        });
+      } else if (highlightedIndex < options.length) {
+        handleSelect(options[highlightedIndex]);
+      }
     } else if (e.key === 'Escape') {
       setIsOpen(false);
     }
@@ -184,7 +203,7 @@ export function Autocomplete({
             <Spinner className="h-4 w-4" />
           </div>
         )}
-        {isOpen && options.length > 0 && (
+        {isOpen && (options.length > 0 || (freeText && inputValue.trim())) && (
           <ul
             id={`${generatedId}-listbox`}
             role="listbox"
@@ -209,6 +228,26 @@ export function Autocomplete({
                 )}
               </li>
             ))}
+            {freeText && inputValue.trim() && (
+              <li
+                role="option"
+                aria-selected={false}
+                onClick={() =>
+                  handleSelect({
+                    id: FREE_TEXT_PREFIX + inputValue.trim(),
+                    label: inputValue.trim(),
+                  })
+                }
+                onMouseEnter={() => setHighlightedIndex(options.length)}
+                className={`flex cursor-pointer flex-col border-t border-gray-100 px-4 py-2 text-sm dark:border-gray-800 ${
+                  highlightedIndex === options.length
+                    ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
+                    : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                }`}
+              >
+                <span className="font-medium">{t('common.createFreeText', { name: inputValue.trim() })}</span>
+              </li>
+            )}
           </ul>
         )}
       </div>

@@ -575,10 +575,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
                       {formatRelativeDate(inv.invoice_date)}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {inv.client
-                        ? [inv.client.first_name, inv.client.last_name].filter(Boolean).join(' ') ||
-                          inv.client.email
-                        : '—'}
+                      {inv.client_label ?? '—'}
                     </td>
                     <td className="px-5 py-3">
                       <InvoiceStatusBadge status={inv.status} />

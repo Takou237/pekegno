@@ -13,7 +13,7 @@ import { formatCurrency } from '@/utils/number';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
-import { Autocomplete } from '@/components/ui/Autocomplete';
+import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem } from '@/types/service';
@@ -132,11 +132,13 @@ export default function InvoiceFormPage() {
       setErrors({ advance: t('invoices.advanceExceedsTotal') });
       return;
     }
+    const freeClientName = clientId.startsWith(FREE_TEXT_PREFIX) ? clientId.slice(FREE_TEXT_PREFIX.length) : '';
     setSubmitting(true);
     setErrors({});
     try {
       await invoicesApi.create({
-        client_id: clientId,
+        client_id: freeClientName ? undefined : clientId || undefined,
+        client_name: freeClientName || undefined,
         commercial_id: commercialId || undefined,
         agency_id: agencyId || undefined,
         invoice_date: invoiceDate,
@@ -188,6 +190,7 @@ export default function InvoiceFormPage() {
               placeholder={t('invoices.headerClientPlaceholder')}
               value={clientId}
               onChange={setClientId}
+              freeText
               fetchOptions={async (query) => {
                 const res = await clientsApi.search(query.trim());
                 return res.map((c) => ({

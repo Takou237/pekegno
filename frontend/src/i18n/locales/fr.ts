@@ -12,6 +12,7 @@ export default {
     deletePermanently: 'Supprimer',
     restore: 'Restaurer',
     search: 'Recherche',
+    createFreeText: 'Créer « {{name}} »',
     viewDetails: 'Voir le détail',
     open: 'Ouvrir',
     trash: 'Corbeille',

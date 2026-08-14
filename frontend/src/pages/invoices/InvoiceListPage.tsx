@@ -233,9 +233,7 @@ export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: str
                       {formatRelativeDate(inv.invoice_date)}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {inv.client
-                        ? [inv.client.first_name, inv.client.last_name].filter(Boolean).join(' ')
-                        : '—'}
+                      {inv.client_label ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {inv.commercial

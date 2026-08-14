@@ -40,7 +40,7 @@ export default function DepartmentSettingsPage() {
       await departmentsApi.remove(department!.id);
       showToast(t('departments.archived'), 'success');
       setDeleteOpen(false);
-      navigate('/departments');
+      navigate(department!.agency_id ? `/agencies/${department!.agency_id}/departments` : '/departments');
     } catch (error) {
       showToast(extractErrorMessage(error, t('departments.deleteFailed')), 'error');
       setDeleteOpen(false);

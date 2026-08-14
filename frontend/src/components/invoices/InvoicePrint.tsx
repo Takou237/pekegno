@@ -22,34 +22,33 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
             </div>
           )}
         </div>
-        <div className="text-right">
-          <h2 className="text-lg font-semibold">{t('invoices.title')}</h2>
-          <p className="mt-1 text-sm font-medium text-gray-800">{invoice.number}</p>
-          <p className="text-sm text-gray-600">
-            {t('invoices.invoiceDate')} :{' '}
-            {new Date(invoice.invoice_date).toLocaleDateString(currentLocale())}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-8 flex justify-end text-sm">
-        <div className="text-right">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            {t('invoices.clientLabel')}
-          </p>
-          {invoice.client ? (
-            <div className="mt-1 text-gray-800">
-              <p className="font-medium">
-                {[invoice.client.first_name, invoice.client.last_name]
-                  .filter(Boolean)
-                  .join(' ')}
-              </p>
-              <p>{invoice.client.email}</p>
-              {invoice.client.phone && <p>{invoice.client.phone}</p>}
-            </div>
-          ) : (
-            <p className="mt-1 text-gray-500">—</p>
-          )}
+        <div className="flex flex-col items-end justify-between text-right">
+          <div>
+            <h2 className="text-lg font-semibold">{t('invoices.title')}</h2>
+            <p className="mt-1 text-sm font-medium text-gray-800">{invoice.number}</p>
+            <p className="text-sm text-gray-600">
+              {t('invoices.invoiceDate')} :{' '}
+              {new Date(invoice.invoice_date).toLocaleDateString(currentLocale())}
+            </p>
+          </div>
+          <div className="mt-6">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              {t('invoices.clientLabel')}
+            </p>
+            {invoice.client_label ? (
+              <div className="flex items-center justify-end gap-2 text-gray-800">
+                <p className="font-medium">{invoice.client_label}</p>
+                {invoice.client && (
+                  <>
+                    <p className="text-gray-600">{invoice.client.email}</p>
+                    {invoice.client.phone && <p className="text-gray-600">{invoice.client.phone}</p>}
+                  </>
+                )}
+              </div>
+            ) : (
+              <p className="mt-1 text-gray-500">—</p>
+            )}
+          </div>
         </div>
       </div>
 

@@ -12,6 +12,7 @@ export default {
     deletePermanently: 'Delete',
     restore: 'Restore',
     search: 'Search',
+    createFreeText: 'Create "{{ name }}"',
     viewDetails: 'View details',
     open: 'Open',
     trash: 'Trash',

@@ -15,6 +15,7 @@ class Invoice extends Model
         'number',
         'agency_id',
         'client_id',
+        'client_name',
         'commercial_id',
         'seller_user_id',
         'invoice_date',
@@ -30,7 +31,7 @@ class Invoice extends Model
         'cancelled_at',
     ];
 
-    protected $appends = ['balance_due', 'vat_amount', 'agency_snapshot'];
+    protected $appends = ['balance_due', 'vat_amount', 'agency_snapshot', 'client_label'];
 
     protected function casts(): array
     {
@@ -96,6 +97,24 @@ class Invoice extends Model
     public function getIsCancelledAttribute(): bool
     {
         return $this->cancelled_at !== null;
+    }
+
+    /**
+     * Nom affiché du client : nom libre (client hors base) sinon client lié.
+     */
+    public function getClientLabelAttribute(): ?string
+    {
+        if ($this->client_name) {
+            return $this->client_name;
+        }
+
+        $client = $this->client;
+
+        if (! $client) {
+            return null;
+        }
+
+        return trim("{$client->first_name} {$client->last_name}") ?: $client->email;
     }
 
     /**

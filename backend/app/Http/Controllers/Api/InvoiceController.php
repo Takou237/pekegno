@@ -48,7 +48,10 @@ class InvoiceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $base = Invoice::query()
-            ->when($request->search, fn ($q, $s) => $q->where('number', 'like', "%{$s}%"))
+            ->when($request->search, fn ($q, $s) => $q->where(function ($q) use ($s) {
+                $q->where('number', 'like', "%{$s}%")
+                    ->orWhere('client_name', 'like', "%{$s}%");
+            }))
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))
@@ -135,6 +138,7 @@ class InvoiceController extends Controller
                 'number' => $this->numberGenerator->next(),
                 'agency_id' => $data['agency_id'] ?? $request->user()->primaryAgency()->value('agencies.id'),
                 'client_id' => $data['client_id'] ?? null,
+                'client_name' => $data['client_name'] ?? null,
                 'commercial_id' => $data['commercial_id'] ?? null,
                 'seller_user_id' => $request->user()->id,
                 'invoice_date' => $data['invoice_date'] ?? now(),
@@ -210,8 +214,8 @@ class InvoiceController extends Controller
     {
         abort_if($invoice->is_cancelled, 422, 'Impossible de modifier une facture annulée.');
 
-        $old = $invoice->only(['client_id', 'commercial_id', 'payment_type', 'comment']);
-        $invoice->update($request->only(['client_id', 'commercial_id', 'payment_type', 'comment']));
+        $old = $invoice->only(['client_id', 'client_name', 'commercial_id', 'payment_type', 'comment']);
+        $invoice->update($request->only(['client_id', 'client_name', 'commercial_id', 'payment_type', 'comment']));
 
         $this->logger->log(
             'updated',
@@ -219,7 +223,7 @@ class InvoiceController extends Controller
             $invoice->id,
             "Facture {$invoice->number} modifiée",
             oldValues: $old,
-            newValues: $invoice->only(['client_id', 'commercial_id', 'payment_type', 'comment']),
+            newValues: $invoice->only(['client_id', 'client_name', 'commercial_id', 'payment_type', 'comment']),
         );
 
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));

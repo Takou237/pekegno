@@ -16,7 +16,7 @@ import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { Autocomplete } from '@/components/ui/Autocomplete';
+import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoicePrint } from '@/components/invoices/InvoicePrint';
@@ -67,7 +67,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     try {
       const inv = await invoicesApi.get(id);
       setInvoice(inv);
-      setEditClientId(inv.client_id ?? '');
+      setEditClientId(inv.client_name ? FREE_TEXT_PREFIX + inv.client_name : inv.client_id ?? '');
       setEditCommercialId(inv.commercial_id ?? '');
       setEditPaymentType(inv.payment_type ?? '');
       setEditComment(inv.comment ?? '');
@@ -140,8 +140,10 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     setEditSubmitting(true);
     setEditErrors({});
     try {
+      const freeClientName = editClientId.startsWith(FREE_TEXT_PREFIX) ? editClientId.slice(FREE_TEXT_PREFIX.length) : '';
       await invoicesApi.update(invoice.id, {
-        client_id: editClientId || undefined,
+        client_id: freeClientName ? undefined : editClientId || undefined,
+        client_name: freeClientName || undefined,
         commercial_id: editCommercialId || undefined,
         payment_type: editPaymentType || undefined,
         comment: editComment || undefined,
@@ -256,14 +258,18 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.clientLabel')}</p>
-          {invoice.client ? (
+          {invoice.client_label ? (
             <div className="mt-1 text-sm">
               <p className="font-semibold text-gray-800 dark:text-gray-100">
-                {[invoice.client.first_name, invoice.client.last_name].filter(Boolean).join(' ') || invoice.client.email}
+                {invoice.client_label}
               </p>
-              <p className="text-gray-600 dark:text-gray-300">{invoice.client.email}</p>
-              {invoice.client.phone && (
-                <p className="text-gray-600 dark:text-gray-300">{invoice.client.phone}</p>
+              {invoice.client && (
+                <>
+                  <p className="text-gray-600 dark:text-gray-300">{invoice.client.email}</p>
+                  {invoice.client.phone && (
+                    <p className="text-gray-600 dark:text-gray-300">{invoice.client.phone}</p>
+                  )}
+                </>
               )}
             </div>
           ) : (
@@ -478,6 +484,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             placeholder={t('invoices.headerClientPlaceholder')}
             value={editClientId}
             onChange={setEditClientId}
+            freeText
             fetchOptions={async (query) => {
               const res = await clientsApi.search(query.trim());
               return res.map((c) => ({
