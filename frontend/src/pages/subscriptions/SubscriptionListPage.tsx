@@ -636,6 +636,20 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
             onChange={(e) => setSubForm((prev) => ({ ...prev, months: Number(e.target.value) }))}
             error={subFormErrors.months}
           />
+          {subForm.subscription_pack_id && subForm.months > 0 && (() => {
+            const selectedPack = packs.find((p) => p.id === subForm.subscription_pack_id);
+            const pricePerMonth = Number(selectedPack?.price_per_month ?? 0);
+            const total = pricePerMonth * subForm.months;
+            return total > 0 ? (
+              <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm dark:border-brand-800 dark:bg-brand-950">
+                <span className="text-gray-600 dark:text-gray-400">{t('subscriptions.totalPrice')} : </span>
+                <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(total)}</span>
+                <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+                  ({subForm.months} × {formatCurrency(pricePerMonth)})
+                </span>
+              </div>
+            ) : null;
+          })()}
           <Input
             label={t('subscriptions.formAdvance')}
             type="number"

@@ -1309,6 +1309,7 @@ export default {
     formSelectPack: '— Choisir un pack —',
     formMonths: 'Durée (mois)',
     formAdvance: 'Avance',
+    totalPrice: 'Prix total',
     packFormName: 'Nom du pack',
     packFormDescription: 'Description',
     packFormServices: 'Services inclus',
