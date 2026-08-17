@@ -48,6 +48,11 @@ class CommercialController extends Controller
         return $query->whereRaw('1 = 0');
     }
 
+    private function defaultKind(Request $request): string
+    {
+        return $request->is('api/employees*') ? 'employe' : 'commercial';
+    }
+
     #[OA\Get(
         path: '/api/commercials',
         summary: 'Lister les commerciaux',
@@ -68,6 +73,7 @@ class CommercialController extends Controller
                         ->orWhere('phone', 'like', "%{$search}%");
                 });
             })
+            ->kind($request->input('kind', $this->defaultKind($request)))
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->when($request->linked === 'true', fn ($q) => $q->whereNotNull('user_id'))
@@ -222,8 +228,10 @@ class CommercialController extends Controller
     {
         $linkedIds = Commercial::pluck('user_id')->filter();
 
+        $roles = $request->kind === 'employe' ? ['caissier', 'commercial'] : ['commercial'];
+
         $users = User::query()
-            ->whereHas('role', fn ($q) => $q->where('name', 'commercial'))
+            ->whereHas('role', fn ($q) => $q->whereIn('name', $roles))
             ->when($linkedIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $linkedIds))
             ->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name', 'email', 'is_active']);
@@ -299,6 +307,7 @@ class CommercialController extends Controller
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
 
         $commercials = $this->scopeByRole(Commercial::query(), $request->user())
+            ->kind($request->input('kind', $this->defaultKind($request)))
             ->addSelect([
                 'sales_count' => Invoice::query()
                     ->selectRaw('count(*)')
@@ -347,21 +356,21 @@ class CommercialController extends Controller
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
 
-        $dateExpr = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql'
+        $dateExpr = DB::getDriverName() === 'pgsql'
             ? "to_char(invoice_date, 'YYYY-MM')"
             : "strftime('%Y-%m', invoice_date)";
 
         $monthly = (clone $base)
             ->select(
-                \Illuminate\Support\Facades\DB::raw($dateExpr.' as month'),
-                \Illuminate\Support\Facades\DB::raw('sum(total_amount) as total'),
-                \Illuminate\Support\Facades\DB::raw('count(*) as count'),
+                DB::raw($dateExpr.' as month'),
+                DB::raw('sum(total_amount) as total'),
+                DB::raw('count(*) as count'),
             )
             ->groupBy('month')
             ->orderBy('month')
             ->get();
 
-        $servicesSold = \Illuminate\Support\Facades\DB::table('invoice_items')
+        $servicesSold = DB::table('invoice_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->where('invoices.commercial_id', $commercial->id)
             ->where('invoices.status', 'paid')
@@ -401,6 +410,7 @@ class CommercialController extends Controller
         $q = trim((string) $request->query('q'));
 
         $commercials = $this->scopeByRole(Commercial::query(), $request->user())
+            ->kind($request->input('kind', $this->defaultKind($request)))
             ->where(fn ($query) => $query->where('first_name', 'like', "%{$q}%")
                 ->orWhere('last_name', 'like', "%{$q}%")
                 ->orWhere('email', 'like', "%{$q}%"))

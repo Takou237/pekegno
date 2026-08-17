@@ -16,6 +16,7 @@ class CatalogSeeder extends Seeder
             ['name' => 'Formations', 'description' => 'Formations présentiel et distanciel', 'color' => '#3B82F6', 'icon' => 'book'],
             ['name' => 'Conseil', 'description' => 'Prestations de conseil', 'color' => '#10B981', 'icon' => 'briefcase'],
             ['name' => 'Audit', 'description' => 'Prestations d\'audit', 'color' => '#F59E0B', 'icon' => 'clipboard'],
+            ['name' => 'Séminaire', 'description' => 'Séminaires avec passes Classique, Premium et VIP', 'color' => '#EF4444', 'icon' => 'users'],
             ['name' => 'Autres activités', 'description' => 'Autres services et activités', 'color' => '#8B5CF6', 'icon' => 'sparkles'],
         ];
 

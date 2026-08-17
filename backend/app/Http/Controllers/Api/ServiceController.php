@@ -7,15 +7,17 @@ use App\Http\Requests\Api\StoreServiceRequest;
 use App\Http\Requests\Api\UpdateServiceRequest;
 use App\Http\Resources\ServiceResource;
 use App\Models\PriceHistory;
+use App\Models\SeminarTier;
 use App\Models\Service;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Arr;
 use OpenApi\Attributes as OA;
 
 class ServiceController extends Controller
 {
-    private const ALLOWED_WITH = ['category', 'agency', 'promotions', 'priceHistory'];
+    private const ALLOWED_WITH = ['category', 'agency', 'promotions', 'priceHistory', 'seminarTiers'];
 
     public function __construct()
     {
@@ -53,7 +55,7 @@ class ServiceController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $defaultWith = ['category', 'agency', 'promotions'];
+        $defaultWith = ['category', 'agency', 'promotions', 'seminarTiers'];
 
         $query = Service::with(array_merge($defaultWith, $this->parseWith($request)))
             ->search($request->input('search'))
@@ -101,7 +103,9 @@ class ServiceController extends Controller
     )]
     public function store(StoreServiceRequest $request): JsonResponse
     {
-        $service = Service::create($request->validated());
+        $data = $request->validated();
+
+        $service = Service::create(Arr::except($data, ['tiers']));
 
         PriceHistory::create([
             'service_id' => $service->id,
@@ -109,7 +113,9 @@ class ServiceController extends Controller
             'changed_at' => now(),
         ]);
 
-        return (new ServiceResource($service->load(['category', 'agency', 'promotions'])))
+        $this->syncSeminarTiers($service, $data['tiers'] ?? null, (bool) ($data['is_seminar'] ?? false));
+
+        return (new ServiceResource($service->load(['category', 'agency', 'promotions', 'seminarTiers'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -167,7 +173,9 @@ class ServiceController extends Controller
     public function update(UpdateServiceRequest $request, Service $service): ServiceResource
     {
         $oldPrice = $service->price;
-        $service->update($request->validated());
+        $data = $request->validated();
+
+        $service->update(Arr::except($data, ['tiers']));
 
         if ($request->filled('price') && (string) $request->input('price') !== (string) $oldPrice) {
             PriceHistory::create([
@@ -177,9 +185,50 @@ class ServiceController extends Controller
             ]);
         }
 
+        $this->syncSeminarTiers($service, $data['tiers'] ?? null, (bool) ($data['is_seminar'] ?? $service->is_seminar));
+
         return new ServiceResource($service->fresh()->load([
-            'category', 'agency', 'promotions', 'priceHistory',
+            'category', 'agency', 'promotions', 'priceHistory', 'seminarTiers',
         ]));
+    }
+
+    /**
+     * Gère les passes d'un service séminaire.
+     *
+     * - Service non séminaire : aucun pass (les éventuels passes sont retirés).
+     * - Service séminaire sans passes fournis : prix dérivés du prix de base
+     *   (Classique = prix, Premium = ×1.5, VIP = ×2.5) — règle « intelligente ».
+     * - Passes fournis : remplacés tels quels (modifiables).
+     */
+    private function syncSeminarTiers(Service $service, ?array $tiers, bool $isSeminar): void
+    {
+        if (! $isSeminar) {
+            if ($service->seminarTiers()->exists()) {
+                $service->seminarTiers()->delete();
+            }
+
+            return;
+        }
+
+        $rows = $tiers
+            ? $tiers
+            : [
+                ['tier' => 'classique', 'label' => 'Pass Classique', 'price' => (float) $service->price],
+                ['tier' => 'premium', 'label' => 'Pass Premium', 'price' => round((float) $service->price * 1.5, 2)],
+                ['tier' => 'vip', 'label' => 'Pass VIP', 'price' => round((float) $service->price * 2.5, 2)],
+            ];
+
+        $service->seminarTiers()->delete();
+
+        foreach ($rows as $row) {
+            SeminarTier::create([
+                'service_id' => $service->id,
+                'tier' => $row['tier'],
+                'label' => $row['label'],
+                'price' => $row['price'],
+                'description' => $row['description'] ?? null,
+            ]);
+        }
     }
 
     #[OA\Delete(

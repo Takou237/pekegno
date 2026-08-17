@@ -2,20 +2,34 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\AccountingExport;
+use App\Exports\CommercialReportExport;
+use App\Exports\DailyBilanExport;
 use App\Http\Controllers\Controller;
+use App\Models\AccountingTransaction;
 use App\Models\ActivityLog;
 use App\Models\Agency;
 use App\Models\Commercial;
 use App\Models\Invoice;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\BilanService;
+use App\Services\CommercialReportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 use OpenApi\Attributes as OA;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExportController extends Controller
 {
+    public function __construct(
+        private readonly BilanService $bilanService,
+        private readonly CommercialReportService $commercialReportService,
+    ) {}
+
     private function canExport(Request $request): bool
     {
         return in_array($request->user()?->role?->name, [
@@ -226,6 +240,43 @@ class ExportController extends Controller
     }
 
     #[OA\Get(
+        path: '/api/exports/employees',
+        summary: 'Exporter les employés en CSV',
+        tags: ['Exports'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Fichier CSV'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
+        ]
+    )]
+    public function employees(Request $request): StreamedResponse
+    {
+        $rows = Commercial::query()
+            ->with('agency', 'user')
+            ->kind('employe')
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn (Commercial $c) => [
+                $c->first_name,
+                $c->last_name,
+                $c->email,
+                $c->phone ?? '',
+                $c->agency?->name ?? '',
+                $c->user?->username ?? '',
+                $c->commission_type,
+                $c->commission_value,
+                $c->points_balance,
+                $c->is_active ? 'Actif' : 'Inactif',
+            ]);
+
+        return $this->stream(
+            'employes.csv',
+            ['Prénom', 'Nom', 'Email', 'Téléphone', 'Agence', 'Utilisateur lié', 'Type commission', 'Commission', 'Points', 'Statut'],
+            $rows
+        );
+    }
+
+    #[OA\Get(
         path: '/api/exports/invoices',
         summary: 'Exporter les factures en CSV',
         tags: ['Exports'],
@@ -270,6 +321,114 @@ class ExportController extends Controller
             'factures.csv',
             ['N°', 'Date', 'Agence', 'N° client', 'Client', 'Commercial', 'Montant', 'Payé', 'Statut', 'Paiement'],
             $rows
+        );
+    }
+
+    #[OA\Get(
+        path: '/api/exports/accounting',
+        summary: 'Exporter les transactions comptables en Excel (.xlsx)',
+        tags: ['Exports'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'type', in: 'query', schema: new OA\Schema(type: 'string', enum: ['income', 'expense'])),
+            new OA\Parameter(name: 'category_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'client_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'from', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'to', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'search', in: 'query', schema: new OA\Schema(type: 'string')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Fichier Excel'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
+        ]
+    )]
+    public function accounting(Request $request): BinaryFileResponse
+    {
+        abort_unless($this->canExport($request), 403);
+
+        $transactions = AccountingTransaction::query()
+            ->with('agency:id,name', 'client:id,first_name,last_name', 'operator:id,first_name,last_name')
+            ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
+            ->when($request->type, fn ($q, $type) => $q->where('type', $type))
+            ->when($request->category_id, fn ($q, $id) => $q->where('category_id', $id))
+            ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))
+            ->when($request->from, fn ($q, $d) => $q->whereDate('transacted_at', '>=', $d))
+            ->when($request->to, fn ($q, $d) => $q->whereDate('transacted_at', '<=', $d))
+            ->when($request->filled('search'), fn ($q) => $q->where(function ($q) use ($request) {
+                $q->where('label', 'like', "%{$request->search}%")
+                    ->orWhere('reference', 'like', "%{$request->search}%");
+            }))
+            ->orderByDesc('transacted_at')
+            ->get();
+
+        return Excel::download(
+            new AccountingExport($transactions),
+            'comptabilite-'.now()->format('Y-m-d').'.xlsx'
+        );
+    }
+
+    #[OA\Get(
+        path: '/api/exports/bilans',
+        summary: 'Exporter le bilan du jour en Excel (.xlsx)',
+        tags: ['Exports'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'date', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Fichier Excel'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
+        ]
+    )]
+    public function dailyBilan(Request $request): BinaryFileResponse
+    {
+        $date = $request->date('date') ?? Carbon::today();
+
+        $bilan = $this->bilanService->daily($date, $request->input('agency_id'));
+
+        return Excel::download(
+            new DailyBilanExport($bilan),
+            'bilan-du-jour-'.$date->format('Y-m-d').'.xlsx'
+        );
+    }
+
+    #[OA\Get(
+        path: '/api/exports/commercial-report',
+        summary: 'Exporter le reporting commercial en Excel (.xlsx)',
+        tags: ['Exports'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'commercial_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'kind', in: 'query', schema: new OA\Schema(type: 'string', enum: ['commercial', 'employe'])),
+            new OA\Parameter(name: 'from', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'to', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Fichier Excel'),
+            new OA\Response(response: 403, description: 'Non autorisé'),
+        ]
+    )]
+    public function commercialReport(Request $request): BinaryFileResponse
+    {
+        abort_unless($this->canExport($request), 403);
+
+        $from = $request->date('from') ?? Carbon::now()->startOfMonth();
+        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+
+        $report = $this->commercialReportService->report(
+            agencyId: $request->input('agency_id'),
+            commercialId: $request->input('commercial_id'),
+            kind: $request->input('kind'),
+            from: $from,
+            to: $to,
+        );
+
+        return Excel::download(
+            new CommercialReportExport($report),
+            'reporting-commercial-'.$from->format('Y-m-d').'-'.$to->format('Y-m-d').'.xlsx'
         );
     }
 

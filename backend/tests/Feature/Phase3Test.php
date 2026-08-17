@@ -190,19 +190,24 @@ class Phase3Test extends TestCase
         $this->actingAsAdmin();
         $service = Service::factory()->create(['price' => 10000]);
 
+        $firstStart = now()->subDay()->format('Y-m-d');
+        $firstEnd = now()->addDays(7)->format('Y-m-d');
+        $secondStart = now()->addDays(3)->format('Y-m-d');
+        $secondEnd = now()->addDays(10)->format('Y-m-d');
+
         $first = $this->postJson("/api/services/{$service->id}/promotions", [
             'type' => 'percent',
             'discount_percent' => 20,
-            'start_date' => '2026-08-01',
-            'end_date' => '2026-08-15',
+            'start_date' => $firstStart,
+            'end_date' => $firstEnd,
         ]);
         $first->assertStatus(201);
 
         $this->postJson("/api/services/{$service->id}/promotions", [
             'type' => 'amount',
             'promo_price' => 7000,
-            'start_date' => '2026-08-10',
-            'end_date' => '2026-08-20',
+            'start_date' => $secondStart,
+            'end_date' => $secondEnd,
         ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('start_date');

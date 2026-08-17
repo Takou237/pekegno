@@ -6,33 +6,23 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class InvoiceItem extends Model
+class SeminarTier extends Model
 {
     use HasUuids;
 
     protected $fillable = [
-        'invoice_id',
         'service_id',
+        'tier',
         'label',
-        'unit_price',
-        'quantity',
-        'line_total',
-        'pass_tier',
-        'pass_label',
+        'price',
+        'description',
     ];
 
     protected function casts(): array
     {
         return [
-            'unit_price' => 'decimal:2',
-            'quantity' => 'integer',
-            'line_total' => 'decimal:2',
+            'price' => 'decimal:2',
         ];
-    }
-
-    public function invoice(): BelongsTo
-    {
-        return $this->belongsTo(Invoice::class);
     }
 
     public function service(): BelongsTo

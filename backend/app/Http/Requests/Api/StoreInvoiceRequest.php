@@ -27,8 +27,9 @@ class StoreInvoiceRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.service_id' => ['nullable', 'uuid', 'exists:services,id'],
             'items.*.label' => ['required_without:items.*.service_id', 'nullable', 'string', 'max:255'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.unit_price' => ['required_if:items.*.pass_tier,null', 'numeric', 'min:0'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.pass_tier' => ['nullable', 'in:classique,premium,vip'],
         ];
     }
 
@@ -38,6 +39,7 @@ class StoreInvoiceRequest extends FormRequest
             'items.required' => 'La facture doit contenir au moins une ligne.',
             'items.*.label.required_without' => 'Chaque ligne doit avoir un libellé ou un service.',
             'items.*.quantity.min' => 'La quantité doit être d\'au moins 1.',
+            'items.*.pass_tier.in' => 'Le pass doit être classique, premium ou vip.',
         ];
     }
 }

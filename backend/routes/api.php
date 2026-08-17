@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\AccountingCategoryController;
+use App\Http\Controllers\Api\AccountingController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AgencyController;
 use App\Http\Controllers\Api\Auth\ChangePasswordController;
@@ -10,9 +12,11 @@ use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Auth\TwoFactorController;
+use App\Http\Controllers\Api\BilanController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CommercialController;
+use App\Http\Controllers\Api\CommercialReportController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\InvoiceController;
@@ -24,6 +28,7 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StatsController;
+use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserAssignmentController;
 use App\Http\Controllers\Api\UserController;
@@ -81,6 +86,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/commercials/search', [CommercialController::class, 'search'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/ranking', [CommercialController::class, 'ranking'])->middleware('permission:commercials.consulter');
+    Route::get('/commercials/report', [CommercialReportController::class, 'report'])->middleware('permission:commercials.reporting');
     Route::get('/commercials/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:commercials.consulter');
     Route::post('/commercials/{commercial}/points', [CommercialController::class, 'adjustPoints'])->middleware('permission:commercials.modifier');
     Route::get('/commercials', [CommercialController::class, 'index'])->middleware('permission:commercials.consulter');
@@ -88,6 +94,17 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/commercials/{commercial}', [CommercialController::class, 'show'])->middleware('permission:commercials.consulter');
     Route::put('/commercials/{commercial}', [CommercialController::class, 'update'])->middleware('permission:commercials.modifier');
     Route::delete('/commercials/{commercial}', [CommercialController::class, 'destroy'])->middleware('permission:commercials.supprimer');
+
+    Route::get('/employees/search', [CommercialController::class, 'search'])->middleware('permission:employes.consulter');
+    Route::get('/employees/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:employes.consulter');
+    Route::get('/employees/ranking', [CommercialController::class, 'ranking'])->middleware('permission:employes.consulter');
+    Route::get('/employees/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:employes.consulter');
+    Route::post('/employees/{commercial}/points', [CommercialController::class, 'adjustPoints'])->middleware('permission:employes.modifier');
+    Route::get('/employees', [CommercialController::class, 'index'])->middleware('permission:employes.consulter');
+    Route::post('/employees', [CommercialController::class, 'store'])->middleware('permission:employes.creer');
+    Route::get('/employees/{commercial}', [CommercialController::class, 'show'])->middleware('permission:employes.consulter');
+    Route::put('/employees/{commercial}', [CommercialController::class, 'update'])->middleware('permission:employes.modifier');
+    Route::delete('/employees/{commercial}', [CommercialController::class, 'destroy'])->middleware('permission:employes.supprimer');
 
     Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('permission:invoices.consulter');
     Route::post('/invoices', [InvoiceController::class, 'store'])->middleware('permission:invoices.creer');
@@ -106,8 +123,22 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/exports/services', [ExportController::class, 'services'])->middleware('permission:services.exporter');
     Route::get('/exports/clients', [ExportController::class, 'clients'])->middleware('permission:clients.exporter');
     Route::get('/exports/commercials', [ExportController::class, 'commercials'])->middleware('permission:commercials.exporter');
+    Route::get('/exports/employees', [ExportController::class, 'employees'])->middleware('permission:employes.exporter');
     Route::get('/exports/invoices', [ExportController::class, 'invoices'])->middleware('permission:invoices.exporter');
     Route::get('/exports/activity-logs', [ExportController::class, 'activityLogs'])->middleware('permission:activity-logs.exporter');
+    Route::get('/exports/accounting', [ExportController::class, 'accounting'])->middleware('permission:comptabilite.exporter');
+    Route::get('/exports/bilans', [ExportController::class, 'dailyBilan'])->middleware('permission:bilans.exporter');
+    Route::get('/exports/commercial-report', [ExportController::class, 'commercialReport'])->middleware('permission:commercials.reporting');
+
+    Route::get('/accounting/transactions', [AccountingController::class, 'index'])->middleware('permission:comptabilite.consulter');
+    Route::post('/accounting/transactions', [AccountingController::class, 'store'])->middleware('permission:comptabilite.creer');
+    Route::put('/accounting/transactions/{transaction}', [AccountingController::class, 'update'])->middleware('permission:comptabilite.modifier');
+    Route::delete('/accounting/transactions/{transaction}', [AccountingController::class, 'destroy'])->middleware('permission:comptabilite.supprimer');
+
+    Route::get('/accounting/categories', [AccountingCategoryController::class, 'index'])->middleware('permission:accounting-categories.consulter');
+    Route::post('/accounting/categories', [AccountingCategoryController::class, 'store'])->middleware('permission:accounting-categories.creer');
+    Route::put('/accounting/categories/{category}', [AccountingCategoryController::class, 'update'])->middleware('permission:accounting-categories.modifier');
+    Route::delete('/accounting/categories/{category}', [AccountingCategoryController::class, 'destroy'])->middleware('permission:accounting-categories.supprimer');
 
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->middleware('permission:activity-logs.consulter');
 
@@ -121,6 +152,19 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/stats/top-commercials', [StatsController::class, 'topCommercials'])->middleware('permission:stats.consulter');
     Route::get('/stats/sales-by-category', [StatsController::class, 'salesByCategory'])->middleware('permission:stats.consulter');
     Route::get('/stats/payment-methods', [StatsController::class, 'paymentMethods'])->middleware('permission:stats.consulter');
+
+    Route::get('/bilans', [BilanController::class, 'dailyBilan'])->middleware('permission:bilans.consulter');
+
+    Route::get('/subscription-packs', [SubscriptionController::class, 'packsIndex'])->middleware('permission:abonnements.consulter');
+    Route::post('/subscription-packs', [SubscriptionController::class, 'packsStore'])->middleware('permission:abonnements.creer');
+    Route::put('/subscription-packs/{pack}', [SubscriptionController::class, 'packsUpdate'])->middleware('permission:abonnements.modifier');
+    Route::delete('/subscription-packs/{pack}', [SubscriptionController::class, 'packsDestroy'])->middleware('permission:abonnements.supprimer');
+
+    Route::get('/subscriptions', [SubscriptionController::class, 'index'])->middleware('permission:abonnements.consulter');
+    Route::post('/subscriptions', [SubscriptionController::class, 'store'])->middleware('permission:abonnements.creer');
+    Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show'])->middleware('permission:abonnements.consulter');
+    Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy'])->middleware('permission:abonnements.supprimer');
+    Route::post('/subscriptions/{subscription}/renew', [SubscriptionController::class, 'renew'])->middleware('permission:abonnements.renouveler');
 
     Route::put('/agencies/{agency}/chief', [UserAssignmentController::class, 'assignChief']);
     Route::delete('/agencies/{agency}/chief', [UserAssignmentController::class, 'removeChief']);

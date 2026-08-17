@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ class Commercial extends Model
     protected $fillable = [
         'user_id',
         'agency_id',
+        'kind',
         'first_name',
         'last_name',
         'email',
@@ -57,6 +59,16 @@ class Commercial extends Model
     public function prospects(): HasMany
     {
         return $this->hasMany(Prospect::class);
+    }
+
+    public function commissionPayments(): HasMany
+    {
+        return $this->hasMany(CommissionPayment::class);
+    }
+
+    public function scopeKind(Builder $query, string $kind): Builder
+    {
+        return $query->where('kind', $kind);
     }
 
     public function getFullNameAttribute(): string

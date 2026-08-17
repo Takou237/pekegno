@@ -82,6 +82,11 @@ class Invoice extends Model
         return $this->hasMany(CommercialPoint::class);
     }
 
+    public function commissionPayments(): HasMany
+    {
+        return $this->hasMany(CommissionPayment::class);
+    }
+
     public function getBalanceDueAttribute(): float
     {
         return round(max(0, (float) $this->total_amount - (float) $this->amount_paid), 2);

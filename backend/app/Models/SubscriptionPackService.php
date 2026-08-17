@@ -6,33 +6,26 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class InvoiceItem extends Model
+class SubscriptionPackService extends Model
 {
     use HasUuids;
 
     protected $fillable = [
-        'invoice_id',
+        'subscription_pack_id',
         'service_id',
-        'label',
-        'unit_price',
-        'quantity',
-        'line_total',
-        'pass_tier',
-        'pass_label',
+        'price_per_month',
     ];
 
     protected function casts(): array
     {
         return [
-            'unit_price' => 'decimal:2',
-            'quantity' => 'integer',
-            'line_total' => 'decimal:2',
+            'price_per_month' => 'float',
         ];
     }
 
-    public function invoice(): BelongsTo
+    public function pack(): BelongsTo
     {
-        return $this->belongsTo(Invoice::class);
+        return $this->belongsTo(SubscriptionPack::class, 'subscription_pack_id');
     }
 
     public function service(): BelongsTo

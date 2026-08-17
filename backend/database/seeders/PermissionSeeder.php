@@ -19,12 +19,17 @@ class PermissionSeeder extends Seeder
         'services' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
         'promotions' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'clients' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
-        'commercials' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'commercials' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter', 'reporting'],
+        'employes' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
         'prospects' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'invoices' => ['consulter', 'creer', 'modifier', 'imprimer', 'annuler', 'encaisser', 'exporter'],
         'activity-logs' => ['consulter', 'exporter'],
         'settings' => ['modifier'],
         'stats' => ['consulter'],
+        'comptabilite' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'accounting-categories' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'bilans' => ['consulter', 'exporter'],
+        'abonnements' => ['consulter', 'creer', 'modifier', 'supprimer', 'renouveler'],
     ];
 
     private const ACTION_LABELS = [
@@ -36,6 +41,8 @@ class PermissionSeeder extends Seeder
         'imprimer' => 'Imprimer',
         'annuler' => 'Annuler',
         'encaisser' => 'Encaisser',
+        'renouveler' => 'Renouveler',
+        'reporting' => 'Reporting',
     ];
 
     private const ENTITY_LABELS = [
@@ -48,11 +55,16 @@ class PermissionSeeder extends Seeder
         'promotions' => 'les promotions',
         'clients' => 'les clients',
         'commercials' => 'les commerciaux',
+        'employes' => 'les employés',
         'prospects' => 'les prospects',
         'invoices' => 'les factures',
         'activity-logs' => "le journal d'activité",
         'settings' => 'les réglages',
         'stats' => 'les statistiques',
+        'comptabilite' => 'la comptabilité',
+        'accounting-categories' => 'les catégories comptables',
+        'bilans' => 'les bilans du jour',
+        'abonnements' => 'les abonnements',
     ];
 
     public static function permissionNames(): array

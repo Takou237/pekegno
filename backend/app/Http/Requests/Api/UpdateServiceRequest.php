@@ -19,6 +19,12 @@ class UpdateServiceRequest extends FormRequest
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
             'price' => ['sometimes', 'required', 'numeric', 'min:0'],
+            'is_seminar' => ['sometimes', 'boolean'],
+            'tiers' => ['sometimes', 'array', 'max:3'],
+            'tiers.*.tier' => ['required', 'in:classique,premium,vip'],
+            'tiers.*.label' => ['required', 'string', 'max:255'],
+            'tiers.*.price' => ['required', 'numeric', 'min:0'],
+            'tiers.*.description' => ['sometimes', 'nullable', 'string'],
             'cover_image' => ['sometimes', 'nullable', 'string', 'max:255'],
             'presentation_video' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];

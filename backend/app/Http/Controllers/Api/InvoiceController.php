@@ -8,12 +8,16 @@ use App\Http\Requests\Api\StoreInvoiceRequest;
 use App\Http\Requests\Api\UpdateInvoiceRequest;
 use App\Models\Invoice;
 use App\Models\Service;
+use App\Services\AccountingService;
 use App\Services\ActivityLogger;
+use App\Services\CommissionService;
 use App\Services\InvoiceNumberGenerator;
+use App\Services\PaymentService;
 use App\Services\PointsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
@@ -22,6 +26,9 @@ class InvoiceController extends Controller
     public function __construct(
         private readonly InvoiceNumberGenerator $numberGenerator,
         private readonly PointsService $pointsService,
+        private readonly CommissionService $commissionService,
+        private readonly AccountingService $accountingService,
+        private readonly PaymentService $paymentService,
         private readonly ActivityLogger $logger,
     ) {}
 
@@ -31,7 +38,7 @@ class InvoiceController extends Controller
         tags: ['Factures'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par numéro', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par numéro, nom client ou email client', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut', schema: new OA\Schema(type: 'string', enum: ['unpaid', 'partial', 'paid'])),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'client_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
@@ -50,7 +57,10 @@ class InvoiceController extends Controller
         $base = Invoice::query()
             ->when($request->search, fn ($q, $s) => $q->where(function ($q) use ($s) {
                 $q->where('number', 'like', "%{$s}%")
-                    ->orWhere('client_name', 'like', "%{$s}%");
+                    ->when(Schema::hasColumn('invoices', 'client_name'), fn ($q) => $q->orWhere('client_name', 'like', "%{$s}%"))
+                    ->orWhereHas('client', fn ($c) => $c->where('first_name', 'like', "%{$s}%")
+                        ->orWhere('last_name', 'like', "%{$s}%")
+                        ->orWhere('email', 'like', "%{$s}%"));
             }))
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
@@ -106,11 +116,32 @@ class InvoiceController extends Controller
             $items = collect($data['items'])->map(function (array $line) {
                 $service = isset($line['service_id']) ? Service::find($line['service_id']) : null;
 
+                $passTier = $line['pass_tier'] ?? null;
+                $pass = null;
+
+                if ($passTier) {
+                    if (! $service || ! $service->is_seminar) {
+                        throw ValidationException::withMessages([
+                            'items' => 'Un pass séminaire ne peut être choisi que pour un service séminaire.',
+                        ]);
+                    }
+
+                    $pass = $service->seminarTiers()->where('tier', $passTier)->first();
+
+                    if (! $pass) {
+                        throw ValidationException::withMessages([
+                            'items' => "Le pass {$passTier} n'existe pas pour ce séminaire.",
+                        ]);
+                    }
+                }
+
                 return [
                     'service_id' => $service?->id,
                     'label' => $line['label'] ?? $service?->name,
-                    'unit_price' => (float) ($line['unit_price'] ?? $service?->effective_price ?? 0),
+                    'unit_price' => $pass ? (float) $pass->price : (float) ($line['unit_price'] ?? $service?->effective_price ?? 0),
                     'quantity' => (int) $line['quantity'],
+                    'pass_tier' => $pass?->tier,
+                    'pass_label' => $pass?->label,
                 ];
             });
 
@@ -158,6 +189,8 @@ class InvoiceController extends Controller
                     'unit_price' => $line['unit_price'],
                     'quantity' => $line['quantity'],
                     'line_total' => round($line['unit_price'] * $line['quantity'], 2),
+                    'pass_tier' => $line['pass_tier'],
+                    'pass_label' => $line['pass_label'],
                 ]);
             }
 
@@ -193,7 +226,7 @@ class InvoiceController extends Controller
     )]
     public function show(Invoice $invoice): JsonResponse
     {
-        $invoice->load(['items', 'payments', 'client', 'commercial', 'agency', 'seller']);
+        $invoice->load(['items', 'payments', 'commissionPayments', 'client', 'commercial', 'agency', 'seller']);
 
         return response()->json($invoice);
     }
@@ -245,6 +278,7 @@ class InvoiceController extends Controller
     public function pay(StoreInvoicePaymentRequest $request, Invoice $invoice): JsonResponse
     {
         abort_if($invoice->is_cancelled, 422, "Impossible d'encaisser une facture annulée.");
+        abort_if($invoice->payments()->count() >= 3, 422, 'Paiement en tranches limité à 3 (3 versements maximum).');
         abort_if($invoice->status === 'paid', 422, 'Cette facture est déjà soldée.');
 
         $amount = round((float) $request->input('amount'), 2);
@@ -254,10 +288,8 @@ class InvoiceController extends Controller
             ], 422);
         }
 
-        $wasPaid = $invoice->status === 'paid';
-
-        DB::transaction(function () use ($request, $invoice, $amount, $wasPaid) {
-            $invoice->payments()->create([
+        DB::transaction(function () use ($request, $invoice, $amount) {
+            $payment = $invoice->payments()->create([
                 'amount' => $amount,
                 'payment_method' => $request->input('payment_method'),
                 'is_advance' => $request->boolean('is_advance', false),
@@ -270,16 +302,12 @@ class InvoiceController extends Controller
             $invoice->refreshStatus();
             $invoice->save();
 
-            if (! $wasPaid && $invoice->status === 'paid') {
-                if ($invoice->commercial_id !== null) {
-                    $this->pointsService->awardForSale($invoice, $request->user()->id);
+            $this->commissionService->recordForPayment($invoice, $payment, $request->user()->id);
+            $this->accountingService->recordIncomeFromPayment($invoice, $payment);
 
-                    if ($invoice->commission_amount === null) {
-                        $invoice->update([
-                            'commission_amount' => round($invoice->commercial->commissionFor($invoice->total_amount), 2),
-                        ]);
-                    }
-                }
+            // Points attribués uniquement au soldé (règles inchangées — idempotent via points_awarded).
+            if ($invoice->status === 'paid') {
+                $this->pointsService->awardForSale($invoice, $request->user()->id);
             }
         });
 
@@ -320,26 +348,6 @@ class InvoiceController extends Controller
 
     private function applyPayment(Invoice $invoice, float $amount, string $method, bool $isAdvance, string $userId): void
     {
-        $invoice->payments()->create([
-            'amount' => $amount,
-            'payment_method' => $method,
-            'is_advance' => $isAdvance,
-            'paid_at' => now(),
-            'received_by' => $userId,
-        ]);
-
-        $invoice->increment('amount_paid', $amount);
-        $invoice->refreshStatus();
-        $invoice->save();
-
-        if ($invoice->status === 'paid' && $invoice->commercial_id !== null) {
-            $this->pointsService->awardForSale($invoice, $userId);
-
-            if ($invoice->commission_amount === null) {
-                $invoice->update([
-                    'commission_amount' => round($invoice->commercial->commissionFor($invoice->total_amount), 2),
-                ]);
-            }
-        }
+        $this->paymentService->applyPayment($invoice, $amount, $method, $isAdvance, $userId);
     }
 }

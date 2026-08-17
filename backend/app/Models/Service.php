@@ -21,6 +21,8 @@ class Service extends Model
         'name',
         'description',
         'price',
+        'bonus_fixed',
+        'is_seminar',
         'cover_image',
         'presentation_video',
     ];
@@ -29,6 +31,8 @@ class Service extends Model
     {
         return [
             'price' => 'decimal:2',
+            'bonus_fixed' => 'decimal:2',
+            'is_seminar' => 'boolean',
         ];
     }
 
@@ -58,6 +62,11 @@ class Service extends Model
     public function priceHistory(): HasMany
     {
         return $this->hasMany(PriceHistory::class)->orderByDesc('changed_at');
+    }
+
+    public function seminarTiers(): HasMany
+    {
+        return $this->hasMany(SeminarTier::class);
     }
 
     public function scopeSearch(Builder $query, ?string $search): Builder
