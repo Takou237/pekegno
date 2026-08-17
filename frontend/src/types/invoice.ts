@@ -1,4 +1,5 @@
 import type { Agency } from './agency';
+import type { CommissionPayment } from './commercial';
 
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
 export type PaymentMethod = 'cash' | 'mobile';
@@ -20,6 +21,8 @@ export interface InvoiceItem {
   unit_price: string;
   quantity: number;
   line_total: string;
+  pass_tier: string | null;
+  pass_label: string | null;
 }
 
 export interface InvoicePayment {
@@ -66,6 +69,7 @@ export interface Invoice {
   seller?: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
   items?: InvoiceItem[];
   payments?: InvoicePayment[];
+  commission_payments?: CommissionPayment[];
 }
 
 export interface InvoiceTotals {
@@ -92,6 +96,7 @@ export interface InvoiceLinePayload {
   label?: string;
   unit_price: number;
   quantity: number;
+  pass_tier?: string;
 }
 
 export interface CreateInvoicePayload {

@@ -25,6 +25,7 @@ import {
   commercialFormFrom,
 } from '@/components/commercials/CommercialForm';
 import type { Commercial, CommercialStats } from '@/types/commercial';
+import type { CommercialApiLike } from '@/pages/commercials/CommercialListPage';
 import type { Prospect } from '@/types/prospect';
 
 interface ProspectForm {
@@ -49,7 +50,7 @@ const EMPTY_PROSPECT_FORM: ProspectForm = {
   notes: '',
 };
 
-export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
+export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageTitle, backToListLabel }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; backToListLabel?: string }) {
   const { id: routeId, commercialId } = useParams();
   const id = commercialId ?? routeId ?? '';
   const { t } = useTranslation();
@@ -57,6 +58,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  const commercialApi = overrideApi ?? commercialsApi;
   const backTo = fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials` : '/commercials';
 
   const [commercial, setCommercial] = useState<Commercial | null>(null);
@@ -97,7 +99,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [c, s] = await Promise.all([commercialsApi.get(id), commercialsApi.stats(id)]);
+      const [c, s] = await Promise.all([commercialApi.get(id), commercialApi.stats(id)]);
       setCommercial(c);
       setStats(s);
       try {
@@ -142,7 +144,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
         commission_value: editForm.commission_type === 'none' ? null : editForm.commission_value || 0,
         is_active: editForm.is_active,
       };
-      await commercialsApi.update(id, payload);
+      await commercialApi.update(id, payload);
       showToast(t('commercials.updated'), 'success');
       setEditOpen(false);
       fetchAll();
@@ -165,7 +167,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
     setAdjustSubmitting(true);
     setAdjustError(null);
     try {
-      await commercialsApi.adjustPoints(id, value);
+      await commercialApi.adjustPoints(id, value);
       showToast(t('commercials.adjusted'), 'success');
       setAdjustOpen(false);
       fetchAll();
@@ -314,7 +316,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
           className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
-          {t('commercials.title')}
+          {backToListLabel ?? t('commercials.title')}
         </Link>
         <p className="text-sm text-error-500">{loadError ?? t('commercials.loadFailed')}</p>
       </div>
@@ -329,7 +331,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
-          {t('commercials.title')}
+          {backToListLabel ?? t('commercials.title')}
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -600,7 +602,7 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
       </div>
 
       {monthlyPoints.length > 0 && (
-        <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
             <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
               {t('commercials.pointsChart')}
@@ -628,6 +630,50 @@ export default function CommercialDetailPage({ fixedAgencyId }: { fixedAgencyId?
           </div>
         </div>
       )}
+
+      <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {t('commercials.commissionsHistory')}
+          </h2>
+        </div>
+        {!commercial.commission_payments || commercial.commission_payments.length === 0 ? (
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">
+            {t('commercials.noCommissions')}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="px-5 py-3 font-medium">{t('invoices.colNumber')}</th>
+                  <th className="px-5 py-3 font-medium">{t('invoices.paymentDate')}</th>
+                  <th className="px-5 py-3 font-medium">{t('invoices.paymentAmount')}</th>
+                  <th className="px-5 py-3 font-medium">{t('invoices.commissionPerTranche')}</th>
+                  <th className="px-5 py-3 font-medium">{t('commercials.colCommission')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {commercial.commission_payments.map((cp) => (
+                  <tr key={cp.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="px-5 py-3 text-gray-800 dark:text-gray-100">{cp.invoice?.number ?? '—'}</td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {formatRelativeDate(cp.created_at)}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{formatCurrency(cp.base_amount)}</td>
+                    <td className="px-5 py-3">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                        {cp.rule === 'percent' ? `${cp.rate}%` : cp.rule === 'fixed' ? t('commercials.commissionFixed') : t('services.bonusFixed')}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 font-semibold text-success-600">{formatCurrency(cp.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">

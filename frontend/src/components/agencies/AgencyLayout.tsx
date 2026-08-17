@@ -10,6 +10,10 @@ import {
   Settings,
   Briefcase,
   FileText,
+  Calculator,
+  CalendarCheck,
+  UserCheck,
+  BarChart3,
 } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -25,7 +29,11 @@ function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
     { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
     { to: 'services', label: t('nav.services'), icon: Package, end: false },
     { to: 'commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
+    { to: 'employees', label: t('nav.employees'), icon: UserCheck, end: false },
     { to: 'invoices', label: t('nav.invoices'), icon: FileText, end: false },
+    { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
+    { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
+    { to: 'subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
     { to: 'teams', label: t('nav.teams'), icon: Users, end: false },
     { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
   ];

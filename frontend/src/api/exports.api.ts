@@ -6,8 +6,12 @@ export type ExportKind =
   | 'services'
   | 'clients'
   | 'commercials'
+  | 'employees'
   | 'invoices'
-  | 'activity-logs';
+  | 'activity-logs'
+  | 'accounting'
+  | 'bilans'
+  | 'commercial-report';
 
 const FILENAMES: Record<ExportKind, string> = {
   agencies: 'agences.csv',
@@ -15,8 +19,12 @@ const FILENAMES: Record<ExportKind, string> = {
   services: 'services.csv',
   clients: 'clients.csv',
   commercials: 'commerciaux.csv',
+  employees: 'employes.csv',
   invoices: 'factures.csv',
   'activity-logs': 'journal-activite.csv',
+  accounting: 'comptabilite.csv',
+  bilans: 'bilans-quotidiens.csv',
+  'commercial-report': 'rapport-commercial.csv',
 };
 
 export async function downloadExport(kind: ExportKind): Promise<void> {

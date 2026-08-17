@@ -4,6 +4,7 @@ import { Plus, Download, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { agenciesApi } from '@/api/agencies.api';
+import { clientsApi } from '@/api/clients.api';
 import { extractErrorMessage } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +17,7 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
+import { Autocomplete } from '@/components/ui/Autocomplete';
 import { canExportData } from '@/utils/exportPermissions';
 import type { Invoice, InvoiceStatus } from '@/types/invoice';
 import type { Agency, PaginationMeta } from '@/types/agency';
@@ -186,6 +188,22 @@ export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: str
               ))}
             </Select>
           )}
+          <div className="min-w-0">
+            <Autocomplete
+              label={t('invoices.filterClient')}
+              placeholder={t('invoices.headerClientPlaceholder')}
+              value={clientId}
+              onChange={(id) => setFilter('client_id', id)}
+              fetchOptions={async (query) => {
+                const res = await clientsApi.search(query.trim());
+                return res.map((c) => ({
+                  id: c.id,
+                  label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+                  subtitle: c.email,
+                }));
+              }}
+            />
+          </div>
           <div className="flex items-end gap-3">
             <Input label={t('invoices.filterFrom')} type="date" value={from} onChange={(e) => setFilter('from', e.target.value)} />
             <Input label={t('invoices.filterTo')} type="date" value={to} onChange={(e) => setFilter('to', e.target.value)} />

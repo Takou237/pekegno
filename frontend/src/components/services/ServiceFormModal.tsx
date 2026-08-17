@@ -20,9 +20,12 @@ interface ServiceFormState {
   category_id: string;
   agency_id: string;
   price: string;
+  bonus_fixed: string;
+  is_seminar: boolean;
   description: string;
   cover_image: string | null;
   presentation_video: string;
+  tiers: { tier: string; label: string; price: string; description: string }[];
 }
 
 function emptyForm(categoryId: string, agencyId = ''): ServiceFormState {
@@ -31,9 +34,12 @@ function emptyForm(categoryId: string, agencyId = ''): ServiceFormState {
     category_id: categoryId,
     agency_id: agencyId,
     price: '',
+    bonus_fixed: '',
+    is_seminar: false,
     description: '',
     cover_image: null,
     presentation_video: '',
+    tiers: [],
   };
 }
 
@@ -79,9 +85,17 @@ export function ServiceFormModal({
               category_id: source.category_id,
               agency_id: source.agency_id,
               price: source.price,
+              bonus_fixed: source.bonus_fixed ?? '',
+              is_seminar: source.is_seminar ?? false,
               description: source.description ?? '',
               cover_image: source.cover_image,
               presentation_video: source.presentation_video ?? '',
+              tiers: (source.seminar_tiers ?? []).map((t) => ({
+                tier: t.tier,
+                label: t.label,
+                price: t.price,
+                description: t.description ?? '',
+              })),
             }
           : emptyForm('', agencyId ?? '')
       );
@@ -114,6 +128,16 @@ export function ServiceFormModal({
       category_id: form.category_id,
       agency_id: form.agency_id,
       price: form.price,
+      bonus_fixed: form.bonus_fixed ? Number(form.bonus_fixed) : null,
+      is_seminar: form.is_seminar,
+      tiers: form.is_seminar && form.tiers.length > 0
+        ? form.tiers.filter((t) => t.tier && t.label.trim()).map((t) => ({
+            tier: t.tier,
+            label: t.label.trim(),
+            price: Number(t.price) || 0,
+            description: t.description.trim() || undefined,
+          }))
+        : undefined,
       description: form.description.trim() || null,
       cover_image: form.cover_image,
       presentation_video: form.presentation_video.trim() || null,
@@ -206,13 +230,89 @@ export function ServiceFormModal({
             placeholder="0.00"
           />
           <Input
-            label={t('services.presentationVideo')}
-            value={form.presentation_video}
-            onChange={(e) => update('presentation_video', e.target.value)}
-            error={fieldErrors.presentation_video}
-            placeholder="https://..."
+            label={t('services.bonusFixed')}
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.bonus_fixed}
+            onChange={(e) => update('bonus_fixed', e.target.value)}
+            error={fieldErrors.bonus_fixed}
+            placeholder="0.00"
+            hint={t('services.bonusFixedHint')}
           />
         </div>
+
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <input
+            type="checkbox"
+            checked={form.is_seminar}
+            onChange={(e) => {
+              update('is_seminar', e.target.checked);
+              if (e.target.checked && form.tiers.length === 0) {
+                update('tiers', [
+                  { tier: 'classique', label: 'Classique', price: '0', description: '' },
+                  { tier: 'premium', label: 'Premium', price: '0', description: '' },
+                  { tier: 'vip', label: 'VIP', price: '0', description: '' },
+                ]);
+              }
+            }}
+            className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/30"
+          />
+          {t('services.isSeminar')}
+        </label>
+
+        {form.is_seminar && (
+          <div className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('services.seminarTiers')}</h3>
+            {form.tiers.map((tier, idx) => (
+              <div key={tier.tier} className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+                <Input
+                  label={t('services.tierLabel')}
+                  value={tier.label}
+                  onChange={(e) => {
+                    const updated = [...form.tiers];
+                    updated[idx] = { ...updated[idx], label: e.target.value };
+                    update('tiers', updated);
+                  }}
+                />
+                <Input
+                  label={t('services.tierPrice')}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={tier.price}
+                  onChange={(e) => {
+                    const updated = [...form.tiers];
+                    updated[idx] = { ...updated[idx], price: e.target.value };
+                    update('tiers', updated);
+                  }}
+                />
+                <Input
+                  label={t('services.tierDescription')}
+                  value={tier.description}
+                  onChange={(e) => {
+                    const updated = [...form.tiers];
+                    updated[idx] = { ...updated[idx], description: e.target.value };
+                    update('tiers', updated);
+                  }}
+                />
+                <div className="flex items-end">
+                  <span className="text-xs font-medium uppercase text-gray-400 dark:text-gray-500">
+                    {tier.tier}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Input
+          label={t('services.presentationVideo')}
+          value={form.presentation_video}
+          onChange={(e) => update('presentation_video', e.target.value)}
+          error={fieldErrors.presentation_video}
+          placeholder="https://..."
+        />
 
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">

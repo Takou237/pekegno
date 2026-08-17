@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Search, Pencil, Eye, Trash2, UserPlus, Download, Trophy, Star, BadgeCheck } from 'lucide-react';
+import { Search, Pencil, Eye, Trash2, UserPlus, Download, Trophy, Star, BadgeCheck, BarChart3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { commercialsApi } from '@/api/commercials.api';
@@ -19,17 +19,32 @@ import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { CommercialForm, commercialFormFrom, type CommercialFormValues } from '@/components/commercials/CommercialForm';
 import { canExportData } from '@/utils/exportPermissions';
-import type { Commercial, RankingEntry } from '@/types/commercial';
-import type { PaginationMeta } from '@/types/agency';
+import type { Commercial, CommercialListParams, CommercialPayload, RankingEntry } from '@/types/commercial';
+import type { PaginatedResponse, PaginationMeta } from '@/types/agency';
 
-export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
+export interface CommercialApiLike {
+  list: (params?: CommercialListParams) => Promise<PaginatedResponse<Commercial>>;
+  create: (payload: CommercialPayload) => Promise<Commercial>;
+  get: (id: string) => Promise<Commercial>;
+  update: (id: string, payload: Partial<CommercialPayload>) => Promise<Commercial>;
+  remove: (id: string) => Promise<void>;
+  adjustPoints: (id: string, points: number, reason?: string) => Promise<{ message: string; points_balance: number }>;
+  stats: (id: string, params?: { from?: string; to?: string }) => Promise<import('@/types/commercial').CommercialStats>;
+  ranking?: (params?: { limit?: number }) => Promise<RankingEntry[]>;
+}
+
+export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTitle, pageSubtitle, detailBasePath }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; pageSubtitle?: string; detailBasePath?: string }) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  const commercialApi = overrideApi ?? commercialsApi;
+
   const commercialPath = (cId: string) =>
-    fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials/${cId}` : `/commercials/${cId}`;
+    detailBasePath
+      ? `${detailBasePath}/${cId}`
+      : fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials/${cId}` : `/commercials/${cId}`;
 
   const [commercials, setCommercials] = useState<Commercial[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -79,7 +94,7 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await commercialsApi.list({ ...fetchParams, per_page: 15 });
+      const response = await commercialApi.list({ ...fetchParams, per_page: 15 });
       setCommercials(response.data);
       setMeta(response.meta);
     } catch (error) {
@@ -141,10 +156,10 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
         is_active: form.is_active,
       };
       if (editCommercial) {
-        await commercialsApi.update(editCommercial.id, payload);
+        await commercialApi.update(editCommercial.id, payload);
         showToast(t('commercials.updated'), 'success');
       } else {
-        await commercialsApi.create(payload);
+        await commercialApi.create(payload);
         showToast(t('commercials.created'), 'success');
       }
       setFormOpen(false);
@@ -171,7 +186,7 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
     if (!Number.isFinite(value) || value === 0) return;
     setAdjustSubmitting(true);
     try {
-      await commercialsApi.adjustPoints(adjustTarget.id, value);
+      await commercialApi.adjustPoints(adjustTarget.id, value);
       showToast(t('commercials.adjusted'), 'success');
       setAdjustTarget(null);
       fetchCommercials();
@@ -186,7 +201,7 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
     setRankingOpen(true);
     setRankingLoading(true);
     try {
-      setRanking(await commercialsApi.ranking({ limit: 50 }));
+      setRanking(await (commercialApi.ranking ?? commercialsApi.ranking)({ limit: 50 }));
     } catch (error) {
       showToast(extractErrorMessage(error, t('commercials.loadFailed')), 'error');
     } finally {
@@ -198,7 +213,7 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
     if (!deleteTarget) return;
     setDeleteSubmitting(true);
     try {
-      await commercialsApi.remove(deleteTarget.id);
+      await commercialApi.remove(deleteTarget.id);
       showToast(t('commercials.deleted'), 'success');
       setDeleteTarget(null);
       fetchCommercials();
@@ -224,9 +239,9 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('commercials.title')}</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{pageTitle ?? t('commercials.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {t('commercials.subtitle')}
+            {pageSubtitle ?? t('commercials.subtitle')}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -236,6 +251,10 @@ export default function CommercialListPage({ fixedAgencyId }: { fixedAgencyId?: 
               {t('commercials.export')}
             </Button>
           )}
+          <Button variant="outline" onClick={() => navigate('/commercials/report')}>
+            <BarChart3 className="h-4 w-4" />
+            {t('reports.commercialReport')}
+          </Button>
           <Button variant="outline" onClick={openRanking}>
             <Trophy className="h-4 w-4" />
             {t('commercials.rankingPoints')}

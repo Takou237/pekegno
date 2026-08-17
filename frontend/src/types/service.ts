@@ -20,6 +20,13 @@ export interface PriceHistoryEntry {
   changed_at: string;
 }
 
+export interface SeminarTier {
+  tier: 'classique' | 'premium' | 'vip';
+  label: string;
+  price: string;
+  description: string | null;
+}
+
 export interface Service {
   id: string;
   agency_id: string;
@@ -28,6 +35,9 @@ export interface Service {
   description: string | null;
   price: string;
   effective_price: string;
+  bonus_fixed: string | null;
+  is_seminar: boolean;
+  seminar_tiers: SeminarTier[];
   cover_image: string | null;
   presentation_video: string | null;
   created_at: string;
@@ -46,6 +56,8 @@ export interface ServiceSearchItem {
   effective_price: string;
   has_promotion: boolean;
   category: string | null;
+  is_seminar?: boolean;
+  seminar_tiers?: SeminarTier[];
 }
 
 export interface ServicePayload {
@@ -53,6 +65,9 @@ export interface ServicePayload {
   category_id: string;
   agency_id: string;
   price: number | string;
+  bonus_fixed?: number | string | null;
+  is_seminar?: boolean;
+  tiers?: { tier: string; label: string; price: number | string; description?: string | null }[];
   description?: string | null;
   cover_image?: string | null;
   presentation_video?: string | null;

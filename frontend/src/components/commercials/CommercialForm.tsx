@@ -161,7 +161,7 @@ export function CommercialForm({
         >
           <option value="none">{t('commercials.commissionNone')}</option>
           <option value="percent">{t('commercials.commissionPercent')}</option>
-          <option value="fixed">{t('commercials.commissionFixed')}</option>
+          <option value="fixed">{t('commercials.commissionTypeFixed')}</option>
         </Select>
         <Input
           label={t('commercials.commissionValue')}

@@ -45,6 +45,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
   const [payAdvance, setPayAdvance] = useState(false);
   const [payComment, setPayComment] = useState('');
+  const [payPaidAt, setPayPaidAt] = useState('');
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
   const [paySubmitting, setPaySubmitting] = useState(false);
 
@@ -86,6 +87,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     setPayAmount('');
     setPayAdvance(false);
     setPayComment('');
+    setPayPaidAt(new Date().toISOString().slice(0, 10));
     setPayErrors({});
     setPayOpen(true);
   }
@@ -100,6 +102,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         amount: Number(payAmount),
         payment_method: payMethod,
         is_advance: payAdvance,
+        paid_at: payPaidAt || undefined,
         comment: payComment || undefined,
       });
       showToast(t('invoices.paid'), 'success');
@@ -210,7 +213,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               </Button>
             )}
             {!invoice.is_cancelled && invoice.status !== 'paid' && canCollect && (
-              <Button onClick={openPay}>
+              <Button onClick={openPay} disabled={invoice.payments ? invoice.payments.length >= 3 : false}>
                 <Wallet className="h-4 w-4" />
                 {t('invoices.pay')}
               </Button>
@@ -311,6 +314,50 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           )}
         </div>
       </div>
+
+      {invoice.payments && invoice.payments.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {t('invoices.paymentHistory')}
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.paymentDate')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.paymentMethod')}</th>
+                  <th className="py-2 pr-3 text-right font-medium">{t('invoices.paymentAmount')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.paymentIsAdvance')}</th>
+                  <th className="py-2 font-medium">{t('invoices.paymentReceivedBy')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {invoice.payments.map((p) => (
+                  <tr key={p.id}>
+                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
+                      {p.paid_at ? new Date(p.paid_at).toLocaleDateString(currentLocale()) : '—'}
+                    </td>
+                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
+                      {p.payment_method === 'cash' ? t('invoices.paymentCash') : t('invoices.paymentMobile')}
+                    </td>
+                    <td className="py-2 pr-3 text-right font-medium text-gray-800 dark:text-gray-100">
+                      {formatCurrency(p.amount)}
+                    </td>
+                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
+                      {p.is_advance ? t('common.yes') : t('common.no')}
+                    </td>
+                    <td className="py-2 text-gray-600 dark:text-gray-300">
+                      {p.receiver
+                        ? [p.receiver.first_name, p.receiver.last_name].filter(Boolean).join(' ') || p.receiver.email
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
@@ -435,14 +482,22 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             error={payErrors.amount}
             hint={`${t('invoices.balanceDueShort')} : ${formatCurrency(invoice.balance_due)}`}
           />
-          <Select
-            label={t('invoices.payMethod')}
-            value={payMethod}
-            onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-          >
-            <option value="cash">{t('invoices.paymentCash')}</option>
-            <option value="mobile">{t('invoices.paymentMobile')}</option>
-          </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label={t('invoices.payMethod')}
+              value={payMethod}
+              onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
+            >
+              <option value="cash">{t('invoices.paymentCash')}</option>
+              <option value="mobile">{t('invoices.paymentMobile')}</option>
+            </Select>
+            <Input
+              label={t('invoices.payDate')}
+              type="date"
+              value={payPaidAt}
+              onChange={(e) => setPayPaidAt(e.target.value)}
+            />
+          </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <input
               type="checkbox"

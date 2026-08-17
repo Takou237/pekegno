@@ -9,7 +9,8 @@ export interface CommercialUserLink {
   is_active: boolean;
 }
 
-export type CommercialPointReason = 'sale' | 'penalty' | 'adjustment';
+export type CommercialPointReason = 'sale' | 'penalty' | 'adjustment' | 'prospect' | 'conversion';
+export type CommercialKind = 'commercial' | 'employe';
 
 export interface CommercialPoint {
   id: string;
@@ -21,10 +22,27 @@ export interface CommercialPoint {
   created_at: string;
 }
 
+export interface CommissionPayment {
+  id: string;
+  commercial_id: string;
+  invoice_id: string;
+  payment_id: string | null;
+  service_id: string | null;
+  amount: string;
+  base_amount: string;
+  rule: string;
+  rate: string | null;
+  invoice_total: string;
+  created_by: string | null;
+  created_at: string;
+  invoice?: { id: string; number: string } | null;
+}
+
 export interface Commercial {
   id: string;
   user_id: string | null;
   agency_id: string | null;
+  kind: CommercialKind;
   first_name: string;
   last_name: string;
   email: string | null;
@@ -38,6 +56,7 @@ export interface Commercial {
   user?: CommercialUserLink | null;
   points?: CommercialPoint[];
   prospects?: Prospect[];
+  commission_payments?: CommissionPayment[];
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +64,7 @@ export interface Commercial {
 export interface CommercialPayload {
   user_id?: string | null;
   agency_id?: string | null;
+  kind?: CommercialKind;
   first_name: string;
   last_name: string;
   email?: string | null;
@@ -56,6 +76,7 @@ export interface CommercialPayload {
 
 export interface CommercialListParams {
   search?: string;
+  kind?: CommercialKind;
   agency_id?: string;
   is_active?: boolean;
   linked?: 'true' | 'false';

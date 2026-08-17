@@ -25,7 +25,7 @@ class BilanService
             ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId))
             ->sum('amount');
 
-        $salesTotal = (float) collect($services)->sum('total');
+        $salesTotal = (int) collect($services)->sum('count');
         $opening = $this->openingBalance($date, $agencyId);
         $closing = $totalReceived - $expenseTotal;
 

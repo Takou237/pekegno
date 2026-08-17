@@ -2,9 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Exports\AccountingExport;
-use App\Exports\CommercialReportExport;
-use App\Exports\DailyBilanExport;
 use App\Http\Controllers\Controller;
 use App\Models\AccountingTransaction;
 use App\Models\ActivityLog;
@@ -18,9 +15,7 @@ use App\Services\CommercialReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use Maatwebsite\Excel\Facades\Excel;
 use OpenApi\Attributes as OA;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExportController extends Controller
@@ -326,7 +321,7 @@ class ExportController extends Controller
 
     #[OA\Get(
         path: '/api/exports/accounting',
-        summary: 'Exporter les transactions comptables en Excel (.xlsx)',
+        summary: 'Exporter les transactions comptables en CSV',
         tags: ['Exports'],
         security: [['sanctum' => []]],
         parameters: [
@@ -339,11 +334,11 @@ class ExportController extends Controller
             new OA\Parameter(name: 'search', in: 'query', schema: new OA\Schema(type: 'string')),
         ],
         responses: [
-            new OA\Response(response: 200, description: 'Fichier Excel'),
+            new OA\Response(response: 200, description: 'Fichier CSV'),
             new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
-    public function accounting(Request $request): BinaryFileResponse
+    public function accounting(Request $request): StreamedResponse
     {
         abort_unless($this->canExport($request), 403);
 
@@ -362,15 +357,30 @@ class ExportController extends Controller
             ->orderByDesc('transacted_at')
             ->get();
 
-        return Excel::download(
-            new AccountingExport($transactions),
-            'comptabilite-'.now()->format('Y-m-d').'.xlsx'
+        $rows = $transactions->map(fn (AccountingTransaction $t) => [
+            $t->number,
+            $t->agency?->name ?? '',
+            $t->label,
+            (float) $t->amount,
+            $t->client_id ? trim(($t->client?->first_name ?? '').' '.($t->client?->last_name ?? '')) : '',
+            $t->transacted_at?->format('Y-m-d H:i'),
+            $t->type === 'income' ? 'Entrée' : 'Sortie',
+            $t->operator_id ? trim(($t->operator?->first_name ?? '').' '.($t->operator?->last_name ?? '')) : '',
+            $t->note ?? '',
+            $t->beneficiary ?? '',
+            $t->justification ?? '',
+        ]);
+
+        return $this->stream(
+            'comptabilite-'.now()->format('Y-m-d').'.csv',
+            ['N°', 'Agence', 'Rubrique', 'Montant', 'Client', 'Date', 'Type', 'Opérateur', 'Objet', 'Bénéficiaire', 'Justification'],
+            $rows
         );
     }
 
     #[OA\Get(
         path: '/api/exports/bilans',
-        summary: 'Exporter le bilan du jour en Excel (.xlsx)',
+        summary: 'Exporter le bilan du jour en CSV',
         tags: ['Exports'],
         security: [['sanctum' => []]],
         parameters: [
@@ -378,25 +388,40 @@ class ExportController extends Controller
             new OA\Parameter(name: 'date', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
         ],
         responses: [
-            new OA\Response(response: 200, description: 'Fichier Excel'),
+            new OA\Response(response: 200, description: 'Fichier CSV'),
             new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
-    public function dailyBilan(Request $request): BinaryFileResponse
+    public function dailyBilan(Request $request): StreamedResponse
     {
         $date = $request->date('date') ?? Carbon::today();
 
         $bilan = $this->bilanService->daily($date, $request->input('agency_id'));
 
-        return Excel::download(
-            new DailyBilanExport($bilan),
-            'bilan-du-jour-'.$date->format('Y-m-d').'.xlsx'
+        $rows = collect();
+        foreach ($bilan['services'] as $service) {
+            $rows->push([$service['label'], $service['count'], (float) $service['total']]);
+        }
+        $rows->push(['TOTAL SERVICES VENDUS', (int) $bilan['total_services_sold'], '']);
+        $rows->push(['']);
+        $rows->push(['Encaissements cash', '', (float) $bilan['cash_total']]);
+        $rows->push(['Encaissements mobile money', '', (float) $bilan['mobile_total']]);
+        $rows->push(['Total encaissé (cash + mobile)', '', (float) $bilan['total_received']]);
+        $rows->push(['']);
+        $rows->push(['Solde initial (veille)', '', (float) $bilan['solde_initial']]);
+        $rows->push(['Dépense du jour', '', (float) $bilan['expense_total']]);
+        $rows->push(['SOLDE FINAL (encaissé − dépense)', '', (float) $bilan['solde_final']]);
+
+        return $this->stream(
+            'bilan-du-jour-'.$date->format('Y-m-d').'.csv',
+            ['Service', 'Quantité vendue', 'Montant'],
+            $rows
         );
     }
 
     #[OA\Get(
         path: '/api/exports/commercial-report',
-        summary: 'Exporter le reporting commercial en Excel (.xlsx)',
+        summary: 'Exporter le reporting commercial en CSV',
         tags: ['Exports'],
         security: [['sanctum' => []]],
         parameters: [
@@ -407,11 +432,11 @@ class ExportController extends Controller
             new OA\Parameter(name: 'to', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
         ],
         responses: [
-            new OA\Response(response: 200, description: 'Fichier Excel'),
+            new OA\Response(response: 200, description: 'Fichier CSV'),
             new OA\Response(response: 403, description: 'Non autorisé'),
         ]
     )]
-    public function commercialReport(Request $request): BinaryFileResponse
+    public function commercialReport(Request $request): StreamedResponse
     {
         abort_unless($this->canExport($request), 403);
 
@@ -426,9 +451,41 @@ class ExportController extends Controller
             to: $to,
         );
 
-        return Excel::download(
-            new CommercialReportExport($report),
-            'reporting-commercial-'.$from->format('Y-m-d').'-'.$to->format('Y-m-d').'.xlsx'
+        $rows = collect($report['ranking'])->map(fn (array $row) => [
+            trim(($row['first_name'] ?? '').' '.($row['last_name'] ?? '')),
+            $row['agency_name'] ?? '',
+            $row['kind'] === 'employe' ? 'Employé' : 'Commercial',
+            $row['sales_count'],
+            $row['revenue_billed'],
+            $row['revenue_received'],
+            $row['payments_count'],
+            $row['commissions'],
+            $row['points'],
+            $row['prospects_count'],
+            $row['clients_converted'],
+            $row['conversion_rate'],
+        ]);
+
+        $t = $report['totals'];
+        $rows->push([
+            'TOTAL',
+            '',
+            '',
+            $t['sales_count'],
+            $t['revenue_billed'],
+            $t['revenue_received'],
+            $t['payments_count'],
+            $t['commissions'],
+            $t['points'],
+            $t['prospects_count'],
+            $t['clients_converted'],
+            '',
+        ]);
+
+        return $this->stream(
+            'reporting-commercial-'.$from->format('Y-m-d').'-'.$to->format('Y-m-d').'.csv',
+            ['Commercial', 'Agence', 'Type', 'Ventes', 'CA facturé', 'CA encaissé', 'Tranches', 'Commissions', 'Points', 'Prospects', 'Clients convertis', 'Taux conversion %'],
+            $rows
         );
     }
 

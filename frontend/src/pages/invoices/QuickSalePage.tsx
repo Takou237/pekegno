@@ -14,7 +14,7 @@ import { Select } from '@/components/ui/Select';
 import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
-import type { ServiceSearchItem } from '@/types/service';
+import type { ServiceSearchItem, SeminarTier } from '@/types/service';
 
 export default function QuickSalePage() {
   const { t } = useTranslation();
@@ -26,6 +26,8 @@ export default function QuickSalePage() {
   const [serviceLabel, setServiceLabel] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
   const [quantity, setQuantity] = useState('1');
+  const [passTier, setPassTier] = useState('');
+  const [seminarTiers, setSeminarTiers] = useState<SeminarTier[]>([]);
 
   // Payment
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('cash');
@@ -55,7 +57,15 @@ export default function QuickSalePage() {
     if (!service) return;
     setServiceId(service.id);
     setServiceLabel(service.name);
-    setUnitPrice(String(service.effective_price ?? service.price ?? ''));
+    if (service.is_seminar && service.seminar_tiers && service.seminar_tiers.length > 0) {
+      setSeminarTiers(service.seminar_tiers);
+      setPassTier(service.seminar_tiers[0].tier);
+      setUnitPrice(String(service.seminar_tiers[0].price));
+    } else {
+      setSeminarTiers([]);
+      setPassTier('');
+      setUnitPrice(String(service.effective_price ?? service.price ?? ''));
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -89,6 +99,7 @@ export default function QuickSalePage() {
             label: serviceLabel.trim() || undefined,
             unit_price: Number(unitPrice) || 0,
             quantity: Number(quantity) || 1,
+            pass_tier: passTier || undefined,
           },
         ],
       });
@@ -161,6 +172,23 @@ export default function QuickSalePage() {
                 error={errors.service_id}
               />
             </div>
+            {seminarTiers.length > 0 && (
+              <div className="w-full sm:w-40">
+                <Select
+                  label={t('invoices.passTier')}
+                  value={passTier}
+                  onChange={(e) => {
+                    const tier = seminarTiers.find((t) => t.tier === e.target.value);
+                    setPassTier(e.target.value);
+                    if (tier) setUnitPrice(String(tier.price));
+                  }}
+                >
+                  {seminarTiers.map((t) => (
+                    <option key={t.tier} value={t.tier}>{t.label} — {formatCurrency(Number(t.price))}</option>
+                  ))}
+                </Select>
+              </div>
+            )}
             <div className="w-full sm:w-36">
               <Input
                 label={t('invoices.itemUnitPrice')}

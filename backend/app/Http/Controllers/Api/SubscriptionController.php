@@ -48,7 +48,7 @@ class SubscriptionController extends Controller
 
     #[OA\Post(
         path: '/api/subscription-packs',
-        summary: 'Créer un pack d\'abonnement (exactement 4 services avec prix/mois)',
+        summary: 'Créer un pack d\'abonnement (services + prix mensuel)',
         tags: ['Abonnements'],
         security: [['sanctum' => []]],
         responses: [
@@ -62,9 +62,10 @@ class SubscriptionController extends Controller
 
         $pack = DB::transaction(function () use ($data, $request) {
             $pack = SubscriptionPack::create([
-                'agency_id' => $data['agency_id'] ?? $request->user()->primaryAgency()?->value('agencies.id'),
+                'agency_id' => $data['agency_id'] ?? $request->user()->agency_id,
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
+                'price_per_month' => $data['price_per_month'],
                 'is_active' => $data['is_active'] ?? true,
             ]);
 
@@ -105,6 +106,7 @@ class SubscriptionController extends Controller
             $pack->update([
                 'name' => $data['name'] ?? $pack->name,
                 'description' => array_key_exists('description', $data) ? $data['description'] : $pack->description,
+                'price_per_month' => $data['price_per_month'] ?? $pack->price_per_month,
                 'is_active' => $data['is_active'] ?? $pack->is_active,
             ]);
 
@@ -222,7 +224,7 @@ class SubscriptionController extends Controller
         }
 
         $start = Carbon::parse($data['start_date'] ?? now()->toDateString());
-        $pricePerMonth = (float) $pack->packServices->sum('price_per_month');
+        $pricePerMonth = (float) $pack->price_per_month;
         $total = round($pricePerMonth * (int) $data['months'], 2);
 
         if (! empty($data['advance']) && (float) $data['advance'] > $total) {
@@ -396,22 +398,16 @@ class SubscriptionController extends Controller
             'agency_id' => ['nullable', 'exists:agencies,id'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
+            'price_per_month' => ['required', 'numeric', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
             'services' => $update ? ['sometimes', 'array'] : ['required', 'array'],
             'services.*.service_id' => ['required', 'uuid', 'exists:services,id'],
-            'services.*.price_per_month' => ['required', 'numeric', 'min:0.01'],
         ];
 
         $data = $request->validate($rules);
 
         if (isset($data['services'])) {
             $ids = array_column($data['services'], 'service_id');
-
-            if (count($ids) !== 4) {
-                throw ValidationException::withMessages([
-                    'services' => 'Un pack doit contenir exactement 4 services.',
-                ]);
-            }
 
             if (count(array_unique($ids)) !== count($ids)) {
                 throw ValidationException::withMessages([
@@ -429,7 +425,7 @@ class SubscriptionController extends Controller
             SubscriptionPackService::create([
                 'subscription_pack_id' => $pack->id,
                 'service_id' => $service['service_id'],
-                'price_per_month' => $service['price_per_month'],
+                'price_per_month' => $pack->price_per_month,
             ]);
         }
     }
@@ -463,9 +459,9 @@ class SubscriptionController extends Controller
             $invoice->items()->create([
                 'service_id' => $line->service_id,
                 'label' => $line->service?->name ?? 'Service',
-                'unit_price' => (float) $line->price_per_month,
+                'unit_price' => $pricePerMonth,
                 'quantity' => $months,
-                'line_total' => round((float) $line->price_per_month * $months, 2),
+                'line_total' => round($pricePerMonth * $months, 2),
             ]);
         }
 

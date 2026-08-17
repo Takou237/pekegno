@@ -24,12 +24,13 @@ interface InvoiceLineDraft {
   label: string;
   unit_price: string;
   quantity: string;
+  pass_tier: string;
 }
 
 let lineCounter = 0;
 function newLine(): InvoiceLineDraft {
   lineCounter += 1;
-  return { key: `line-${lineCounter}`, service_id: '', label: '', unit_price: '', quantity: '1' };
+  return { key: `line-${lineCounter}`, service_id: '', label: '', unit_price: '', quantity: '1', pass_tier: '' };
 }
 
 export default function InvoiceFormPage() {
@@ -108,11 +109,18 @@ export default function InvoiceFormPage() {
       showToast(t('invoices.duplicateService'), 'error');
       return;
     }
-    updateLine(key, {
+    const patches: Partial<InvoiceLineDraft> = {
       service_id: service.id,
       label: service.name,
       unit_price: String(service.effective_price ?? service.price ?? ''),
-    });
+    };
+    if (service.is_seminar && service.seminar_tiers && service.seminar_tiers.length > 0) {
+      patches.pass_tier = service.seminar_tiers[0].tier;
+      patches.unit_price = String(service.seminar_tiers[0].price);
+    } else {
+      patches.pass_tier = '';
+    }
+    updateLine(key, patches);
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -152,6 +160,7 @@ export default function InvoiceFormPage() {
           label: l.label.trim() || undefined,
           unit_price: Number(l.unit_price) || 0,
           quantity: Number(l.quantity) || 1,
+          pass_tier: l.pass_tier || undefined,
         })),
       });
       showToast(t('invoices.created'), 'success');
@@ -265,7 +274,12 @@ export default function InvoiceFormPage() {
             {t('invoices.items')}
           </h2>
           <div className="flex flex-col gap-4">
-            {lines.map((line, index) => (
+            {lines.map((line, index) => {
+              const results = serviceResultsRef.current[line.key] ?? [];
+              const selectedService = results.find((s) => s.id === line.service_id);
+              const tiers = selectedService?.seminar_tiers;
+              const hasTiers = line.pass_tier !== '' && tiers && tiers.length > 0;
+              return (
               <div key={line.key} className="flex flex-col gap-3 rounded-xl border border-gray-100 p-3 dark:border-gray-800 sm:flex-row sm:items-end">
                 <div className="min-w-0 flex-1">
                   <Autocomplete
@@ -286,6 +300,25 @@ export default function InvoiceFormPage() {
                       }}
                   />
                 </div>
+                {hasTiers && (
+                  <div className="w-full sm:w-40">
+                    <Select
+                      label={index === 0 ? t('invoices.passTier') : undefined}
+                      value={line.pass_tier}
+                      onChange={(e) => {
+                        const tier = tiers.find((t) => t.tier === e.target.value);
+                        updateLine(line.key, {
+                          pass_tier: e.target.value,
+                          unit_price: tier ? String(tier.price) : line.unit_price,
+                        });
+                      }}
+                    >
+                      {tiers.map((t) => (
+                        <option key={t.tier} value={t.tier}>{t.label} — {formatCurrency(Number(t.price))}</option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
                 <div className="w-full sm:w-52">
                   <Input
                     label={index === 0 ? t('invoices.itemLabel') : ''}
@@ -332,7 +365,8 @@ export default function InvoiceFormPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           <Button
             type="button"

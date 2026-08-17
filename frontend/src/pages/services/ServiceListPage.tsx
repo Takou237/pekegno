@@ -418,6 +418,19 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
                     )}
                   </div>
 
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {service.bonus_fixed && Number(service.bonus_fixed) > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        {t('services.bonusFixed')}: {formatPrice(service.bonus_fixed)}
+                      </span>
+                    )}
+                    {service.is_seminar && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                        {t('services.isSeminar')}
+                      </span>
+                    )}
+                  </div>
+
                   <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
                     <span className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
                       <Building2 className="h-4 w-4 shrink-0 text-gray-400" />
