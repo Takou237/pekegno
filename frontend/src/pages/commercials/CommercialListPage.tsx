@@ -33,7 +33,9 @@ export interface CommercialApiLike {
   ranking?: (params?: { limit?: number }) => Promise<RankingEntry[]>;
 }
 
-export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTitle, pageSubtitle, detailBasePath }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; pageSubtitle?: string; detailBasePath?: string }) {
+export type CommercialListMode = 'commercial' | 'employee';
+
+export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTitle, pageSubtitle, detailBasePath, mode = 'commercial', exportKind = 'commercials', reportPath }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; pageSubtitle?: string; detailBasePath?: string; mode?: CommercialListMode; exportKind?: 'commercials' | 'employees'; reportPath?: string }) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
@@ -98,7 +100,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
       setCommercials(response.data);
       setMeta(response.meta);
     } catch (error) {
-      setLoadError(extractErrorMessage(error, t('commercials.loadFailed')));
+      setLoadError(extractErrorMessage(error, t(`${ns}.loadFailed`)));
     } finally {
       setIsLoading(false);
     }
@@ -135,7 +137,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
     if (commercial.commission_type === 'fixed') {
       return formatCurrency(commercial.commission_value);
     }
-    return t('commercials.commissionNone');
+    return t(`${ns}.commissionNone`);
   }
 
   async function handleFormSubmit(event: FormEvent) {
@@ -157,16 +159,16 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
       };
       if (editCommercial) {
         await commercialApi.update(editCommercial.id, payload);
-        showToast(t('commercials.updated'), 'success');
+        showToast(t(`${ns}.updated`), 'success');
       } else {
         await commercialApi.create(payload);
-        showToast(t('commercials.created'), 'success');
+        showToast(t(`${ns}.created`), 'success');
       }
       setFormOpen(false);
       fetchCommercials();
     } catch (error) {
       setFormErrors(extractFieldErrors(error));
-      const msg = extractErrorMessage(error, t('commercials.saveFailed'));
+      const msg = extractErrorMessage(error, t(`${ns}.saveFailed`));
       if (msg) showToast(msg, 'error');
     } finally {
       setFormSubmitting(false);
@@ -187,11 +189,11 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
     setAdjustSubmitting(true);
     try {
       await commercialApi.adjustPoints(adjustTarget.id, value);
-      showToast(t('commercials.adjusted'), 'success');
+      showToast(t(`${ns}.adjusted`), 'success');
       setAdjustTarget(null);
       fetchCommercials();
     } catch (error) {
-      showToast(extractErrorMessage(error, t('commercials.adjustFailed')), 'error');
+      showToast(extractErrorMessage(error, t(`${ns}.adjustFailed`)), 'error');
     } finally {
       setAdjustSubmitting(false);
     }
@@ -203,7 +205,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
     try {
       setRanking(await (commercialApi.ranking ?? commercialsApi.ranking)({ limit: 50 }));
     } catch (error) {
-      showToast(extractErrorMessage(error, t('commercials.loadFailed')), 'error');
+      showToast(extractErrorMessage(error, t(`${ns}.loadFailed`)), 'error');
     } finally {
       setRankingLoading(false);
     }
@@ -214,11 +216,11 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
     setDeleteSubmitting(true);
     try {
       await commercialApi.remove(deleteTarget.id);
-      showToast(t('commercials.deleted'), 'success');
+      showToast(t(`${ns}.deleted`), 'success');
       setDeleteTarget(null);
       fetchCommercials();
     } catch (error) {
-      showToast(extractErrorMessage(error, t('commercials.deleteFailed')), 'error');
+      showToast(extractErrorMessage(error, t(`${ns}.deleteFailed`)), 'error');
     } finally {
       setDeleteSubmitting(false);
     }
@@ -227,7 +229,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
   async function handleExport() {
     setIsExporting(true);
     try {
-      await downloadExport('commercials');
+      await downloadExport(exportKind);
     } catch (error) {
       showToast(extractErrorMessage(error, t('common.exportFailed')), 'error');
     } finally {
@@ -235,34 +237,39 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
     }
   }
 
+  const isEmployee = mode === 'employee';
+  const ns = isEmployee ? 'employees' : 'commercials';
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{pageTitle ?? t('commercials.title')}</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{pageTitle ?? t(`${ns}.title`)}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {pageSubtitle ?? t('commercials.subtitle')}
+            {pageSubtitle ?? t(`${ns}.subtitle`)}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
           {canExportData(currentUser) && (
             <Button variant="outline" onClick={handleExport} isLoading={isExporting}>
               <Download className="h-4 w-4" />
-              {t('commercials.export')}
+              {t(`${ns}.export`)}
             </Button>
           )}
-          <Button variant="outline" onClick={() => navigate('/commercials/report')}>
-            <BarChart3 className="h-4 w-4" />
-            {t('reports.commercialReport')}
-          </Button>
+          {!isEmployee && (
+            <Button variant="outline" onClick={() => navigate(reportPath ?? '/commercials/report')}>
+              <BarChart3 className="h-4 w-4" />
+              {t('reports.commercialReport')}
+            </Button>
+          )}
           <Button variant="outline" onClick={openRanking}>
             <Trophy className="h-4 w-4" />
-            {t('commercials.rankingPoints')}
+            {t(`${ns}.rankingPoints`)}
           </Button>
           {canManage && (
             <Button onClick={openCreate}>
               <UserPlus className="h-4 w-4" />
-              {t('commercials.createCommercial')}
+              {t(`${ns}.createEmployee`)}
             </Button>
           )}
         </div>
@@ -274,7 +281,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('commercials.searchPlaceholder')}
+            placeholder={t(`${ns}.searchPlaceholder`)}
             className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
           />
         </div>
@@ -298,17 +305,17 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
           <p className="p-6 text-sm text-error-500">{loadError}</p>
         ) : commercials.length === 0 ? (
           <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            {t('commercials.empty')}
+            {t(`${ns}.empty`)}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
-                  <th className="px-5 py-3 font-medium">{t('commercials.colName')}</th>
-                  <th className="px-5 py-3 font-medium">{t('commercials.colAgency')}</th>
-                  <th className="px-5 py-3 font-medium">{t('commercials.colPoints')}</th>
-                  <th className="px-5 py-3 font-medium">{t('commercials.colCommission')}</th>
+                  <th className="px-5 py-3 font-medium">{t(`${ns}.colName`)}</th>
+                  <th className="px-5 py-3 font-medium">{t(`${ns}.colAgency`)}</th>
+                  <th className="px-5 py-3 font-medium">{t(`${ns}.colPoints`)}</th>
+                  {!isEmployee && <th className="px-5 py-3 font-medium">{t(`${ns}.colCommission`)}</th>}
                   <th className="px-5 py-3 font-medium">{t('common.status')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('common.actions')}</th>
                 </tr>
@@ -339,9 +346,11 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
                         {c.points_balance}
                       </span>
                     </td>
+                    {!isEmployee && (
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {commissionLabel(c)}
                     </td>
+                    )}
                     <td className="px-5 py-3">
                       {c.is_active ? (
                         <Badge variant="success">{t('common.active')}</Badge>
@@ -355,7 +364,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
                           type="button"
                           onClick={() => navigate(commercialPath(c.id))}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                          title={t('commercials.viewDetail')}
+                          title={t(`${ns}.viewDetail`)}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -364,7 +373,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
                             type="button"
                             onClick={() => openAdjust(c)}
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                            title={t('commercials.adjustPoints')}
+                            title={t(`${ns}.adjustPoints`)}
                           >
                             <Star className="h-4 w-4" />
                           </button>
@@ -414,7 +423,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
       <Modal
         isOpen={formOpen}
         onClose={() => setFormOpen(false)}
-        title={editCommercial ? t('commercials.editTitle') : t('commercials.createTitle')}
+        title={editCommercial ? t(`${ns}.editTitle`) : t(`${ns}.createTitle`)}
         maxWidth="max-w-lg"
       >
         <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
@@ -450,7 +459,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
         onClose={() => setAdjustTarget(null)}
         title={
           adjustTarget
-            ? t('commercials.adjustTitle', {
+            ? t(`${ns}.adjustTitle`, {
                 name: [adjustTarget.first_name, adjustTarget.last_name].filter(Boolean).join(' '),
               })
             : ''
@@ -459,9 +468,9 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
       >
         {adjustTarget && (
           <form onSubmit={handleAdjust} className="flex flex-col gap-4">
-            <Alert variant="info">{t('commercials.adjustHint')}</Alert>
+            <Alert variant="info">{t(`${ns}.adjustHint`)}</Alert>
             <Input
-              label={t('commercials.pointsValue')}
+              label={t(`${ns}.pointsValue`)}
               type="number"
               required
               value={adjustPoints}
@@ -483,25 +492,25 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
       <Modal
         isOpen={rankingOpen}
         onClose={() => setRankingOpen(false)}
-        title={t('commercials.rankingPoints')}
+        title={t(`${ns}.rankingPoints`)}
         maxWidth="max-w-xl"
       >
         {rankingLoading ? (
           <SkeletonTable rows={4} />
         ) : ranking.length === 0 ? (
           <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            {t('commercials.empty')}
+            {t(`${ns}.empty`)}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
-                  <th className="px-4 py-2 font-medium">{t('commercials.rank')}</th>
-                  <th className="px-4 py-2 font-medium">{t('commercials.colName')}</th>
-                  <th className="px-4 py-2 font-medium">{t('commercials.colPoints')}</th>
-                  <th className="px-4 py-2 font-medium">{t('commercials.statsSales')}</th>
-                  <th className="px-4 py-2 text-right font-medium">{t('commercials.statsTurnover')}</th>
+                  <th className="px-4 py-2 font-medium">{t(`${ns}.rank`)}</th>
+                  <th className="px-4 py-2 font-medium">{t(`${ns}.colName`)}</th>
+                  <th className="px-4 py-2 font-medium">{t(`${ns}.colPoints`)}</th>
+                  <th className="px-4 py-2 font-medium">{t(`${ns}.statsSales`)}</th>
+                  <th className="px-4 py-2 text-right font-medium">{t(`${ns}.statsTurnover`)}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -536,10 +545,10 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
 
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
-        title={t('commercials.deleteTitle')}
+        title={t(`${ns}.deleteTitle`)}
         message={
           deleteTarget
-            ? t('commercials.deleteMessage', {
+            ? t(`${ns}.deleteMessage`, {
                 name: [deleteTarget.first_name, deleteTarget.last_name].filter(Boolean).join(' '),
               })
             : ''

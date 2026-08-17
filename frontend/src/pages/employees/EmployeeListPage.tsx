@@ -12,6 +12,8 @@ export default function EmployeeListPage({ fixedAgencyId }: { fixedAgencyId?: st
       pageTitle={t('employees.title')}
       pageSubtitle={t('employees.subtitle')}
       detailBasePath={detailBasePath}
+      mode="employee"
+      exportKind="employees"
     />
   );
 }
