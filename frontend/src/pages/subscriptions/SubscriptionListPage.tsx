@@ -631,6 +631,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
             min={1}
             required
             placeholder="1"
+            className="with-spinners"
             value={subForm.months}
             onChange={(e) => setSubForm((prev) => ({ ...prev, months: Number(e.target.value) }))}
             error={subFormErrors.months}

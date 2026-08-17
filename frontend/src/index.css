@@ -101,13 +101,13 @@
   }
 }
 
-/* Masquer les spinners des inputs number */
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button {
+/* Masquer les spinners des inputs number (sauf .with-spinners) */
+input[type="number"]:not(.with-spinners)::-webkit-outer-spin-button,
+input[type="number"]:not(.with-spinners)::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-input[type="number"] {
+input[type="number"]:not(.with-spinners) {
   -moz-appearance: textfield;
 }
 
