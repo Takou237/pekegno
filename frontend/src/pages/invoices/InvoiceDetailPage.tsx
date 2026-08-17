@@ -43,7 +43,6 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
-  const [payAdvance, setPayAdvance] = useState(false);
   const [payComment, setPayComment] = useState('');
   const [payPaidAt, setPayPaidAt] = useState('');
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
@@ -85,7 +84,6 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
   function openPay() {
     setPayAmount('');
-    setPayAdvance(false);
     setPayComment('');
     setPayPaidAt(new Date().toISOString().slice(0, 10));
     setPayErrors({});
@@ -95,13 +93,21 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   async function handlePay(event: FormEvent) {
     event.preventDefault();
     if (!invoice) return;
+    const amount = Number(payAmount);
+    if (!amount || amount <= 0) {
+      setPayErrors({ amount: t('invoices.payAmountError') });
+      return;
+    }
+    if (amount > invoice.balance_due) {
+      setPayErrors({ amount: t('invoices.payOverpayment') });
+      return;
+    }
     setPaySubmitting(true);
     setPayErrors({});
     try {
       await invoicesApi.pay(invoice.id, {
-        amount: Number(payAmount),
+        amount,
         payment_method: payMethod,
-        is_advance: payAdvance,
         paid_at: payPaidAt || undefined,
         comment: payComment || undefined,
       });
@@ -327,7 +333,6 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                   <th className="py-2 pr-3 font-medium">{t('invoices.paymentDate')}</th>
                   <th className="py-2 pr-3 font-medium">{t('invoices.paymentMethod')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('invoices.paymentAmount')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('invoices.paymentIsAdvance')}</th>
                   <th className="py-2 font-medium">{t('invoices.paymentReceivedBy')}</th>
                 </tr>
               </thead>
@@ -342,9 +347,6 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                     </td>
                     <td className="py-2 pr-3 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(p.amount)}
-                    </td>
-                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {p.is_advance ? t('common.yes') : t('common.no')}
                     </td>
                     <td className="py-2 text-gray-600 dark:text-gray-300">
                       {p.receiver
@@ -480,7 +482,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             value={payAmount}
             onChange={(e) => setPayAmount(e.target.value)}
             error={payErrors.amount}
-            hint={`${t('invoices.balanceDueShort')} : ${formatCurrency(invoice.balance_due)}`}
+            hint={Number(payAmount) > invoice.balance_due && payAmount !== '' ? `⚠ ${t('invoices.payOverpayment')} (${formatCurrency(invoice.balance_due)})` : `${t('invoices.balanceDueShort')} : ${formatCurrency(invoice.balance_due)}`}
           />
           <div className="grid grid-cols-2 gap-3">
             <Select
@@ -498,15 +500,6 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               onChange={(e) => setPayPaidAt(e.target.value)}
             />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <input
-              type="checkbox"
-              checked={payAdvance}
-              onChange={(e) => setPayAdvance(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/30"
-            />
-            {t('invoices.payAdvance')}
-          </label>
           <Input
             label={t('invoices.payComment')}
             value={payComment}
@@ -517,7 +510,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             <Button type="button" variant="outline" onClick={() => setPayOpen(false)} className="flex-1">
               {t('common.cancel')}
             </Button>
-            <Button type="submit" isLoading={paySubmitting} className="flex-1">
+            <Button type="submit" isLoading={paySubmitting} className="flex-1" disabled={!payAmount || Number(payAmount) <= 0 || Number(payAmount) > invoice.balance_due}>
               {t('common.confirm')}
             </Button>
           </div>

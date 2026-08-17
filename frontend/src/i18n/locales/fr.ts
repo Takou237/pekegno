@@ -1007,6 +1007,8 @@ export default {
     paid: 'Paiement enregistré.',
     paidAmount: 'Montant payé',
     payFailed: 'Impossible d\'enregistrer le paiement.',
+    payAmountError: 'Le montant doit être supérieur à 0.',
+    payOverpayment: 'Le montant dépasse le reste à payer.',
     paymentHistory: 'Historique des paiements',
     noPayments: 'Aucun paiement enregistré.',
     paymentAmount: 'Montant',

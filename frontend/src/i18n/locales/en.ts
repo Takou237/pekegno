@@ -1000,6 +1000,8 @@ export default {
     paid: 'Payment recorded.',
     paidAmount: 'Amount paid',
     payFailed: 'Unable to record the payment.',
+    payAmountError: 'The amount must be greater than 0.',
+    payOverpayment: 'The amount exceeds the remaining balance.',
     paymentHistory: 'Payment history',
     noPayments: 'No payment recorded.',
     paymentAmount: 'Amount',
