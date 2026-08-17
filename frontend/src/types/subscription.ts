@@ -52,7 +52,7 @@ export interface SubscriptionPackPayload {
   agency_id: string;
   name: string;
   description?: string | null;
-  price_per_month: number;
+  price_per_month?: number;
   is_active?: boolean;
   services?: { service_id: string }[];
 }

@@ -41,7 +41,7 @@ class SubscriptionController extends Controller
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->orderBy('name')
-            ->get();
+            ->paginate(min((int) $request->input('per_page', 15), 100));
 
         return response()->json($packs);
     }
@@ -205,7 +205,7 @@ class SubscriptionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'pack_id' => ['required', 'uuid', 'exists:subscription_packs,id'],
+            'subscription_pack_id' => ['required', 'uuid', 'exists:subscription_packs,id'],
             'client_id' => ['required', 'uuid', 'exists:users,id'],
             'months' => ['required', 'integer', 'min:1', 'max:60'],
             'start_date' => ['nullable', 'date'],
@@ -213,7 +213,7 @@ class SubscriptionController extends Controller
             'payment_type' => ['nullable', 'in:cash,mobile'],
         ]);
 
-        $pack = SubscriptionPack::with('packServices.service')->findOrFail($data['pack_id']);
+        $pack = SubscriptionPack::with('packServices.service')->findOrFail($data['subscription_pack_id']);
         if (! $pack->is_active) {
             return response()->json(['message' => "Ce pack d'abonnement est inactif."], 422);
         }

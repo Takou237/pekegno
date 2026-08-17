@@ -257,7 +257,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
             </Button>
           )}
           {!isEmployee && (
-            <Button variant="outline" onClick={() => navigate(reportPath ?? '/commercials/report')}>
+            <Button variant="outline" onClick={() => navigate(reportPath ?? (fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials/report` : '/commercials/report'))}>
               <BarChart3 className="h-4 w-4" />
               {t('reports.commercialReport')}
             </Button>

@@ -18,7 +18,7 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import type { CommercialReportResponse, CommercialReportRankingEntry } from '@/api/reports.api';
 import type { Agency } from '@/types/agency';
 
-export default function CommercialReportPage() {
+export default function CommercialReportPage({ fixedAgencyId }: { fixedAgencyId?: string } = {}) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
@@ -28,7 +28,7 @@ export default function CommercialReportPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [agencyFilter, setAgencyFilter] = useState('');
+  const [agencyFilter, setAgencyFilter] = useState(fixedAgencyId ?? '');
   const [commercialFilter, setCommercialFilter] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -140,6 +140,7 @@ export default function CommercialReportPage() {
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-end">
+        {!fixedAgencyId && (
         <div className="w-full sm:w-56">
           <Select
             label={t('reports.agency')}
@@ -154,6 +155,7 @@ export default function CommercialReportPage() {
             ))}
           </Select>
         </div>
+        )}
         <div className="w-full sm:w-64">
           <Autocomplete
             label={t('reports.commercial')}

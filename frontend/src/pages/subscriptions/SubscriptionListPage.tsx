@@ -161,7 +161,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
     agency_id: fixedAgencyId ?? '',
     client_id: '',
     months: 1,
-    advance: 0,
+    advance: undefined,
   });
   const [subFormErrors, setSubFormErrors] = useState<Record<string, string>>({});
   const [subFormSubmitting, setSubFormSubmitting] = useState(false);
@@ -172,7 +172,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
       agency_id: fixedAgencyId ?? '',
       client_id: '',
       months: 1,
-      advance: 0,
+      advance: undefined,
     });
     setSubFormErrors({});
     setSubFormOpen(true);
@@ -202,7 +202,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
     agency_id: fixedAgencyId ?? '',
     name: '',
     description: '',
-    price_per_month: 0,
+    price_per_month: undefined as unknown as number,
     is_active: true,
     services: [],
   });
@@ -217,7 +217,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
       agency_id: fixedAgencyId ?? '',
       name: '',
       description: '',
-      price_per_month: 0,
+      price_per_month: undefined,
       is_active: true,
       services: [],
     });
@@ -246,11 +246,12 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
     setPackFormSubmitting(true);
     setPackFormErrors({});
     try {
+      const payload = { ...packForm, price_per_month: packForm.price_per_month ?? 0 };
       if (editPack) {
-        await subscriptionsApi.updatePack(editPack.id, packForm);
+        await subscriptionsApi.updatePack(editPack.id, payload);
         showToast(t('subscriptions.packUpdated'), 'success');
       } else {
-        await subscriptionsApi.createPack(packForm);
+        await subscriptionsApi.createPack(payload);
         showToast(t('subscriptions.packCreated'), 'success');
       }
       setPackFormOpen(false);
@@ -629,6 +630,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
             type="number"
             min={1}
             required
+            placeholder="1"
             value={subForm.months}
             onChange={(e) => setSubForm((prev) => ({ ...prev, months: Number(e.target.value) }))}
             error={subFormErrors.months}
@@ -637,8 +639,9 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
             label={t('subscriptions.formAdvance')}
             type="number"
             min={0}
-            value={subForm.advance ?? 0}
-            onChange={(e) => setSubForm((prev) => ({ ...prev, advance: Number(e.target.value) }))}
+            placeholder="0"
+            value={subForm.advance ?? ''}
+            onChange={(e) => setSubForm((prev) => ({ ...prev, advance: e.target.value ? Number(e.target.value) : undefined }))}
             error={subFormErrors.advance}
           />
           <div className="flex justify-end gap-3">
@@ -695,8 +698,9 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
             min={0}
             step="0.01"
             required
-            value={packForm.price_per_month}
-            onChange={(e) => setPackForm((prev) => ({ ...prev, price_per_month: Number(e.target.value) }))}
+            placeholder="0"
+            value={packForm.price_per_month ?? ''}
+            onChange={(e) => setPackForm((prev) => ({ ...prev, price_per_month: e.target.value ? Number(e.target.value) : undefined }))}
             error={packFormErrors.price_per_month}
           />
           <div>
