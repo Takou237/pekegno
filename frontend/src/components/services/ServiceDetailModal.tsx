@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { CategoryIcon } from '@/utils/categoryIcons';
+import { getYouTubeEmbedUrl, isYouTubeUrl } from '@/utils/video';
 import type { Service } from '@/types/service';
 
 interface ServiceDetailModalProps {
@@ -150,11 +151,21 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
             <div>
               <dt className="mb-2 text-xs uppercase text-gray-400">{t('services.presentationVideo')}</dt>
               <dd className="mt-1">
-                <video
-                  src={service.presentation_video}
-                  controls
-                  className="aspect-video w-full rounded-xl border border-gray-100 bg-black dark:border-gray-800"
-                />
+                {isYouTubeUrl(service.presentation_video) ? (
+                  <iframe
+                    src={getYouTubeEmbedUrl(service.presentation_video) ?? undefined}
+                    title={service.name}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="aspect-video w-full rounded-xl border border-gray-100 bg-black dark:border-gray-800"
+                  />
+                ) : (
+                  <video
+                    src={service.presentation_video}
+                    controls
+                    className="aspect-video w-full rounded-xl border border-gray-100 bg-black dark:border-gray-800"
+                  />
+                )}
               </dd>
             </div>
           )}
