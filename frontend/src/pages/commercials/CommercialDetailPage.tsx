@@ -50,7 +50,7 @@ const EMPTY_PROSPECT_FORM: ProspectForm = {
   notes: '',
 };
 
-export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageTitle, backToListLabel }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; backToListLabel?: string }) {
+export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageTitle, backToListLabel, backToListPath }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; backToListLabel?: string; backToListPath?: string }) {
   const { id: routeId, commercialId } = useParams();
   const id = commercialId ?? routeId ?? '';
   const { t } = useTranslation();
@@ -59,7 +59,7 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
   const navigate = useNavigate();
 
   const commercialApi = overrideApi ?? commercialsApi;
-  const backTo = fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials` : '/commercials';
+  const backTo = backToListPath ?? (fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials` : '/commercials');
 
   const [commercial, setCommercial] = useState<Commercial | null>(null);
   const [stats, setStats] = useState<CommercialStats | null>(null);

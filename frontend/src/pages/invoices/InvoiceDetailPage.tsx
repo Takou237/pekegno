@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
 import { commercialsApi } from '@/api/commercials.api';
+import { employeesApi } from '@/api/employees.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -379,7 +380,14 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {(invoice.items ?? []).map((item) => (
                   <tr key={item.id}>
-                    <td className="py-2 pr-3 text-gray-800 dark:text-gray-100">{item.label}</td>
+                    <td className="py-2 pr-3 text-gray-800 dark:text-gray-100">
+                      <span>{item.label}</span>
+                      {item.pass_label && (
+                        <span className="ml-1.5 inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                          {item.pass_label}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-2 pr-3 text-right text-gray-600 dark:text-gray-300">
                       {item.quantity}
                     </td>
@@ -549,12 +557,22 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             value={editCommercialId}
             onChange={setEditCommercialId}
             fetchOptions={async (query) => {
-              const res = await commercialsApi.search(query.trim());
-              return res.map((c) => ({
-                id: c.id,
-                label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                subtitle: c.email ?? '',
-              }));
+              const [coms, emps] = await Promise.all([
+                commercialsApi.search(query.trim()).catch(() => []),
+                employeesApi.search(query.trim()).catch(() => []),
+              ]);
+              const seen = new Set<string>();
+              const results: { id: string; label: string; subtitle: string }[] = [];
+              for (const c of [...coms, ...emps]) {
+                if (seen.has(c.id)) continue;
+                seen.add(c.id);
+                results.push({
+                  id: c.id,
+                  label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+                  subtitle: c.email ?? '',
+                });
+              }
+              return results;
             }}
           />
           <Select

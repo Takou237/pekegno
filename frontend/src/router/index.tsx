@@ -145,7 +145,7 @@ export const router = createBrowserRouter([
           { path: 'commercials/report', element: page(<AgencyCommercialReportPage />, table) },
           { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />, detail) },
           { path: 'employees', element: page(<AgencyEmployeeListPage />, table) },
-          { path: 'employees/:employeeId', element: page(<AgencyEmployeeDetailPage />, detail) },
+          { path: 'employees/:id', element: page(<AgencyEmployeeDetailPage />, detail) },
           { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
           { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },

@@ -404,19 +404,30 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
                     </p>
                   )}
 
-                  <div className="mt-4 flex items-baseline gap-2">
-                    <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {formatPrice(service.effective_price)}
-                    </span>
-                    {hasPromo(service) && (
-                      <span className="text-xs text-gray-400 line-through">{formatPrice(service.price)}</span>
-                    )}
-                    {discountPercent(service) != null && (
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-500/10 dark:text-green-400">
-                        -{new Intl.NumberFormat(currentLocale(), { maximumFractionDigits: 0 }).format(discountPercent(service) as number)}%
+                  {service.is_seminar && service.seminar_tiers.length > 0 ? (
+                    <div className="mt-4 space-y-1">
+                      {service.seminar_tiers.map((tier) => (
+                        <div key={tier.tier} className="flex items-baseline justify-between text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">{tier.label}</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{formatPrice(tier.price)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex items-baseline gap-2">
+                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {formatPrice(service.effective_price)}
                       </span>
-                    )}
-                  </div>
+                      {hasPromo(service) && (
+                        <span className="text-xs text-gray-400 line-through">{formatPrice(service.price)}</span>
+                      )}
+                      {discountPercent(service) != null && (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                          -{new Intl.NumberFormat(currentLocale(), { maximumFractionDigits: 0 }).format(discountPercent(service) as number)}%
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {service.bonus_fixed && Number(service.bonus_fixed) > 0 && (

@@ -13,12 +13,16 @@ class UpdateServiceRequest extends FormRequest
 
     public function rules(): array
     {
+        $isSeminar = (bool) $this->boolean('is_seminar');
+
         return [
             'category_id' => ['sometimes', 'required', 'uuid', 'exists:categories,id'],
             'agency_id' => ['sometimes', 'required', 'uuid', 'exists:agencies,id'],
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            'price' => ['sometimes', 'required', 'numeric', 'min:0'],
+            'price' => $isSeminar
+                ? ['sometimes', 'nullable', 'numeric', 'min:0']
+                : ['sometimes', 'required', 'numeric', 'min:0'],
             'is_seminar' => ['sometimes', 'boolean'],
             'tiers' => ['sometimes', 'array', 'max:3'],
             'tiers.*.tier' => ['required', 'in:classique,premium,vip'],

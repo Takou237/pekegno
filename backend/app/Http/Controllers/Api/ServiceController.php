@@ -281,7 +281,7 @@ class ServiceController extends Controller
     {
         $q = trim((string) $request->query('q'));
 
-        $services = Service::with(['category'])
+        $services = Service::with(['category', 'seminarTiers'])
             ->when($q, fn ($query) => $query->search($q))
             ->when($request->agency_id, fn ($query, $agencyId) => $query->where('agency_id', $agencyId))
             ->limit(10)
@@ -293,6 +293,13 @@ class ServiceController extends Controller
                 'effective_price' => $service->effective_price,
                 'has_promotion' => $service->activePromotion() !== null,
                 'category' => $service->category?->name,
+                'is_seminar' => $service->is_seminar,
+                'seminar_tiers' => $service->seminarTiers->map(fn ($tier) => [
+                    'tier' => $tier->tier,
+                    'label' => $tier->label,
+                    'price' => $tier->price,
+                    'description' => $tier->description,
+                ]),
             ]);
 
         return response()->json($services);

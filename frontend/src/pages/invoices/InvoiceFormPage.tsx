@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
 import { commercialsApi } from '@/api/commercials.api';
+import { employeesApi } from '@/api/employees.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -216,12 +217,22 @@ export default function InvoiceFormPage() {
               value={commercialId}
               onChange={setCommercialId}
               fetchOptions={async (query) => {
-                const res = await commercialsApi.search(query.trim());
-                return res.map((c) => ({
-                  id: c.id,
-                  label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                  subtitle: c.email ?? '',
-                }));
+                const [coms, emps] = await Promise.all([
+                  commercialsApi.search(query.trim()).catch(() => []),
+                  employeesApi.search(query.trim()).catch(() => []),
+                ]);
+                const seen = new Set<string>();
+                const results: { id: string; label: string; subtitle: string }[] = [];
+                for (const c of [...coms, ...emps]) {
+                  if (seen.has(c.id)) continue;
+                  seen.add(c.id);
+                  results.push({
+                    id: c.id,
+                    label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+                    subtitle: c.email ?? '',
+                  });
+                }
+                return results;
               }}
             />
             {agencyLocked ? (

@@ -67,7 +67,12 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
         <tbody>
           {(invoice.items ?? []).map((item) => (
             <tr key={item.id} className="border-b border-gray-200">
-              <td className="py-2 pr-3">{item.label}</td>
+              <td className="py-2 pr-3">
+                {item.label}
+                {item.pass_label && (
+                  <span className="ml-1 text-xs text-gray-500">({item.pass_label})</span>
+                )}
+              </td>
               <td className="py-2 pr-3 text-right">{formatNumber(item.quantity)}</td>
               <td className="py-2 pr-3 text-right">{formatCurrency(item.unit_price)}</td>
               <td className="py-2 text-right">{formatCurrency(item.line_total)}</td>

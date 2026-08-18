@@ -106,7 +106,10 @@ export function ServiceFormModal({
   }, [isOpen, service, duplicateSource, agencyId]);
 
   function update<K extends keyof ServiceFormState>(field: K, value: ServiceFormState[K]) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      return next;
+    });
   }
 
   async function handleCoverUpload(file: File | undefined) {
@@ -127,7 +130,7 @@ export function ServiceFormModal({
       name: form.name.trim(),
       category_id: form.category_id,
       agency_id: form.agency_id,
-      price: form.price,
+      price: form.price !== '' ? Number(form.price) : (form.is_seminar ? 0 : Number(form.price)),
       bonus_fixed: form.bonus_fixed ? Number(form.bonus_fixed) : null,
       is_seminar: form.is_seminar,
       tiers: form.is_seminar && form.tiers.length > 0
@@ -220,7 +223,7 @@ export function ServiceFormModal({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label={t('services.price')}
-            required
+            required={!form.is_seminar}
             type="number"
             step="0.01"
             min="0"
@@ -249,10 +252,11 @@ export function ServiceFormModal({
             onChange={(e) => {
               update('is_seminar', e.target.checked);
               if (e.target.checked && form.tiers.length === 0) {
+                const base = Number(form.price) || 0;
                 update('tiers', [
-                  { tier: 'classique', label: 'Classique', price: '0', description: '' },
-                  { tier: 'premium', label: 'Premium', price: '0', description: '' },
-                  { tier: 'vip', label: 'VIP', price: '0', description: '' },
+                  { tier: 'classique', label: 'Classique', price: String(base), description: '' },
+                  { tier: 'premium', label: 'Premium', price: String(Math.round(base * 1.5 * 100) / 100), description: '' },
+                  { tier: 'vip', label: 'VIP', price: String(Math.round(base * 2.5 * 100) / 100), description: '' },
                 ]);
               }
             }}
