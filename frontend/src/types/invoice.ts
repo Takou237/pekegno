@@ -2,7 +2,7 @@ import type { Agency } from './agency';
 import type { CommissionPayment } from './commercial';
 
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
-export type PaymentMethod = 'cash' | 'mobile';
+export type PaymentMethod = 'cash' | 'om' | 'momo';
 
 export interface AgencySnapshot {
   name: string;

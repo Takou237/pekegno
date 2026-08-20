@@ -27,8 +27,8 @@ const FILENAMES: Record<ExportKind, string> = {
   'commercial-report': 'rapport-commercial.csv',
 };
 
-export async function downloadExport(kind: ExportKind): Promise<void> {
-  const { data } = await client.get<Blob>(`/exports/${kind}`, { responseType: 'blob' });
+export async function downloadExport(kind: ExportKind, params?: Record<string, string | undefined>): Promise<void> {
+  const { data } = await client.get<Blob>(`/exports/${kind}`, { params, responseType: 'blob' });
   const url = URL.createObjectURL(data);
   const anchor = document.createElement('a');
   anchor.href = url;

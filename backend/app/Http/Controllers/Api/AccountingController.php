@@ -84,8 +84,8 @@ class AccountingController extends Controller
             'client_id' => ['nullable', 'exists:users,id'],
             'transacted_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
-            'beneficiary' => ['nullable', 'required_if:type,expense', 'string', 'max:255'],
-            'justification' => ['nullable', 'required_if:type,expense', 'string', 'max:1000'],
+            'beneficiary' => ['nullable', 'string', 'max:255'],
+            'justification' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $transaction = AccountingTransaction::create(array_merge($data, [

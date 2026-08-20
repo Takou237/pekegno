@@ -15,7 +15,7 @@ class StoreInvoicePaymentRequest extends FormRequest
     {
         return [
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'in:cash,mobile'],
+            'payment_method' => ['required', 'in:cash,om,momo'],
             'is_advance' => ['sometimes', 'boolean'],
             'paid_at' => ['nullable', 'date'],
             'comment' => ['nullable', 'string', 'max:500'],
@@ -26,7 +26,7 @@ class StoreInvoicePaymentRequest extends FormRequest
     {
         return [
             'amount.min' => 'Le montant doit être supérieur à 0.',
-            'payment_method.in' => 'Le mode de paiement doit être cash ou mobile.',
+            'payment_method.in' => 'Le mode de paiement doit être cash, mobile, om ou momo.',
         ];
     }
 }

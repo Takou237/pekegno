@@ -59,7 +59,7 @@ class Phase5BilanTest extends TestCase
         $this->assertEquals(10000, collect($bilan['services'])->firstWhere('label', 'Coaching')['total']);
         $this->assertEquals(25000, $bilan['total_services_sold']);
         $this->assertEquals(25000, $bilan['cash_total']);
-        $this->assertEquals(0, $bilan['mobile_total']);
+        $this->assertEquals(0, $bilan['om_total'] ?? 0);
         $this->assertTrue($bilan['coherence']['ok']);
     }
 
@@ -75,13 +75,13 @@ class Phase5BilanTest extends TestCase
         $this->createInvoice([
             'items' => [['label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 2]],
             'advance' => 10000,
-            'payment_type' => 'mobile',
+            'payment_type' => 'momo',
         ]);
 
         $bilan = $this->getJson('/api/bilans')->assertOk()->json();
 
         $this->assertEquals(15000, $bilan['cash_total']);
-        $this->assertEquals(10000, $bilan['mobile_total']);
+        $this->assertEquals(10000, $bilan['momo_total']);
         $this->assertEquals(25000, $bilan['total_received']);
         $this->assertEquals(25000, $bilan['total_services_sold']);
         $this->assertTrue($bilan['coherence']['ok']);
@@ -115,7 +115,7 @@ class Phase5BilanTest extends TestCase
         $this->createInvoice([
             'agency_id' => $agency['id'],
             'advance' => 7000,
-            'payment_type' => 'mobile',
+            'payment_type' => 'om',
         ]);
 
         $global = $this->getJson('/api/bilans')->assertOk()->json();
@@ -124,7 +124,7 @@ class Phase5BilanTest extends TestCase
         $filtered = $this->getJson("/api/bilans?agency_id={$agency['id']}")->assertOk()->json();
         $this->assertEquals(7000, $filtered['total_received']);
         $this->assertEquals(0, $filtered['cash_total']);
-        $this->assertEquals(7000, $filtered['mobile_total']);
+        $this->assertEquals(7000, $filtered['om_total']);
         $this->assertSame($agency['id'], $filtered['agency_id']);
     }
 

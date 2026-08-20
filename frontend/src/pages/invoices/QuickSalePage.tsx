@@ -232,7 +232,8 @@ export default function QuickSalePage() {
               error={errors.payment_type}
             >
               <option value="cash">{t('invoices.paymentCash')}</option>
-              <option value="mobile">{t('invoices.paymentMobile')}</option>
+              <option value="om">{t('invoices.paymentOm')}</option>
+              <option value="momo">{t('invoices.paymentMomo')}</option>
             </Select>
             <Input
               label={t('invoices.quickReceiveAmount')}

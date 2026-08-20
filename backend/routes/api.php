@@ -153,6 +153,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/stats/sales-by-category', [StatsController::class, 'salesByCategory'])->middleware('permission:stats.consulter');
     Route::get('/stats/payment-methods', [StatsController::class, 'paymentMethods'])->middleware('permission:stats.consulter');
 
+    Route::get('/bilans/period', [BilanController::class, 'period'])->middleware('permission:bilans.consulter');
     Route::get('/bilans', [BilanController::class, 'dailyBilan'])->middleware('permission:bilans.consulter');
 
     Route::get('/subscription-packs', [SubscriptionController::class, 'packsIndex'])->middleware('permission:abonnements.consulter');

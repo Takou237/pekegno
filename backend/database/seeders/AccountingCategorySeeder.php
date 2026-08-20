@@ -14,9 +14,21 @@ class AccountingCategorySeeder extends Seeder
             ['type' => 'income', 'agency_id' => null, 'is_system' => true],
         );
 
-        AccountingCategory::updateOrCreate(
-            ['name' => 'Dépense diverse'],
-            ['type' => 'expense', 'agency_id' => null, 'is_system' => true],
-        );
+        $expenseCategories = [
+            'Admin',
+            'Publicité Client',
+            'Publicité PC',
+            'Publicité PCI',
+            'Matootoo',
+            'Livre',
+            'Dépense diverse',
+        ];
+
+        foreach ($expenseCategories as $name) {
+            AccountingCategory::updateOrCreate(
+                ['name' => $name],
+                ['type' => 'expense', 'agency_id' => null, 'is_system' => true],
+            );
+        }
     }
 }

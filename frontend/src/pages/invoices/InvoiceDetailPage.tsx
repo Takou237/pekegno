@@ -312,7 +312,9 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 <p className="text-gray-600 dark:text-gray-300">
                   {invoice.payment_type === 'cash'
                     ? t('invoices.paymentCash')
-                    : t('invoices.paymentMobile')}
+                    : invoice.payment_type === 'om'
+                    ? t('invoices.paymentOm')
+                    : t('invoices.paymentMomo')}
                 </p>
               )}
             </div>
@@ -344,7 +346,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                       {p.paid_at ? new Date(p.paid_at).toLocaleDateString(currentLocale()) : '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {p.payment_method === 'cash' ? t('invoices.paymentCash') : t('invoices.paymentMobile')}
+                      {p.payment_method === 'cash' ? t('invoices.paymentCash') : p.payment_method === 'om' ? t('invoices.paymentOm') : t('invoices.paymentMomo')}
                     </td>
                     <td className="py-2 pr-3 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(p.amount)}
@@ -499,7 +501,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
             >
               <option value="cash">{t('invoices.paymentCash')}</option>
-              <option value="mobile">{t('invoices.paymentMobile')}</option>
+              <option value="om">{t('invoices.paymentOm')}</option>
+              <option value="momo">{t('invoices.paymentMomo')}</option>
             </Select>
             <Input
               label={t('invoices.payDate')}
@@ -582,7 +585,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           >
             <option value="">—</option>
             <option value="cash">{t('invoices.paymentCash')}</option>
-            <option value="mobile">{t('invoices.paymentMobile')}</option>
+            <option value="om">{t('invoices.paymentOm')}</option>
+            <option value="momo">{t('invoices.paymentMomo')}</option>
           </Select>
           <Input
             label={t('invoices.headerComment')}

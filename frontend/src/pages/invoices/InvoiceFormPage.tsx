@@ -240,7 +240,6 @@ export default function InvoiceFormPage() {
                 label={t('invoices.headerAgency')}
                 value={lockedAgencyName}
                 disabled
-                hint={t('invoices.agencyLockedHint')}
               />
             ) : (
               <Autocomplete
@@ -274,7 +273,8 @@ export default function InvoiceFormPage() {
               >
                 <option value="">—</option>
                 <option value="cash">{t('invoices.paymentCash')}</option>
-                <option value="mobile">{t('invoices.paymentMobile')}</option>
+                <option value="om">{t('invoices.paymentOm')}</option>
+                <option value="momo">{t('invoices.paymentMomo')}</option>
               </Select>
             </div>
           </div>

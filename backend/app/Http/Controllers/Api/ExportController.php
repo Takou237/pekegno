@@ -395,26 +395,73 @@ class ExportController extends Controller
     public function dailyBilan(Request $request): StreamedResponse
     {
         $date = $request->date('date') ?? Carbon::today();
+        $agencyId = $request->input('agency_id');
 
-        $bilan = $this->bilanService->daily($date, $request->input('agency_id'));
+        if ($agencyId) {
+            $bilan = $this->bilanService->daily($date, $agencyId);
+            $rows = collect();
 
-        $rows = collect();
-        foreach ($bilan['services'] as $service) {
-            $rows->push([$service['label'], $service['count'], (float) $service['total']]);
+            foreach ($bilan['services_by_category'] as $s) {
+                $rows->push([$s['category'], $s['label'], $s['count'], (float) $s['total']]);
+            }
+            $rows->push(['', 'TOTAL VENTES', (int) $bilan['total_ventes'], '']);
+            $rows->push(['']);
+            $rows->push(['Encaissements', 'Cash', '', (float) $bilan['cash_total']]);
+            $rows->push(['Encaissements', 'Orange Money', '', (float) $bilan['om_total']]);
+            $rows->push(['Encaissements', 'MTN Mobile Money', '', (float) $bilan['momo_total']]);
+            $rows->push(['', 'TOTAL ENCAISSÉ', '', (float) $bilan['total_received']]);
+            $rows->push(['']);
+            $rows->push(['', 'Solde initial', '', (float) $bilan['solde_initial']]);
+            foreach ($bilan['expenses_by_category'] as $e) {
+                $rows->push(['Dépense', $e['name'], '', (float) $e['total']]);
+            }
+            $rows->push(['', 'TOTAL DÉPENSES', '', (float) $bilan['expense_total']]);
+            $rows->push(['', 'SOLDE FINAL', '', (float) $bilan['solde_final']]);
+
+            return $this->stream(
+                'bilan-agence-'.$date->format('Y-m-d').'.csv',
+                ['Type', 'Détail', 'Quantité', 'Montant'],
+                $rows
+            );
         }
-        $rows->push(['TOTAL SERVICES VENDUS', (int) $bilan['total_services_sold'], '']);
+
+        $consolidated = $this->bilanService->consolidated($date);
+        $rows = collect();
+        $header = ['Agence', 'Total Ventes', 'Cash', 'Orange Money', 'MTN Mobile Money', 'Total Encaissé', 'Solde Initial', 'Dépenses', 'Solde Final'];
+        $totalRow = [0, 0, 0, 0, 0, 0, 0, 0];
+
+        foreach ($consolidated['agencies'] as $ab) {
+            $rows->push([
+                $ab['agency']['name'] ?? '—',
+                $ab['total_ventes'],
+                $ab['cash_total'],
+                $ab['om_total'],
+                $ab['momo_total'],
+                $ab['total_received'],
+                $ab['solde_initial'],
+                $ab['expense_total'],
+                $ab['solde_final'],
+            ]);
+            $totalRow[0] += $ab['total_ventes'];
+            $totalRow[1] += $ab['cash_total'];
+            $totalRow[2] += $ab['om_total'];
+            $totalRow[3] += $ab['momo_total'];
+            $totalRow[4] += $ab['total_received'];
+            $totalRow[5] += $ab['solde_initial'];
+            $totalRow[6] += $ab['expense_total'];
+            $totalRow[7] += $ab['solde_final'];
+        }
+
+        $rows->push(['TOTAL GÉNÉRAL', $totalRow[0], $totalRow[1], $totalRow[2], $totalRow[3], $totalRow[4], $totalRow[5], $totalRow[6], $totalRow[7]]);
         $rows->push(['']);
-        $rows->push(['Encaissements cash', '', (float) $bilan['cash_total']]);
-        $rows->push(['Encaissements mobile money', '', (float) $bilan['mobile_total']]);
-        $rows->push(['Total encaissé (cash + mobile)', '', (float) $bilan['total_received']]);
-        $rows->push(['']);
-        $rows->push(['Solde initial (veille)', '', (float) $bilan['solde_initial']]);
-        $rows->push(['Dépense du jour', '', (float) $bilan['expense_total']]);
-        $rows->push(['SOLDE FINAL (encaissé − dépense)', '', (float) $bilan['solde_final']]);
+        $rows->push(['DÉPENSES PAR CATÉGORIE (toutes agences)']);
+        foreach ($consolidated['expenses_by_category'] as $e) {
+            $rows->push([$e['name'], '', '', '', '', '', '', (float) $e['total'], '']);
+        }
 
         return $this->stream(
-            'bilan-du-jour-'.$date->format('Y-m-d').'.csv',
-            ['Service', 'Quantité vendue', 'Montant'],
+            'bilan-global-'.$date->format('Y-m-d').'.csv',
+            $header,
             $rows
         );
     }
