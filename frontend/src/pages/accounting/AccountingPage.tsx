@@ -404,31 +404,6 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
         )}
       </div>
 
-      {canManage && categories.length > 0 && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('accounting.categories')}</h2>
-            <Button variant="outline" size="sm" onClick={openCreateCat}>
-              <Plus className="h-4 w-4" /> {t('accounting.newCategory')}
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((c) => (
-              <div key={c.id} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700">
-                <span className="text-gray-800 dark:text-gray-100">{c.name}</span>
-                <Badge variant={c.type === 'income' ? 'success' : 'error'}>{c.type === 'income' ? t('accounting.typeIncome') : t('accounting.typeExpense')}</Badge>
-                {c.is_system ? null : (
-                  <>
-                    <button type="button" onClick={() => openEditCat(c)} className="text-gray-400 hover:text-gray-600"><Pencil className="h-3 w-3" /></button>
-                    <button type="button" onClick={() => setDeleteCatTarget(c)} className="text-gray-400 hover:text-error-600"><Trash2 className="h-3 w-3" /></button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <Modal isOpen={txOpen} onClose={() => setTxOpen(false)} title={editTx ? t('accounting.editTransaction') : t('accounting.newTransaction')} maxWidth="max-w-lg">
         <form onSubmit={handleTxSubmit} className="flex flex-col gap-4">
           {Object.keys(txErrors).length > 0 && <Alert variant="error">{Object.values(txErrors).join(' ')}</Alert>}

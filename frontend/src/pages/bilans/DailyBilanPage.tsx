@@ -229,7 +229,7 @@ function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) =>
               <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold dark:border-gray-700 dark:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 text-gray-900 dark:text-white">{t('bilans.soldeFinal')}</td>
                 <td />
-                <td className="px-5 py-3 text-right text-gray-900 dark:text-white">{formatCurrency(bilan.solde_final)}</td>
+                <td className={`px-5 py-3 text-right font-bold ${bilan.solde_final >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(Math.abs(bilan.solde_final))}</td>
               </tr>
             </tbody>
           </table>
