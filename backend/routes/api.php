@@ -5,30 +5,45 @@ use App\Http\Controllers\Api\AccountingController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AgencyController;
 use App\Http\Controllers\Api\Auth\ChangePasswordController;
+use App\Http\Controllers\Api\Auth\ClientLoginController;
+use App\Http\Controllers\Api\Auth\ClientLogoutController;
+use App\Http\Controllers\Api\Auth\ClientMeController;
 use App\Http\Controllers\Api\Auth\DeleteAccountController;
 use App\Http\Controllers\Api\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
+use App\Http\Controllers\Api\Auth\StaffLoginController;
 use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\BilanController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CommercialController;
 use App\Http\Controllers\Api\CommercialReportController;
+use App\Http\Controllers\Api\CourseController;
+use App\Http\Controllers\Api\CountryController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\EnrollmentController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\ProspectController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\ScopeController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\SubscriptionNotificationController;
+use App\Http\Controllers\Api\TrainingSessionController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserAssignmentController;
 use App\Http\Controllers\Api\UserController;
@@ -41,7 +56,16 @@ Route::post('/auth/forgot-password', ForgotPasswordController::class);
 Route::post('/auth/reset-password', ResetPasswordController::class);
 Route::post('/auth/2fa/login', [TwoFactorController::class, 'login']);
 
-Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'update.activity'])->group(function () {
+Route::post('/staff/login', StaffLoginController::class)->middleware('throttle:5,1');
+Route::post('/client/login', ClientLoginController::class)->middleware('throttle:5,1');
+Route::post('/client/register', RegisterController::class)->middleware('throttle:3,10');
+
+Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
+    Route::post('/client/logout', ClientLogoutController::class);
+    Route::get('/client/me', ClientMeController::class);
+});
+
+Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'update.activity', 'portal:staff'])->group(function () {
     Route::post('/auth/logout', LogoutController::class);
     Route::put('/auth/change-password', ChangePasswordController::class);
     Route::delete('/auth/account', DeleteAccountController::class);
@@ -56,10 +80,63 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::delete('/agencies/{agency}/force-delete', [AgencyController::class, 'forceDelete']);
     Route::apiResource('agencies', AgencyController::class);
 
+    Route::get('/countries', [CountryController::class, 'index'])->middleware('permission:countries.consulter');
+    Route::post('/countries', [CountryController::class, 'store'])->middleware('permission:countries.creer');
+    Route::get('/countries/{country}', [CountryController::class, 'show'])->middleware('permission:countries.consulter');
+    Route::put('/countries/{country}', [CountryController::class, 'update'])->middleware('permission:countries.modifier');
+    Route::delete('/countries/{country}', [CountryController::class, 'destroy'])->middleware('permission:countries.supprimer');
+
+    Route::get('/cities', [CityController::class, 'index'])->middleware('permission:cities.consulter');
+    Route::post('/cities', [CityController::class, 'store'])->middleware('permission:cities.creer');
+    Route::get('/cities/{city}', [CityController::class, 'show'])->middleware('permission:cities.consulter');
+    Route::put('/cities/{city}', [CityController::class, 'update'])->middleware('permission:cities.modifier');
+    Route::delete('/cities/{city}', [CityController::class, 'destroy'])->middleware('permission:cities.supprimer');
+
+    Route::get('/scope/context', [ScopeController::class, '__invoke']);
+
     Route::get('/categories/trash', [CategoryController::class, 'trash']);
     Route::post('/categories/{category}/restore', [CategoryController::class, 'restore']);
     Route::delete('/categories/{category}/force-delete', [CategoryController::class, 'forceDelete']);
     Route::apiResource('categories', CategoryController::class);
+
+    Route::post('/products', [ProductController::class, 'store'])->middleware('permission:products.creer');
+    Route::get('/products/trash', [ProductController::class, 'trash'])->middleware('permission:products.consulter');
+    Route::get('/products/search', [ProductController::class, 'search'])->middleware('permission:products.consulter');
+    Route::get('/products/{product}', [ProductController::class, 'show'])->middleware('permission:products.consulter');
+    Route::put('/products/{product}', [ProductController::class, 'update'])->middleware('permission:products.modifier');
+    Route::delete('/products/{product}', [ProductController::class, 'destroy'])->middleware('permission:products.supprimer');
+    Route::post('/products/{product}/restore', [ProductController::class, 'restore'])->middleware('permission:products.modifier');
+    Route::delete('/products/{product}/force-delete', [ProductController::class, 'forceDelete'])->middleware('permission:products.supprimer');
+    Route::get('/products', [ProductController::class, 'index'])->middleware('permission:products.consulter');
+
+    Route::post('/courses', [CourseController::class, 'store'])->middleware('permission:courses.creer');
+    Route::get('/courses/trash', [CourseController::class, 'trash'])->middleware('permission:courses.consulter');
+    Route::get('/courses/{course}', [CourseController::class, 'show'])->middleware('permission:courses.consulter');
+    Route::put('/courses/{course}', [CourseController::class, 'update'])->middleware('permission:courses.modifier');
+    Route::delete('/courses/{course}', [CourseController::class, 'destroy'])->middleware('permission:courses.supprimer');
+    Route::post('/courses/{course}/restore', [CourseController::class, 'restore'])->middleware('permission:courses.modifier');
+    Route::delete('/courses/{course}/force-delete', [CourseController::class, 'forceDelete'])->middleware('permission:courses.supprimer');
+    Route::get('/courses', [CourseController::class, 'index'])->middleware('permission:courses.consulter');
+
+    Route::post('/training-sessions', [TrainingSessionController::class, 'store'])->middleware('permission:sessions.creer');
+    Route::get('/training-sessions/trash', [TrainingSessionController::class, 'trash'])->middleware('permission:sessions.consulter');
+    Route::get('/reports/training', [TrainingSessionController::class, 'report'])->middleware('permission:sessions.consulter');
+
+    Route::get('/reports/subscriptions', [ReportController::class, 'subscriptions'])->middleware('permission:reports.consulter');
+    Route::get('/reports/customers', [ReportController::class, 'customers'])->middleware('permission:reports.consulter');
+    Route::get('/reports/comparison', [ReportController::class, 'comparison'])->middleware('permission:reports.consulter');
+    Route::get('/training-sessions/{trainingSession}', [TrainingSessionController::class, 'show'])->middleware('permission:sessions.consulter');
+    Route::put('/training-sessions/{trainingSession}', [TrainingSessionController::class, 'update'])->middleware('permission:sessions.modifier');
+    Route::delete('/training-sessions/{trainingSession}', [TrainingSessionController::class, 'destroy'])->middleware('permission:sessions.supprimer');
+    Route::post('/training-sessions/{trainingSession}/restore', [TrainingSessionController::class, 'restore'])->middleware('permission:sessions.modifier');
+    Route::delete('/training-sessions/{trainingSession}/force-delete', [TrainingSessionController::class, 'forceDelete'])->middleware('permission:sessions.supprimer');
+    Route::get('/training-sessions', [TrainingSessionController::class, 'index'])->middleware('permission:sessions.consulter');
+
+    Route::post('/enrollments', [EnrollmentController::class, 'store'])->middleware('permission:enrollments.creer');
+    Route::get('/enrollments/{enrollment}', [EnrollmentController::class, 'show'])->middleware('permission:enrollments.consulter');
+    Route::put('/enrollments/{enrollment}', [EnrollmentController::class, 'update'])->middleware('permission:enrollments.modifier');
+    Route::delete('/enrollments/{enrollment}', [EnrollmentController::class, 'destroy'])->middleware('permission:enrollments.supprimer');
+    Route::get('/enrollments', [EnrollmentController::class, 'index'])->middleware('permission:enrollments.consulter');
 
     Route::get('/services/trash', [ServiceController::class, 'trash']);
     Route::get('/services/search', [ServiceController::class, 'search'])->middleware('permission:services.consulter');
@@ -72,6 +149,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/clients/search', [ClientController::class, 'search'])->middleware('permission:clients.consulter');
     Route::get('/clients', [ClientController::class, 'index'])->middleware('permission:clients.consulter');
     Route::post('/clients', [ClientController::class, 'store'])->middleware('permission:clients.creer');
+    Route::get('/clients/{client}/history', [ClientController::class, 'history'])->middleware('permission:clients.consulter');
     Route::get('/clients/{client}', [ClientController::class, 'show'])->middleware('permission:clients.consulter');
     Route::put('/clients/{client}', [ClientController::class, 'update'])->middleware('permission:clients.modifier');
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->middleware('permission:clients.supprimer');
@@ -113,6 +191,15 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'pay'])->middleware('permission:invoices.encaisser');
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:invoices.annuler');
 
+    Route::post('/orders', [OrderController::class, 'store'])->middleware('permission:orders.creer');
+    Route::get('/orders/{order}', [OrderController::class, 'show'])->middleware('permission:orders.consulter');
+    Route::put('/orders/{order}', [OrderController::class, 'update'])->middleware('permission:orders.modifier');
+    Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->middleware('permission:orders.supprimer');
+    Route::post('/orders/{order}/confirm', [OrderController::class, 'confirm'])->middleware('permission:orders.modifier');
+    Route::post('/orders/{order}/invoice', [OrderController::class, 'invoice'])->middleware('permission:orders.modifier');
+    Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->middleware('permission:orders.modifier');
+    Route::get('/orders', [OrderController::class, 'index'])->middleware('permission:orders.consulter');
+
     Route::get('/promotions', [PromotionController::class, 'index'])->middleware('permission:promotions.consulter');
     Route::post('/services/{service}/promotions', [PromotionController::class, 'store'])->middleware('permission:promotions.creer');
     Route::put('/promotions/{promotion}', [PromotionController::class, 'update'])->middleware('permission:promotions.modifier');
@@ -147,6 +234,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::get('/stats/overview', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
     Route::get('/stats/dashboard', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
+    Route::get('/dashboard', [DashboardController::class, '__invoke'])->middleware('permission:stats.consulter');
     Route::get('/stats/agency/{agency}', [StatsController::class, 'agency'])->middleware('permission:stats.consulter');
     Route::get('/stats/monthly-revenue', [StatsController::class, 'monthlyRevenue'])->middleware('permission:stats.consulter');
     Route::get('/stats/top-commercials', [StatsController::class, 'topCommercials'])->middleware('permission:stats.consulter');
@@ -166,6 +254,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show'])->middleware('permission:abonnements.consulter');
     Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy'])->middleware('permission:abonnements.supprimer');
     Route::post('/subscriptions/{subscription}/renew', [SubscriptionController::class, 'renew'])->middleware('permission:abonnements.renouveler');
+    Route::post('/subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->middleware('permission:abonnements.modifier');
+
+    Route::get('/subscription-notifications', [SubscriptionNotificationController::class, 'index'])->middleware('permission:abonnements.consulter');
+    Route::post('/subscription-notifications/{notification}/retry', [SubscriptionNotificationController::class, 'retry'])->middleware('permission:abonnements.modifier');
 
     Route::put('/agencies/{agency}/chief', [UserAssignmentController::class, 'assignChief']);
     Route::delete('/agencies/{agency}/chief', [UserAssignmentController::class, 'removeChief']);

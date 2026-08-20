@@ -11,19 +11,43 @@ use Illuminate\Validation\ValidationException;
 
 class AuthService
 {
+    public const MAX_FAILED_ATTEMPTS = 5;
+
+    public const LOCK_DURATION_MINUTES = 15;
+
+    /**
+     * Connexion héritée (portail quelconque, token historique).
+     */
     public function attempt(array $credentials, ?string $ip = null, ?string $userAgent = null): array
     {
+        return $this->attemptForPortal($credentials, 'any', $ip, $userAgent);
+    }
+
+    /**
+     * Connexion restreinte à un portail : 'staff' (employés) ou 'client'.
+     */
+    public function attemptForPortal(array $credentials, string $portal, ?string $ip = null, ?string $userAgent = null): array
+    {
+        $tokenName = $portal === 'client' ? 'client-token' : 'staff-token';
+
         $user = User::with('role')->where('email', $credentials['email'])->first();
 
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+        if ($user && $user->locked_until && $user->locked_until->isFuture()) {
             $this->log(
-                user: null,
-                action: 'failed_login',
+                user: $user,
+                action: 'login_locked',
                 ip: $ip,
                 userAgent: $userAgent,
-                reason: 'Invalid credentials',
-                email: $credentials['email'],
+                reason: 'Account locked',
             );
+
+            throw ValidationException::withMessages([
+                'email' => ['Ce compte est temporairement bloqué. Réessayez dans quelques minutes.'],
+            ]);
+        }
+
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            $this->registerFailure($user, $credentials, $ip, $userAgent);
 
             throw ValidationException::withMessages([
                 'email' => ['Les identifiants fournis sont incorrects.'],
@@ -42,6 +66,29 @@ class AuthService
             throw ValidationException::withMessages([
                 'email' => ['Ce compte est désactivé.'],
             ]);
+        }
+
+        if ($portal !== 'any') {
+            $isClient = $user->role?->name === 'client';
+            $matchesPortal = $portal === 'client' ? $isClient : ! $isClient;
+
+            if (! $matchesPortal) {
+                $this->log(
+                    user: $user,
+                    action: 'failed_login',
+                    ip: $ip,
+                    userAgent: $userAgent,
+                    reason: "Wrong portal ({$user->role?->name})",
+                );
+
+                throw ValidationException::withMessages([
+                    'email' => [
+                        $portal === 'client'
+                            ? 'Ce compte n\'est pas un compte client.'
+                            : 'Ce compte n\'est pas un compte employé.',
+                    ],
+                ]);
+            }
         }
 
         if ($user->two_factor_enabled && $user->two_factor_secret) {
@@ -69,7 +116,7 @@ class AuthService
             ];
         }
 
-        $accessToken = $user->createToken('auth-token');
+        $accessToken = $user->createToken($tokenName);
         $token = $accessToken->plainTextToken;
 
         $this->log(
@@ -84,6 +131,8 @@ class AuthService
             'last_login_at' => now(),
             'last_login_ip' => $ip,
             'last_activity_at' => now(),
+            'failed_attempts' => 0,
+            'locked_until' => null,
         ]);
 
         return [
@@ -101,6 +150,52 @@ class AuthService
             action: 'logout',
             ip: $ip,
             userAgent: $userAgent,
+        );
+    }
+
+    private function registerFailure(?User $user, array $credentials, ?string $ip = null, ?string $userAgent = null): void
+    {
+        if (! $user) {
+            $this->log(
+                user: null,
+                action: 'failed_login',
+                ip: $ip,
+                userAgent: $userAgent,
+                reason: 'Invalid credentials',
+                email: $credentials['email'],
+            );
+
+            return;
+        }
+
+        $attempts = $user->failed_attempts + 1;
+
+        if ($attempts >= self::MAX_FAILED_ATTEMPTS) {
+            $user->update([
+                'failed_attempts' => 0,
+                'locked_until' => now()->addMinutes(self::LOCK_DURATION_MINUTES),
+            ]);
+
+            $this->log(
+                user: $user,
+                action: 'account_locked',
+                ip: $ip,
+                userAgent: $userAgent,
+                reason: 'Too many failed attempts',
+            );
+
+            return;
+        }
+
+        $user->update(['failed_attempts' => $attempts]);
+
+        $this->log(
+            user: null,
+            action: 'failed_login',
+            ip: $ip,
+            userAgent: $userAgent,
+            reason: 'Invalid credentials',
+            email: $credentials['email'],
         );
     }
 

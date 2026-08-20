@@ -25,14 +25,23 @@ class User extends Authenticatable
         'phone',
         'role_id',
         'is_active',
+        'failed_attempts',
+        'locked_until',
         'two_factor_enabled',
         'two_factor_secret',
         'active_session_id',
         'is_password_change_required',
         'last_activity_at',
         'client_number',
+        'client_category_id',
+        'status',
+        'registered_agency_id',
+        'commercial_user_id',
+        'registered_at',
         'city',
         'country',
+        'country_id',
+        'city_id',
         'address',
     ];
 
@@ -48,11 +57,14 @@ class User extends Authenticatable
     {
         return [
             'is_active' => 'boolean',
+            'failed_attempts' => 'integer',
+            'locked_until' => 'datetime',
             'two_factor_enabled' => 'boolean',
             'is_password_change_required' => 'boolean',
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'last_activity_at' => 'datetime',
+            'registered_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -60,6 +72,41 @@ class User extends Authenticatable
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function clientCategory(): BelongsTo
+    {
+        return $this->belongsTo(ClientCategory::class);
+    }
+
+    /**
+     * Relations vers la hiérarchie organisationnelle.
+     * Nommées geo* car les colonnes legacy `country`/`city` (varchar)
+     * occupent déjà les noms magiques correspondants.
+     */
+    public function geoCountry(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'country_id');
+    }
+
+    public function geoCity(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
+    }
+
+    public function registeredAgency(): BelongsTo
+    {
+        return $this->belongsTo(Agency::class, 'registered_agency_id');
+    }
+
+    public function referringCommercial(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'commercial_user_id');
+    }
+
+    public function clientSubscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class, 'client_id');
     }
 
     // Affectations via user_assignments (agence + département)

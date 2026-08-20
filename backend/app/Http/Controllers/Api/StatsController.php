@@ -31,7 +31,13 @@ class StatsController extends Controller
         $from = $request->date('from') ?? Carbon::now()->startOfMonth();
         $to = $request->date('to') ?? Carbon::now()->endOfDay();
 
-        $invoices = Invoice::whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at');
+        $scope = app(\App\Services\ScopeService::class);
+        $agencyIds = $scope->agencyIds($request->user());
+        $countryIds = $scope->countryIds($request->user());
+
+        $invoices = Invoice::whereBetween('invoice_date', [$from, $to])
+            ->whereNull('cancelled_at')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
         $revenue = (clone $invoices)->where('status', 'paid')->sum('total_amount');
         $outstanding = (clone $invoices)
@@ -41,13 +47,17 @@ class StatsController extends Controller
         $invoiceCount = (clone $invoices)->count();
         $paidCount = (clone $invoices)->where('status', 'paid')->count();
 
-        $payments = InvoicePayment::whereBetween('paid_at', [$from, $to])->sum('amount');
+        $payments = InvoicePayment::whereBetween('paid_at', [$from, $to])
+            ->when($agencyIds !== null, fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
+            ->sum('amount');
         $advances = InvoicePayment::whereBetween('paid_at', [$from, $to])
             ->where('is_advance', true)
-            ->whereHas('invoice', fn ($q) => $q->whereNull('cancelled_at')->whereIn('status', ['unpaid', 'partial']))
+            ->whereHas('invoice', fn ($q) => $q->whereNull('cancelled_at')->whereIn('status', ['unpaid', 'partial'])->when($agencyIds !== null, fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
             ->sum('amount');
 
-        $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))->count();
+        $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
+            ->when($countryIds !== null, fn ($q) => $q->whereIn('country_id', $countryIds))
+            ->count();
         $activeCommercials = Commercial::where('is_active', true)->count();
 
         $topCommercials = Commercial::query()
@@ -82,7 +92,9 @@ class StatsController extends Controller
             'invoices_paid' => $paidCount,
             'clients_total' => $clientCount,
             'commercials_active' => $activeCommercials,
-            'agencies_total' => Agency::count(),
+            'agencies_total' => Agency::query()
+                ->when($agencyIds !== null, fn ($q) => $q->whereIn('id', $agencyIds))
+                ->count(),
             'departments_total' => Department::count(),
             'users_total' => User::count(),
             'top_commercials' => $topCommercials,
@@ -105,6 +117,13 @@ class StatsController extends Controller
     )]
     public function agency(Agency $agency, Request $request): JsonResponse
     {
+        $scope = app(\App\Services\ScopeService::class);
+        $agencyIds = $scope->agencyIds($request->user());
+
+        if ($agencyIds !== null && ! in_array($agency->id, $agencyIds, true)) {
+            abort(403, 'Cette agence est hors de votre périmètre.');
+        }
+
         $from = $request->date('from') ?? Carbon::now()->startOfMonth();
         $to = $request->date('to') ?? Carbon::now()->endOfDay();
 
@@ -174,10 +193,13 @@ class StatsController extends Controller
 
         $start = Carbon::now()->subMonths($months - 1)->startOfMonth();
 
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
         $query = Invoice::whereNull('cancelled_at')
             ->where('invoice_date', '>=', $start)
             ->where('status', 'paid')
-            ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId));
+            ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
         $dateExpr = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql'
             ? "to_char(invoice_date, 'YYYY-MM')"
@@ -227,7 +249,10 @@ class StatsController extends Controller
 
         $from = $request->date('from') ?? Carbon::now()->startOfYear();
 
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
         $commercials = Commercial::with('agency:id,name,code')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
             ->whereHas('invoices', fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->where('invoice_date', '>=', $from))
             ->withSum(['invoices as turnover' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->where('invoice_date', '>=', $from)], 'total_amount')
             ->withCount(['invoices as sales_count' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->where('invoice_date', '>=', $from)])
@@ -260,12 +285,15 @@ class StatsController extends Controller
         $from = $request->date('from') ?? Carbon::now()->startOfYear();
         $to = $request->date('to') ?? Carbon::now()->endOfDay();
 
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
         $rows = InvoiceItem::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->join('services', 'services.id', '=', 'invoice_items.service_id')
             ->join('categories', 'categories.id', '=', 'services.category_id')
             ->whereNull('invoices.cancelled_at')
             ->whereBetween('invoices.invoice_date', [$from, $to])
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->selectRaw('categories.name, sum(invoice_items.line_total) as total, count(*) as items')
             ->groupBy('categories.name')
             ->orderByDesc('total')
@@ -293,9 +321,14 @@ class StatsController extends Controller
         $from = $request->date('from') ?? Carbon::now()->startOfYear();
         $to = $request->date('to') ?? Carbon::now()->endOfDay();
 
-        $rows = InvoicePayment::whereBetween('paid_at', [$from, $to])
-            ->selectRaw('payment_method, sum(amount) as total, count(*) as count')
-            ->groupBy('payment_method')
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
+        $rows = InvoicePayment::query()
+            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
+            ->whereBetween('invoice_payments.paid_at', [$from, $to])
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->selectRaw('invoice_payments.payment_method, sum(invoice_payments.amount) as total, count(*) as count')
+            ->groupBy('invoice_payments.payment_method')
             ->orderByDesc('total')
             ->get()
             ->map(fn ($row) => [

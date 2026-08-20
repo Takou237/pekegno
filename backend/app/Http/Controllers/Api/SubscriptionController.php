@@ -160,14 +160,24 @@ class SubscriptionController extends Controller
 
     #[OA\Get(
         path: '/api/subscriptions',
-        summary: 'Lister les abonnements (filtres agence/client/statut)',
+        summary: 'Lister les abonnements (filtres client/pays/ville/agence/pack/statut/dates)',
         tags: ['Abonnements'],
         security: [['sanctum' => []]],
         parameters: [
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'client_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'pack_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
-            new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['unpaid', 'partial', 'paid', 'cancelled'])),
+            new OA\Parameter(name: 'country_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'city_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'commercial_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'status', in: 'query', description: 'Statut de facture (unpaid/partial/paid) ou statut de vie (pending/active/suspended/expired/cancelled/renewed/draft)', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'notification_status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['pending', 'sent', 'failed'])),
+            new OA\Parameter(name: 'from', in: 'query', description: 'Début de période (start_date >=)', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'to', in: 'query', description: 'Fin de période (start_date <=)', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'end_date_from', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'end_date_to', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'expiring_soon', in: 'query', description: 'Expire dans les 30 jours', schema: new OA\Schema(type: 'boolean')),
+            new OA\Parameter(name: 'is_expired', in: 'query', schema: new OA\Schema(type: 'boolean')),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
         ],
         responses: [
@@ -177,17 +187,42 @@ class SubscriptionController extends Controller
     public function index(Request $request): JsonResponse
     {
         $subscriptions = Subscription::query()
-            ->with('pack', 'agency:id,name', 'client:id,first_name,last_name,email', 'invoice')
+            ->with('pack', 'agency:id,name', 'client:id,first_name,last_name,email', 'invoice', 'notifications')
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))
             ->when($request->pack_id, fn ($q, $id) => $q->where('subscription_pack_id', $id))
+            ->when($request->country_id, fn ($q, $id) => $q->whereHas('client', fn ($c) => $c->where('country_id', $id)))
+            ->when($request->city_id, fn ($q, $id) => $q->whereHas('client', fn ($c) => $c->where('city_id', $id)))
+            ->when($request->commercial_id, fn ($q, $id) => $q->whereHas('client', fn ($c) => $c->where('commercial_user_id', $id)))
+            ->when($request->from, fn ($q, $v) => $q->whereDate('start_date', '>=', $v))
+            ->when($request->to, fn ($q, $v) => $q->whereDate('start_date', '<=', $v))
+            ->when($request->end_date_from, fn ($q, $v) => $q->whereDate('end_date', '>=', $v))
+            ->when($request->end_date_to, fn ($q, $v) => $q->whereDate('end_date', '<=', $v))
+            ->when($request->boolean('expiring_soon'), fn ($q) => $q->whereDate('end_date', '>=', today())
+                ->whereDate('end_date', '<=', today()->addDays((int) config('subscriptions.notifications.expiring_soon_days'))))
+            ->when($request->boolean('is_expired'), fn ($q) => $q->whereDate('end_date', '<', today()))
+            ->when($request->notification_status, fn ($q, $v) => $q->whereHas('notifications', fn ($n) => $n->where('status', $v)))
             ->when($request->status, function ($q, $status) {
-                $q->whereHas('invoice', fn ($i) => $status === 'cancelled'
-                    ? $i->whereNotNull('cancelled_at')
-                    : $i->whereNull('cancelled_at')->where('status', $status));
+                if (in_array($status, Subscription::LIFECYCLE_STATUSES, true)) {
+                    if ($status === 'expired') {
+                        $q->where(function ($inner) {
+                            $inner->where('subscriptions.status', 'expired')
+                                ->orWhere(fn ($s) => $s->whereIn('subscriptions.status', ['active', 'pending', 'suspended'])
+                                    ->whereDate('end_date', '<', today()));
+                        });
+                    } else {
+                        $q->where('subscriptions.status', $status);
+                    }
+                } elseif ($status === 'cancelled') {
+                    $q->whereHas('invoice', fn ($i) => $i->whereNotNull('cancelled_at'));
+                } else {
+                    $q->whereHas('invoice', fn ($i) => $i->whereNull('cancelled_at')->where('status', $status));
+                }
             })
             ->orderByDesc('start_date')
             ->paginate(min((int) $request->input('per_page', 15), 100));
+
+        $subscriptions->getCollection()->each->refreshStatusIfExpired();
 
         return response()->json($subscriptions);
     }
@@ -209,8 +244,10 @@ class SubscriptionController extends Controller
             'client_id' => ['required', 'uuid', 'exists:users,id'],
             'months' => ['required', 'integer', 'min:1', 'max:60'],
             'start_date' => ['nullable', 'date'],
+            'price_per_month' => ['nullable', 'numeric', 'min:0.01'],
+            'status' => ['nullable', 'in:draft,pending,active,suspended'],
             'advance' => ['nullable', 'numeric', 'min:0.01'],
-            'payment_type' => ['nullable', 'in:cash,om,momo'],
+            'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
         ]);
 
         $pack = SubscriptionPack::with('packServices.service')->findOrFail($data['subscription_pack_id']);
@@ -224,8 +261,9 @@ class SubscriptionController extends Controller
         }
 
         $start = Carbon::parse($data['start_date'] ?? now()->toDateString());
-        $pricePerMonth = (float) $pack->price_per_month;
+        $pricePerMonth = (float) ($data['price_per_month'] ?? $pack->price_per_month);
         $total = round($pricePerMonth * (int) $data['months'], 2);
+        $status = $data['status'] ?? ($start->isAfter(today()) ? 'pending' : 'active');
 
         if (! empty($data['advance']) && (float) $data['advance'] > $total) {
             throw ValidationException::withMessages([
@@ -233,7 +271,7 @@ class SubscriptionController extends Controller
             ]);
         }
 
-        $subscription = DB::transaction(function () use ($pack, $data, $client, $start, $pricePerMonth, $total, $request) {
+        $subscription = DB::transaction(function () use ($pack, $data, $client, $start, $pricePerMonth, $total, $status, $request) {
             $invoice = $this->buildInvoice($pack, $client, $start, (int) $data['months'], $pricePerMonth, $total, $request);
 
             $subscription = Subscription::create([
@@ -246,6 +284,7 @@ class SubscriptionController extends Controller
                 'start_date' => $start->toDateString(),
                 'end_date' => $start->copy()->addMonths((int) $data['months'])->toDateString(),
                 'invoice_id' => $invoice->id,
+                'status' => $status,
             ]);
 
             if (! empty($data['advance'])) {
@@ -287,7 +326,7 @@ class SubscriptionController extends Controller
         $data = $request->validate([
             'months' => ['nullable', 'integer', 'min:1', 'max:60'],
             'advance' => ['nullable', 'numeric', 'min:0.01'],
-            'payment_type' => ['nullable', 'in:cash,om,momo'],
+            'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
         ]);
 
         $pack = $subscription->pack()->with('packServices.service')->firstOrFail();
@@ -307,6 +346,8 @@ class SubscriptionController extends Controller
         }
 
         $newSubscription = DB::transaction(function () use ($pack, $client, $start, $months, $total, $subscription, $data, $request) {
+            $subscription->update(['status' => 'renewed']);
+
             $invoice = $this->buildInvoice($pack, $client, $start, $months, $subscription->price_per_month, $total, $request);
 
             $new = Subscription::create([
@@ -319,6 +360,7 @@ class SubscriptionController extends Controller
                 'start_date' => $start->toDateString(),
                 'end_date' => $start->copy()->addMonths($months)->toDateString(),
                 'invoice_id' => $invoice->id,
+                'status' => 'active',
             ]);
 
             if (! empty($data['advance'])) {
@@ -358,9 +400,49 @@ class SubscriptionController extends Controller
     )]
     public function show(Subscription $subscription): JsonResponse
     {
-        $subscription->load(['pack.packServices.service', 'agency', 'client', 'invoice.items', 'invoice.payments']);
+        $subscription->refreshStatusIfExpired();
+        $subscription->load(['pack.packServices.service', 'agency', 'client', 'invoice.items', 'invoice.payments', 'notifications']);
 
         return response()->json($subscription);
+    }
+
+    #[OA\Post(
+        path: '/api/subscriptions/{subscription}/cancel',
+        summary: 'Annuler un abonnement (statut cancelled + date)',
+        tags: ['Abonnements'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'subscription', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Abonnement annulé'),
+            new OA\Response(response: 422, description: 'Abonnement non annulable'),
+        ]
+    )]
+    public function cancel(Request $request, Subscription $subscription): JsonResponse
+    {
+        if (! in_array($subscription->status, ['draft', 'pending', 'active', 'suspended'], true)) {
+            return response()->json([
+                'message' => "Impossible d'annuler un abonnement {$subscription->status}.",
+            ], 422);
+        }
+
+        $name = $subscription->pack?->name ?? 'Abonnement';
+
+        $subscription->update([
+            'status' => 'cancelled',
+            'cancelled_at' => today(),
+        ]);
+
+        $this->logger->log(
+            action: 'cancelled',
+            entityType: 'subscription',
+            entityId: $subscription->id,
+            description: "Abonnement {$name} annulé",
+            request: $request,
+        );
+
+        return response()->json($subscription->fresh()->load(['pack', 'agency', 'client', 'invoice', 'notifications']));
     }
 
     #[OA\Delete(
@@ -455,13 +537,16 @@ class SubscriptionController extends Controller
             'comment' => "Abonnement {$pack->name} — {$months} mois (début {$start->format('Y-m-d')})",
         ]);
 
+        $serviceCount = $pack->packServices->count();
+        $unitPrice = $serviceCount > 0 ? round($pricePerMonth / $serviceCount, 2) : $pricePerMonth;
+
         foreach ($pack->packServices as $line) {
             $invoice->items()->create([
                 'service_id' => $line->service_id,
                 'label' => $line->service?->name ?? 'Service',
-                'unit_price' => $pricePerMonth,
+                'unit_price' => $unitPrice,
                 'quantity' => $months,
-                'line_total' => round($pricePerMonth * $months, 2),
+                'line_total' => round($unitPrice * $months, 2),
             ]);
         }
 

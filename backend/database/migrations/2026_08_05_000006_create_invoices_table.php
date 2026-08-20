@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignUuid('commercial_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignUuid('seller_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->dateTime('invoice_date');
-            $table->enum('payment_type', ['cash', 'mobile'])->nullable();
+            $table->string('payment_type', 20)->nullable();
             $table->decimal('total_amount', 12, 2);
             $table->decimal('amount_paid', 12, 2)->default(0);
             $table->enum('status', ['unpaid', 'partial', 'paid', 'cancelled'])->default('unpaid');

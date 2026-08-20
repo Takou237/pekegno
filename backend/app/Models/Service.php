@@ -16,6 +16,7 @@ class Service extends Model
     use HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
+        'code',
         'agency_id',
         'category_id',
         'name',
@@ -79,6 +80,23 @@ class Service extends Model
             $q->where('name', 'like', "%{$search}%")
                 ->orWhere('description', 'like', "%{$search}%");
         });
+    }
+
+    /**
+     * Disponibilité : filtre par agence en incluant les services globaux.
+     */
+    public function scopeAvailableIn(Builder $query, string $agencyId): Builder
+    {
+        return $query->where(fn ($q) => $q->where('agency_id', $agencyId)->orWhereNull('agency_id'));
+    }
+
+    public static function generateCode(): string
+    {
+        $last = static::withTrashed()->pluck('code')
+            ->map(fn (?string $code): int => preg_match('/^SRV-(\d+)$/', (string) $code, $matches) ? (int) $matches[1] : 0)
+            ->max();
+
+        return 'SRV-'.str_pad((string) (($last ?: 0) + 1), 5, '0', STR_PAD_LEFT);
     }
 
     public function activePromotion(): ?Promotion

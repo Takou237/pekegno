@@ -61,7 +61,7 @@ class AgencyCrudTest extends TestCase
         Sanctum::actingAs($this->admin);
 
         Agency::factory()->create(['name' => 'Agence Paris']);
-        Agency::factory()->create(['name' => 'Agence Lyon']);
+        Agency::factory()->create(['name' => 'Agence Tokyo']);
 
         $response = $this->getJson('/api/agencies?search=Paris');
 

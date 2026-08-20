@@ -16,6 +16,7 @@ class UpdateServiceRequest extends FormRequest
         $isSeminar = (bool) $this->boolean('is_seminar');
 
         return [
+            'code' => ['sometimes', 'nullable', 'string', 'max:50', 'unique:services,code,'.$this->route('service')],
             'category_id' => ['sometimes', 'required', 'uuid', 'exists:categories,id'],
             'agency_id' => ['sometimes', 'required', 'uuid', 'exists:agencies,id'],
             'name' => ['sometimes', 'required', 'string', 'max:255'],

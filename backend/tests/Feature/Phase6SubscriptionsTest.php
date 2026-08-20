@@ -51,6 +51,7 @@ class Phase6SubscriptionsTest extends TestCase
             'agency_id' => $agencyId,
             'name' => 'Pack Pro',
             'description' => 'Pack de 4 services',
+            'price_per_month' => 20000,
             'services' => collect($services)->map(fn (Service $s, $i) => [
                 'service_id' => $s->id,
                 'price_per_month' => $prices[$i] ?? 5000,
@@ -79,21 +80,17 @@ class Phase6SubscriptionsTest extends TestCase
             ->json();
     }
 
-    public function test_pack_requires_exactly_four_distinct_services(): void
+    public function test_pack_requires_distinct_services(): void
     {
         $this->actingAsAdmin();
 
         $services = $this->createServices();
+        $agency = Agency::factory()->create();
 
-        $this->postJson('/api/subscription-packs', $this->packPayload(array_slice($services, 0, 3)))
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['services']);
+        $this->postJson('/api/subscription-packs', $this->packPayload(array_slice($services, 0, 3), [], $agency->id))
+            ->assertStatus(201);
 
-        $this->postJson('/api/subscription-packs', $this->packPayload(array_merge($services, [$services[0]])))
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['services']);
-
-        $this->postJson('/api/subscription-packs', $this->packPayload(array_merge($services, [Service::factory()->create()])))
+        $this->postJson('/api/subscription-packs', $this->packPayload(array_merge($services, [$services[0]]), [], $agency->id))
             ->assertStatus(422)
             ->assertJsonValidationErrors(['services']);
     }
@@ -108,11 +105,12 @@ class Phase6SubscriptionsTest extends TestCase
         $this->assertDatabaseCount('subscription_pack_services', 4);
 
         $list = $this->getJson('/api/subscription-packs')->assertOk()->json();
-        $this->assertCount(1, $list);
-        $this->assertCount(4, $list[0]['pack_services']);
+        $this->assertCount(1, $list['data']);
+        $this->assertCount(4, $list['data'][0]['pack_services']);
 
         $this->putJson("/api/subscription-packs/{$pack['id']}", [
             'name' => 'Pack Renommé',
+            'price_per_month' => 20000,
             'services' => collect($this->createServices())->map(fn (Service $s, $i) => [
                 'service_id' => $s->id,
                 'price_per_month' => 6000 + $i,
@@ -133,7 +131,7 @@ class Phase6SubscriptionsTest extends TestCase
         $client = $this->createClient();
 
         $subscription = $this->postJson('/api/subscriptions', [
-            'pack_id' => $pack['id'],
+            'subscription_pack_id' => $pack['id'],
             'client_id' => $client['id'],
             'months' => 3,
         ])
@@ -163,7 +161,7 @@ class Phase6SubscriptionsTest extends TestCase
         $client = $this->createClient();
 
         $subscription = $this->postJson('/api/subscriptions', [
-            'pack_id' => $pack['id'],
+            'subscription_pack_id' => $pack['id'],
             'client_id' => $client['id'],
             'months' => 2,
             'advance' => 10000,
@@ -193,7 +191,7 @@ class Phase6SubscriptionsTest extends TestCase
         ]);
 
         $this->postJson('/api/subscriptions', [
-            'pack_id' => $pack['id'],
+            'subscription_pack_id' => $pack['id'],
             'client_id' => $employee->id,
             'months' => 1,
         ])
@@ -209,7 +207,7 @@ class Phase6SubscriptionsTest extends TestCase
         $client = $this->createClient();
 
         $subscription = $this->postJson('/api/subscriptions', [
-            'pack_id' => $pack['id'],
+            'subscription_pack_id' => $pack['id'],
             'client_id' => $client['id'],
             'months' => 2,
             'start_date' => '2026-09-01',
@@ -239,7 +237,7 @@ class Phase6SubscriptionsTest extends TestCase
         $client = $this->createClient();
 
         $subscription = $this->postJson('/api/subscriptions', [
-            'pack_id' => $pack['id'],
+            'subscription_pack_id' => $pack['id'],
             'client_id' => $client['id'],
             'months' => 1,
         ])->assertStatus(201)->json();

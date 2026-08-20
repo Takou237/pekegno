@@ -60,7 +60,7 @@ class ServiceController extends Controller
         $query = Service::with(array_merge($defaultWith, $this->parseWith($request)))
             ->search($request->input('search'))
             ->when($request->category_id, fn ($q, $v) => $q->where('category_id', $v))
-            ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v));
+            ->when($request->agency_id, fn ($q, $v) => $q->availableIn($v));
 
         $sortBy = $request->input('sort_by', 'name');
         $sortOrder = $request->input('sort_order', 'asc');
@@ -104,6 +104,10 @@ class ServiceController extends Controller
     public function store(StoreServiceRequest $request): JsonResponse
     {
         $data = $request->validated();
+
+        if (empty($data['code'])) {
+            $data['code'] = Service::generateCode();
+        }
 
         $service = Service::create(Arr::except($data, ['tiers']));
 
@@ -283,7 +287,7 @@ class ServiceController extends Controller
 
         $services = Service::with(['category', 'seminarTiers'])
             ->when($q, fn ($query) => $query->search($q))
-            ->when($request->agency_id, fn ($query, $agencyId) => $query->where('agency_id', $agencyId))
+            ->when($request->agency_id, fn ($query, $agencyId) => $query->availableIn($agencyId))
             ->limit(10)
             ->get()
             ->map(fn (Service $service) => [

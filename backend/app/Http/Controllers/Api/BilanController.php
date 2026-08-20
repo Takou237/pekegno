@@ -30,15 +30,20 @@ class BilanController extends Controller
     {
         $date = $request->date('date') ?? Carbon::today();
         $agencyId = $request->input('agency_id');
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 
         if ($agencyId) {
+            if ($agencyIds !== null && ! in_array($agencyId, $agencyIds, true)) {
+                abort(403, 'Cette agence est hors de votre périmètre.');
+            }
+
             return response()->json(
                 $this->bilanService->daily($date, $agencyId)
             );
         }
 
         return response()->json(
-            $this->bilanService->consolidated($date)
+            $this->bilanService->consolidated($date, $agencyIds)
         );
     }
 
@@ -61,9 +66,14 @@ class BilanController extends Controller
         $from = $request->date('from') ?? Carbon::today();
         $to = $request->date('to') ?? $from;
         $agencyId = $request->input('agency_id');
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
+        if ($agencyId && $agencyIds !== null && ! in_array($agencyId, $agencyIds, true)) {
+            abort(403, 'Cette agence est hors de votre périmètre.');
+        }
 
         return response()->json(
-            $this->bilanService->period($from, $to, $agencyId)
+            $this->bilanService->period($from, $to, $agencyId, $agencyIds)
         );
     }
 }

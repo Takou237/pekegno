@@ -17,7 +17,7 @@ class UpdateInvoiceRequest extends FormRequest
             'client_id' => ['nullable', 'uuid', 'exists:users,id'],
             'client_name' => ['nullable', 'string', 'max:255'],
             'commercial_id' => ['nullable', 'uuid', 'exists:commercials,id'],
-            'payment_type' => ['nullable', 'in:cash,om,momo'],
+            'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
             'comment' => ['nullable', 'string', 'max:1000'],
         ];
     }

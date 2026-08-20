@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,6 +17,10 @@ class Agency extends Model
     protected $fillable = [
         'code',
         'name',
+        'type',
+        'organization_id',
+        'country_id',
+        'city_id',
         'country',
         'city',
         'address',
@@ -24,6 +29,41 @@ class Agency extends Model
     ];
 
     protected $with = ['departments'];
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * Relations vers la hiérarchie organisationnelle.
+     * Nommées geo* car les colonnes legacy `country`/`city` (varchar)
+     * occupent déjà les noms magiques correspondants.
+     */
+    public function geoCountry(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'country_id');
+    }
+
+    public function geoCity(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
+    }
+
+    public function isAgency(): bool
+    {
+        return $this->type === 'agency';
+    }
+
+    public function isAcademy(): bool
+    {
+        return $this->type === 'academy';
+    }
+
+    public function isMixed(): bool
+    {
+        return $this->type === 'mixed';
+    }
 
     public function departments(): HasMany
     {

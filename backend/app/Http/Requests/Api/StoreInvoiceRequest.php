@@ -19,7 +19,7 @@ class StoreInvoiceRequest extends FormRequest
             'client_name' => ['nullable', 'string', 'max:255'],
             'commercial_id' => ['nullable', 'uuid', 'exists:commercials,id'],
             'invoice_date' => ['nullable', 'date'],
-            'payment_type' => ['nullable', 'in:cash,om,momo'],
+            'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
             'comment' => ['nullable', 'string', 'max:1000'],
             'advance' => ['nullable', 'numeric', 'min:0.01'],
             'discount' => ['nullable', 'numeric', 'min:0'],

@@ -10,7 +10,6 @@ use App\Models\Agency;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 class AgencyController extends Controller
@@ -53,19 +52,9 @@ class AgencyController extends Controller
             ->search($request->input('search'))
             ->byCountry($request->input('country'));
 
-        if ($request->user()?->role?->name === 'responsable-agence') {
-            $agencyIds = DB::table('user_assignments')
-                ->where('user_id', $request->user()->id)
-                ->where('is_primary', true)
-                ->pluck('agency_id');
-            $query->whereIn('id', $agencyIds);
-        }
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 
-        if ($request->user()?->role?->name === 'responsable-departement') {
-            $agencyIds = DB::table('department_chiefs')
-                ->where('user_id', $request->user()->id)
-                ->join('departments', 'departments.id', '=', 'department_chiefs.department_id')
-                ->pluck('departments.agency_id');
+        if ($agencyIds !== null) {
             $query->whereIn('id', $agencyIds);
         }
 

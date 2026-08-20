@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateClientRequest extends FormRequest
 {
@@ -23,6 +24,13 @@ class UpdateClientRequest extends FormRequest
             'country' => ['sometimes', 'nullable', 'string', 'max:100'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
+            'client_category_id' => ['sometimes', 'nullable', 'string', 'exists:client_categories,id'],
+            'status' => ['sometimes', 'nullable', 'string', Rule::in(['lead', 'learning', 'active', 'inactive', 'former'])],
+            'country_id' => ['sometimes', 'nullable', 'string', 'exists:countries,id'],
+            'city_id' => ['sometimes', 'nullable', 'string', 'exists:cities,id'],
+            'registered_agency_id' => ['sometimes', 'nullable', 'string', 'exists:agencies,id'],
+            'commercial_user_id' => ['sometimes', 'nullable', 'string', 'exists:users,id'],
+            'registered_at' => ['sometimes', 'nullable', 'date'],
         ];
     }
 }

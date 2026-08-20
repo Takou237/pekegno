@@ -16,6 +16,7 @@ class StoreServiceRequest extends FormRequest
         $isSeminar = (bool) $this->boolean('is_seminar');
 
         return [
+            'code' => ['sometimes', 'nullable', 'string', 'max:50', 'unique:services,code'],
             'category_id' => ['required', 'uuid', 'exists:categories,id'],
             'agency_id' => ['required', 'uuid', 'exists:agencies,id'],
             'name' => ['required', 'string', 'max:255'],

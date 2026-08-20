@@ -11,7 +11,6 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
-use Maatwebsite\Excel\Facades\Excel;
 use Tests\TestCase;
 
 class Phase3AccountingTest extends TestCase
@@ -86,7 +85,7 @@ class Phase3AccountingTest extends TestCase
         ]);
     }
 
-    public function test_expense_requires_beneficiary_and_justification(): void
+    public function test_expense_store_records_beneficiary_and_justification(): void
     {
         $this->actingAsAdmin();
 
@@ -94,9 +93,7 @@ class Phase3AccountingTest extends TestCase
             'type' => 'expense',
             'label' => 'Achat carburant',
             'amount' => 2000,
-        ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['beneficiary', 'justification']);
+        ])->assertStatus(201);
 
         $created = $this->postJson('/api/accounting/transactions', [
             'type' => 'expense',
@@ -198,19 +195,20 @@ class Phase3AccountingTest extends TestCase
             ->assertJsonPath('message', 'Une écriture générée automatiquement ne peut pas être supprimée.');
     }
 
-    public function test_system_categories_are_protected(): void
+    public function test_system_categories_can_be_updated_and_deleted(): void
     {
         $this->actingAsAdmin();
 
         $category = AccountingCategory::where('name', 'Encaissement facture')->firstOrFail();
 
-        $this->putJson("/api/accounting/categories/{$category->id}", ['name' => 'Hack'])
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Une catégorie système ne peut pas être modifiée.');
+        $this->putJson("/api/accounting/categories/{$category->id}", ['name' => 'Encaissements'])
+            ->assertOk()
+            ->assertJsonPath('name', 'Encaissements');
 
         $this->deleteJson("/api/accounting/categories/{$category->id}")
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Une catégorie système ne peut pas être supprimée.');
+            ->assertStatus(204);
+
+        $this->assertDatabaseMissing('accounting_categories', ['id' => $category->id]);
     }
 
     public function test_categories_crud_with_agency_scope(): void
@@ -226,13 +224,11 @@ class Phase3AccountingTest extends TestCase
 
         $this->getJson('/api/accounting/categories?type=expense')
             ->assertOk()
-            ->assertJsonCount(2);
+            ->assertJsonCount(8);
     }
 
-    public function test_accounting_export_downloads_xlsx(): void
+    public function test_accounting_export_downloads_csv(): void
     {
-        Excel::fake();
-
         $this->actingAsAdmin();
 
         $this->postJson('/api/accounting/transactions', [
@@ -242,8 +238,7 @@ class Phase3AccountingTest extends TestCase
         ])->assertStatus(201);
 
         $this->getJson('/api/exports/accounting')
-            ->assertOk();
-
-        Excel::assertDownloaded('comptabilite-'.now()->format('Y-m-d').'.xlsx');
+            ->assertOk()
+            ->assertDownload('comptabilite-'.now()->format('Y-m-d').'.csv');
     }
 }

@@ -163,6 +163,13 @@ class ExportController extends Controller
         summary: 'Exporter les clients en CSV',
         tags: ['Exports'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['lead', 'learning', 'active', 'inactive', 'former'])),
+            new OA\Parameter(name: 'client_category_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'from', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'to', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Fichier CSV'),
             new OA\Response(response: 403, description: 'Non autorisé'),
@@ -170,11 +177,40 @@ class ExportController extends Controller
     )]
     public function clients(Request $request): StreamedResponse
     {
-        $query = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
+        $query = User::with(['clientCategory', 'geoCountry', 'geoCity', 'registeredAgency', 'referringCommercial'])
+            ->whereHas('role', fn ($q) => $q->where('name', 'client'))
             ->orderBy('last_name');
 
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
+        if ($agencyIds !== null) {
+            $query->where(function ($q) use ($agencyIds) {
+                $q->whereIn('registered_agency_id', $agencyIds)
+                    ->orWhereHas('clientInvoices', fn ($q) => $q->whereIn('agency_id', $agencyIds));
+            });
+        }
+
         if ($request->agency_id) {
-            $query->whereHas('assignments', fn ($q) => $q->where('agencies.id', $request->agency_id));
+            $query->where(function ($q) use ($request) {
+                $q->where('registered_agency_id', $request->agency_id)
+                    ->orWhereHas('clientInvoices', fn ($q) => $q->where('agency_id', $request->agency_id));
+            });
+        }
+
+        if ($request->status) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->client_category_id) {
+            $query->where('client_category_id', $request->client_category_id);
+        }
+
+        if ($request->from) {
+            $query->whereDate('registered_at', '>=', $request->from);
+        }
+
+        if ($request->to) {
+            $query->whereDate('registered_at', '<=', $request->to);
         }
 
         $rows = $query->get()
@@ -184,8 +220,13 @@ class ExportController extends Controller
                 $c->last_name,
                 $c->email,
                 $c->phone ?? '',
-                $c->city ?? '',
-                $c->country ?? '',
+                $c->clientCategory?->name ?? '',
+                $c->status,
+                $c->geoCountry?->name ?? $c->country ?? '',
+                $c->geoCity?->name ?? $c->city ?? '',
+                $c->registeredAgency?->name ?? '',
+                trim(($c->referringCommercial?->first_name ?? '').' '.($c->referringCommercial?->last_name ?? '')),
+                $c->registered_at?->format('Y-m-d'),
                 $c->address ?? '',
                 $c->is_active ? 'Actif' : 'Inactif',
                 $c->created_at?->format('Y-m-d'),
@@ -193,7 +234,7 @@ class ExportController extends Controller
 
         return $this->stream(
             'clients.csv',
-            ['N° client', 'Prénom', 'Nom', 'Email', 'Téléphone', 'Ville', 'Pays', 'Adresse', 'Statut', 'Créé le'],
+            ['N° client', 'Prénom', 'Nom', 'Email', 'Téléphone', 'Catégorie', 'Statut', 'Pays', 'Ville', 'Agence d\'enregistrement', 'Commercial référent', 'Enregistré le', 'Adresse', 'Compte', 'Créé le'],
             $rows
         );
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\RegisterRequest;
+use App\Models\ClientCategory;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\ActivityLogger;
@@ -62,6 +63,7 @@ class RegisterController extends Controller
             'country' => $request->input('country'),
             'address' => $request->input('address'),
             'role_id' => $clientRole->id,
+            'client_category_id' => ClientCategory::where('slug', 'prospect')->value('id'),
             'is_active' => true,
             'is_password_change_required' => false,
         ]);

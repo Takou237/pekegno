@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::job(new PenalizeInactiveCommercials)->dailyAt('01:00');
+Schedule::command('subscriptions:check-expiry')->dailyAt('06:00');

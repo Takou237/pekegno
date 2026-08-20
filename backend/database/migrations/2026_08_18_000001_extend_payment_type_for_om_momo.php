@@ -7,12 +7,20 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::statement("ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_payment_type_check");
         DB::statement("ALTER TABLE invoices ALTER COLUMN payment_type TYPE varchar(20)");
     }
 
     public function down(): void
     {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::statement("ALTER TABLE invoices ALTER COLUMN payment_type TYPE varchar(20)");
     }
 };

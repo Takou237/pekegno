@@ -14,9 +14,12 @@ class PermissionSeeder extends Seeder
         'users' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
         'roles' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'agencies' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'countries' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'cities' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'departments' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
         'categories' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'services' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'products' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'promotions' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'clients' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
         'commercials' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter', 'reporting'],
@@ -30,6 +33,11 @@ class PermissionSeeder extends Seeder
         'accounting-categories' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'bilans' => ['consulter', 'exporter'],
         'abonnements' => ['consulter', 'creer', 'modifier', 'supprimer', 'renouveler'],
+        'courses' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'sessions' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'enrollments' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'orders' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'reports' => ['consulter', 'exporter'],
     ];
 
     private const ACTION_LABELS = [
@@ -49,9 +57,12 @@ class PermissionSeeder extends Seeder
         'users' => 'les utilisateurs',
         'roles' => 'les rôles',
         'agencies' => 'les agences',
+        'countries' => 'les pays',
+        'cities' => 'les villes',
         'departments' => 'les départements',
         'categories' => 'les catégories',
         'services' => 'les services',
+        'products' => 'les produits',
         'promotions' => 'les promotions',
         'clients' => 'les clients',
         'commercials' => 'les commerciaux',
@@ -65,6 +76,11 @@ class PermissionSeeder extends Seeder
         'accounting-categories' => 'les catégories comptables',
         'bilans' => 'les bilans du jour',
         'abonnements' => 'les abonnements',
+        'courses' => 'les cours',
+        'sessions' => 'les sessions de formation',
+        'enrollments' => 'les inscriptions aux formations',
+        'orders' => 'les commandes',
+        'reports' => 'les rapports',
     ];
 
     public static function permissionNames(): array

@@ -9,7 +9,6 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
-use Maatwebsite\Excel\Facades\Excel;
 use Tests\TestCase;
 
 class Phase7ReportingTest extends TestCase
@@ -188,18 +187,15 @@ class Phase7ReportingTest extends TestCase
         $this->assertEquals(33.3, $row['conversion_rate']);
     }
 
-    public function test_report_is_exported_as_xlsx(): void
+    public function test_report_is_exported_as_csv(): void
     {
         $this->actingAsAdmin();
 
-        Excel::fake();
-
         $this->getJson('/api/exports/commercial-report')
-            ->assertOk();
-
-        Excel::assertDownloaded(
-            'reporting-commercial-'.now()->startOfMonth()->format('Y-m-d').'-'.now()->format('Y-m-d').'.xlsx'
-        );
+            ->assertOk()
+            ->assertDownload(
+                'reporting-commercial-'.now()->startOfMonth()->format('Y-m-d').'-'.now()->format('Y-m-d').'.csv'
+            );
     }
 
     public function test_report_forbidden_for_client(): void
