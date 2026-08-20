@@ -354,6 +354,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
                   <th className="px-5 py-3 font-medium">{t('accounting.colType')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('accounting.colAmount')}</th>
                   <th className="px-5 py-3 font-medium">{t('accounting.colReference')}</th>
+                  <th className="px-5 py-3 font-medium">{t('accounting.colBeneficiary')}</th>
                   {canManage && <th className="px-5 py-3 text-right font-medium">{t('common.actions')}</th>}
                 </tr>
               </thead>
@@ -377,6 +378,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
                       {tx.type === 'expense' ? '— ' : ''}{formatCurrency(tx.amount)}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{tx.reference ?? '—'}</td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{tx.beneficiary ?? '—'}</td>
                     {canManage && (
                       <td className="px-5 py-3 text-right">
                         <div className="flex justify-end gap-1.5">
