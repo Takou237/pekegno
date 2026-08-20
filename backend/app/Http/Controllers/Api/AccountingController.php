@@ -84,6 +84,7 @@ class AccountingController extends Controller
             'client_id' => ['nullable', 'exists:users,id'],
             'transacted_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
+            'reference' => ['nullable', 'string', 'max:255'],
             'beneficiary' => ['nullable', 'string', 'max:255'],
             'justification' => ['nullable', 'string', 'max:1000'],
         ]);
@@ -129,6 +130,7 @@ class AccountingController extends Controller
             'client_id' => ['nullable', 'exists:users,id'],
             'transacted_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
+            'reference' => ['nullable', 'string', 'max:255'],
             'beneficiary' => ['nullable', 'string', 'max:255'],
             'justification' => ['nullable', 'string', 'max:1000'],
         ]);

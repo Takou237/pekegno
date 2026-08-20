@@ -181,67 +181,59 @@ function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) =>
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 text-gray-800 dark:text-gray-100">{t('bilans.totalVentes')}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{bilan.total_ventes}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(bilan.total_ventes)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(bilan.services_by_category.reduce((s, l) => s + l.total, 0))}</td>
+              </tr>
+
+              <tr className="border-t-2 border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30">
+                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.cashTotal')}</td>
+                <td />
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.cash_total)}</td>
+              </tr>
+              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.omTotal')}</td>
+                <td />
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.om_total)}</td>
+              </tr>
+              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.momoTotal')}</td>
+                <td />
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.momo_total)}</td>
+              </tr>
+              <tr className="bg-brand-50/50 font-semibold dark:bg-brand-500/5">
+                <td colSpan={2} className="px-5 py-3 text-brand-700 dark:text-brand-300">{t('bilans.totalReceived')}</td>
+                <td />
+                <td className="px-5 py-3 text-right text-brand-700 dark:text-brand-300">{formatCurrency(bilan.total_received)}</td>
+              </tr>
+
+              <tr className="border-t-2 border-gray-200 dark:border-gray-700">
+                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.soldeInitial')}</td>
+                <td />
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.solde_initial)}</td>
+              </tr>
+
+              {bilan.expenses_by_category.map((e) => (
+                <tr key={e.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <td colSpan={2} className="px-5 py-3 text-red-600 dark:text-red-400">{e.name}</td>
+                  <td />
+                  <td className="px-5 py-3 text-right font-medium text-red-600 dark:text-red-400">-{formatCurrency(e.total)}</td>
+                </tr>
+              ))}
+              {bilan.expense_total > 0 && (
+                <tr className="bg-red-50/50 font-semibold dark:bg-red-500/5">
+                  <td colSpan={2} className="px-5 py-3 text-red-600 dark:text-red-400">{t('bilans.expenseTotal')}</td>
+                  <td />
+                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">-{formatCurrency(bilan.expense_total)}</td>
+                </tr>
+              )}
+
+              <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold dark:border-gray-700 dark:bg-gray-800/50">
+                <td colSpan={2} className="px-5 py-3 text-gray-900 dark:text-white">{t('bilans.soldeFinal')}</td>
+                <td />
+                <td className="px-5 py-3 text-right text-gray-900 dark:text-white">{formatCurrency(bilan.solde_final)}</td>
               </tr>
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h3 className="mb-3 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">{t('bilans.receivedTitle')}</h3>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-gray-500 dark:text-gray-400">{t('bilans.cashTotal')}</dt>
-              <dd className="font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.cash_total)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500 dark:text-gray-400">{t('bilans.omTotal')}</dt>
-              <dd className="font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.om_total)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500 dark:text-gray-400">{t('bilans.momoTotal')}</dt>
-              <dd className="font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.momo_total)}</dd>
-            </div>
-            <div className="flex justify-between border-t border-gray-100 pt-2 dark:border-gray-800">
-              <dt className="font-semibold text-gray-800 dark:text-gray-100">{t('bilans.totalReceived')}</dt>
-              <dd className="font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(bilan.total_received)}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h3 className="mb-3 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">{t('bilans.balanceTitle')}</h3>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-gray-500 dark:text-gray-400">{t('bilans.soldeInitial')}</dt>
-              <dd className="font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.solde_initial)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500 dark:text-gray-400">{t('bilans.expenseTotal')}</dt>
-              <dd className="font-medium text-red-600 dark:text-red-400">-{formatCurrency(bilan.expense_total)}</dd>
-            </div>
-            <div className="flex justify-between border-t border-gray-100 pt-2 dark:border-gray-800">
-              <dt className="font-semibold text-gray-800 dark:text-gray-100">{t('bilans.soldeFinal')}</dt>
-              <dd className="font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(bilan.solde_final)}</dd>
-            </div>
-          </dl>
-        </div>
-
-        {bilan.expenses_by_category.length > 0 && (
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-            <h3 className="mb-3 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">{t('bilans.expensesDetail')}</h3>
-            <dl className="space-y-2 text-sm">
-              {bilan.expenses_by_category.map((e) => (
-                <div key={e.name} className="flex justify-between">
-                  <dt className="text-gray-500 dark:text-gray-400">{e.name}</dt>
-                  <dd className="font-medium text-red-600 dark:text-red-400">{formatCurrency(e.total)}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        )}
       </div>
     </>
   );
