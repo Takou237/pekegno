@@ -78,8 +78,6 @@ class AccountingCategoryController extends Controller
     )]
     public function update(Request $request, AccountingCategory $category): JsonResponse
     {
-        abort_if($category->is_system, 422, 'Une catégorie système ne peut pas être modifiée.');
-
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'type' => ['sometimes', Rule::in(['income', 'expense'])],
@@ -103,8 +101,6 @@ class AccountingCategoryController extends Controller
     )]
     public function destroy(Request $request, AccountingCategory $category): JsonResponse
     {
-        abort_if($category->is_system, 422, 'Une catégorie système ne peut pas être supprimée.');
-
         $name = $category->name;
         $category->delete();
 

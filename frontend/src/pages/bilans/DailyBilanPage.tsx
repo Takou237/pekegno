@@ -215,14 +215,14 @@ function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) =>
                 <tr key={e.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td colSpan={2} className="px-5 py-3 text-red-600 dark:text-red-400">{e.name}</td>
                   <td />
-                  <td className="px-5 py-3 text-right font-medium text-red-600 dark:text-red-400">-{formatCurrency(e.total)}</td>
+                  <td className="px-5 py-3 text-right font-medium text-red-600 dark:text-red-400">{formatCurrency(e.total)}</td>
                 </tr>
               ))}
               {bilan.expense_total > 0 && (
                 <tr className="bg-red-50/50 font-semibold dark:bg-red-500/5">
                   <td colSpan={2} className="px-5 py-3 text-red-600 dark:text-red-400">{t('bilans.expenseTotal')}</td>
                   <td />
-                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">-{formatCurrency(bilan.expense_total)}</td>
+                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(bilan.expense_total)}</td>
                 </tr>
               )}
 

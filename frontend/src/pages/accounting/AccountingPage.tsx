@@ -375,7 +375,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
                       )}
                     </td>
                     <td className={`px-5 py-3 text-right font-medium ${tx.type === 'income' ? 'text-success-600' : 'text-error-500'}`}>
-                      {tx.type === 'expense' ? '— ' : ''}{formatCurrency(tx.amount)}
+                      {formatCurrency(tx.amount)}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{tx.reference ?? '—'}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{tx.beneficiary ?? '—'}</td>

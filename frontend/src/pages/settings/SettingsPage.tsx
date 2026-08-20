@@ -299,13 +299,8 @@ function AccountingCategoriesTab() {
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {!c.is_system && (
-                        <>
-                          <button type="button" onClick={() => openEdit(c)} className="text-gray-400 hover:text-gray-600"><Pencil className="h-4 w-4" /></button>
-                          <button type="button" onClick={() => setDeleteTarget(c)} className="text-gray-400 hover:text-error-600"><Trash2 className="h-4 w-4" /></button>
-                        </>
-                      )}
-                      {c.is_system && <span className="text-xs text-gray-400">{t('settingsPage.systemCategory')}</span>}
+                      <button type="button" onClick={() => openEdit(c)} className="text-gray-400 hover:text-gray-600"><Pencil className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => setDeleteTarget(c)} className="text-gray-400 hover:text-error-600"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </td>
                 </tr>
