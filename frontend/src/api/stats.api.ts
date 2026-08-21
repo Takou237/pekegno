@@ -3,9 +3,12 @@ import type {
   AgencyStats,
   CategorySales,
   DashboardStats,
+  GroupStats,
   MonthlyRevenuePoint,
   PaymentMethodStat,
+  TopAgency,
   TopCommercial,
+  TopProduct,
 } from '@/types/stats';
 
 export const statsApi = {
@@ -14,14 +17,24 @@ export const statsApi = {
     return data;
   },
 
+  async group(params: { from?: string; to?: string } = {}): Promise<GroupStats> {
+    const { data } = await client.get<GroupStats>('/stats/group', { params });
+    return data;
+  },
+
+  async country(countryId: string, params: { from?: string; to?: string } = {}): Promise<DashboardStats> {
+    const { data } = await client.get<DashboardStats>(`/stats/country/${countryId}`, { params });
+    return data;
+  },
+
   async agency(agencyId: string, params: { from?: string; to?: string } = {}): Promise<AgencyStats> {
     const { data } = await client.get<AgencyStats>(`/stats/agency/${agencyId}`, { params });
     return data;
   },
 
-  async monthlyRevenue(params: { months?: number; agencyId?: string } = {}): Promise<MonthlyRevenuePoint[]> {
+  async monthlyRevenue(params: { months?: number; agencyId?: string; countryId?: string } = {}): Promise<MonthlyRevenuePoint[]> {
     const { data } = await client.get<MonthlyRevenuePoint[]>('/stats/monthly-revenue', {
-      params: { months: params.months, agency_id: params.agencyId },
+      params: { months: params.months, agency_id: params.agencyId, country_id: params.countryId },
     });
     return data;
   },
@@ -38,6 +51,16 @@ export const statsApi = {
 
   async paymentMethods(params: { from?: string; to?: string } = {}): Promise<PaymentMethodStat[]> {
     const { data } = await client.get<PaymentMethodStat[]>('/stats/payment-methods', { params });
+    return data;
+  },
+
+  async topProducts(params: { limit?: number; from?: string; to?: string } = {}): Promise<TopProduct[]> {
+    const { data } = await client.get<TopProduct[]>('/stats/top-products', { params });
+    return data;
+  },
+
+  async topAgencies(params: { limit?: number; from?: string; to?: string } = {}): Promise<TopAgency[]> {
+    const { data } = await client.get<TopAgency[]>('/stats/top-agencies', { params });
     return data;
   },
 };

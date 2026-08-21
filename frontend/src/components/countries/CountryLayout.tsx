@@ -12,70 +12,54 @@ import {
   FileText,
   Calculator,
   CalendarCheck,
-  UserCheck,
   BarChart3,
-  GraduationCap,
-  UserCog,
-  Calendar,
+  Contact,
 } from 'lucide-react';
-import { agenciesApi } from '@/api/agencies.api';
+import { countriesApi } from '@/api/countries.api';
 import { extractErrorMessage } from '@/api/errors';
 import { Spinner } from '@/components/ui/Spinner';
 import { UserMenu } from '@/components/common/UserMenu';
 import { MobileNav } from '@/components/layout/MobileNav';
-import { AgencySwitcher } from '@/components/agencies/AgencySwitcher';
-import type { Agency } from '@/types/agency';
+import type { CountryStat } from '@/types/stats';
 
-function getSubItems(t: ReturnType<typeof useTranslation>['t'], hasAcademy: boolean) {
-  const items = [
-    { to: '', label: t('nav.overview'), icon: LayoutDashboard, end: true },
-    { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
-    { to: 'services', label: t('nav.services'), icon: Package, end: false },
-    { to: 'commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
-    { to: 'employees', label: t('nav.employees'), icon: UserCheck, end: false },
-  ];
-
-  if (hasAcademy) {
-    items.push(
-      { to: 'trainers', label: t('nav.trainers'), icon: GraduationCap, end: false },
-      { to: 'learners', label: t('nav.learners'), icon: UserCog, end: false },
-      { to: 'sessions', label: t('nav.sessions'), icon: Calendar, end: false },
-    );
-  }
-
-  items.push(
-    { to: 'invoices', label: t('nav.invoices'), icon: FileText, end: false },
+function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
+  return [
+    { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+    { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
+    { to: 'agencies', label: t('nav.agencies'), icon: FolderTree, end: false },
+    { to: 'users', label: t('nav.users'), icon: Users, end: false },
+    { to: 'privileges', label: t('nav.privileges'), icon: Users, end: false },
+    { to: 'catalog', label: t('nav.catalog'), icon: Package, end: false },
     { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
     { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
     { to: 'subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
-    { to: 'users', label: t('nav.teams'), icon: Users, end: false },
+    { to: 'commercials/report', label: t('nav.commercialReport'), icon: Briefcase, end: false },
+    { to: 'audit', label: t('nav.audit'), icon: FileText, end: false },
     { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
-  );
-
-  return items;
+  ];
 }
 
-export function AgencyLayout() {
+export function CountryLayout() {
   const { t } = useTranslation();
-  const { agencyId, countryId } = useParams<{ agencyId: string; countryId?: string }>();
-  const [agency, setAgency] = useState<Agency | null>(null);
+  const { countryId } = useParams<{ countryId: string }>();
+  const [country, setCountry] = useState<CountryStat | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadAgency = useCallback(() => {
-    if (!agencyId) return;
+  const loadCountry = useCallback(() => {
+    if (!countryId) return;
     setIsLoading(true);
     setLoadError(null);
-    agenciesApi
-      .get(agencyId)
-      .then(setAgency)
-      .catch((error) => setLoadError(extractErrorMessage(error, t('agencies.loadFailed'))))
+    countriesApi
+      .get(countryId)
+      .then(setCountry)
+      .catch((error) => setLoadError(extractErrorMessage(error, t('countries.empty'))))
       .finally(() => setIsLoading(false));
-  }, [agencyId, t]);
+  }, [countryId, t]);
 
   useEffect(() => {
-    loadAgency();
-  }, [loadAgency]);
+    loadCountry();
+  }, [loadCountry]);
 
   function subLinkClass({ isActive }: { isActive: boolean }) {
     return `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -85,30 +69,19 @@ export function AgencyLayout() {
     }`;
   }
 
-  const hasAcademy = agency
-    ? agency.activities && agency.activities.length > 0
-      ? agency.activities.some((a) => a.type === 'academy' && a.is_active)
-      : agency.type === 'academy' || agency.type === 'mixed'
-    : false;
-  const subItems = getSubItems(t, hasAcademy);
-
-  const backToAgencies = countryId
-    ? `/countries/${countryId}/agencies`
-    : agency?.country_id
-      ? `/countries/${agency.country_id}/agencies`
-      : '/agencies';
+  const subItems = getSubItems(t);
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 dark:bg-gray-950">
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
         <div className="flex items-center gap-2">
-          <MobileNav contextOnly contextTitle={agency?.name} contextItems={subItems} />
+          <MobileNav contextOnly contextTitle={country?.name} contextItems={subItems} />
           <Link
-            to={backToAgencies}
+            to="/countries"
             className="inline-flex items-center gap-1.5 rounded-lg p-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 hover:underline dark:text-brand-400 dark:hover:bg-brand-500/10"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('agencies.backToList')}</span>
+            <span className="hidden sm:inline">{t('countries.title')}</span>
           </Link>
         </div>
         <UserMenu />
@@ -121,10 +94,18 @@ export function AgencyLayout() {
               <div className="flex justify-center py-8">
                 <Spinner />
               </div>
-            ) : loadError || !agency ? (
-              <p className="text-sm text-error-500">{loadError ?? t('agencies.empty')}</p>
+            ) : loadError || !country ? (
+              <p className="text-sm text-error-500">{loadError ?? t('countries.empty')}</p>
             ) : (
-              <AgencySwitcher agency={agency} />
+              <div className="flex items-center gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+                  {country.name.charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900 dark:text-white">{country.name}</p>
+                  <p className="font-mono text-xs text-gray-400">{country.code}</p>
+                </div>
+              </div>
             )}
           </div>
 
@@ -142,7 +123,7 @@ export function AgencyLayout() {
           {isLoading ? (
             <div className="flex justify-center py-16"><Spinner /></div>
           ) : (
-            <Outlet context={{ agency, agencyId, refreshAgency: loadAgency }} />
+            <Outlet context={{ country, countryId, refreshCountry: loadCountry }} />
           )}
         </div>
       </main>

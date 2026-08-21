@@ -63,3 +63,50 @@ export interface PaymentMethodStat {
   total: number;
   count: number;
 }
+
+export interface TopProduct {
+  label: string;
+  quantity: number;
+  revenue: number;
+  transactions: number;
+}
+
+export interface TopAgency {
+  id: string;
+  name: string;
+  code: string;
+  country: string;
+  country_id?: string | null;
+  revenue: number;
+  invoices_count: number;
+}
+
+export interface CountryStat {
+  id: string;
+  name: string;
+  code: string;
+  currency_code: string;
+  is_active: boolean;
+  agencies_count: number;
+  revenue: number;
+  outstanding: number;
+  invoices_count: number;
+}
+
+export interface GroupStats {
+  period: { from: string; to: string };
+  revenue: number;
+  payments_total: number;
+  outstanding: number;
+  invoices_total: number;
+  invoices_paid: number;
+  clients_total: number;
+  new_clients: number;
+  subscriptions_active: number;
+  average_invoice_value: number;
+  collection_rate: number;
+  agencies_total: number;
+  departments_total: number;
+  users_total: number;
+  countries: CountryStat[];
+}

@@ -48,9 +48,17 @@ class AgencyController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Agency::with(array_merge(['departments'], $this->parseWith($request)))
+        $query = Agency::with(array_merge(['departments', 'activities'], $this->parseWith($request)))
             ->search($request->input('search'))
             ->byCountry($request->input('country'));
+
+        if ($request->filled('type') && in_array($request->input('type'), ['agency', 'academy', 'mixed'], true)) {
+            $query->where('type', $request->input('type'));
+        }
+
+        if ($request->filled('country_id')) {
+            $query->where('country_id', $request->input('country_id'));
+        }
 
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 
@@ -101,11 +109,16 @@ class AgencyController extends Controller
     public function store(StoreAgencyRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $activities = $data['activities'] ?? null;
+        unset($data['activities']);
+
         $data['code'] = Agency::generateNextCode();
+        $data['type'] = Agency::deriveType($activities);
 
         $agency = Agency::create($data);
+        $agency->syncActivities($activities);
 
-        return (new AgencyResource($agency->load('departments')))
+        return (new AgencyResource($agency->load(['departments', 'activities'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -125,7 +138,7 @@ class AgencyController extends Controller
     )]
     public function show(Request $request, Agency $agency): AgencyResource
     {
-        $with = array_unique(array_merge(['departments', 'assignedUsers'], $this->parseWith($request)));
+        $with = array_unique(array_merge(['departments', 'assignedUsers', 'activities'], $this->parseWith($request)));
         return new AgencyResource($agency->load($with));
     }
 
@@ -159,9 +172,18 @@ class AgencyController extends Controller
     )]
     public function update(UpdateAgencyRequest $request, Agency $agency): AgencyResource
     {
-        $agency->update($request->validated());
+        $data = $request->validated();
+        $activities = $data['activities'] ?? null;
+        unset($data['activities']);
 
-        return new AgencyResource($agency->fresh()->load('departments'));
+        if ($activities !== null) {
+            $data['type'] = Agency::deriveType($activities);
+            $agency->syncActivities($activities);
+        }
+
+        $agency->update($data);
+
+        return new AgencyResource($agency->fresh()->load(['departments', 'activities']));
     }
 
     #[OA\Delete(

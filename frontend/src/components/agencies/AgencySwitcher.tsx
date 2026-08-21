@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Mail, MapPin, Phone } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
@@ -16,6 +16,7 @@ export function AgencySwitcher({ agency }: AgencySwitcherProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { countryId } = useParams<{ countryId?: string }>();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -53,7 +54,10 @@ export function AgencySwitcher({ agency }: AgencySwitcherProps) {
 
   function handleSelect(id: string) {
     setIsOpen(false);
-    if (id !== agency.id) navigate(`/agencies/${id}`);
+    if (id === agency.id) return;
+    const target = options.find((a) => a.id === id);
+    const targetCountry = countryId ?? target?.country_id ?? agency.country_id;
+    navigate(targetCountry ? `/countries/${targetCountry}/agencies/${id}` : `/agencies/${id}`);
   }
 
   return (

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -21,12 +21,14 @@ import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
 import { canCreateAgency, canManageTrash } from '@/utils/agencyPermissions';
 import { canExportData } from '@/utils/exportPermissions';
 import type { Agency, AgencyListParams, PaginationMeta } from '@/types/agency';
+import type { CountryStat } from '@/types/stats';
 
 type TranslateFn = ReturnType<typeof useTranslation>['t'];
 
@@ -44,6 +46,9 @@ export default function AgencyListPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const { countryId } = useParams<{ countryId?: string }>();
+  const outletContext = useOutletContext<{ country?: CountryStat | null } | undefined>();
+  const contextCountry = countryId ? outletContext?.country ?? null : null;
 
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -53,6 +58,7 @@ export default function AgencyListPage() {
 
   const [search, setSearch] = useState('');
   const [country, setCountry] = useState('');
+  const [typeFilter, setTypeFilter] = useState<NonNullable<AgencyListParams['type']> | ''>('');
   const [sortBy, setSortBy] = useState<NonNullable<AgencyListParams['sort_by']>>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
@@ -69,6 +75,8 @@ export default function AgencyListPage() {
       const response = await agenciesApi.list({
         search: search || undefined,
         country: country || undefined,
+        country_id: countryId || undefined,
+        type: typeFilter || undefined,
         sort_by: sortBy,
         sort_order: sortOrder,
         page,
@@ -81,7 +89,7 @@ export default function AgencyListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, country, sortBy, sortOrder, page]);
+  }, [search, country, countryId, typeFilter, sortBy, sortOrder, page]);
 
   // Debounce léger sur la recherche texte pour éviter un appel par frappe.
   useEffect(() => {
@@ -91,7 +99,7 @@ export default function AgencyListPage() {
     }, 350);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, country, sortBy, sortOrder]);
+  }, [search, country, typeFilter, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchAgencies();
@@ -100,6 +108,11 @@ export default function AgencyListPage() {
 
   function toggleSortOrder() {
     setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  }
+
+  function openAgency(agency: Agency) {
+    const country = countryId ?? agency.country_id;
+    navigate(country ? `/countries/${country}/agencies/${agency.id}` : `/agencies/${agency.id}`);
   }
 
   async function handleExport() {
@@ -139,7 +152,7 @@ export default function AgencyListPage() {
             </Button>
           )}
           {canManageTrash(user) && (
-            <Link to="/agencies/trash">
+            <Link to={countryId ? `/countries/${countryId}/agencies/trash` : '/agencies/trash'}>
               <Button variant="outline">
                 <Trash2 className="h-4 w-4" />
                 {t('common.trash')}
@@ -180,6 +193,18 @@ export default function AgencyListPage() {
         </div>
         <div className="sm:w-48">
           <Select
+            label={t('agencies.filterType')}
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+          >
+            <option value="">{t('agencies.filterTypeAll')}</option>
+            <option value="agency">{t('agencies.filterTypeAgency')}</option>
+            <option value="academy">{t('agencies.filterTypeAcademy')}</option>
+            <option value="mixed">{t('agencies.filterTypeMixed')}</option>
+          </Select>
+        </div>
+        <div className="sm:w-48">
+          <Select
             label={t('agencies.sortBy')}
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
@@ -215,7 +240,7 @@ export default function AgencyListPage() {
             {agencies.map((agency) => (
               <div
                 key={agency.id}
-                onClick={() => navigate(`/agencies/${agency.id}`)}
+                onClick={() => openAgency(agency)}
                 className="group flex cursor-pointer flex-col rounded-2xl border border-gray-100 bg-white p-5 transition-shadow hover:border-brand-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40"
               >
                 <div className="flex items-center gap-3">
@@ -224,7 +249,36 @@ export default function AgencyListPage() {
                   </span>
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-white">{agency.name}</p>
-                    <p className="font-mono text-xs text-gray-400">{agency.code}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono text-xs text-gray-400">{agency.code}</p>
+                      {agency.activities && agency.activities.length > 0 ? (
+                        agency.activities
+                          .filter((a) => a.is_active)
+                          .map((a) => (
+                            <Badge key={a.type} variant={a.type === 'academy' ? 'brand' : 'success'}>
+                              {a.type === 'academy' ? t('agencies.filterTypeAcademy') : t('agencies.filterTypeAgency')}
+                            </Badge>
+                          ))
+                      ) : (
+                        agency.type && (
+                          <Badge
+                            variant={
+                              agency.type === 'academy'
+                                ? 'brand'
+                                : agency.type === 'mixed'
+                                  ? 'warning'
+                                  : 'success'
+                            }
+                          >
+                            {agency.type === 'academy'
+                              ? t('agencies.filterTypeAcademy')
+                              : agency.type === 'mixed'
+                                ? t('agencies.filterTypeMixed')
+                                : t('agencies.filterTypeAgency')}
+                          </Badge>
+                        )
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -279,6 +333,7 @@ export default function AgencyListPage() {
       <AgencyFormModal
         isOpen={formModalState.open}
         agency={formModalState.agency}
+        defaultCountry={contextCountry ? { id: contextCountry.id, name: contextCountry.name } : null}
         onClose={() => setFormModalState({ open: false, agency: null })}
         onSaved={handleSaved}
       />

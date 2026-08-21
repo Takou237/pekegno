@@ -234,12 +234,16 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::get('/stats/overview', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
     Route::get('/stats/dashboard', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
+    Route::get('/stats/group', [StatsController::class, 'group'])->middleware('permission:stats.consulter');
+    Route::get('/stats/country/{country}', [StatsController::class, 'country'])->middleware('permission:stats.consulter');
     Route::get('/dashboard', [DashboardController::class, '__invoke'])->middleware('permission:stats.consulter');
     Route::get('/stats/agency/{agency}', [StatsController::class, 'agency'])->middleware('permission:stats.consulter');
     Route::get('/stats/monthly-revenue', [StatsController::class, 'monthlyRevenue'])->middleware('permission:stats.consulter');
     Route::get('/stats/top-commercials', [StatsController::class, 'topCommercials'])->middleware('permission:stats.consulter');
     Route::get('/stats/sales-by-category', [StatsController::class, 'salesByCategory'])->middleware('permission:stats.consulter');
     Route::get('/stats/payment-methods', [StatsController::class, 'paymentMethods'])->middleware('permission:stats.consulter');
+    Route::get('/stats/top-products', [StatsController::class, 'topProducts'])->middleware('permission:stats.consulter');
+    Route::get('/stats/top-agencies', [StatsController::class, 'topAgencies'])->middleware('permission:stats.consulter');
 
     Route::get('/bilans/period', [BilanController::class, 'period'])->middleware('permission:bilans.consulter');
     Route::get('/bilans', [BilanController::class, 'dailyBilan'])->middleware('permission:bilans.consulter');

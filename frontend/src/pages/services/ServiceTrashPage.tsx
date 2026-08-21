@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
@@ -20,6 +20,15 @@ interface ServiceTrashPageProps {
 export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { countryId } = useParams<{ countryId?: string }>();
+
+  const backToServices = agencyId
+    ? countryId
+      ? `/countries/${countryId}/agencies/${agencyId}/services`
+      : `/agencies/${agencyId}/services`
+    : countryId
+      ? `/countries/${countryId}/catalog/services`
+      : '/catalog/services';
 
   const [services, setServices] = useState<Service[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -85,7 +94,7 @@ export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to={agencyId ? `/agencies/${agencyId}/services` : '/catalog/services'}
+          to={backToServices}
           className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />

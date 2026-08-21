@@ -44,7 +44,6 @@ const EMPTY_FORM: SettingsForm = {
 
 export default function SettingsPage() {
   const { t } = useTranslation();
-  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
   return (
@@ -268,9 +267,6 @@ function AccountingCategoriesTab() {
   }
 
   if (isLoading) return <SkeletonDetail />;
-
-  const incomeCats = categories.filter((c) => c.type === 'income');
-  const expenseCats = categories.filter((c) => c.type === 'expense');
 
   return (
     <>

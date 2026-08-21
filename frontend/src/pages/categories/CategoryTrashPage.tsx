@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { categoriesApi } from '@/api/categories.api';
@@ -16,6 +16,7 @@ import type { PaginationMeta } from '@/types/agency';
 export default function CategoryTrashPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { countryId } = useParams<{ countryId?: string }>();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -72,7 +73,7 @@ export default function CategoryTrashPage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to="/catalog/categories"
+          to={countryId ? `/countries/${countryId}/catalog/categories` : '/catalog/categories'}
           className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />

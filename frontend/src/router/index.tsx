@@ -4,6 +4,8 @@ import { ProtectedRoute } from '@/router/ProtectedRoute';
 import { GuestRoute } from '@/router/GuestRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AgencyLayout } from '@/components/agencies/AgencyLayout';
+import { AgencyRedirect } from '@/components/agencies/AgencyRedirect';
+import { CountryLayout } from '@/components/countries/CountryLayout';
 import { DepartmentLayout } from '@/components/departments/DepartmentLayout';
 import {
   PageSkeleton,
@@ -19,7 +21,8 @@ const TwoFactorPage = lazy(() => import('@/pages/auth/TwoFactorPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
 const RegisterPage = lazy(() => import('@/pages/register/RegisterPage'));
-const DashboardPage = lazy(() => import('@/pages/AdminDashboardPage'));
+const PEKEGNOGroupDashboard = lazy(() => import('@/pages/dashboard/PEKEGNOGroupDashboard'));
+const CountryDashboardPage = lazy(() => import('@/pages/dashboard/CountryDashboardPage'));
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 const AgencyListPage = lazy(() => import('@/pages/agencies/AgencyListPage'));
 const AgencyTrashPage = lazy(() => import('@/pages/agencies/AgencyTrashPage'));
@@ -71,6 +74,7 @@ const AgencyEmployeeListPage = lazy(() => import('@/pages/employees/AgencyEmploy
 const AgencyEmployeeDetailPage = lazy(() => import('@/pages/employees/AgencyEmployeeDetailPage'));
 const ActivityLogPage = lazy(() => import('@/pages/audit/ActivityLogPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
+const CountryListPage = lazy(() => import('@/pages/CountryListPage'));
 
 function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
   return <Suspense fallback={fallback}>{node}</Suspense>;
@@ -82,6 +86,28 @@ const detail = <SkeletonDetail />;
 const dashboard = <SkeletonDashboard />;
 const form = <SkeletonForm />;
 
+const agencyChildren = [
+  { index: true, element: page(<AgencyOverviewPage />, dashboard) },
+  { path: 'departments', element: page(<AgencyDepartmentsPage />, cards) },
+  { path: 'departments/trash', element: page(<AgencyDepartmentTrashPage />, table) },
+  { path: 'services', element: page(<AgencyServicesPage />, cards) },
+  { path: 'services/trash', element: page(<AgencyServiceTrashPage />, table) },
+  { path: 'commercials', element: page(<AgencyCommercialsPage />, table) },
+  { path: 'commercials/report', element: page(<AgencyCommercialReportPage />, table) },
+  { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />, detail) },
+  { path: 'employees', element: page(<AgencyEmployeeListPage />, table) },
+  { path: 'employees/:id', element: page(<AgencyEmployeeDetailPage />, detail) },
+  { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
+  { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
+  { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },
+  { path: 'accounting', element: page(<AgencyAccountingPage />, table) },
+  { path: 'bilans', element: page(<DailyBilanPage />, table) },
+  { path: 'subscriptions', element: page(<AgencySubscriptionsPage />, table) },
+  { path: 'teams', element: page(<AgencyTeamsPage />, table) },
+  { path: 'promotions', element: page(<AgencyPromotionsPage />, cards) },
+  { path: 'settings', element: page(<AgencySettingsPage />, detail) },
+];
+
 export const router = createBrowserRouter([
   {
     element: <GuestRoute />,
@@ -89,8 +115,6 @@ export const router = createBrowserRouter([
       { path: '/login', element: page(<LoginPage />, form) },
       { path: '/forgot-password', element: page(<ForgotPasswordPage />, form) },
       { path: '/reset-password', element: page(<ResetPasswordPage />, form) },
-      // Le 2FA est accessible même sans session complète (token en attente
-      // stocké côté AuthContext), donc via GuestRoute plutôt que ProtectedRoute.
       { path: '/two-factor', element: page(<TwoFactorPage />, form) },
       { path: '/register', element: page(<RegisterPage />, form) },
     ],
@@ -101,8 +125,9 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: page(<DashboardPage />, dashboard) },
+          { path: '/', element: page(<PEKEGNOGroupDashboard />, dashboard) },
           { path: '/profile', element: page(<ProfilePage />, detail) },
+          { path: '/countries', element: page(<CountryListPage />, cards) },
           { path: '/agencies', element: page(<AgencyListPage />, cards) },
           { path: '/agencies/trash', element: page(<AgencyTrashPage />, table) },
           { path: '/users', element: page(<UserListPage />, table) },
@@ -133,29 +158,42 @@ export const router = createBrowserRouter([
         ],
       },
       {
-        path: '/agencies/:agencyId',
-        element: <AgencyLayout />,
+        path: '/countries/:countryId',
+        element: <CountryLayout />,
         children: [
-          { index: true, element: page(<AgencyOverviewPage />, dashboard) },
-          { path: 'departments', element: page(<AgencyDepartmentsPage />, cards) },
-          { path: 'departments/trash', element: page(<AgencyDepartmentTrashPage />, table) },
-          { path: 'services', element: page(<AgencyServicesPage />, cards) },
-          { path: 'services/trash', element: page(<AgencyServiceTrashPage />, table) },
-          { path: 'commercials', element: page(<AgencyCommercialsPage />, table) },
-          { path: 'commercials/report', element: page(<AgencyCommercialReportPage />, table) },
-          { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />, detail) },
-          { path: 'employees', element: page(<AgencyEmployeeListPage />, table) },
-          { path: 'employees/:id', element: page(<AgencyEmployeeDetailPage />, detail) },
-          { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
-          { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
-          { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },
-          { path: 'accounting', element: page(<AgencyAccountingPage />, table) },
+          { index: true, element: page(<CountryDashboardPage />, dashboard) },
+          { path: 'clients', element: page(<ClientListPage />, table) },
+          { path: 'clients/:id', element: page(<ClientDetailPage />, detail) },
+          { path: 'agencies', element: page(<AgencyListPage />, cards) },
+          { path: 'agencies/trash', element: page(<AgencyTrashPage />, table) },
+          { path: 'users', element: page(<UserListPage />, table) },
+          { path: 'departments', element: page(<DepartmentListPage />, cards) },
+          { path: 'departments/trash', element: page(<DepartmentTrashPage />, table) },
+          { path: 'privileges', element: page(<RolesPrivilegesPage />, table) },
+          { path: 'commercials', element: page(<CommercialListPage />, table) },
+          { path: 'commercials/report', element: page(<CommercialReportPage />, table) },
+          { path: 'employees', element: page(<EmployeeListPage />, table) },
+          { path: 'accounting', element: page(<AccountingPage />, table) },
           { path: 'bilans', element: page(<DailyBilanPage />, table) },
-          { path: 'subscriptions', element: page(<AgencySubscriptionsPage />, table) },
-          { path: 'teams', element: page(<AgencyTeamsPage />, table) },
-          { path: 'promotions', element: page(<AgencyPromotionsPage />, cards) },
-          { path: 'settings', element: page(<AgencySettingsPage />, detail) },
+          { path: 'subscriptions', element: page(<SubscriptionListPage />, table) },
+          { path: 'invoices', element: page(<InvoiceListPage />, table) },
+          { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
+          { path: 'invoices/:id', element: page(<InvoiceDetailPage />, detail) },
+          { path: 'audit', element: page(<ActivityLogPage />, table) },
+          { path: 'settings', element: page(<SettingsPage />, detail) },
+          { path: 'catalog', element: <Navigate to="services" replace /> },
+          { path: 'catalog/categories', element: page(<CategoryListPage />, table) },
+          { path: 'catalog/services', element: page(<ServiceListPage />, cards) },
         ],
+      },
+      {
+        path: '/agencies/:agencyId/*',
+        element: <AgencyRedirect />,
+      },
+      {
+        path: '/countries/:countryId/agencies/:agencyId',
+        element: <AgencyLayout />,
+        children: agencyChildren,
       },
       {
         path: '/departments/:departmentId',

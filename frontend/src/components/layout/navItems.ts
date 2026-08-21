@@ -9,11 +9,9 @@ import {
   Contact,
   FileText,
   FolderTree,
-  History,
+  Globe,
   LayoutDashboard,
   Package,
-  Settings,
-  Shield,
   Users,
 } from 'lucide-react';
 
@@ -53,17 +51,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
 
   if (ADMIN_ROLES.includes(roleName ?? '')) {
     return [
-      ...baseItems,
-      { to: '/agencies', label: t('nav.agencies'), icon: Building2, end: false },
-      { to: '/users', label: t('nav.users'), icon: Users, end: false },
-      { to: '/privileges', label: t('nav.privileges'), icon: Shield, end: false },
-      catalogItem(t),
-      { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
-      { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
-      { to: '/subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
-      { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
-      { to: '/audit', label: t('nav.audit'), icon: History, end: false },
-      { to: '/settings', label: t('nav.settings'), icon: Settings, end: false },
+      { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+      { to: '/countries', label: t('nav.geography'), icon: Globe, end: false },
     ];
   }
 

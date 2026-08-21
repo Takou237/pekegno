@@ -33,7 +33,7 @@ export const subscriptionsApi = {
     await client.delete(`/subscriptions/${id}`);
   },
 
-  async packs(params: { agency_id?: string; per_page?: number } = {}): Promise<PaginatedResponse<SubscriptionPack>> {
+  async packs(params: { agency_id?: string; per_page?: number; page?: number } = {}): Promise<PaginatedResponse<SubscriptionPack>> {
     const { data } = await client.get<PaginatedResponse<SubscriptionPack>>('/subscription-packs', { params });
     return data;
   },

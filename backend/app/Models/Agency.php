@@ -52,17 +52,95 @@ class Agency extends Model
 
     public function isAgency(): bool
     {
-        return $this->type === 'agency';
+        return $this->hasActivity('agency');
     }
 
     public function isAcademy(): bool
     {
-        return $this->type === 'academy';
+        return $this->hasActivity('academy');
     }
 
     public function isMixed(): bool
     {
-        return $this->type === 'mixed';
+        return $this->hasActivity('agency') && $this->hasActivity('academy');
+    }
+
+    /**
+     * Lignes de métier de l'agence (agency = prestations, academy = formations).
+     */
+    public function activities(): HasMany
+    {
+        return $this->hasMany(AgencyActivity::class);
+    }
+
+    /**
+     * L'agence exerce-t-elle la ligne de métier donnée ?
+     * Se base sur les activités chargées, sinon retombe sur la colonne legacy `type`.
+     */
+    public function hasActivity(string $type): bool
+    {
+        if ($this->relationLoaded('activities')) {
+            return $this->activities->contains(
+                fn (AgencyActivity $activity) => $activity->type === $type && $activity->is_active
+            );
+        }
+
+        return in_array($type, match ($this->type) {
+            'academy' => ['academy'],
+            'mixed' => ['agency', 'academy'],
+            default => ['agency'],
+        }, true);
+    }
+
+    /**
+     * Déduit le type legacy depuis les lignes de métier actives.
+     *
+     * @param  array<int, array{type: string, is_active?: bool}>|null  $activities
+     */
+    public static function deriveType(?array $activities): string
+    {
+        $active = collect($activities ?? [])
+            ->where('is_active', true)
+            ->pluck('type')
+            ->all();
+
+        $hasAgency = in_array('agency', $active, true);
+        $hasAcademy = in_array('academy', $active, true);
+
+        if ($hasAgency && $hasAcademy) {
+            return 'mixed';
+        }
+
+        if ($hasAcademy) {
+            return 'academy';
+        }
+
+        return 'agency';
+    }
+
+    /**
+     * Synchronise les lignes de métier de l'agence. Par défaut, les deux sont actives.
+     *
+     * @param  array<int, array{type: string, is_active?: bool}>|null  $activities
+     */
+    public function syncActivities(?array $activities): void
+    {
+        $activities ??= [
+            ['type' => 'agency', 'is_active' => true],
+            ['type' => 'academy', 'is_active' => true],
+        ];
+
+        foreach ($activities as $activity) {
+            $type = $activity['type'] ?? null;
+            if (! in_array($type, AgencyActivity::TYPES, true)) {
+                continue;
+            }
+
+            $this->activities()->updateOrCreate(
+                ['type' => $type],
+                ['is_active' => (bool) ($activity['is_active'] ?? true)],
+            );
+        }
     }
 
     public function departments(): HasMany

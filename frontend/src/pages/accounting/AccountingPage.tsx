@@ -207,14 +207,6 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
     setCatOpen(true);
   }
 
-  function openEditCat(cat: AccountingCategory) {
-    setEditCat(cat);
-    setCatName(cat.name);
-    setCatType(cat.type);
-    setCatErrors({});
-    setCatOpen(true);
-  }
-
   async function handleCatSubmit(event: FormEvent) {
     event.preventDefault();
     setCatSubmitting(true);

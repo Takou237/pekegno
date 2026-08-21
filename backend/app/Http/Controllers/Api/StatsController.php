@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Agency;
 use App\Models\Commercial;
+use App\Models\Country;
 use App\Models\Department;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -198,6 +200,7 @@ class StatsController extends Controller
         $query = Invoice::whereNull('cancelled_at')
             ->where('invoice_date', '>=', $start)
             ->where('status', 'paid')
+            ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('agency', fn ($inner) => $inner->where('country_id', $countryId)))
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
@@ -338,5 +341,280 @@ class StatsController extends Controller
             ]);
 
         return response()->json($rows);
+    }
+
+    /**
+     * Top produits/services : meilleures ventes par quantité, CA et nombre de transactions.
+     */
+    public function topProducts(Request $request): JsonResponse
+    {
+        $limit = min(max($request->integer('limit', 5), 1), 50);
+        $from = $request->date('from') ?? Carbon::now()->startOfYear();
+        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
+        $rows = InvoiceItem::query()
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')
+            ->whereNull('invoices.cancelled_at')
+            ->whereBetween('invoices.invoice_date', [$from, $to])
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->selectRaw('coalesce(invoice_items.label, services.name) as label, sum(invoice_items.quantity) as quantity, sum(invoice_items.line_total) as revenue, count(*) as transactions')
+            ->groupByRaw('coalesce(invoice_items.label, services.name)')
+            ->orderByRaw('sum(invoice_items.quantity) desc')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($row) => [
+                'label' => $row->label ?: '—',
+                'quantity' => (int) $row->quantity,
+                'revenue' => (float) $row->revenue,
+                'transactions' => (int) $row->transactions,
+            ]);
+
+        return response()->json($rows);
+    }
+
+    /**
+     * Top agences : classement par chiffre d'affaires réalisé.
+     */
+    public function topAgencies(Request $request): JsonResponse
+    {
+        $limit = min(max($request->integer('limit', 5), 1), 50);
+        $from = $request->date('from') ?? Carbon::now()->startOfYear();
+        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
+        $rows = Agency::query()
+            ->whereNull('deleted_at')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('id', $agencyIds))
+            ->withSum([
+                'invoices as revenue' => fn ($q) => $q->where('status', 'paid')
+                    ->whereNull('cancelled_at')
+                    ->whereBetween('invoice_date', [$from, $to]),
+            ], 'total_amount')
+            ->withCount([
+                'invoices as invoices_count' => fn ($q) => $q->whereNull('cancelled_at')
+                    ->whereBetween('invoice_date', [$from, $to]),
+            ])
+            ->orderByDesc('revenue')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Agency $a) => [
+                'id' => $a->id,
+                'name' => $a->name,
+                'code' => $a->code,
+                'country' => $a->country,
+                'country_id' => $a->country_id,
+                'revenue' => (float) $a->revenue,
+                'invoices_count' => (int) $a->invoices_count,
+            ]);
+
+        return response()->json($rows);
+    }
+
+    /**
+     * Group-level stats: global KPIs + per-country breakdown.
+     */
+    public function group(Request $request): JsonResponse
+    {
+        $from = $request->date('from') ?? Carbon::now()->startOfYear();
+        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+
+        $scope = app(\App\Services\ScopeService::class);
+        $agencyIds = $scope->agencyIds($request->user());
+
+        // Global aggregates
+        $invoices = Invoice::whereBetween('invoice_date', [$from, $to])
+            ->whereNull('cancelled_at')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
+
+        $revenue = (clone $invoices)->where('status', 'paid')->sum('total_amount');
+        $outstanding = (clone $invoices)
+            ->whereIn('status', ['unpaid', 'partial'])
+            ->get(['total_amount', 'amount_paid'])
+            ->sum(fn (Invoice $i) => $i->balance_due);
+        $invoiceCount = (clone $invoices)->count();
+        $paidCount = (clone $invoices)->where('status', 'paid')->count();
+
+        $payments = InvoicePayment::whereBetween('paid_at', [$from, $to])
+            ->when($agencyIds !== null, fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
+            ->sum('amount');
+
+        $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
+            ->when($agencyIds !== null, function ($q) use ($agencyIds) {
+                $countryIds = Agency::whereIn('id', $agencyIds)->whereNotNull('country_id')->pluck('country_id')->unique();
+                $q->whereIn('country_id', $countryIds);
+            })
+            ->count();
+
+        $newClients = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
+            ->whereBetween('created_at', [$from, $to])
+            ->when($agencyIds !== null, function ($q) use ($agencyIds) {
+                $countryIds = Agency::whereIn('id', $agencyIds)->whereNotNull('country_id')->pluck('country_id')->unique();
+                $q->whereIn('country_id', $countryIds);
+            })
+            ->count();
+
+        $activeSubscriptions = Subscription::query()
+            ->where('status', 'active')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->count();
+
+        // Per-country breakdown — join invoices via agencies.country_id
+        $countries = Country::withCount('agencies')
+            ->get()
+            ->map(function (Country $country) use ($from, $to) {
+                $countryAgencyIds = Agency::where('country_id', $country->id)->pluck('id');
+
+                $countryInvoiceQuery = Invoice::whereIn('agency_id', $countryAgencyIds)
+                    ->whereBetween('invoice_date', [$from, $to])
+                    ->whereNull('cancelled_at');
+
+                $countryRevenue = (clone $countryInvoiceQuery)->where('status', 'paid')->sum('total_amount');
+                $countryOutstanding = (clone $countryInvoiceQuery)
+                    ->whereIn('status', ['unpaid', 'partial'])
+                    ->get(['total_amount', 'amount_paid'])
+                    ->sum(fn (Invoice $i) => $i->balance_due);
+                $countryInvoiceCount = (clone $countryInvoiceQuery)->count();
+
+                return [
+                    'id' => $country->id,
+                    'name' => $country->name,
+                    'code' => $country->code,
+                    'currency_code' => $country->currency_code,
+                    'is_active' => $country->is_active,
+                    'agencies_count' => $country->agencies_count,
+                    'revenue' => (float) $countryRevenue,
+                    'outstanding' => (float) $countryOutstanding,
+                    'invoices_count' => $countryInvoiceCount,
+                ];
+            });
+
+        return response()->json([
+            'period' => [
+                'from' => $from->toISOString(),
+                'to' => $to->toISOString(),
+            ],
+            'revenue' => (float) $revenue,
+            'payments_total' => (float) $payments,
+            'outstanding' => (float) $outstanding,
+            'invoices_total' => $invoiceCount,
+            'invoices_paid' => $paidCount,
+            'clients_total' => $clientCount,
+            'new_clients' => $newClients,
+            'subscriptions_active' => $activeSubscriptions,
+            'average_invoice_value' => $paidCount > 0 ? round((float) $revenue / $paidCount, 2) : 0.0,
+            'collection_rate' => ((float) $revenue + (float) $outstanding) > 0
+                ? round(((float) $revenue / ((float) $revenue + (float) $outstanding)) * 100, 2)
+                : 0.0,
+            'agencies_total' => Agency::query()
+                ->when($agencyIds !== null, fn ($q) => $q->whereIn('id', $agencyIds))
+                ->count(),
+            'departments_total' => Department::count(),
+            'users_total' => User::count(),
+            'countries' => $countries,
+        ]);
+    }
+
+    /**
+     * Country-level stats: KPIs scoped to a specific country.
+     */
+    public function country(Country $country, Request $request): JsonResponse
+    {
+        $scope = app(\App\Services\ScopeService::class);
+        $agencyIds = $scope->agencyIds($request->user());
+
+        // Verify access to this country
+        $countryAgencyIds = Agency::where('country_id', $country->id)->pluck('id')->all();
+        if ($agencyIds !== null) {
+            $allowed = array_intersect($agencyIds, $countryAgencyIds);
+            if (empty($allowed)) {
+                abort(403, 'Accès refusé pour ce pays.');
+            }
+            $countryAgencyIds = $allowed;
+        }
+
+        $from = $request->date('from') ?? Carbon::now()->startOfMonth();
+        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+
+        $invoices = Invoice::whereIn('agency_id', $countryAgencyIds)
+            ->whereBetween('invoice_date', [$from, $to])
+            ->whereNull('cancelled_at');
+
+        $revenue = (clone $invoices)->where('status', 'paid')->sum('total_amount');
+        $outstanding = (clone $invoices)
+            ->whereIn('status', ['unpaid', 'partial'])
+            ->get(['total_amount', 'amount_paid'])
+            ->sum(fn (Invoice $i) => $i->balance_due);
+        $invoiceCount = (clone $invoices)->count();
+        $paidCount = (clone $invoices)->where('status', 'paid')->count();
+
+        $payments = InvoicePayment::whereBetween('paid_at', [$from, $to])
+            ->whereHas('invoice', fn ($q) => $q->whereIn('agency_id', $countryAgencyIds)->whereNull('cancelled_at'))
+            ->sum('amount');
+
+        $advances = InvoicePayment::whereBetween('paid_at', [$from, $to])
+            ->where('is_advance', true)
+            ->whereHas('invoice', fn ($q) => $q->whereIn('agency_id', $countryAgencyIds)->whereNull('cancelled_at')->whereIn('status', ['unpaid', 'partial']))
+            ->sum('amount');
+
+        $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
+            ->where('country_id', $country->id)
+            ->count();
+
+        $agencyCount = Agency::where('country_id', $country->id)->count();
+        $departmentCount = Department::whereIn('agency_id', $countryAgencyIds)->count();
+        $userCount = User::query()
+            ->where(function ($q) use ($countryAgencyIds) {
+                $q->whereIn('registered_agency_id', $countryAgencyIds)
+                    ->orWhereHas('assignments', fn ($inner) => $inner->whereIn('agency_id', $countryAgencyIds));
+            })
+            ->count();
+
+        $topCommercials = Commercial::query()
+            ->whereIn('agency_id', $countryAgencyIds)
+            ->with('user:id,first_name,last_name,email')
+            ->withCount([
+                'invoices as sales_count' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at'),
+                'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->where('status', 'paid'),
+            ])
+            ->orderByDesc('revenue')
+            ->limit(5)
+            ->get()
+            ->map(fn (Commercial $c) => [
+                'id' => $c->id,
+                'first_name' => $c->first_name,
+                'last_name' => $c->last_name,
+                'email' => $c->email,
+                'points_balance' => $c->points_balance,
+                'sales_count' => $c->sales_count,
+                'revenue' => (float) $c->revenue,
+            ]);
+
+        return response()->json([
+            'country' => [
+                'id' => $country->id,
+                'name' => $country->name,
+                'code' => $country->code,
+                'currency_code' => $country->currency_code,
+            ],
+            'period' => [
+                'from' => $from->toISOString(),
+                'to' => $to->toISOString(),
+            ],
+            'revenue' => (float) $revenue,
+            'payments_total' => (float) $payments,
+            'advances_total' => (float) $advances,
+            'outstanding' => (float) $outstanding,
+            'invoices_total' => $invoiceCount,
+            'invoices_paid' => $paidCount,
+            'clients_total' => $clientCount,
+            'agencies_total' => $agencyCount,
+            'departments_total' => $departmentCount,
+            'users_total' => $userCount,
+            'top_commercials' => $topCommercials,
+        ]);
     }
 }

@@ -50,7 +50,7 @@ const EMPTY_PROSPECT_FORM: ProspectForm = {
   notes: '',
 };
 
-export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageTitle, backToListLabel, backToListPath }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; backToListLabel?: string; backToListPath?: string }) {
+export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageTitle: _pageTitle, backToListLabel, backToListPath }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; backToListLabel?: string; backToListPath?: string }) {
   const { id: routeId, commercialId } = useParams();
   const id = commercialId ?? routeId ?? '';
   const { t } = useTranslation();

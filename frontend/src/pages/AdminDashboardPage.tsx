@@ -11,6 +11,7 @@ import { SkeletonDashboard,
   SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
+import { PeriodPicker, defaultPeriod, type Period } from '@/components/ui/PeriodPicker';
 import { currentLocale } from '@/i18n';
 import type { Agency } from '@/types/agency';
 import type { DashboardStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, AgencyStats } from '@/types/stats';
@@ -73,16 +74,18 @@ function AdminDashboard() {
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
+  const [period, setPeriod] = useState<Period>(defaultPeriod());
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setLoadErrors([]);
+    const range = { from: period.from, to: period.to };
     const results = [
-      { key: 'dashboard', fn: () => statsApi.dashboard() },
+      { key: 'dashboard', fn: () => statsApi.dashboard(range) },
       { key: 'monthlyRevenue', fn: () => statsApi.monthlyRevenue({ months: 12 }) },
-      { key: 'salesByCategory', fn: () => statsApi.salesByCategory() },
-      { key: 'paymentMethods', fn: () => statsApi.paymentMethods() },
+      { key: 'salesByCategory', fn: () => statsApi.salesByCategory(range) },
+      { key: 'paymentMethods', fn: () => statsApi.paymentMethods(range) },
       { key: 'agencies', fn: () => client.get('/agencies', { params: { per_page: 12, sort_by: 'created_at', sort_order: 'desc' } }) },
     ];
     Promise.allSettled(results.map((r) => r.fn()))
@@ -113,7 +116,7 @@ function AdminDashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [period]);
 
   if (loading) {
     return (
@@ -141,11 +144,7 @@ function AdminDashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
         {stats && (
-          <span className="text-sm text-gray-400">
-            {t('dashboard.thisPeriod')} :{' '}
-            {new Date(stats.period.from).toLocaleDateString(currentLocale())} →{' '}
-            {new Date(stats.period.to).toLocaleDateString(currentLocale())}
-          </span>
+          <PeriodPicker value={period} onChange={setPeriod} />
         )}
       </div>
 

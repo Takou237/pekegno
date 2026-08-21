@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
@@ -38,7 +38,16 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { countryId } = useParams<{ countryId?: string }>();
   const [searchParams] = useSearchParams();
+
+  const servicesBase = agencyId
+    ? countryId
+      ? `/countries/${countryId}/agencies/${agencyId}/services`
+      : `/agencies/${agencyId}/services`
+    : countryId
+      ? `/countries/${countryId}/catalog/services`
+      : '/catalog/services';
 
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -209,7 +218,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
             </Button>
           )}
           {canManageCatalogTrash(user) && (
-            <Link to={agencyId ? `/agencies/${agencyId}/services/trash` : '/catalog/services/trash'}>
+            <Link to={`${servicesBase}/trash`}>
               <Button variant="outline">
                 <Trash2 className="h-4 w-4" />
                 {t('common.trash')}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { agenciesApi } from '@/api/agencies.api';
@@ -14,6 +14,7 @@ import type { Agency, PaginationMeta } from '@/types/agency';
 export default function AgencyTrashPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { countryId } = useParams<{ countryId?: string }>();
 
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -73,7 +74,7 @@ export default function AgencyTrashPage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to="/agencies"
+          to={countryId ? `/countries/${countryId}/agencies` : '/agencies'}
           className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
