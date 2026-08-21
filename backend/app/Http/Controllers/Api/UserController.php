@@ -69,6 +69,9 @@ class UserController extends Controller
             ->when($request->is_active !== null, function ($q) use ($request) {
                 $q->where('is_active', $request->boolean('is_active'));
             })
+            ->when($request->role, function ($q, $roleName) {
+                $q->whereHas('role', fn ($rq) => $rq->where('name', $roleName));
+            })
             ->when($request->agency_id, function ($q, $agencyId) {
                 $q->whereHas('assignments', fn ($q) => $q->where('agency_id', $agencyId));
             })

@@ -21,7 +21,6 @@ import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
@@ -58,7 +57,6 @@ export default function AgencyListPage() {
 
   const [search, setSearch] = useState('');
   const [country, setCountry] = useState('');
-  const [typeFilter, setTypeFilter] = useState<NonNullable<AgencyListParams['type']> | ''>('');
   const [sortBy, setSortBy] = useState<NonNullable<AgencyListParams['sort_by']>>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
@@ -76,7 +74,6 @@ export default function AgencyListPage() {
         search: search || undefined,
         country: country || undefined,
         country_id: countryId || undefined,
-        type: typeFilter || undefined,
         sort_by: sortBy,
         sort_order: sortOrder,
         page,
@@ -89,7 +86,7 @@ export default function AgencyListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, country, countryId, typeFilter, sortBy, sortOrder, page]);
+  }, [search, country, countryId, sortBy, sortOrder, page]);
 
   // Debounce léger sur la recherche texte pour éviter un appel par frappe.
   useEffect(() => {
@@ -99,7 +96,7 @@ export default function AgencyListPage() {
     }, 350);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, country, typeFilter, sortBy, sortOrder]);
+  }, [search, country, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchAgencies();
@@ -193,18 +190,6 @@ export default function AgencyListPage() {
         </div>
         <div className="sm:w-48">
           <Select
-            label={t('agencies.filterType')}
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
-          >
-            <option value="">{t('agencies.filterTypeAll')}</option>
-            <option value="agency">{t('agencies.filterTypeAgency')}</option>
-            <option value="academy">{t('agencies.filterTypeAcademy')}</option>
-            <option value="mixed">{t('agencies.filterTypeMixed')}</option>
-          </Select>
-        </div>
-        <div className="sm:w-48">
-          <Select
             label={t('agencies.sortBy')}
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
@@ -251,33 +236,6 @@ export default function AgencyListPage() {
                     <p className="font-semibold text-gray-900 dark:text-white">{agency.name}</p>
                     <div className="flex items-center gap-2">
                       <p className="font-mono text-xs text-gray-400">{agency.code}</p>
-                      {agency.activities && agency.activities.length > 0 ? (
-                        agency.activities
-                          .filter((a) => a.is_active)
-                          .map((a) => (
-                            <Badge key={a.type} variant={a.type === 'academy' ? 'brand' : 'success'}>
-                              {a.type === 'academy' ? t('agencies.filterTypeAcademy') : t('agencies.filterTypeAgency')}
-                            </Badge>
-                          ))
-                      ) : (
-                        agency.type && (
-                          <Badge
-                            variant={
-                              agency.type === 'academy'
-                                ? 'brand'
-                                : agency.type === 'mixed'
-                                  ? 'warning'
-                                  : 'success'
-                            }
-                          >
-                            {agency.type === 'academy'
-                              ? t('agencies.filterTypeAcademy')
-                              : agency.type === 'mixed'
-                                ? t('agencies.filterTypeMixed')
-                                : t('agencies.filterTypeAgency')}
-                          </Badge>
-                        )
-                      )}
                     </div>
                   </div>
                 </div>

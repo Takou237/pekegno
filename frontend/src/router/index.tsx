@@ -75,6 +75,13 @@ const AgencyEmployeeDetailPage = lazy(() => import('@/pages/employees/AgencyEmpl
 const ActivityLogPage = lazy(() => import('@/pages/audit/ActivityLogPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const CountryListPage = lazy(() => import('@/pages/CountryListPage'));
+const AcademyOverviewPage = lazy(() => import('@/pages/academy/AcademyOverviewPage'));
+const AcademyCoursesPage = lazy(() => import('@/pages/academy/AcademyCoursesPage'));
+const AcademySessionsPage = lazy(() => import('@/pages/academy/AcademySessionsPage'));
+const AcademyTrainersPage = lazy(() => import('@/pages/academy/AcademyTrainersPage'));
+const AcademyTrainerDetailPage = lazy(() => import('@/pages/academy/AcademyTrainerDetailPage'));
+const AcademyLearnersPage = lazy(() => import('@/pages/academy/AcademyLearnersPage'));
+const AcademyLearnerDetailPage = lazy(() => import('@/pages/academy/AcademyLearnerDetailPage'));
 
 function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
   return <Suspense fallback={fallback}>{node}</Suspense>;
@@ -106,6 +113,17 @@ const agencyChildren = [
   { path: 'teams', element: page(<AgencyTeamsPage />, table) },
   { path: 'promotions', element: page(<AgencyPromotionsPage />, cards) },
   { path: 'settings', element: page(<AgencySettingsPage />, detail) },
+];
+
+/** Ligne Formations (Academy) d'une agence : sections préfixées par /academy. */
+const academyChildren = [
+  { index: true, element: page(<AcademyOverviewPage />, dashboard) },
+  { path: 'courses', element: page(<AcademyCoursesPage />, cards) },
+  { path: 'sessions', element: page(<AcademySessionsPage />, table) },
+  { path: 'trainers', element: page(<AcademyTrainersPage />, table) },
+  { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
+  { path: 'learners', element: page(<AcademyLearnersPage />, table) },
+  { path: 'learners/:learnerId', element: page(<AcademyLearnerDetailPage />, detail) },
 ];
 
 export const router = createBrowserRouter([
@@ -193,7 +211,10 @@ export const router = createBrowserRouter([
       {
         path: '/countries/:countryId/agencies/:agencyId',
         element: <AgencyLayout />,
-        children: agencyChildren,
+        children: [
+          ...agencyChildren,
+          { path: 'academy', children: academyChildren },
+        ],
       },
       {
         path: '/departments/:departmentId',

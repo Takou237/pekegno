@@ -43,6 +43,8 @@ use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\SubscriptionNotificationController;
+use App\Http\Controllers\Api\TrainerController;
+use App\Http\Controllers\Api\LearnerController;
 use App\Http\Controllers\Api\TrainingSessionController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserAssignmentController;
@@ -121,6 +123,15 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/training-sessions', [TrainingSessionController::class, 'store'])->middleware('permission:sessions.creer');
     Route::get('/training-sessions/trash', [TrainingSessionController::class, 'trash'])->middleware('permission:sessions.consulter');
     Route::get('/reports/training', [TrainingSessionController::class, 'report'])->middleware('permission:sessions.consulter');
+    Route::post('/trainers', [TrainerController::class, 'store'])->middleware('permission:sessions.creer');
+    Route::get('/trainers/available-users', [TrainerController::class, 'availableUsers'])->middleware('permission:sessions.consulter');
+    Route::post('/trainers/{trainer}/link-user', [TrainerController::class, 'linkUser'])->middleware('permission:sessions.modifier');
+    Route::get('/trainers', [TrainerController::class, 'index'])->middleware('permission:sessions.consulter');
+    Route::get('/trainers/{trainer}/stats', [TrainerController::class, 'stats'])->middleware('permission:sessions.consulter');
+    Route::get('/trainers/{trainer}', [TrainerController::class, 'show'])->middleware('permission:sessions.consulter');
+    Route::put('/trainers/{trainer}', [TrainerController::class, 'update'])->middleware('permission:sessions.modifier');
+    Route::delete('/trainers/{trainer}', [TrainerController::class, 'destroy'])->middleware('permission:sessions.supprimer');
+    Route::get('/learners/{learner}/stats', [LearnerController::class, 'stats'])->middleware('permission:enrollments.consulter');
 
     Route::get('/reports/subscriptions', [ReportController::class, 'subscriptions'])->middleware('permission:reports.consulter');
     Route::get('/reports/customers', [ReportController::class, 'customers'])->middleware('permission:reports.consulter');

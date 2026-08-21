@@ -1,0 +1,349 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { academyApi, type Course } from '@/api/academy.api';
+import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
+import { useToast } from '@/hooks/useToast';
+import { SkeletonCards } from '@/components/ui/Skeleton';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Alert } from '@/components/ui/Alert';
+import { Pagination } from '@/components/ui/Pagination';
+import { formatCurrency } from '@/utils/number';
+import type { Agency } from '@/types/agency';
+
+interface AgencyLayoutContext {
+  agency: Agency | null;
+  agencyId?: string;
+}
+
+function modeLabel(mode: Course['mode'], t: ReturnType<typeof useTranslation>['t']): string {
+  switch (mode) {
+    case 'online':
+      return t('academy.modeOnline');
+    case 'mixed':
+      return t('academy.modeMixed');
+    default:
+      return t('academy.modeInPerson');
+  }
+}
+
+interface FormState {
+  name: string;
+  description: string;
+  mode: Course['mode'];
+  price: string;
+  duration_hours: string;
+}
+
+const emptyForm: FormState = {
+  name: '',
+  description: '',
+  mode: 'in_person',
+  price: '',
+  duration_hours: '',
+};
+
+export default function AcademyCoursesPage() {
+  const { t } = useTranslation();
+  const { showToast } = useToast();
+  const { agencyId } = useOutletContext<AgencyLayoutContext>();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Course | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const fetchCourses = useCallback(async () => {
+    if (!agencyId) return;
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const response = await academyApi.courses({
+        agency_id: agencyId,
+        search: search || undefined,
+        page,
+        per_page: 12,
+      });
+      setCourses(response.data);
+      setMeta(response.meta);
+    } catch (error) {
+      setLoadError(extractErrorMessage(error, t('academy.loadFailed')));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [agencyId, search, page, t]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setPage(1);
+      fetchCourses();
+    }, 350);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  useEffect(() => {
+    fetchCourses();
+  }, [fetchCourses]);
+
+  function openCreate() {
+    setEditing(null);
+    setForm(emptyForm);
+    setFormError(null);
+    setFieldErrors({});
+    setFormOpen(true);
+  }
+
+  function openEdit(course: Course) {
+    setEditing(course);
+    setForm({
+      name: course.name,
+      description: course.description ?? '',
+      mode: course.mode,
+      price: course.price != null ? String(course.price) : '',
+      duration_hours: course.duration_hours != null ? String(course.duration_hours) : '',
+    });
+    setFormError(null);
+    setFieldErrors({});
+    setFormOpen(true);
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!agencyId) return;
+    setFormError(null);
+    setFieldErrors({});
+    setIsSubmitting(true);
+
+    const payload = {
+      name: form.name,
+      description: form.description || null,
+      mode: form.mode,
+      price: form.price ? Number(form.price) : null,
+      duration_hours: form.duration_hours ? Number(form.duration_hours) : null,
+      agency_id: agencyId,
+    };
+
+    try {
+      if (editing) {
+        const saved = await academyApi.updateCourse(editing.id, payload);
+        setCourses((prev) => prev.map((c) => (c.id === saved.id ? saved : c)));
+      } else {
+        const saved = await academyApi.createCourse(payload);
+        setCourses((prev) => [saved, ...prev]);
+      }
+      showToast(t('academy.saved'), 'success');
+      setFormOpen(false);
+    } catch (error) {
+      setFormError(extractErrorMessage(error, t('academy.saveFailed')));
+      setFieldErrors(extractFieldErrors(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleDelete(course: Course) {
+    if (!window.confirm(t('academy.deleteCourseConfirm', { name: course.name }))) return;
+    try {
+      await academyApi.removeCourse(course.id);
+      setCourses((prev) => prev.filter((c) => c.id !== course.id));
+      showToast(t('academy.courseDeleted'), 'success');
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('academy.deleteFailed')), 'error');
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.courses')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('academy.coursesSubtitle')}</p>
+        </div>
+        <Button onClick={openCreate}>
+          <Plus className="h-4 w-4" />
+          {t('academy.newCourse')}
+        </Button>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+        <div className="relative max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('academy.searchCoursePlaceholder')}
+            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+        {isLoading ? (
+          <SkeletonCards />
+        ) : loadError ? (
+          <p className="p-6 text-sm text-error-500">{loadError}</p>
+        ) : courses.length === 0 ? (
+          <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('academy.noCourses')}</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {courses.map((course) => (
+              <div
+                key={course.id}
+                className="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-gray-900 dark:text-white">{course.name}</p>
+                    <p className="font-mono text-xs text-gray-400">{course.code}</p>
+                  </div>
+                  {!course.is_active && <Badge variant="neutral">{t('common.inactive')}</Badge>}
+                </div>
+
+                {course.description && (
+                  <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">
+                    {course.description}
+                  </p>
+                )}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <Badge variant="brand">{modeLabel(course.mode, t)}</Badge>
+                  {course.price != null && (
+                    <span className="font-medium text-gray-700 dark:text-gray-200">
+                      {formatCurrency(course.price)}
+                    </span>
+                  )}
+                  {course.duration_hours != null && (
+                    <span>
+                      {course.duration_hours} {t('academy.hours')}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-auto flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(course)}
+                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
+                    title={t('common.edit')}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(course)}
+                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                    title={t('common.delete')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {meta && meta.last_page > 1 && (
+          <div className="border-t border-gray-100 p-4 dark:border-gray-800">
+            <Pagination
+              currentPage={meta.current_page}
+              lastPage={meta.last_page}
+              total={meta.total}
+              perPage={12}
+              onPageChange={setPage}
+            />
+          </div>
+        )}
+      </div>
+
+      <Modal
+        isOpen={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={editing ? t('academy.editCourse') : t('academy.newCourse')}
+        maxWidth="max-w-xl"
+      >
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {formError && <Alert variant="error">{formError}</Alert>}
+
+          <Input
+            label={t('academy.courseName')}
+            required
+            value={form.name}
+            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+            error={fieldErrors.name}
+          />
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.mode')}
+            </label>
+            <select
+              value={form.mode}
+              onChange={(e) => setForm((prev) => ({ ...prev, mode: e.target.value as Course['mode'] }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              {(['in_person', 'online', 'mixed'] as const).map((m) => (
+                <option key={m} value={m}>
+                  {modeLabel(m, t)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label={t('academy.price')}
+              type="number"
+              min="0"
+              step="1"
+              value={form.price}
+              onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
+              error={fieldErrors.price}
+            />
+            <Input
+              label={t('academy.duration')}
+              type="number"
+              min="1"
+              value={form.duration_hours}
+              onChange={(e) => setForm((prev) => ({ ...prev, duration_hours: e.target.value }))}
+              error={fieldErrors.duration_hours}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.description')}
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            />
+          </div>
+
+          <div className="mt-2 flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setFormOpen(false)} disabled={isSubmitting} className="flex-1">
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" isLoading={isSubmitting} className="flex-1">
+              {editing ? t('common.save') : t('common.create')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}

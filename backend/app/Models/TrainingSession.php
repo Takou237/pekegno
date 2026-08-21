@@ -15,7 +15,7 @@ class TrainingSession extends Model
 
     protected $fillable = [
         'course_id',
-        'trainer_user_id',
+        'trainer_id',
         'agency_id',
         'start_at',
         'end_at',
@@ -23,6 +23,14 @@ class TrainingSession extends Model
         'max_capacity',
         'price',
         'status',
+    ];
+
+    /**
+     * Valeur par défaut appliquée aussi en mémoire (sinon la réponse API
+     * renvoie null avant que le défaut SQL « planned » ne soit lu).
+     */
+    protected $attributes = [
+        'status' => 'planned',
     ];
 
     protected function casts(): array
@@ -42,7 +50,7 @@ class TrainingSession extends Model
 
     public function trainer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'trainer_user_id');
+        return $this->belongsTo(Trainer::class, 'trainer_id');
     }
 
     public function agency(): BelongsTo

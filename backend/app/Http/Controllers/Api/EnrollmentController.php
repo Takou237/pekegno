@@ -35,7 +35,11 @@ class EnrollmentController extends Controller
         $query = Enrollment::with(['session.course', 'learner'])
             ->when($request->session_id, fn ($q, $v) => $q->where('session_id', $v))
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
-            ->when($request->learner_user_id, fn ($q, $v) => $q->where('learner_user_id', $v));
+            ->when($request->learner_user_id, fn ($q, $v) => $q->where('learner_user_id', $v))
+            ->when($request->agency_id, fn ($q, $v) => $q->whereHas(
+                'session',
+                fn ($sq) => $sq->where('agency_id', $v)
+            ));
 
         return EnrollmentResource::collection(
             $query->orderByDesc('created_at')
