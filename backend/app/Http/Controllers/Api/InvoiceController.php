@@ -278,7 +278,6 @@ class InvoiceController extends Controller
     public function pay(StoreInvoicePaymentRequest $request, Invoice $invoice): JsonResponse
     {
         abort_if($invoice->is_cancelled, 422, "Impossible d'encaisser une facture annulée.");
-        abort_if($invoice->payments()->count() >= 3, 422, 'Paiement en tranches limité à 3 (3 versements maximum).');
         abort_if($invoice->status === 'paid', 422, 'Cette facture est déjà soldée.');
 
         $amount = round((float) $request->input('amount'), 2);
@@ -288,28 +287,14 @@ class InvoiceController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($request, $invoice, $amount) {
-            $payment = $invoice->payments()->create([
-                'amount' => $amount,
-                'payment_method' => $request->input('payment_method'),
-                'is_advance' => $request->boolean('is_advance', false),
-                'paid_at' => $request->date('paid_at') ?? now(),
-                'received_by' => $request->user()->id,
-                'comment' => $request->input('comment'),
-            ]);
-
-            $invoice->increment('amount_paid', $amount);
-            $invoice->refreshStatus();
-            $invoice->save();
-
-            $this->commissionService->recordForPayment($invoice, $payment, $request->user()->id);
-            $this->accountingService->recordIncomeFromPayment($invoice, $payment);
-
-            // Points attribués uniquement au soldé (règles inchangées — idempotent via points_awarded).
-            if ($invoice->status === 'paid') {
-                $this->pointsService->awardForSale($invoice, $request->user()->id);
-            }
-        });
+        $this->paymentService->applyPayment(
+            invoice: $invoice,
+            amount: $amount,
+            method: $request->input('payment_method'),
+            isAdvance: $request->boolean('is_advance', false),
+            userId: $request->user()->id,
+            treasuryAccountId: $request->input('treasury_account_id'),
+        );
 
         $this->logger->log(
             'paid',

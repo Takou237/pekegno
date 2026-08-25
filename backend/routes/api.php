@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\SubscriptionNotificationController;
 use App\Http\Controllers\Api\TrainerController;
+use App\Http\Controllers\Api\TreasuryController;
 use App\Http\Controllers\Api\LearnerController;
 use App\Http\Controllers\Api\TrainingSessionController;
 use App\Http\Controllers\Api\UploadController;
@@ -255,6 +256,11 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/stats/payment-methods', [StatsController::class, 'paymentMethods'])->middleware('permission:stats.consulter');
     Route::get('/stats/top-products', [StatsController::class, 'topProducts'])->middleware('permission:stats.consulter');
     Route::get('/stats/top-agencies', [StatsController::class, 'topAgencies'])->middleware('permission:stats.consulter');
+
+    Route::get('/treasury/accounts', [TreasuryController::class, 'indexAccounts'])->middleware('permission:tresories.consulter');
+    Route::get('/treasury/accounts/{account}', [TreasuryController::class, 'showAccount'])->middleware('permission:tresories.consulter');
+    Route::get('/treasury/transactions', [TreasuryController::class, 'indexTransactions'])->middleware('permission:tresories.consulter');
+    Route::post('/treasury/transfer', [TreasuryController::class, 'transfer'])->middleware('permission:tresories.modifier');
 
     Route::get('/bilans/period', [BilanController::class, 'period'])->middleware('permission:bilans.consulter');
     Route::get('/bilans', [BilanController::class, 'dailyBilan'])->middleware('permission:bilans.consulter');

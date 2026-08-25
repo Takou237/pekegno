@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             ClientCategorySeeder::class,
             AdminUserSeeder::class,
             AgencySeeder::class,
+            TreasuryAccountSeeder::class,
             UserSeeder::class,
             SettingSeeder::class,
         ]);

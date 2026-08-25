@@ -452,12 +452,12 @@ class ExportController extends Controller
             $rows->push(['Encaissements', 'MTN Mobile Money', '', (float) $bilan['momo_total']]);
             $rows->push(['', 'TOTAL ENCAISSÉ', '', (float) $bilan['total_received']]);
             $rows->push(['']);
-            $rows->push(['', 'Solde initial', '', (float) $bilan['solde_initial']]);
+            $rows->push(['', 'Solde initial', '', abs((float) $bilan['solde_initial'])]);
             foreach ($bilan['expenses_by_category'] as $e) {
                 $rows->push(['Dépense', $e['name'], '', (float) $e['total']]);
             }
             $rows->push(['', 'TOTAL DÉPENSES', '', (float) $bilan['expense_total']]);
-            $rows->push(['', 'SOLDE FINAL', '', (float) $bilan['solde_final']]);
+            $rows->push(['', 'SOLDE FINAL', '', abs((float) $bilan['solde_final'])]);
 
             return $this->stream(
                 'bilan-agence-'.$date->format('Y-m-d').'.csv',
@@ -479,18 +479,18 @@ class ExportController extends Controller
                 $ab['om_total'],
                 $ab['momo_total'],
                 $ab['total_received'],
-                $ab['solde_initial'],
+                abs($ab['solde_initial']),
                 $ab['expense_total'],
-                $ab['solde_final'],
+                abs($ab['solde_final']),
             ]);
             $totalRow[0] += $ab['total_ventes'];
             $totalRow[1] += $ab['cash_total'];
             $totalRow[2] += $ab['om_total'];
             $totalRow[3] += $ab['momo_total'];
             $totalRow[4] += $ab['total_received'];
-            $totalRow[5] += $ab['solde_initial'];
+            $totalRow[5] += abs($ab['solde_initial']);
             $totalRow[6] += $ab['expense_total'];
-            $totalRow[7] += $ab['solde_final'];
+            $totalRow[7] += abs($ab['solde_final']);
         }
 
         $rows->push(['TOTAL GÉNÉRAL', $totalRow[0], $totalRow[1], $totalRow[2], $totalRow[3], $totalRow[4], $totalRow[5], $totalRow[6], $totalRow[7]]);

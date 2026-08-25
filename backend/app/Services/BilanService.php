@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\AccountingTransaction;
 use App\Models\Agency;
 use App\Models\DailyBalance;
+use App\Models\TreasuryAccount;
+use App\Models\TreasuryTransaction;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -42,8 +44,6 @@ class BilanService
 
     /**
      * Bilan consolidé — agences autorisées, une seule date.
-     *
-     * @param  array<int, string>|null  $agencyIds  agences autorisées (scope), null = toutes
      */
     public function consolidated(Carbon $date, ?array $agencyIds = null): array
     {
@@ -99,8 +99,6 @@ class BilanService
 
     /**
      * Construit le bilan complet d'un seul jour.
-     *
-     * @param  array<int, string>|null  $agencyIds  agences autorisées (scope), null = toutes
      */
     private function buildSingleDay(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
@@ -127,6 +125,15 @@ class BilanService
 
         $agency = $agencyId ? Agency::find($agencyId)?->only('id', 'name') : null;
 
+        // Solde réel trésorerie (tous les comptes de l'agence)
+        $treasuryBalance = $this->treasuryBalance($date, $agencyId, $agencyIds);
+
+        // Écart entre solde théorique et solde réel
+        $gap = $treasuryBalance !== null ? round($closing - $treasuryBalance, 2) : null;
+        $gapPercent = $treasuryBalance !== null && abs($treasuryBalance) > 0
+            ? round(($gap / abs($treasuryBalance)) * 100, 2)
+            : null;
+
         return [
             'date' => $date->toDateString(),
             'agency_id' => $agencyId,
@@ -142,13 +149,45 @@ class BilanService
             'expenses_by_category' => $expensesByCategory,
             'solde_initial' => $opening,
             'solde_final' => $closing,
+            'treasury_balance' => $treasuryBalance,
+            'gap' => $gap,
+            'gap_percent' => $gapPercent,
         ];
     }
 
     /**
+     * Solde réel de la trésorerie (tous les comptes actifs d'une agence).
+     */
+    private function treasuryBalance(Carbon $date, ?string $agencyId, ?array $agencyIds = null): ?float
+    {
+        $accounts = TreasuryAccount::active()
+            ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId))
+            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->get();
+
+        if ($accounts->isEmpty()) {
+            return null;
+        }
+
+        $total = 0.0;
+        foreach ($accounts as $account) {
+            $in = TreasuryTransaction::ofAccount($account->id)
+                ->where('transacted_at', '<=', $date->endOfDay())
+                ->where('direction', 'in')
+                ->sum('amount');
+            $out = TreasuryTransaction::ofAccount($account->id)
+                ->where('transacted_at', '<=', $date->endOfDay())
+                ->where('direction', 'out')
+                ->sum('amount');
+
+            $total += (float) $account->opening_balance + (float) $in - (float) $out;
+        }
+
+        return round($total, 2);
+    }
+
+    /**
      * Ventes groupées par catégorie de service (dynamique).
-     *
-     * @param  array<int, string>|null  $agencyIds
      */
     private function servicesByCategory(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
@@ -181,8 +220,6 @@ class BilanService
 
     /**
      * Encaissements ventilés par mode: cash, om, momo, mobile.
-     *
-     * @param  array<int, string>|null  $agencyIds
      */
     private function receivedByMode(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
@@ -201,8 +238,6 @@ class BilanService
 
     /**
      * Dépenses groupées par catégorie (dynamique).
-     *
-     * @param  array<int, string>|null  $agencyIds
      */
     private function expensesByCategory(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {

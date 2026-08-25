@@ -24,6 +24,7 @@ import {
   ClipboardList,
   Undo2,
   Warehouse,
+  Landmark,
 } from 'lucide-react';
 import type { DepartmentType } from '@/types/department';
 
@@ -78,6 +79,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
         ? [{ to: `/users?agency_id=${agencyId}`, label: t('nav.myTeam'), icon: Users, end: false as const }]
         : []),
       catalogItem(t),
+      { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
     ];
   }
@@ -106,6 +108,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       { to: '/commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
       invoiceItem(t, unpaidBadge),
+      { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
       { to: '/subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },

@@ -18,6 +18,7 @@ class InvoicePayment extends Model
         'paid_at',
         'received_by',
         'comment',
+        'treasury_account_id',
     ];
 
     protected function casts(): array
@@ -37,5 +38,10 @@ class InvoicePayment extends Model
     public function receiver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'received_by');
+    }
+
+    public function treasuryAccount(): BelongsTo
+    {
+        return $this->belongsTo(TreasuryAccount::class);
     }
 }

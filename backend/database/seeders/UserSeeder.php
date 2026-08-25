@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Agency;
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -13,7 +14,8 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         $roles = Role::pluck('id', 'name');
-        $agencies = Agency::pluck('id');
+        $agencies = Agency::all()->keyBy(fn ($a) => $a->name);
+        $departments = Department::all()->keyBy(fn ($d) => $d->name);
 
         $users = [
             // Direction Générale
@@ -25,6 +27,7 @@ class UserSeeder extends Seeder
                 'phone' => '+237 690 000 001',
                 'role' => 'direction-generale',
                 'agencies' => [],
+                'department' => null,
             ],
             [
                 'username' => 'marie.ngono',
@@ -34,6 +37,7 @@ class UserSeeder extends Seeder
                 'phone' => '+237 690 000 002',
                 'role' => 'direction-generale',
                 'agencies' => [],
+                'department' => null,
             ],
             // Responsables d'agence
             [
@@ -43,7 +47,8 @@ class UserSeeder extends Seeder
                 'last_name' => 'Ekotto',
                 'phone' => '+237 690 000 003',
                 'role' => 'responsable-agence',
-                'agencies' => [0], // première agence = chef
+                'agencies' => ['Agence Principale Douala'],
+                'department' => null,
             ],
             [
                 'username' => 'sophie.adje',
@@ -52,7 +57,18 @@ class UserSeeder extends Seeder
                 'last_name' => 'Adje',
                 'phone' => '+237 690 000 004',
                 'role' => 'responsable-agence',
-                'agencies' => [1], // deuxième agence = chef
+                'agencies' => ['Agence Yaoundé Centre'],
+                'department' => null,
+            ],
+            [
+                'username' => 'yao.kouassi',
+                'email' => 'yao.kouassi@pekegno.com',
+                'first_name' => 'Yao',
+                'last_name' => 'Kouassi',
+                'phone' => '+225 07 00 00 005',
+                'role' => 'responsable-agence',
+                'agencies' => ['Agence Plateau Abidjan'],
+                'department' => null,
             ],
             // Commerciaux
             [
@@ -60,18 +76,20 @@ class UserSeeder extends Seeder
                 'email' => 'carlos.fotso@pekegno.com',
                 'first_name' => 'Carlos',
                 'last_name' => 'Fotso',
-                'phone' => '+237 690 000 005',
+                'phone' => '+237 690 000 006',
                 'role' => 'commercial',
-                'agencies' => [0, 1],
+                'agencies' => ['Agence Principale Douala', 'Agence Yaoundé Centre'],
+                'department' => 'Agency Douala',
             ],
             [
                 'username' => 'fatima.bello',
                 'email' => 'fatima.bello@pekegno.com',
                 'first_name' => 'Fatima',
                 'last_name' => 'Bello',
-                'phone' => '+237 690 000 006',
+                'phone' => '+237 690 000 007',
                 'role' => 'commercial',
-                'agencies' => [0],
+                'agencies' => ['Agence Principale Douala'],
+                'department' => 'Agency Douala',
             ],
             // Caissiers
             [
@@ -79,9 +97,10 @@ class UserSeeder extends Seeder
                 'email' => 'youssef.hamid@pekegno.com',
                 'first_name' => 'Youssef',
                 'last_name' => 'Hamid',
-                'phone' => '+237 690 000 007',
+                'phone' => '+237 690 000 008',
                 'role' => 'caissier',
-                'agencies' => [0],
+                'agencies' => ['Agence Principale Douala'],
+                'department' => 'Store Douala',
             ],
             // Comptable
             [
@@ -89,9 +108,10 @@ class UserSeeder extends Seeder
                 'email' => 'nadia.tchinda@pekegno.com',
                 'first_name' => 'Nadia',
                 'last_name' => 'Tchinda',
-                'phone' => '+237 690 000 008',
+                'phone' => '+237 690 000 009',
                 'role' => 'comptable',
-                'agencies' => [0, 1],
+                'agencies' => ['Agence Principale Douala', 'Agence Yaoundé Centre'],
+                'department' => null,
             ],
             // Formateur
             [
@@ -99,9 +119,10 @@ class UserSeeder extends Seeder
                 'email' => 'emmanuel.ngue@pekegno.com',
                 'first_name' => 'Emmanuel',
                 'last_name' => 'Ngue',
-                'phone' => '+237 690 000 009',
+                'phone' => '+237 690 000 010',
                 'role' => 'formateur',
-                'agencies' => [0],
+                'agencies' => ['Agence Principale Douala'],
+                'department' => 'Academy Douala',
             ],
             // Responsable département
             [
@@ -109,16 +130,29 @@ class UserSeeder extends Seeder
                 'email' => 'grace.tala@pekegno.com',
                 'first_name' => 'Grace',
                 'last_name' => 'Tala',
-                'phone' => '+237 690 000 010',
+                'phone' => '+237 690 000 011',
                 'role' => 'responsable-departement',
-                'agencies' => [0, 1],
+                'agencies' => ['Agence Principale Douala', 'Agence Yaoundé Centre'],
+                'department' => 'Academy Douala',
+            ],
+            // Responsable département Studio
+            [
+                'username' => 'lucien.mbida',
+                'email' => 'lucien.mbida@pekegno.com',
+                'first_name' => 'Lucien',
+                'last_name' => 'Mbida',
+                'phone' => '+237 690 000 012',
+                'role' => 'responsable-departement',
+                'agencies' => ['Agence Principale Douala'],
+                'department' => 'Studio Douala',
             ],
         ];
 
         foreach ($users as $userData) {
             $roleName = $userData['role'];
-            $agencyIndices = $userData['agencies'];
-            unset($userData['role'], $userData['agencies']);
+            $agencyNames = $userData['agencies'];
+            $departmentName = $userData['department'] ?? null;
+            unset($userData['role'], $userData['agencies'], $userData['department']);
 
             $user = User::firstOrCreate(
                 ['email' => $userData['email']],
@@ -130,15 +164,17 @@ class UserSeeder extends Seeder
                 ])
             );
 
-            // Assigner aux agences
-            foreach ($agencyIndices as $index) {
-                if (isset($agencies[$index])) {
-                    $isPrimary = $roleName === 'responsable-agence' && $agencyIndices[0] === $index;
+            foreach ($agencyNames as $name) {
+                if (isset($agencies[$name])) {
+                    $isPrimary = $roleName === 'responsable-agence' && $agencyNames[0] === $name;
+                    $deptId = $departmentName && isset($departments[$departmentName])
+                        ? $departments[$departmentName]->id
+                        : null;
 
                     $user->assignments()->syncWithoutDetaching([
-                        $agencies[$index] => [
+                        $agencies[$name]->id => [
                             'is_primary' => $isPrimary,
-                            'department_id' => null,
+                            'department_id' => $deptId,
                         ],
                     ]);
                 }

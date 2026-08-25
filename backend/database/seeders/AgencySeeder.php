@@ -15,6 +15,7 @@ class AgencySeeder extends Seeder
         $organization = Organization::where('code', 'PEKEGNO')->first();
         $cityDouala = City::where('name', 'Douala')->first();
         $cityYaounde = City::where('name', 'Yaoundé')->first();
+        $cityAbidjan = City::where('name', 'Abidjan')->first();
 
         $agencies = [
             [
@@ -37,9 +38,19 @@ class AgencySeeder extends Seeder
                 'phone' => '+237 222 31 00 00',
                 'email' => 'yaounde@pekegno.com',
             ],
+            [
+                'name' => 'Agence Plateau Abidjan',
+                'country' => "Côte d'Ivoire",
+                'city' => 'Abidjan',
+                'country_id' => $cityAbidjan?->country_id,
+                'city_id' => $cityAbidjan?->id,
+                'address' => 'Boulevard de la République, Plateau, Abidjan',
+                'phone' => '+225 27 20 21 00 00',
+                'email' => 'abidjan@pekegno.com',
+            ],
         ];
 
-        $departmentsByType = [
+        $departmentNames = [
             Department::TYPE_ACADEMY => 'Academy',
             Department::TYPE_AGENCY  => 'Agency',
             Department::TYPE_STORE   => 'Store',
@@ -47,16 +58,20 @@ class AgencySeeder extends Seeder
         ];
 
         foreach ($agencies as $data) {
+            $agencyName = $data['name'];
+
             $agency = Agency::create(array_merge($data, [
                 'code' => Agency::generateNextCode(),
                 'type' => 'agency',
                 'organization_id' => $organization?->id,
             ]));
 
-            foreach ($departmentsByType as $type => $label) {
+            $cityShort = $data['city'];
+
+            foreach ($departmentNames as $type => $label) {
                 Department::create([
                     'agency_id' => $agency->id,
-                    'name' => "{$label} {$agency->name}",
+                    'name' => "{$label} {$cityShort}",
                     'type' => $type,
                 ]);
             }

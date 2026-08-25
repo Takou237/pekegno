@@ -82,6 +82,7 @@ const AcademyTrainerDetailPage = lazy(() => import('@/pages/academy/AcademyTrain
 const AcademyLearnersPage = lazy(() => import('@/pages/academy/AcademyLearnersPage'));
 const AcademyLearnerDetailPage = lazy(() => import('@/pages/academy/AcademyLearnerDetailPage'));
 const ComingSoonPage = lazy(() => import('@/pages/ComingSoonPage'));
+const TreasuryPage = lazy(() => import('@/pages/treasury/TreasuryPage'));
 
 function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
   return <Suspense fallback={fallback}>{node}</Suspense>;
@@ -94,8 +95,8 @@ const dashboard = <SkeletonDashboard />;
 const form = <SkeletonForm />;
 
 const agencyChildren = [
-  { index: true, element: page(<AgencyDepartmentsPage />, cards) },
-  { path: 'overview', element: page(<AgencyOverviewPage />, dashboard) },
+  { index: true, element: page(<AgencyOverviewPage />, dashboard) },
+  { path: 'departments', element: page(<AgencyDepartmentsPage />, cards) },
   { path: 'departments/trash', element: page(<AgencyDepartmentTrashPage />, table) },
   { path: 'services', element: page(<AgencyServicesPage />, cards) },
   { path: 'services/trash', element: page(<AgencyServiceTrashPage />, table) },
@@ -150,6 +151,7 @@ export const router = createBrowserRouter([
           { path: '/employees', element: page(<EmployeeListPage />, table) },
           { path: '/employees/:id', element: page(<EmployeeDetailPage />, detail) },
           { path: '/accounting', element: page(<AccountingPage />, table) },
+          { path: '/treasury', element: page(<TreasuryPage />, table) },
           { path: '/bilans', element: page(<DailyBilanPage />, table) },
           { path: '/subscriptions', element: page(<SubscriptionListPage />, table) },
           { path: '/invoices', element: page(<InvoiceListPage />, table) },

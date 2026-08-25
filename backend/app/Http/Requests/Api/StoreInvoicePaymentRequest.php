@@ -19,6 +19,7 @@ class StoreInvoicePaymentRequest extends FormRequest
             'is_advance' => ['sometimes', 'boolean'],
             'paid_at' => ['nullable', 'date'],
             'comment' => ['nullable', 'string', 'max:500'],
+            'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
         ];
     }
 

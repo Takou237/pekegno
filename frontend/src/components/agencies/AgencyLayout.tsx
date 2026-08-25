@@ -31,8 +31,8 @@ interface MenuItem {
 
 function getAgencyItems(t: ReturnType<typeof useTranslation>['t']): MenuItem[] {
   return [
-    { to: '', label: t('nav.departments'), icon: FolderTree, end: true },
-    { to: 'overview', label: t('nav.overview'), icon: LayoutDashboard, end: false },
+    { to: '', label: t('nav.overview'), icon: LayoutDashboard, end: true },
+    { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
     { to: 'services', label: t('nav.services'), icon: Package, end: false },
     { to: 'commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
     { to: 'employees', label: t('nav.employees'), icon: UserCheck, end: false },

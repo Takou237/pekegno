@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Printer, XCircle, Wallet, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
+import { treasuryApi } from '@/api/treasury.api';
 import { clientsApi } from '@/api/clients.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
@@ -23,6 +24,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoicePrint } from '@/components/invoices/InvoicePrint';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import type { Invoice, PaymentMethod } from '@/types/invoice';
+import type { TreasuryAccount } from '@/types/treasury';
 
 export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { id: routeId = '', invoiceId = '' } = useParams();
@@ -46,6 +48,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
   const [payComment, setPayComment] = useState('');
   const [payPaidAt, setPayPaidAt] = useState('');
+  const [payTreasuryAccountId, setPayTreasuryAccountId] = useState('');
+  const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
   const [paySubmitting, setPaySubmitting] = useState(false);
 
@@ -87,8 +91,13 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     setPayAmount('');
     setPayComment('');
     setPayPaidAt(new Date().toISOString().slice(0, 10));
+    setPayTreasuryAccountId('');
     setPayErrors({});
     setPayOpen(true);
+
+    if (invoice?.agency_id) {
+      treasuryApi.listAccounts({ agency_id: invoice.agency_id }).then(setTreasuryAccounts).catch(() => {});
+    }
   }
 
   async function handlePay(event: FormEvent) {
@@ -111,6 +120,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         payment_method: payMethod,
         paid_at: payPaidAt || undefined,
         comment: payComment || undefined,
+        treasury_account_id: payTreasuryAccountId || undefined,
       });
       showToast(t('invoices.paid'), 'success');
       setPayOpen(false);
@@ -335,6 +345,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 <tr>
                   <th className="py-2 pr-3 font-medium">{t('invoices.paymentDate')}</th>
                   <th className="py-2 pr-3 font-medium">{t('invoices.paymentMethod')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.treasuryAccount')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('invoices.paymentAmount')}</th>
                   <th className="py-2 font-medium">{t('invoices.paymentReceivedBy')}</th>
                 </tr>
@@ -346,7 +357,10 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                       {p.paid_at ? new Date(p.paid_at).toLocaleDateString(currentLocale()) : '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {p.payment_method === 'cash' ? t('invoices.paymentCash') : p.payment_method === 'om' ? t('invoices.paymentOm') : t('invoices.paymentMomo')}
+                      {p.payment_method === 'cash' ? t('invoices.paymentCash') : p.payment_method === 'om' ? t('invoices.paymentOm') : p.payment_method === 'momo' ? t('invoices.paymentMomo') : t('invoices.paymentMobile')}
+                    </td>
+                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
+                      {p.treasury_account?.name ?? '—'}
                     </td>
                     <td className="py-2 pr-3 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(p.amount)}
@@ -503,6 +517,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               <option value="cash">{t('invoices.paymentCash')}</option>
               <option value="om">{t('invoices.paymentOm')}</option>
               <option value="momo">{t('invoices.paymentMomo')}</option>
+              <option value="mobile">{t('invoices.paymentMobile')}</option>
             </Select>
             <Input
               label={t('invoices.payDate')}
@@ -511,6 +526,20 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               onChange={(e) => setPayPaidAt(e.target.value)}
             />
           </div>
+          {treasuryAccounts.length > 0 && (
+            <Select
+              label={t('invoices.treasuryAccount')}
+              value={payTreasuryAccountId}
+              onChange={(e) => setPayTreasuryAccountId(e.target.value)}
+            >
+              <option value="">{t('invoices.selectTreasuryAccount')}</option>
+              {treasuryAccounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.type === 'cash' ? '💵' : a.type === 'mobile_money' ? '📱' : '🏦'} {formatCurrency(a.balance)})
+                </option>
+              ))}
+            </Select>
+          )}
           <Input
             label={t('invoices.payComment')}
             value={payComment}

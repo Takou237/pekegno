@@ -208,7 +208,7 @@ function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) =>
               <tr className="border-t-2 border-gray-200 dark:border-gray-700">
                 <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.soldeInitial')}</td>
                 <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.solde_initial)}</td>
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(Math.abs(bilan.solde_initial))}</td>
               </tr>
 
               {bilan.expenses_by_category.map((e) => (
@@ -276,9 +276,9 @@ function ConsolidatedView({ consolidated, t }: {
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.om_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.momo_total)}</td>
                   <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(ab.total_received)}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.solde_initial)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(Math.abs(ab.solde_initial))}</td>
                   <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(ab.expense_total)}</td>
-                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(ab.solde_final)}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(Math.abs(ab.solde_final))}</td>
                 </tr>
               ))}
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
@@ -290,7 +290,7 @@ function ConsolidatedView({ consolidated, t }: {
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_encaisse)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">—</td>
                 <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(totals.total_depenses)}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_solde_final)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(Math.abs(totals.total_solde_final))}</td>
               </tr>
             </tbody>
           </table>

@@ -2,7 +2,7 @@ import type { Agency } from './agency';
 import type { CommissionPayment } from './commercial';
 
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
-export type PaymentMethod = 'cash' | 'om' | 'momo';
+export type PaymentMethod = 'cash' | 'om' | 'momo' | 'mobile';
 
 export interface AgencySnapshot {
   name: string;
@@ -34,7 +34,9 @@ export interface InvoicePayment {
   paid_at: string;
   received_by: string | null;
   comment: string | null;
+  treasury_account_id: string | null;
   receiver?: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
+  treasury_account?: { id: string; name: string; type: string } | null;
 }
 
 export interface Invoice {
@@ -127,4 +129,5 @@ export interface PayInvoicePayload {
   is_advance?: boolean;
   paid_at?: string;
   comment?: string;
+  treasury_account_id?: string;
 }
