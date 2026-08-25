@@ -9,14 +9,28 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Validation\Rule;
 
 class Department extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
 
+    public const TYPE_ACADEMY = 'academy';
+    public const TYPE_AGENCY = 'agency';
+    public const TYPE_STORE = 'store';
+    public const TYPE_STUDIO = 'studio';
+
+    public const TYPES = [
+        self::TYPE_ACADEMY,
+        self::TYPE_AGENCY,
+        self::TYPE_STORE,
+        self::TYPE_STUDIO,
+    ];
+
     protected $fillable = [
         'agency_id',
         'name',
+        'type',
         'description',
     ];
 
@@ -25,7 +39,6 @@ class Department extends Model
         return $this->belongsTo(Agency::class);
     }
 
-    // Utilisateurs assignés à ce département (via user_assignments)
     public function assignedUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_assignments')
@@ -43,5 +56,20 @@ class Department extends Model
             'id',
             'user_id'
         );
+    }
+
+    public function scopeOfType($query, string $type)
+    {
+        return $query->where('type', $type);
+    }
+
+    public function scopeOfTypes($query, array $types)
+    {
+        return $query->whereIn('type', $types);
+    }
+
+    public static function typeValidationRule(): array
+    {
+        return ['required', 'string', Rule::in(self::TYPES)];
     }
 }

@@ -27,6 +27,7 @@ export function DepartmentFormModal({ isOpen, department, onClose, onSaved }: De
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [form, setForm] = useState<DepartmentPayload>({
     agency_id: '',
+    type: 'agency',
     name: '',
     description: '',
   });
@@ -38,6 +39,7 @@ export function DepartmentFormModal({ isOpen, department, onClose, onSaved }: De
       agenciesApi.list({ per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
       setForm({
         agency_id: department?.agency_id ?? '',
+        type: department?.type ?? 'agency',
         name: department?.name ?? '',
         description: department?.description ?? '',
       });
@@ -95,6 +97,19 @@ export function DepartmentFormModal({ isOpen, department, onClose, onSaved }: De
               {a.code} — {a.name}
             </option>
           ))}
+        </Select>
+
+        <Select
+          label={t('departments.type')}
+          required
+          value={form.type}
+          onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as DepartmentPayload['type'] }))}
+          error={errors.type}
+        >
+          <option value="academy">{t('departmentTypes.academy')}</option>
+          <option value="agency">{t('departmentTypes.agency')}</option>
+          <option value="store">{t('departmentTypes.store')}</option>
+          <option value="studio">{t('departmentTypes.studio')}</option>
         </Select>
 
         <Input

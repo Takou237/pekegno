@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  ArrowLeft,
   LayoutDashboard,
   FolderTree,
   Package,
@@ -18,7 +17,7 @@ import {
 import { countriesApi } from '@/api/countries.api';
 import { extractErrorMessage } from '@/api/errors';
 import { Spinner } from '@/components/ui/Spinner';
-import { UserMenu } from '@/components/common/UserMenu';
+import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import type { CountryStat } from '@/types/stats';
 
@@ -45,6 +44,7 @@ export function CountryLayout() {
   const [country, setCountry] = useState<CountryStat | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const loadCountry = useCallback(() => {
     if (!countryId) return;
@@ -71,21 +71,21 @@ export function CountryLayout() {
 
   const subItems = getSubItems(t);
 
+  const backButton = (
+    <Link
+      to="/countries"
+      className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 hover:underline dark:text-brand-400 dark:hover:bg-brand-500/10"
+    >
+      <span className="hidden sm:inline">{t('countries.title')}</span>
+    </Link>
+  );
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 dark:bg-gray-950">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
-        <div className="flex items-center gap-2">
-          <MobileNav contextOnly contextTitle={country?.name} contextItems={subItems} />
-          <Link
-            to="/countries"
-            className="inline-flex items-center gap-1.5 rounded-lg p-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 hover:underline dark:text-brand-400 dark:hover:bg-brand-500/10"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('countries.title')}</span>
-          </Link>
-        </div>
-        <UserMenu />
-      </header>
+      <ContextBar
+        leftSlot={backButton}
+        onMobileMenuToggle={() => setMobileOpen((v) => !v)}
+      />
 
       <main className="flex flex-1 flex-col gap-4 p-4 sm:p-6 lg:flex-row">
         <div className="flex flex-col gap-6 lg:w-72 lg:shrink-0">
@@ -127,6 +127,10 @@ export function CountryLayout() {
           )}
         </div>
       </main>
+
+      {mobileOpen && (
+        <MobileNav contextTitle={country?.name} contextItems={subItems} contextOnly />
+      )}
     </div>
   );
 }

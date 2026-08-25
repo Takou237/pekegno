@@ -39,22 +39,25 @@ class AgencySeeder extends Seeder
             ],
         ];
 
-        $departments = [
-            0 => ['Commercial', 'Ressources Humaines', 'Comptabilité'],
-            1 => ['Commercial', 'Ressources Humaines'],
+        $departmentsByType = [
+            Department::TYPE_ACADEMY => 'Academy',
+            Department::TYPE_AGENCY  => 'Agency',
+            Department::TYPE_STORE   => 'Store',
+            Department::TYPE_STUDIO  => 'Studio',
         ];
 
-        foreach ($agencies as $index => $data) {
+        foreach ($agencies as $data) {
             $agency = Agency::create(array_merge($data, [
                 'code' => Agency::generateNextCode(),
                 'type' => 'agency',
                 'organization_id' => $organization?->id,
             ]));
 
-            foreach ($departments[$index] as $deptName) {
+            foreach ($departmentsByType as $type => $label) {
                 Department::create([
                     'agency_id' => $agency->id,
-                    'name' => $deptName,
+                    'name' => "{$label} {$agency->name}",
+                    'type' => $type,
                 ]);
             }
         }

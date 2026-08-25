@@ -75,13 +75,13 @@ const AgencyEmployeeDetailPage = lazy(() => import('@/pages/employees/AgencyEmpl
 const ActivityLogPage = lazy(() => import('@/pages/audit/ActivityLogPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const CountryListPage = lazy(() => import('@/pages/CountryListPage'));
-const AcademyOverviewPage = lazy(() => import('@/pages/academy/AcademyOverviewPage'));
 const AcademyCoursesPage = lazy(() => import('@/pages/academy/AcademyCoursesPage'));
 const AcademySessionsPage = lazy(() => import('@/pages/academy/AcademySessionsPage'));
 const AcademyTrainersPage = lazy(() => import('@/pages/academy/AcademyTrainersPage'));
 const AcademyTrainerDetailPage = lazy(() => import('@/pages/academy/AcademyTrainerDetailPage'));
 const AcademyLearnersPage = lazy(() => import('@/pages/academy/AcademyLearnersPage'));
 const AcademyLearnerDetailPage = lazy(() => import('@/pages/academy/AcademyLearnerDetailPage'));
+const ComingSoonPage = lazy(() => import('@/pages/ComingSoonPage'));
 
 function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
   return <Suspense fallback={fallback}>{node}</Suspense>;
@@ -94,8 +94,8 @@ const dashboard = <SkeletonDashboard />;
 const form = <SkeletonForm />;
 
 const agencyChildren = [
-  { index: true, element: page(<AgencyOverviewPage />, dashboard) },
-  { path: 'departments', element: page(<AgencyDepartmentsPage />, cards) },
+  { index: true, element: page(<AgencyDepartmentsPage />, cards) },
+  { path: 'overview', element: page(<AgencyOverviewPage />, dashboard) },
   { path: 'departments/trash', element: page(<AgencyDepartmentTrashPage />, table) },
   { path: 'services', element: page(<AgencyServicesPage />, cards) },
   { path: 'services/trash', element: page(<AgencyServiceTrashPage />, table) },
@@ -115,16 +115,6 @@ const agencyChildren = [
   { path: 'settings', element: page(<AgencySettingsPage />, detail) },
 ];
 
-/** Ligne Formations (Academy) d'une agence : sections préfixées par /academy. */
-const academyChildren = [
-  { index: true, element: page(<AcademyOverviewPage />, dashboard) },
-  { path: 'courses', element: page(<AcademyCoursesPage />, cards) },
-  { path: 'sessions', element: page(<AcademySessionsPage />, table) },
-  { path: 'trainers', element: page(<AcademyTrainersPage />, table) },
-  { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
-  { path: 'learners', element: page(<AcademyLearnersPage />, table) },
-  { path: 'learners/:learnerId', element: page(<AcademyLearnerDetailPage />, detail) },
-];
 
 export const router = createBrowserRouter([
   {
@@ -211,10 +201,7 @@ export const router = createBrowserRouter([
       {
         path: '/countries/:countryId/agencies/:agencyId',
         element: <AgencyLayout />,
-        children: [
-          ...agencyChildren,
-          { path: 'academy', children: academyChildren },
-        ],
+        children: agencyChildren,
       },
       {
         path: '/departments/:departmentId',
@@ -223,6 +210,45 @@ export const router = createBrowserRouter([
           { index: true, element: page(<DepartmentOverviewPage />, dashboard) },
           { path: 'team', element: page(<DepartmentTeamsPage />, table) },
           { path: 'settings', element: page(<DepartmentSettingsPage />, detail) },
+          // Academy routes
+          { path: 'prospects', element: page(<ComingSoonPage />, detail) },
+          { path: 'learners', element: page(<AcademyLearnersPage />, table) },
+          { path: 'learners/:learnerId', element: page(<AcademyLearnerDetailPage />, detail) },
+          { path: 'enrollments', element: page(<ComingSoonPage />, table) },
+          { path: 'courses', element: page(<AcademyCoursesPage />, cards) },
+          { path: 'sessions', element: page(<AcademySessionsPage />, table) },
+          { path: 'trainers', element: page(<AcademyTrainersPage />, table) },
+          { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
+          { path: 'presences', element: page(<ComingSoonPage />, table) },
+          { path: 'payments', element: page(<ComingSoonPage />, table) },
+          { path: 'receivables', element: page(<ComingSoonPage />, table) },
+          { path: 'certificates', element: page(<ComingSoonPage />, table) },
+          { path: 'reports', element: page(<ComingSoonPage />, table) },
+          // Agency routes
+          { path: 'clients', element: page(<ClientListPage />, table) },
+          { path: 'clients/:id', element: page(<ClientDetailPage />, detail) },
+          { path: 'packages', element: page(<ComingSoonPage />, cards) },
+          { path: 'contracts', element: page(<ComingSoonPage />, table) },
+          { path: 'services', element: page(<ServiceListPage />, cards) },
+          { path: 'community', element: page(<ComingSoonPage />, table) },
+          { path: 'advertising', element: page(<ComingSoonPage />, table) },
+          { path: 'renewals', element: page(<ComingSoonPage />, table) },
+          // Store routes
+          { path: 'catalog', element: page(<ComingSoonPage />, cards) },
+          { path: 'stocks', element: page(<ComingSoonPage />, table) },
+          { path: 'suppliers', element: page(<ComingSoonPage />, table) },
+          { path: 'purchases', element: page(<ComingSoonPage />, table) },
+          { path: 'orders', element: page(<ComingSoonPage />, table) },
+          { path: 'sales', element: page(<ComingSoonPage />, table) },
+          { path: 'deliveries', element: page(<ComingSoonPage />, table) },
+          { path: 'returns', element: page(<ComingSoonPage />, table) },
+          { path: 'inventories', element: page(<ComingSoonPage />, table) },
+          // Studio routes
+          { path: 'quotes', element: page(<ComingSoonPage />, table) },
+          { path: 'projects', element: page(<ComingSoonPage />, table) },
+          { path: 'planning', element: page(<ComingSoonPage />, table) },
+          { path: 'production', element: page(<ComingSoonPage />, table) },
+          { path: 'revisions', element: page(<ComingSoonPage />, table) },
         ],
       },
     ],

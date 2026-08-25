@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\Department;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,6 +27,7 @@ class UpdateDepartmentRequest extends FormRequest
                     ->ignore($department)
                     ->where(fn ($q) => $q->where('agency_id', $this->agency_id ?? $department?->agency_id)),
             ],
+            'type' => ['sometimes', 'string', Rule::in(Department::TYPES)],
             'description' => ['sometimes', 'nullable', 'string'],
         ];
     }
@@ -35,6 +37,7 @@ class UpdateDepartmentRequest extends FormRequest
         return [
             'agency_id.exists' => "Cette agence n'existe pas.",
             'name.unique' => "Un département avec ce nom existe déjà dans cette agence.",
+            'type.in' => "Le type doit être academy, agency, store ou studio.",
         ];
     }
 }

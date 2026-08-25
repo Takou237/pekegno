@@ -33,6 +33,7 @@ class DepartmentController extends Controller
         parameters: [
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par nom', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'agency_id', in: 'query', description: "Filtrer par agence", schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'type', in: 'query', description: "Filtrer par type (academy, agency, store, studio)", schema: new OA\Schema(type: 'string', enum: ['academy','agency','store','studio'])),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
             new OA\Parameter(name: 'page', in: 'query', schema: new OA\Schema(type: 'integer', default: 1)),
         ],
@@ -55,6 +56,9 @@ class DepartmentController extends Controller
             })
             ->when($request->agency_id, function ($q, $agencyId) {
                 $q->where('agency_id', $agencyId);
+            })
+            ->when($request->type, function ($q, $type) {
+                $q->where('type', $type);
             })
             ->when($request->user()?->role?->name === 'responsable-agence', function ($q) use ($request) {
                 $agencyIds = $request->user()->assignments()
@@ -83,10 +87,11 @@ class DepartmentController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['agency_id', 'name'],
+                required: ['agency_id', 'name', 'type'],
                 properties: [
                     new OA\Property(property: 'agency_id', type: 'string', format: 'uuid'),
-                    new OA\Property(property: 'name', type: 'string', example: 'Service Commercial'),
+                    new OA\Property(property: 'name', type: 'string', example: 'Academy Douala'),
+                    new OA\Property(property: 'type', type: 'string', enum: ['academy','agency','store','studio']),
                     new OA\Property(property: 'description', type: 'string'),
                 ]
             )
@@ -139,6 +144,7 @@ class DepartmentController extends Controller
                 properties: [
                     new OA\Property(property: 'agency_id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'name', type: 'string'),
+                    new OA\Property(property: 'type', type: 'string', enum: ['academy','agency','store','studio']),
                     new OA\Property(property: 'description', type: 'string'),
                 ]
             )

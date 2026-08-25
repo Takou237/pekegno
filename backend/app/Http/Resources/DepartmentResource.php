@@ -12,6 +12,7 @@ class DepartmentResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'type' => $this->type,
             'description' => $this->description,
             'agency_id' => $this->agency_id,
             'agency' => new AgencyResource($this->whenLoaded('agency')),

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\Department;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,6 +23,7 @@ class StoreDepartmentRequest extends FormRequest
                 'max:255',
                 Rule::unique('departments')->where(fn ($q) => $q->where('agency_id', $this->agency_id)),
             ],
+            'type' => Department::typeValidationRule(),
             'description' => ['sometimes', 'nullable', 'string'],
         ];
     }
@@ -33,6 +35,8 @@ class StoreDepartmentRequest extends FormRequest
             'agency_id.exists' => "Cette agence n'existe pas.",
             'name.required' => "Le nom du département est obligatoire.",
             'name.unique' => "Un département avec ce nom existe déjà dans cette agence.",
+            'type.required' => "Le type du département est obligatoire.",
+            'type.in' => "Le type doit être academy, agency, store ou studio.",
         ];
     }
 }

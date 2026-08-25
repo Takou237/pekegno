@@ -6,14 +6,26 @@ import {
   Building2,
   Calculator,
   CalendarCheck,
+  CalendarDays,
   Contact,
   FileText,
   FolderTree,
   Globe,
+  GraduationCap,
   LayoutDashboard,
   Package,
+  Receipt,
+  ShoppingCart,
+  Tags,
+  Truck,
   Users,
+  UserCheck,
+  BookOpen,
+  ClipboardList,
+  Undo2,
+  Warehouse,
 } from 'lucide-react';
+import type { DepartmentType } from '@/types/department';
 
 export const ADMIN_ROLES = ['super-admin', 'direction-generale'];
 
@@ -114,6 +126,77 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
     catalogItem(t),
   ];
+}
+
+/**
+ * Retourne les items de menu latéral pour un département selon son type.
+ * Les items pointent vers des routes sous /departments/:departmentId/.
+ */
+export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavItem[] {
+  switch (type) {
+    case 'academy':
+      return [
+        { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+        { to: 'prospects', label: t('nav.prospects'), icon: Users, end: false },
+        { to: 'learners', label: t('nav.learners'), icon: GraduationCap, end: false },
+        { to: 'enrollments', label: t('nav.enrollments'), icon: ClipboardList, end: false },
+        { to: 'courses', label: t('nav.courses'), icon: BookOpen, end: false },
+        { to: 'sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
+        { to: 'trainers', label: t('nav.trainers'), icon: UserCheck, end: false },
+        { to: 'presences', label: t('nav.presences'), icon: ClipboardList, end: false },
+        { to: 'payments', label: t('nav.invoices'), icon: Receipt, end: false },
+        { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
+        { to: 'certificates', label: t('nav.certificates'), icon: FileText, end: false },
+        { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
+      ];
+
+    case 'agency':
+      return [
+        { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+        { to: 'prospects', label: t('nav.prospects'), icon: Users, end: false },
+        { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
+        { to: 'packages', label: t('nav.packages'), icon: Package, end: false },
+        { to: 'contracts', label: t('nav.contracts'), icon: FileText, end: false },
+        { to: 'services', label: t('nav.services'), icon: Briefcase, end: false },
+        { to: 'community', label: t('nav.communityManagement'), icon: Users, end: false },
+        { to: 'advertising', label: t('nav.advertising'), icon: BarChart3, end: false },
+        { to: 'renewals', label: t('nav.renewals'), icon: CalendarCheck, end: false },
+        { to: 'payments', label: t('nav.invoices'), icon: Receipt, end: false },
+        { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
+        { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
+      ];
+
+    case 'store':
+      return [
+        { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+        { to: 'catalog', label: t('nav.catalog'), icon: Tags, end: false },
+        { to: 'stocks', label: t('nav.stocks'), icon: Warehouse, end: false },
+        { to: 'suppliers', label: t('nav.suppliers'), icon: UserCheck, end: false },
+        { to: 'purchases', label: t('nav.purchases'), icon: ShoppingCart, end: false },
+        { to: 'orders', label: t('nav.orders'), icon: ClipboardList, end: false },
+        { to: 'sales', label: t('nav.invoices'), icon: Receipt, end: false },
+        { to: 'deliveries', label: t('nav.deliveries'), icon: Truck, end: false },
+        { to: 'returns', label: t('nav.returns'), icon: Undo2, end: false },
+        { to: 'inventories', label: t('nav.inventories'), icon: Warehouse, end: false },
+        { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
+      ];
+
+    case 'studio':
+      return [
+        { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+        { to: 'prospects', label: t('nav.prospects'), icon: Users, end: false },
+        { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
+        { to: 'services', label: t('nav.services'), icon: Briefcase, end: false },
+        { to: 'quotes', label: t('nav.quotes'), icon: FileText, end: false },
+        { to: 'projects', label: t('nav.projects'), icon: FolderTree, end: false },
+        { to: 'planning', label: t('nav.planning'), icon: CalendarDays, end: false },
+        { to: 'production', label: t('nav.production'), icon: ClipboardList, end: false },
+        { to: 'revisions', label: t('nav.revisions'), icon: Undo2, end: false },
+        { to: 'deliveries', label: t('nav.deliveries'), icon: Truck, end: false },
+        { to: 'payments', label: t('nav.invoices'), icon: Receipt, end: false },
+        { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
+      ];
+  }
 }
 
 export function navLinkClass({ isActive }: { isActive: boolean }) {

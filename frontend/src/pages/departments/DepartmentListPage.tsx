@@ -15,7 +15,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { canCreateDepartment, canManageDepartmentTrash } from '@/utils/departmentPermissions';
-import type { Department, DepartmentPayload } from '@/types/department';
+import type { Department, DepartmentPayload, DepartmentType } from '@/types/department';
 import type { Agency, PaginationMeta } from '@/types/agency';
 
 interface DepartmentListPageProps {
@@ -36,6 +36,7 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
 
   const [search, setSearch] = useState('');
   const [agencyFilter, setAgencyFilter] = useState(agencyId ?? '');
+  const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(1);
 
   const [formModal, setFormModal] = useState<{
@@ -44,6 +45,7 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
   }>({ open: false, editing: null });
   const [form, setForm] = useState<DepartmentPayload>({
     agency_id: '',
+    type: 'agency',
     name: '',
     description: '',
   });
@@ -57,6 +59,7 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
       const response = await departmentsApi.list({
         search: search || undefined,
         agency_id: agencyFilter || undefined,
+        type: (typeFilter as DepartmentType) || undefined,
         page,
         per_page: 15,
       });
@@ -75,7 +78,7 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
       fetchDepartments();
     }, 350);
     return () => clearTimeout(timeout);
-  }, [search, agencyFilter]);
+  }, [search, agencyFilter, typeFilter]);
 
   useEffect(() => {
     fetchDepartments();
@@ -86,7 +89,7 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
   }, []);
 
   function openCreate() {
-    setForm({ agency_id: agencyId ?? agencies[0]?.id ?? '', name: '', description: '' });
+    setForm({ agency_id: agencyId ?? agencies[0]?.id ?? '', type: 'agency', name: '', description: '' });
     setFormErrors({});
     setFormModal({ open: true, editing: null });
   }
@@ -176,6 +179,19 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
             </Select>
           </div>
         )}
+        <div className="sm:w-48">
+          <Select
+            label={t('departments.type')}
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+          >
+            <option value="">{t('common.all')}</option>
+            <option value="academy">{t('departmentTypes.academy')}</option>
+            <option value="agency">{t('departmentTypes.agency')}</option>
+            <option value="store">{t('departmentTypes.store')}</option>
+            <option value="studio">{t('departmentTypes.studio')}</option>
+          </Select>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
@@ -277,6 +293,18 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
                 {a.code} — {a.name}
               </option>
             ))}
+          </Select>
+          <Select
+            label={t('departments.type')}
+            required
+            value={form.type}
+            onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as DepartmentPayload['type'] }))}
+            error={formErrors.type}
+          >
+            <option value="academy">{t('departmentTypes.academy')}</option>
+            <option value="agency">{t('departmentTypes.agency')}</option>
+            <option value="store">{t('departmentTypes.store')}</option>
+            <option value="studio">{t('departmentTypes.studio')}</option>
           </Select>
           <Input
             label={t('departments.colName')}

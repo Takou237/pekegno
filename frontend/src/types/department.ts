@@ -1,8 +1,11 @@
 import type { Agency } from './agency';
 
+export type DepartmentType = 'academy' | 'agency' | 'store' | 'studio';
+
 export interface Department {
   id: string;
   name: string;
+  type: DepartmentType;
   description: string | null;
   agency_id: string;
   agency?: Agency;
@@ -25,6 +28,7 @@ export interface Department {
 export interface DepartmentListParams {
   search?: string;
   agency_id?: string;
+  type?: DepartmentType;
   per_page?: number;
   page?: number;
   with?: string;
@@ -33,5 +37,6 @@ export interface DepartmentListParams {
 export interface DepartmentPayload {
   agency_id: string;
   name: string;
+  type: DepartmentType;
   description?: string;
 }
