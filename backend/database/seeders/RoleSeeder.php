@@ -62,6 +62,9 @@ class RoleSeeder extends Seeder
                 $p('reports', ['consulter', 'exporter']),
                 $p('depenses', ['consulter', 'creer', 'modifier', 'valider', 'encaisser', 'exporter']),
                 $p('commissions', ['consulter', 'creer', 'modifier', 'valider', 'encaisser', 'exporter']),
+                $p('entreprises', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
+                $p('opportunites', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
+                $p('activites', ['consulter', 'creer', 'modifier', 'supprimer']),
             ),
             'responsable-departement' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
@@ -83,6 +86,9 @@ class RoleSeeder extends Seeder
                 $p('reports', ['consulter', 'exporter']),
                 $p('depenses', ['consulter', 'creer', 'modifier']),
                 $p('commissions', ['consulter']),
+                $p('entreprises', ['consulter', 'creer', 'modifier', 'supprimer']),
+                $p('opportunites', ['consulter', 'creer', 'modifier', 'supprimer']),
+                $p('activites', ['consulter', 'creer', 'modifier', 'supprimer']),
             ),
             'commercial' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
@@ -96,6 +102,9 @@ class RoleSeeder extends Seeder
                 $p('stats', ['consulter']),
                 $p('orders', ['consulter', 'creer', 'modifier']),
                 $p('reports', ['consulter', 'exporter']),
+                $p('entreprises', ['consulter', 'creer', 'modifier']),
+                $p('opportunites', ['consulter', 'creer', 'modifier', 'supprimer']),
+                $p('activites', ['consulter', 'creer', 'modifier', 'supprimer']),
             ),
             'caissier' => array_merge(
                 $p('clients', ['consulter']),
@@ -134,6 +143,9 @@ class RoleSeeder extends Seeder
                 $p('reports', ['consulter', 'exporter']),
                 $p('depenses', ['consulter', 'creer', 'modifier', 'valider', 'encaisser', 'exporter']),
                 $p('commissions', ['consulter', 'creer', 'modifier', 'valider', 'encaisser', 'exporter']),
+                $p('entreprises', ['consulter', 'exporter']),
+                $p('opportunites', ['consulter', 'exporter']),
+                $p('activites', ['consulter']),
             ),
             'formateur' => array_merge(
                 $p('services', ['consulter']),

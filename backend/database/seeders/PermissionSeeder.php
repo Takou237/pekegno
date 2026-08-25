@@ -41,6 +41,9 @@ class PermissionSeeder extends Seeder
         'reports' => ['consulter', 'exporter'],
         'depenses' => ['consulter', 'creer', 'modifier', 'supprimer', 'valider', 'encaisser', 'exporter'],
         'commissions' => ['consulter', 'creer', 'modifier', 'supprimer', 'valider', 'encaisser', 'exporter'],
+        'entreprises' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'opportunites' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
+        'activites' => ['consulter', 'creer', 'modifier', 'supprimer'],
     ];
 
     private const ACTION_LABELS = [
@@ -88,6 +91,9 @@ class PermissionSeeder extends Seeder
         'reports' => 'les rapports',
         'depenses' => 'les dépenses',
         'commissions' => 'les commissions',
+        'entreprises' => 'les entreprises',
+        'opportunites' => 'les opportunités',
+        'activites' => 'les activités',
     ];
 
     public static function permissionNames(): array

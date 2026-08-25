@@ -1,9 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, Activity as ActivityIcon, Phone, Mail, MessageCircle, Clock, Check, Calendar } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { clientsApi } from '@/api/clients.api';
 import { invoicesApi } from '@/api/invoices.api';
+import { activitiesApi } from '@/api/activities.api';
+import type { Activity } from '@/types/activity';
+import { ACTIVITY_TYPE_LABELS, type ActivityType } from '@/types/activity';
 import { extractErrorMessage } from '@/api/errors';
 import { currentLocale } from '@/i18n';
 import { formatCurrency } from '@/utils/number';
@@ -30,6 +33,10 @@ export default function ClientDetailPage() {
   const [invoicesMeta, setInvoicesMeta] = useState<PaginationMeta | null>(null);
   const [invoicesLoading, setInvoicesLoading] = useState(true);
   const [invoicePage, setInvoicePage] = useState(1);
+
+  const [tab, setTab] = useState<'invoices' | 'timeline'>('invoices');
+  const [timelineActivities, setTimelineActivities] = useState<Activity[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -64,6 +71,15 @@ export default function ClientDetailPage() {
     }
     fetchInvoices();
   }, [id, invoicePage]);
+
+  useEffect(() => {
+    if (tab !== 'timeline' || !client) return;
+    setTimelineLoading(true);
+    activitiesApi.list({ subject_type: 'App\\Models\\User', subject_id: client.id, per_page: 50 })
+      .then((res) => setTimelineActivities(res.data))
+      .catch(() => {})
+      .finally(() => setTimelineLoading(false));
+  }, [tab, client]);
 
   const totalRevenue = useMemo(() => {
     return invoices
@@ -180,7 +196,18 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-900/50">
+        <button onClick={() => setTab('invoices')} className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'invoices' ? 'bg-white text-gray-900 shadow dark:bg-gray-800 dark:text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+          {t('clientDetail.invoices')}
+        </button>
+        <button onClick={() => setTab('timeline')} className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'timeline' ? 'bg-white text-gray-900 shadow dark:bg-gray-800 dark:text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+          {t('clientDetail.timeline', 'Timeline')}
+        </button>
+      </div>
+
       {/* Invoice history table */}
+      {tab === 'invoices' && (
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
@@ -248,6 +275,49 @@ export default function ClientDetailPage() {
           </div>
         )}
       </div>
+      )}
+
+      {tab === 'timeline' && (
+      <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {t('clientDetail.timeline', 'Timeline')}
+          </h2>
+        </div>
+        {timelineLoading ? (
+          <SkeletonTable rows={3} />
+        ) : timelineActivities.length === 0 ? (
+          <p className="p-6 text-center text-sm text-gray-500">
+            {t('clientDetail.noTimeline', 'No activities yet.')}
+          </p>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {timelineActivities.map((act) => (
+              <div key={act.id} className="flex items-start gap-3 px-5 py-4">
+                <div className={`mt-0.5 rounded-full p-1.5 ${act.completed_at ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                  {act.completed_at ? <Check className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{act.title}</span>
+                    <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                      {ACTIVITY_TYPE_LABELS[act.type as ActivityType] ?? act.type}
+                    </span>
+                  </div>
+                  {act.notes && <p className="mt-1 text-sm text-gray-500 line-clamp-2">{act.notes}</p>}
+                  {act.outcome && <p className="mt-1 text-sm text-green-600">{act.outcome}</p>}
+                  <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
+                    {act.due_at && <span>Échéance: {new Date(act.due_at).toLocaleDateString()}</span>}
+                    {act.completed_at && <span>Complété: {new Date(act.completed_at).toLocaleDateString()}</span>}
+                    {act.assignee && <span>Assigné: {act.assignee.first_name} {act.assignee.last_name}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      )}
     </div>
   );
 }

@@ -27,6 +27,8 @@ import {
   Landmark,
   CircleDollarSign,
   ScrollText,
+  Building2,
+  Target,
 } from 'lucide-react';
 import type { DepartmentType } from '@/types/department';
 
@@ -84,6 +86,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
       { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
+      { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
+      { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
     ];
   }
@@ -121,6 +125,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
       { to: '/subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
+      { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
+      { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
       catalogItem(t),
     ];
   }
@@ -128,6 +134,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (roleName === 'commercial') {
     return [
       ...baseItems,
+      { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
+      { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
       invoiceItem(t, unpaidBadge),
       catalogItem(t),
     ];

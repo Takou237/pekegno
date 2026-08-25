@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Prospect extends Model
 {
@@ -13,6 +14,7 @@ class Prospect extends Model
     protected $fillable = [
         'commercial_id',
         'agency_id',
+        'company_id',
         'first_name',
         'last_name',
         'email',
@@ -34,6 +36,11 @@ class Prospect extends Model
         return $this->belongsTo(Agency::class);
     }
 
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -42,5 +49,15 @@ class Prospect extends Model
     public function getFullNameAttribute(): string
     {
         return trim($this->first_name.' '.$this->last_name);
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->morphMany(Activity::class, 'subject');
+    }
+
+    public function opportunities(): HasMany
+    {
+        return $this->hasMany(Opportunity::class);
     }
 }

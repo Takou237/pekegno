@@ -47,7 +47,10 @@ use App\Http\Controllers\Api\TrainerController;
 use App\Http\Controllers\Api\TreasuryController;
 use App\Http\Controllers\Api\LearnerController;
 use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\ActivityController;
 use App\Http\Controllers\Api\CommissionController;
+use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\OpportunityController;
 use App\Http\Controllers\Api\TrainingSessionController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserAssignmentController;
@@ -333,4 +336,30 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/commissions/entries/{entry}/validate', [CommissionController::class, 'validateEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/entries/{entry}/pay', [CommissionController::class, 'payEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/entries/{entry}/cancel', [CommissionController::class, 'cancelEntry'])->middleware('permission:commissions.valider');
+
+    // === Sprint 4 : CRM — Entreprises ===
+    Route::get('/companies/search', [CompanyController::class, 'search'])->middleware('permission:entreprises.consulter');
+    Route::get('/companies', [CompanyController::class, 'index'])->middleware('permission:entreprises.consulter');
+    Route::post('/companies', [CompanyController::class, 'store'])->middleware('permission:entreprises.creer');
+    Route::get('/companies/{company}', [CompanyController::class, 'show'])->middleware('permission:entreprises.consulter');
+    Route::put('/companies/{company}', [CompanyController::class, 'update'])->middleware('permission:entreprises.modifier');
+    Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->middleware('permission:entreprises.supprimer');
+
+    // === Sprint 4 : CRM — Opportunités ===
+    Route::get('/opportunities/pipeline', [OpportunityController::class, 'pipeline'])->middleware('permission:opportunites.consulter');
+    Route::get('/opportunities', [OpportunityController::class, 'index'])->middleware('permission:opportunites.consulter');
+    Route::post('/opportunities', [OpportunityController::class, 'store'])->middleware('permission:opportunites.creer');
+    Route::get('/opportunities/{opportunity}', [OpportunityController::class, 'show'])->middleware('permission:opportunites.consulter');
+    Route::put('/opportunities/{opportunity}', [OpportunityController::class, 'update'])->middleware('permission:opportunites.modifier');
+    Route::post('/opportunities/{opportunity}/stage', [OpportunityController::class, 'changeStage'])->middleware('permission:opportunites.modifier');
+    Route::delete('/opportunities/{opportunity}', [OpportunityController::class, 'destroy'])->middleware('permission:opportunites.supprimer');
+
+    // === Sprint 4 : CRM — Activités ===
+    Route::get('/crm/timeline', [ActivityController::class, 'timeline'])->middleware('permission:activites.consulter');
+    Route::get('/activities', [ActivityController::class, 'index'])->middleware('permission:activites.consulter');
+    Route::post('/activities', [ActivityController::class, 'store'])->middleware('permission:activites.creer');
+    Route::get('/activities/{activity}', [ActivityController::class, 'show'])->middleware('permission:activites.consulter');
+    Route::put('/activities/{activity}', [ActivityController::class, 'update'])->middleware('permission:activites.modifier');
+    Route::post('/activities/{activity}/complete', [ActivityController::class, 'complete'])->middleware('permission:activites.modifier');
+    Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->middleware('permission:activites.supprimer');
 });
