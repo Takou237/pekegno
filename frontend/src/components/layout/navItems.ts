@@ -25,6 +25,8 @@ import {
   Undo2,
   Warehouse,
   Landmark,
+  CircleDollarSign,
+  ScrollText,
 } from 'lucide-react';
 import type { DepartmentType } from '@/types/department';
 
@@ -80,6 +82,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
         : []),
       catalogItem(t),
       { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
+      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
+      { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
     ];
   }
@@ -98,6 +102,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t, unpaidBadge),
+      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       catalogItem(t),
     ];
   }
@@ -109,6 +114,9 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
       invoiceItem(t, unpaidBadge),
       { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
+      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
+      { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
+      { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: ScrollText, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
       { to: '/subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },

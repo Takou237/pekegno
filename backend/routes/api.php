@@ -46,6 +46,8 @@ use App\Http\Controllers\Api\SubscriptionNotificationController;
 use App\Http\Controllers\Api\TrainerController;
 use App\Http\Controllers\Api\TreasuryController;
 use App\Http\Controllers\Api\LearnerController;
+use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\CommissionController;
 use App\Http\Controllers\Api\TrainingSessionController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserAssignmentController;
@@ -307,7 +309,28 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::put('/roles/{role}/permissions', [RoleController::class, 'syncPermissions']);
 
     Route::get('/permissions', [PermissionController::class, 'index']);
-    Route::post('/permissions', [PermissionController::class, 'store']);
-    Route::put('/permissions/{permission}', [PermissionController::class, 'update']);
-    Route::delete('/permissions/{permission}', [PermissionController::class, 'destroy']);
+
+    // === Sprint 3 : Dépenses ===
+    Route::get('/expenses', [ExpenseController::class, 'index'])->middleware('permission:depenses.consulter');
+    Route::post('/expenses', [ExpenseController::class, 'store'])->middleware('permission:depenses.creer');
+    Route::get('/expenses/{expense}', [ExpenseController::class, 'show'])->middleware('permission:depenses.consulter');
+    Route::put('/expenses/{expense}', [ExpenseController::class, 'update'])->middleware('permission:depenses.modifier');
+    Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->middleware('permission:depenses.supprimer');
+    Route::post('/expenses/{expense}/submit', [ExpenseController::class, 'submit'])->middleware('permission:depenses.modifier');
+    Route::post('/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->middleware('permission:depenses.valider');
+    Route::post('/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->middleware('permission:depenses.valider');
+    Route::post('/expenses/{expense}/pay', [ExpenseController::class, 'pay'])->middleware('permission:depenses.encaisser');
+    Route::post('/expenses/{expense}/close', [ExpenseController::class, 'close'])->middleware('permission:depenses.modifier');
+    Route::post('/expenses/{expense}/reopen', [ExpenseController::class, 'reopen'])->middleware('permission:depenses.modifier');
+
+    // === Sprint 3 : Commissions ===
+    Route::get('/commission-rules', [CommissionController::class, 'indexRules'])->middleware('permission:commissions.consulter');
+    Route::get('/commission-rules/{rule}/versions', [CommissionController::class, 'ruleVersions'])->middleware('permission:commissions.consulter');
+    Route::post('/commission-rules', [CommissionController::class, 'storeRule'])->middleware('permission:commissions.creer');
+    Route::put('/commission-rules/{rule}', [CommissionController::class, 'updateRule'])->middleware('permission:commissions.modifier');
+    Route::delete('/commission-rules/{rule}', [CommissionController::class, 'destroyRule'])->middleware('permission:commissions.supprimer');
+    Route::get('/commissions/entries', [CommissionController::class, 'indexEntries'])->middleware('permission:commissions.consulter');
+    Route::post('/commissions/entries/{entry}/validate', [CommissionController::class, 'validateEntry'])->middleware('permission:commissions.valider');
+    Route::post('/commissions/entries/{entry}/pay', [CommissionController::class, 'payEntry'])->middleware('permission:commissions.valider');
+    Route::post('/commissions/entries/{entry}/cancel', [CommissionController::class, 'cancelEntry'])->middleware('permission:commissions.valider');
 });

@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Commercial;
+use App\Models\CommissionEntry;
 use App\Models\CommissionPayment;
+use App\Models\CommissionRule;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
@@ -82,10 +84,156 @@ class CommissionService
     }
 
     /**
-     * Journalise les commissions d'un encaissement (idempotent par payment_id)
-     * et incrémente l'agrégat invoices.commission_amount.
+     * Journalise les commissions d'un encaissement (idempotent par payment_id).
+     * Moteur de règles versionnées en priorité ; fallback historique sinon.
      */
     public function recordForPayment(Invoice $invoice, InvoicePayment $payment, ?string $actorUserId = null): void
+    {
+        if ($this->callEvaluateRulesForPayment($invoice, $payment, $actorUserId) > 0) {
+            return;
+        }
+
+        $this->recordFallback($invoice, $payment, $actorUserId);
+    }
+
+    /**
+     * Évalue toutes les règles actives matchant le contexte de l'encaissement.
+     * Retourne le nombre d'entrées créées.
+     */
+    public function callEvaluateRulesForPayment(Invoice $invoice, InvoicePayment $payment, ?string $actorUserId = null): int
+    {
+        $isFirstPayment = $invoice->payments()->where('id', '!=', $payment->id)->doesntExist();
+        $becomesFullPaid = $invoice->status === 'paid';
+
+        $rules = CommissionRule::query()
+            ->active()
+            ->where(fn ($q) => $q->whereNull('starts_on')->orWhere('starts_on', '<=', now()->toDateString()))
+            ->where(fn ($q) => $q->whereNull('ends_on')->orWhere('ends_on', '>=', now()->toDateString()))
+            ->where(function ($q) use ($isFirstPayment, $becomesFullPaid) {
+                $q->where('trigger_event', CommissionRule::TRIGGER_ON_PAYMENT);
+                if ($isFirstPayment) {
+                    $q->orWhere('trigger_event', CommissionRule::TRIGGER_ON_SALE);
+                }
+                if ($becomesFullPaid) {
+                    $q->orWhere('trigger_event', CommissionRule::TRIGGER_ON_FULL_PAYMENT);
+                }
+            })
+            ->get()
+            ->filter(fn (CommissionRule $rule) => $this->ruleMatchesInvoice($rule, $invoice));
+
+        if ($rules->isEmpty()) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($rules, $invoice, $payment, $actorUserId) {
+            return $this->createEntries($rules, $invoice, $payment, $actorUserId);
+        });
+    }
+
+private function createEntries($rules, Invoice $invoice, InvoicePayment $payment, ?string $actorUserId): int
+    {
+        $count = 0;
+
+        foreach ($rules as $rule) {
+            $beneficiaryId = $rule->beneficiary_commercial_id ?? $invoice->commercial_id;
+
+            if (! $beneficiaryId) {
+                continue;
+            }
+
+            $base = $this->baseForRule($rule, $invoice, (float) $payment->amount);
+            $amount = $rule->computeAmount($base);
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            if (CommissionEntry::where('invoice_payment_id', $payment->id)
+                ->where('commission_rule_id', $rule->id)
+                ->exists()) {
+                continue;
+            }
+
+            CommissionEntry::create([
+                'invoice_id' => $invoice->id,
+                'invoice_payment_id' => $payment->id,
+                'commission_rule_id' => $rule->id,
+                'rule_snapshot' => $rule->snapshot(),
+                'beneficiary_commercial_id' => $beneficiaryId,
+                'base_amount' => $base,
+                'amount' => $amount,
+                'status' => CommissionEntry::STATUS_CALCULATED,
+            ]);
+
+            $count++;
+
+            $this->logger->log(
+                action: 'commission',
+                entityType: 'invoice',
+                entityId: $invoice->id,
+                description: "Commission de {$amount} FCFA (règle {$rule->name}) sur la facture {$invoice->number}",
+                newValues: ['rule_id' => $rule->id, 'amount' => $amount, 'payment_id' => $payment->id],
+            );
+        }
+
+        return $count;
+    }
+
+    private function ruleMatchesInvoice(CommissionRule $rule, Invoice $invoice): bool
+    {
+        if ($rule->scope_country_id) {
+            $countryId = $invoice->agency?->country_id;
+            if ($countryId === null || $countryId !== $rule->scope_country_id) {
+                return false;
+            }
+        }
+
+        if ($rule->scope_agency_id && $invoice->agency_id !== $rule->scope_agency_id) {
+            return false;
+        }
+
+        if ($rule->scope_department_id && $this->resolveDepartmentForInvoice($invoice) !== $rule->scope_department_id) {
+            return false;
+        }
+
+        if ($rule->service_id && ! $invoice->items()->where('service_id', $rule->service_id)->exists()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function resolveDepartmentForInvoice(Invoice $invoice): ?string
+    {
+        $commercial = $invoice->commercial;
+
+        if (! $commercial?->user) {
+            return null;
+        }
+
+        $primary = $commercial->user->primaryAgency()->first();
+
+        return $primary?->pivot->department_id
+            ?? $commercial->user->assignments()->first()?->pivot->department_id;
+    }
+
+    private function baseForRule(CommissionRule $rule, Invoice $invoice, float $paidAmount): float
+    {
+        if (! $rule->service_id) {
+            return $paidAmount;
+        }
+
+        $invoiceTotal = (float) $invoice->total_amount;
+        if ($invoiceTotal <= 0) {
+            return 0.0;
+        }
+
+        $targetedLineTotal = (float) $invoice->items()->where('service_id', $rule->service_id)->sum('line_total');
+
+        return round($paidAmount * ($targetedLineTotal / $invoiceTotal), 2);
+    }
+
+    private function recordFallback(Invoice $invoice, InvoicePayment $payment, ?string $actorUserId = null): void
     {
         if (CommissionPayment::where('payment_id', $payment->id)->exists()) {
             return;
@@ -114,20 +262,11 @@ class CommissionService
 
             $total = round($total, 2);
 
-            // La colonne peut être NULL (agrégat), un increment SQL sur NULL resterait NULL.
             if ($invoice->commission_amount === null) {
                 $invoice->update(['commission_amount' => $total]);
             } else {
                 $invoice->increment('commission_amount', $total);
             }
-
-            $this->logger->log(
-                action: 'commission',
-                entityType: 'invoice',
-                entityId: $invoice->id,
-                description: "Commission de {$total} FCFA versée sur la facture {$invoice->number} (versement de {$payment->amount} FCFA)",
-                newValues: ['payment_id' => $payment->id, 'amount' => $total],
-            );
         });
     }
 }

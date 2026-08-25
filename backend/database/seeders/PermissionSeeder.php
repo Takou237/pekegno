@@ -39,6 +39,8 @@ class PermissionSeeder extends Seeder
         'enrollments' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'orders' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'reports' => ['consulter', 'exporter'],
+        'depenses' => ['consulter', 'creer', 'modifier', 'supprimer', 'valider', 'encaisser', 'exporter'],
+        'commissions' => ['consulter', 'creer', 'modifier', 'supprimer', 'valider', 'encaisser', 'exporter'],
     ];
 
     private const ACTION_LABELS = [
@@ -52,6 +54,7 @@ class PermissionSeeder extends Seeder
         'encaisser' => 'Encaisser',
         'renouveler' => 'Renouveler',
         'reporting' => 'Reporting',
+        'valider' => 'Valider',
     ];
 
     private const ENTITY_LABELS = [
@@ -83,6 +86,8 @@ class PermissionSeeder extends Seeder
         'enrollments' => 'les inscriptions aux formations',
         'orders' => 'les commandes',
         'reports' => 'les rapports',
+        'depenses' => 'les dépenses',
+        'commissions' => 'les commissions',
     ];
 
     public static function permissionNames(): array

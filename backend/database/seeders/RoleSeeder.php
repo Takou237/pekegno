@@ -60,6 +60,8 @@ class RoleSeeder extends Seeder
                 $p('enrollments', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('orders', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('reports', ['consulter', 'exporter']),
+                $p('depenses', ['consulter', 'creer', 'modifier', 'valider', 'encaisser', 'exporter']),
+                $p('commissions', ['consulter', 'creer', 'modifier', 'valider', 'encaisser', 'exporter']),
             ),
             'responsable-departement' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
@@ -79,6 +81,8 @@ class RoleSeeder extends Seeder
                 $p('enrollments', ['consulter']),
                 $p('orders', ['consulter', 'creer', 'modifier']),
                 $p('reports', ['consulter', 'exporter']),
+                $p('depenses', ['consulter', 'creer', 'modifier']),
+                $p('commissions', ['consulter']),
             ),
             'commercial' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
@@ -107,6 +111,8 @@ class RoleSeeder extends Seeder
                 $p('enrollments', ['consulter']),
                 $p('orders', ['consulter']),
                 $p('reports', ['consulter']),
+                $p('depenses', ['consulter', 'creer', 'encaisser']),
+                $p('commissions', ['consulter']),
             ),
             'comptable' => array_merge(
                 $p('clients', ['consulter', 'exporter']),
@@ -126,6 +132,8 @@ class RoleSeeder extends Seeder
                 $p('enrollments', ['consulter']),
                 $p('orders', ['consulter']),
                 $p('reports', ['consulter', 'exporter']),
+                $p('depenses', ['consulter', 'creer', 'modifier', 'valider', 'encaisser', 'exporter']),
+                $p('commissions', ['consulter', 'creer', 'modifier', 'valider', 'encaisser', 'exporter']),
             ),
             'formateur' => array_merge(
                 $p('services', ['consulter']),

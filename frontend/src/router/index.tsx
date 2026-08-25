@@ -83,6 +83,9 @@ const AcademyLearnersPage = lazy(() => import('@/pages/academy/AcademyLearnersPa
 const AcademyLearnerDetailPage = lazy(() => import('@/pages/academy/AcademyLearnerDetailPage'));
 const ComingSoonPage = lazy(() => import('@/pages/ComingSoonPage'));
 const TreasuryPage = lazy(() => import('@/pages/treasury/TreasuryPage'));
+const ExpenseListPage = lazy(() => import('@/pages/expenses/ExpenseListPage'));
+const CommissionRulesPage = lazy(() => import('@/pages/commissions/CommissionRulesPage'));
+const CommissionEntriesPage = lazy(() => import('@/pages/commissions/CommissionEntriesPage'));
 
 function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
   return <Suspense fallback={fallback}>{node}</Suspense>;
@@ -152,6 +155,9 @@ export const router = createBrowserRouter([
           { path: '/employees/:id', element: page(<EmployeeDetailPage />, detail) },
           { path: '/accounting', element: page(<AccountingPage />, table) },
           { path: '/treasury', element: page(<TreasuryPage />, table) },
+          { path: '/expenses', element: page(<ExpenseListPage />, table) },
+          { path: '/commissions/rules', element: page(<CommissionRulesPage />, table) },
+          { path: '/commissions/entries', element: page(<CommissionEntriesPage />, table) },
           { path: '/bilans', element: page(<DailyBilanPage />, table) },
           { path: '/subscriptions', element: page(<SubscriptionListPage />, table) },
           { path: '/invoices', element: page(<InvoiceListPage />, table) },
