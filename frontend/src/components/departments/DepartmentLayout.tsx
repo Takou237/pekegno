@@ -88,7 +88,7 @@ export function DepartmentLayout() {
           {isLoading ? (
             <div className="flex justify-center py-16"><Spinner /></div>
           ) : (
-            <Outlet context={{ department, departmentId, refreshDepartment: loadDepartment }} />
+            <Outlet context={{ department, departmentId, agencyId: department?.agency_id, refreshDepartment: loadDepartment }} />
           )}
         </div>
       </main>

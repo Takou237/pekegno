@@ -27,7 +27,7 @@ import {
   Landmark,
   CircleDollarSign,
   ScrollText,
-  Building2,
+  Settings,
   Target,
 } from 'lucide-react';
 import type { DepartmentType } from '@/types/department';
@@ -167,6 +167,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
         { to: 'certificates', label: t('nav.certificates'), icon: FileText, end: false },
         { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
+        { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
       ];
 
     case 'agency':
@@ -183,6 +184,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: 'payments', label: t('nav.invoices'), icon: Receipt, end: false },
         { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
         { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
+        { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
       ];
 
     case 'store':
@@ -198,6 +200,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: 'returns', label: t('nav.returns'), icon: Undo2, end: false },
         { to: 'inventories', label: t('nav.inventories'), icon: Warehouse, end: false },
         { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
+        { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
       ];
 
     case 'studio':
@@ -214,6 +217,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: 'deliveries', label: t('nav.deliveries'), icon: Truck, end: false },
         { to: 'payments', label: t('nav.invoices'), icon: Receipt, end: false },
         { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
+        { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
       ];
   }
 }

@@ -1,0 +1,679 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{tabularx}
+\usepackage{amssymb}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+
+\hypersetup{
+  pdftitle={PEKEGNO Management System -- Cahier des charges fonctionnel},
+  pdfauthor={Pekegno},
+  pdfsubject={Cahier des charges fonctionnel et architecture UX}
+}
+
+\setlength{\parskip}{0.4em}
+
+\newcommand{\tableheader}[2]{\textbf{#1} & \textbf{#2} \\ \hline}
+
+\begin{document}
+
+%=====================================================
+% Page de titre
+%=====================================================
+\begin{titlepage}
+  \centering
+  \vspace*{3cm}
+  {\Huge\bfseries PEKEGNO\par}
+  \vspace{0.4cm}
+  {\LARGE MANAGEMENT SYSTEM\par}
+  \vspace{2cm}
+  {\Large\bfseries Cahier des charges fonctionnel \&\\ Architecture UX\par}
+  \vspace{2cm}
+  {\large Version de travail modifiable --- Août 2026\par}
+  \vspace{0.4cm}
+  {\large Périmètre initial : Pekegno Cameroun \& Pekegno Côte d'Ivoire\par}
+  \vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+%=====================================================
+\section{Objet du document}
+%=====================================================
+
+Ce document définit l'architecture fonctionnelle cible de l'application web Pekegno Management System. Il sert de base de travail entre la direction de Pekegno, l'équipe produit/UX et l'équipe de développement. Il est volontairement modifiable : les règles métier, seuils, formules et écrans pourront être précisés pendant les ateliers de cadrage.
+
+\textbf{Principe directeur :} les anciens Google Sheets constituent une source de compréhension des processus et des données historiques, mais ne doivent pas être reproduits tels quels. Une opération métier doit être saisie une seule fois puis alimenter automatiquement les soldes, commissions, tableaux de bord, rapports et historiques concernés.
+
+%=====================================================
+\section{Objectifs métier}
+%=====================================================
+
+\begin{itemize}
+  \item Centraliser les données de Pekegno Cameroun et Pekegno Côte d'Ivoire dans une architecture commune.
+  \item Réduire les doubles saisies, calculs manuels et risques d'erreur.
+  \item Automatiser le suivi des ventes, paiements, créances, dépenses, trésorerie, renouvellements et commissions.
+  \item Donner à chaque collaborateur une interface adaptée à son rôle et à son périmètre.
+  \item Permettre au management de descendre d'un KPI Groupe jusqu'à la transaction source.
+  \item Préparer l'extension à de nouveaux pays, agences, branches, produits et utilisateurs.
+  \item Conserver un historique auditable des opérations et modifications sensibles.
+\end{itemize}
+
+%=====================================================
+\section{Architecture organisationnelle}
+%=====================================================
+
+\begin{verbatim}
+PEKEGNO GROUP
+|-- CAMEROUN
+|   |-- DOUALA
+|   |   |-- ACADEMY
+|   |   |-- AGENCY
+|   |   |-- STORE
+|   |   \-- STUDIO
+|   \-- YAOUNDE
+|       |-- ACADEMY
+|       |-- AGENCY
+|       |-- STORE
+|       \-- STUDIO
+\-- COTE D'IVOIRE
+    \-- ABIDJAN
+        |-- ACADEMY
+        |-- AGENCY
+        |-- STORE
+        \-- STUDIO
+\end{verbatim}
+
+Cette structure doit être configurable. Les pays, agences et branches ne doivent pas être codés en dur.
+
+%=====================================================
+\section{Architecture UX et navigation}
+%=====================================================
+
+\subsection{Sélecteur de contexte permanent}
+
+L'utilisateur ne doit pas parcourir Groupe $>$ Pays $>$ Agence $>$ Branche à chaque action. Un sélecteur de contexte permanent doit permettre de changer rapidement le périmètre affiché.
+
+\begin{center}
+\texttt{PEKEGNO~|~Pays~$\blacktriangledown$~|~Agence~$\blacktriangledown$~|~Branche~$\blacktriangledown$~|~Période~$\blacktriangledown$~|~Recherche~|~Notifications~|~Profil}
+\end{center}
+
+\subsection{Menu principal recommandé}
+
+\begin{itemize}
+  \item COMMAND CENTER
+  \item CRM
+  \item VENTES
+  \item ACADEMY
+  \item AGENCY
+  \item STORE
+  \item STUDIO
+  \item FINANCE
+  \item COMMISSIONS
+  \item RAPPORTS
+  \item ÉQUIPE
+  \item ADMINISTRATION
+\end{itemize}
+
+%=====================================================
+\section{Command Center}
+%=====================================================
+
+Le Super Admin arrive par défaut sur une vue Groupe consolidée.
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{KPI}{Contenu attendu}
+Chiffre d'affaires & Valeur période + comparaison période précédente \\ \hline
+Encaissements & Paiements validés reçus pendant la période \\ \hline
+Créances & Montants restant dus selon les règles métier validées \\ \hline
+Dépenses & Dépenses validées pendant la période \\ \hline
+Trésorerie & Soldes par caisse, Mobile Money et banque \\ \hline
+Performance & Pays, agences, branches, produits et commerciaux \\ \hline
+Alertes & Créances, renouvellements, validations, stocks, anomalies \\ \hline
+\end{tabularx}
+
+Les KPI doivent permettre un \emph{drill-down} :
+Groupe $\rightarrow$ Pays $\rightarrow$ Agence $\rightarrow$ Branche $\rightarrow$ Produit/Commercial $\rightarrow$ Client $\rightarrow$ Transaction.
+
+%=====================================================
+\section{CRM central}
+%=====================================================
+
+\begin{itemize}
+  \item Prospects
+  \item Clients
+  \item Entreprises
+  \item Opportunités
+  \item Pipeline commercial
+  \item Relances et activités
+  \item Historique relationnel
+\end{itemize}
+
+\subsection{Fiche prospect}
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Bloc}{Champs principaux}
+Identité & Nom, téléphone, WhatsApp, email, entreprise, ville, pays \\ \hline
+Acquisition & Source, campagne/source commerciale si applicable \\ \hline
+Intérêt & Academy, Agency, Store, Studio, produit/service \\ \hline
+Responsable & Commercial assigné, agence, équipe \\ \hline
+Pipeline & Nouveau, contacté, qualifié, proposition, négociation, gagné, perdu \\ \hline
+Activités & Appels, rendez-vous, relances, notes \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Pekegno Academy}
+%=====================================================
+
+\begin{verbatim}
+ACADEMY
+|-- Dashboard
+|-- Prospects
+|-- Apprenants
+|-- Inscriptions
+|-- Formations
+|   |-- Catalogue
+|   |-- Sessions
+|   |-- Planning
+|   \-- Formateurs
+|-- Presences
+|-- Paiements
+|-- Creances
+|-- Certificats
+|-- Performances commerciales
+\-- Rapports
+\end{verbatim}
+
+\subsection{Fiche apprenant}
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Section}{Informations / actions}
+Identité & Nom, téléphone, email, ville, pays \\ \hline
+Inscription & Formation, session, agence, commercial, date \\ \hline
+Finance & Prix contractuel, total payé calculé, solde calculé, échéances \\ \hline
+Paiements & Historique illimité des paiements ; bouton Enregistrer un paiement \\ \hline
+Formation & Présences, progression, statut \\ \hline
+Documents & Factures/reçus, certificat, pièces éventuelles \\ \hline
+\end{tabularx}
+
+La structure ne doit pas utiliser des colonnes fixes \og 1ère tranche / 2e tranche \fg. Une inscription possède N paiements. Le solde est calculé à partir du montant contractuel et des paiements validés.
+
+%=====================================================
+\section{Pekegno Agency}
+%=====================================================
+
+\begin{verbatim}
+AGENCY
+|-- Dashboard
+|-- Prospects
+|-- Clients
+|-- Packages
+|-- Contrats
+|-- Prestations
+|-- Equipe client
+|-- Community Management
+|-- Publicite
+|-- Renouvellements
+|-- Paiements
+|-- Creances
+|-- Rapports clients
+\-- Performance
+\end{verbatim}
+
+Client, contrat et service sont trois objets distincts. Un même client peut acheter plusieurs prestations et plusieurs branches sans duplication de sa fiche.
+
+\subsection{Renouvellements}
+
+\begin{itemize}
+  \item Échéance calculée depuis le contrat.
+  \item Alertes configurables avant l'échéance.
+  \item Création automatique de tâches de relance.
+  \item Statuts : actif, à renouveler, expiré, suspendu, résilié.
+  \item Historique des renouvellements.
+\end{itemize}
+
+\subsection{Publicité}
+
+Le système doit séparer les honoraires/revenus Pekegno du budget publicitaire géré pour le client. Les règles comptables exactes de reconnaissance du chiffre d'affaires doivent être validées avec la fonction finance/comptabilité.
+
+%=====================================================
+\section{Pekegno Store / Matootoo}
+%=====================================================
+
+\begin{verbatim}
+STORE
+|-- Dashboard
+|-- Catalogue / Produits / Categories
+|-- Stocks
+|-- Approvisionnements
+|-- Fournisseurs
+|-- Achats
+|-- Commandes
+|-- Ventes
+|-- Livraisons
+|-- Retours
+|-- Inventaires
+\-- Rapports
+\end{verbatim}
+
+Le stock doit être multi-pays et multi-agences. Chaque mouvement doit être identifié : entrée, sortie, vente, retour, perte, ajustement ou transfert inter-agence.
+
+%=====================================================
+\section{Pekegno Studio}
+%=====================================================
+
+\begin{verbatim}
+STUDIO
+|-- Dashboard
+|-- Prospects / Clients
+|-- Services
+|-- Devis
+|-- Projets
+|-- Briefs
+|-- Planning
+|-- Production
+|-- Revisions
+|-- Livraisons
+|-- Paiements
+\-- Rapports
+\end{verbatim}
+
+Prospect $\rightarrow$ Brief $\rightarrow$ Devis $\rightarrow$ Validation $\rightarrow$ Acompte $\rightarrow$ Planification $\rightarrow$ Production $\rightarrow$ Révision $\rightarrow$ Validation client $\rightarrow$ Livraison $\rightarrow$ Solde $\rightarrow$ Clôture
+
+%=====================================================
+\section{Moteur central de ventes}
+%=====================================================
+
+Academy, Agency, Store et Studio doivent utiliser un noyau de vente commun. Les extensions métier se branchent sur ce noyau.
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Champ}{Description}
+Identifiant & Identifiant technique + référence lisible \\ \hline
+Contexte & Pays, agence, branche \\ \hline
+Client & Contact/entreprise concerné \\ \hline
+Produit/service & Élément vendu \\ \hline
+Commercial & Responsable de la vente \\ \hline
+Prix & Prix catalogue, remise, prix final \\ \hline
+Finance & Facturé, encaissé calculé, reste dû calculé \\ \hline
+Statut & État contrôlé de la vente \\ \hline
+Audit & Créateur, date/heure, historique \\ \hline
+\end{tabularx}
+
+\subsection{Vente \texorpdfstring{$\neq$}{!=} paiement}
+
+Une vente de 100~000 FCFA payée en trois tranches reste \textbf{une seule vente} reliée à \textbf{trois paiements}. Cette distinction est structurante pour les créances, la trésorerie, les commissions et le reporting.
+
+%=====================================================
+\section{Paiements et trésorerie}
+%=====================================================
+
+\begin{verbatim}
+COMPTES DE TRESORERIE
+|-- CASH
+|   |-- Caisse Douala
+|   |-- Caisse Yaounde
+|   \-- Caisse Abidjan
+|-- MOBILE MONEY
+|   |-- Orange Money
+|   \-- MTN MoMo
+\-- BANQUES
+    |-- Afriland
+    |-- CCA
+    \-- Autres
+\end{verbatim}
+
+Chaque paiement doit préciser le montant, le compte de destination, la vente/facture liée, le client, l'agence, l'utilisateur, la date et une référence éventuelle.
+
+%=====================================================
+\section{Bilan journalier automatique}
+%=====================================================
+
+Le bilan journalier ne doit plus être saisi manuellement. Il doit être généré depuis les ventes, paiements et dépenses enregistrés.
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Bloc}{Exemples}
+Ventes & Academy, Agency, Store, Studio \\ \hline
+Encaissements & Cash, Orange Money, MTN MoMo, banque, autres \\ \hline
+Dépenses & Administration, publicité, logistique, autres catégories configurables \\ \hline
+Trésorerie & Solde initial + entrées $-$ sorties = solde théorique \\ \hline
+Contrôle & Comparaison solde théorique / solde réel et justification des écarts \\ \hline
+\end{tabularx}
+
+Le système doit distinguer chiffre d'affaires, facturation, encaissements, créances et trésorerie. Les définitions comptables exactes seront validées dans le dictionnaire KPI.
+
+%=====================================================
+\section{Dépenses}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Champ}{Contenu}
+Montant & Montant de la dépense \\ \hline
+Catégorie & Administration, publicité, logistique, etc. \\ \hline
+Contexte & Pays, agence, branche \\ \hline
+Compte & Caisse, Mobile Money, banque \\ \hline
+Responsables & Demandeur, validateur, utilisateur ayant décaissé \\ \hline
+Justificatif & Photo/PDF/document \\ \hline
+Statut & Brouillon, soumis, validé, rejeté, payé/clos \\ \hline
+\end{tabularx}
+
+Demande $\rightarrow$ Validation $\rightarrow$ Décaissement $\rightarrow$ Justificatif $\rightarrow$ Comptabilisation/Clôture
+
+%=====================================================
+\section{Moteur de commissions et primes}
+%=====================================================
+
+Les commissions doivent provenir de règles configurées et versionnées, et non de calculs manuels isolés.
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Paramètre}{Exemples}
+Bénéficiaire & Commercial, closer, chef d'équipe, autre rôle autorisé \\ \hline
+Périmètre & Pays, agence, branche, produit/service \\ \hline
+Formule & Pourcentage, montant fixe, paliers --- à configurer selon les règles Pekegno \\ \hline
+Déclenchement & À la vente, à l'encaissement, au paiement complet --- règle à valider \\ \hline
+Période & Date de début et fin de validité \\ \hline
+Workflow & Calculée $\rightarrow$ à valider $\rightarrow$ validée $\rightarrow$ payée \\ \hline
+Traçabilité & Conserver la version de règle appliquée à chaque commission \\ \hline
+\end{tabularx}
+
+Le système doit permettre plusieurs lignes de commission sur une même vente si les règles Pekegno l'exigent.
+
+%=====================================================
+\section{Rôles et permissions}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Rôle type}{Périmètre indicatif}
+Super Admin & Groupe entier \\ \hline
+Country Manager & Pays autorisé \\ \hline
+Chef d'agence & Agence autorisée \\ \hline
+Responsable branche & Branche autorisée \\ \hline
+Finance / Comptable & Modules financiers selon permissions \\ \hline
+Commercial & Ses prospects, clients, ventes et commissions selon politique \\ \hline
+Community Manager & Clients Agency affectés \\ \hline
+Formateur & Sessions/apprenants autorisés \\ \hline
+Gestionnaire stock & Stocks et mouvements autorisés \\ \hline
+Lecture seule & Rapports/périmètres autorisés \\ \hline
+\end{tabularx}
+
+Principe recommandé : \textbf{Permission = rôle + périmètre organisationnel + éventuelles exceptions.}
+
+%=====================================================
+\section{Notifications, tâches et automatisations}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Déclencheur}{Actions possibles}
+Paiement reçu & Mettre à jour encaissement, solde, trésorerie, commission, dashboard, audit \\ \hline
+Renouvellement proche & Notifier, créer tâche de relance, escalader selon délai \\ \hline
+Créance échue & Alerter commercial/finance et créer relance \\ \hline
+Stock sous seuil & Alerter Store / approvisionnement \\ \hline
+Dépense soumise & Notifier le validateur \\ \hline
+Objectif proche/atteint & Mettre à jour performance et notification éventuelle \\ \hline
+\end{tabularx}
+
+Les délais, seuils et destinataires doivent être configurables et validés avec Pekegno.
+
+%=====================================================
+\section{Rapports et filtres}
+%=====================================================
+
+\begin{itemize}
+  \item Filtres communs : période, pays, agence, branche, produit/service, commercial.
+  \item Rapports direction : Groupe, pays, agences, branches.
+  \item Rapports commerciaux : CA, conversion, objectifs, commissions.
+  \item Rapports finance : encaissements, créances, dépenses, trésorerie.
+  \item Rapports Academy : inscriptions, sessions, paiements, remplissage.
+  \item Rapports Agency : clients, renouvellements, revenu récurrent selon définition validée.
+  \item Rapports Store : ventes, stock, rotation, marge selon données disponibles.
+  \item Rapports Studio : projets, ventes, paiements et rentabilité selon données disponibles.
+  \item Exports selon besoins validés : Excel/PDF/CSV.
+\end{itemize}
+
+%=====================================================
+\section{Modèle de données conceptuel}
+%=====================================================
+
+\begin{verbatim}
+ORGANISATION
+Country -> Agency -> Branch
+
+CRM
+Contact / Company -> Lead -> Opportunity -> Activity
+
+CATALOGUE
+Category -> Product/Service -> Price/Package
+
+VENTES
+Customer -> Sale/Order -> Invoice -> Payment
+                         \-> Receivable
+                         \-> Commission Entry
+
+FINANCE
+Treasury Account -> Transaction
+Expense -> Approval -> Payment
+Transfer -> Reconciliation
+
+ACADEMY
+Course -> Session -> Enrollment -> Attendance -> Certificate
+
+AGENCY
+Client -> Contract -> Service -> Renewal / Campaign
+
+STORE
+Product/SKU -> Warehouse -> Stock Movement -> Purchase/Order/Delivery/Return
+
+STUDIO
+Client -> Quote -> Project -> Task/Production -> Revision -> Deliverable
+\end{verbatim}
+
+%=====================================================
+\section{Règles de qualité des données}
+%=====================================================
+
+\begin{itemize}
+  \item Éviter les doublons clients, employés, produits et formations.
+  \item Utiliser des statuts contrôlés plutôt que du texte libre pour les états métier.
+  \item Calculer les totaux et soldes dérivables au lieu de les ressaisir.
+  \item Conserver l'historique des modifications sensibles.
+  \item Ne pas supprimer silencieusement les transactions financières validées : utiliser annulation/correction traçable.
+  \item Conserver la règle/version ayant généré une commission.
+  \item Prévoir des références lisibles en complément des identifiants techniques.
+\end{itemize}
+
+%=====================================================
+\section{Migration des Google Sheets 2022--2026}
+%=====================================================
+
+Inventaire $\rightarrow$ Sauvegarde $\rightarrow$ Mapping $\rightarrow$ Nettoyage $\rightarrow$ Normalisation $\rightarrow$ Déduplication $\rightarrow$ Import test $\rightarrow$ Contrôle $\rightarrow$ Import final $\rightarrow$ Archivage
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Étape}{Livrable}
+Inventaire & Liste des Sheets, onglets, colonnes et périodes \\ \hline
+Mapping & Ancienne colonne $\rightarrow$ nouvelle entité/champ \\ \hline
+Nettoyage & Formats dates, numéros, montants, noms \\ \hline
+Déduplication & Clients, employés, formations, produits \\ \hline
+Validation & Échantillons comparés aux totaux historiques \\ \hline
+Import final & Journal d'import et anomalies non résolues \\ \hline
+\end{tabularx}
+
+Les données historiques incertaines doivent être identifiées comme telles plutôt que transformées automatiquement en données comptables certifiées.
+
+%=====================================================
+\section{Dictionnaire KPI à valider}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{KPI}{Définition à figer avant développement}
+Chiffre d'affaires & À définir/valider avec la direction financière/comptable \\ \hline
+Facturé & Somme des factures validées sur la période, selon règles à préciser \\ \hline
+Encaissements & Somme des paiements validés reçus pendant la période \\ \hline
+Créances & Montants restant dus selon échéances et statuts définis \\ \hline
+Dépenses & Dépenses validées selon date/règle retenue \\ \hline
+Trésorerie & Soldes des comptes de trésorerie après mouvements validés \\ \hline
+Commission & Résultat de la règle versionnée applicable \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{MVP et roadmap recommandée}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Phase}{Périmètre}
+Phase 1 --- Noyau & Organisation, utilisateurs, permissions, CRM, catalogue, ventes, paiements, dépenses, trésorerie, commissions, dashboard, rapports, audit \\ \hline
+Phase 2 --- Métiers prioritaires & Academy complet + Agency complet \\ \hline
+Phase 3 --- Autres branches & Store + Studio \\ \hline
+Phase 4 --- Avancé & Automatisations avancées, objectifs, budgets, BI, prévisions, intégrations \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Spécification type d'un écran}
+%=====================================================
+
+Chaque écran doit être documenté avec la fiche suivante avant validation UX/UI :
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Élément}{À documenter}
+Nom de l'écran & Ex. Fiche apprenant \\ \hline
+Objectif & Pourquoi l'écran existe \\ \hline
+Accès & Rôles et périmètres \\ \hline
+Données affichées & Champs, KPI, historique \\ \hline
+Actions & Créer, modifier, valider, annuler, exporter, etc. \\ \hline
+Filtres & Filtres et recherche \\ \hline
+Règles métier & Calculs et contraintes \\ \hline
+Automatisations & Événements déclenchés \\ \hline
+Navigation & Écrans entrants/sortants \\ \hline
+Audit & Actions devant être historisées \\ \hline
+Critères d'acceptation & Conditions vérifiables pour considérer l'écran terminé \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Exemple détaillé --- Fiche apprenant Academy}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Élément}{Spécification}
+Objectif & Centraliser l'identité, l'inscription, la formation et la situation financière de l'apprenant. \\ \hline
+Accès & Super Admin, responsables autorisés, Academy, Finance selon permissions. \\ \hline
+Données & Identité, contact, formation, session, commercial, prix, paiements, solde, présence, certificat. \\ \hline
+Actions & Modifier, enregistrer paiement, affecter/changer session, consulter documents, gérer certificat. \\ \hline
+Paiement & Créer une ligne de paiement reliée à l'inscription/vente et au compte de trésorerie. \\ \hline
+Automatisation & Recalculer solde, encaissements, commission si applicable, trésorerie, reporting et audit. \\ \hline
+Contrôle & Interdire les incohérences de montants et tracer les corrections sensibles. \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Audit et sécurité fonctionnelle}
+%=====================================================
+
+\begin{itemize}
+  \item Authentification et gestion de sessions selon standards techniques retenus par l'équipe.
+  \item Journal d'audit pour paiements, dépenses, commissions, changements de permissions et autres actions sensibles.
+  \item Principe du moindre privilège pour les accès.
+  \item Sauvegardes, restauration et politique de conservation à définir avec l'équipe technique.
+  \item Séparation des environnements de développement/test/production recommandée.
+  \item Validation explicite avant toute migration ou modification massive de données.
+\end{itemize}
+
+%=====================================================
+\section{Critères de validation du projet}
+%=====================================================
+
+\begin{itemize}
+  \item Une donnée métier n'est saisie qu'une fois lorsqu'elle peut alimenter automatiquement les autres modules.
+  \item Les soldes calculés correspondent aux transactions sources.
+  \item Chaque KPI important peut être expliqué par ses données sources.
+  \item Les permissions empêchent l'accès hors périmètre.
+  \item Les commissions sont reproductibles et rattachées à une règle/version.
+  \item Le bilan journalier est généré sans ressaisie manuelle.
+  \item Les renouvellements et créances génèrent les alertes prévues.
+  \item Les opérations sensibles sont auditables.
+  \item Les données historiques importées sont rapprochées avec les sources selon un protocole validé.
+\end{itemize}
+
+%=====================================================
+\section{Processus de validation avec l'agence de développement}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\tableheader{Gate}{Validation attendue avant de poursuivre}
+Gate 1 --- Architecture & Sitemap, modèle de données, workflows, permissions, dictionnaire KPI \\ \hline
+Gate 2 --- UX/UI & Wireframes et prototypes des parcours critiques \\ \hline
+Gate 3 --- MVP & Développement du noyau et tests d'acceptation \\ \hline
+Gate 4 --- Migration & Import test, rapprochement et validation \\ \hline
+Gate 5 --- Production & Recette finale, droits, sauvegardes, formation et mise en service \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Parcours critiques à prototyper}
+%=====================================================
+
+\begin{itemize}
+  \item Prospect $\rightarrow$ vente $\rightarrow$ paiement $\rightarrow$ commission $\rightarrow$ dashboard.
+  \item Prospect Academy $\rightarrow$ inscription $\rightarrow$ paiement partiel $\rightarrow$ solde $\rightarrow$ session $\rightarrow$ certificat.
+  \item Client Agency $\rightarrow$ contrat $\rightarrow$ paiement $\rightarrow$ prestation $\rightarrow$ renouvellement.
+  \item Dépense $\rightarrow$ validation $\rightarrow$ décaissement $\rightarrow$ rapprochement.
+  \item Vente Store $\rightarrow$ sortie stock $\rightarrow$ paiement $\rightarrow$ livraison/retour.
+  \item Projet Studio $\rightarrow$ devis $\rightarrow$ acompte $\rightarrow$ production $\rightarrow$ livraison $\rightarrow$ solde.
+  \item Super Admin $\rightarrow$ KPI Groupe $\rightarrow$ drill-down jusqu'à la transaction.
+\end{itemize}
+
+%=====================================================
+\section{Décisions restant à valider par Pekegno}
+%=====================================================
+
+\begin{itemize}
+  \item Définition comptable exacte du chiffre d'affaires par activité.
+  \item Moment de déclenchement des commissions et formules réelles de prime.
+  \item Workflow et seuils de validation des dépenses.
+  \item Règles de renouvellement Agency et délais d'alerte.
+  \item Règles de gestion des remboursements, annulations et avoirs.
+  \item Liste définitive des comptes Cash / Mobile Money / banques.
+  \item Rôles exacts et matrice de permissions.
+  \item Priorité précise entre Academy, Agency, Store et Studio dans le MVP.
+  \item Périmètre et qualité des données historiques à migrer.
+\end{itemize}
+
+%=====================================================
+\section{Instruction de conception à l'équipe de développement}
+%=====================================================
+
+Les Google Sheets fournis représentent le fonctionnement historique et les données de Pekegno. Ils ne constituent pas le modèle d'interface de la nouvelle application. L'application doit enregistrer les opérations métier une seule fois et générer automatiquement les calculs, soldes, primes, bilans, alertes et rapports qui étaient auparavant produits manuellement.
+
+%=====================================================
+\section{Validation / commentaires}
+%=====================================================
+
+Ce document est une base de cadrage modifiable. Utiliser cette section pour consigner les arbitrages avec l'agence.
+
+\begin{tabularx}{\textwidth}{|c|X|X|c|}
+\hline
+\textbf{Date} & \textbf{Sujet} & \textbf{Décision} & \textbf{Responsable} \\ \hline
+\rule{0pt}{7mm} & & & \\ \hline
+\rule{0pt}{7mm} & & & \\ \hline
+\rule{0pt}{7mm} & & & \\ \hline
+\rule{0pt}{7mm} & & & \\ \hline
+\rule{0pt}{7mm} & & & \\ \hline
+\end{tabularx}
+
+\end{document}

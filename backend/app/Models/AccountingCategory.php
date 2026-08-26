@@ -16,12 +16,14 @@ class AccountingCategory extends Model
         'type',
         'agency_id',
         'is_system',
+        'is_pass_through',
     ];
 
     protected function casts(): array
     {
         return [
             'is_system' => 'boolean',
+            'is_pass_through' => 'boolean',
         ];
     }
 

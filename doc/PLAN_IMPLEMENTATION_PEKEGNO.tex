@@ -1,0 +1,481 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{tabularx}
+\usepackage{amssymb}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+
+\hypersetup{
+  pdftitle={PEKEGNO Management System -- Plan d'implementation et decoupage des taches},
+  pdfauthor={Equipe developpement Pekegno},
+  pdfsubject={Plan de developpement, analyse des ecarts et planning}
+}
+
+\setlength{\parskip}{0.35em}
+
+% Couleurs
+\definecolor{pekblue}{RGB}{54,65,245}
+\definecolor{peklight}{RGB}{228,231,255}
+\definecolor{pekgreen}{RGB}{21,150,110}
+\definecolor{pekamber}{RGB}{247,144,9}
+\definecolor{pekgray}{RGB}{120,130,145}
+
+\newcolumntype{W}{>{\centering\arraybackslash}p{0.40cm}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+\newcommand{\be}{\textsc{Be}}
+\newcommand{\fe}{\textsc{Fe}}
+\newcommand{\qa}{\textsc{Qa}}
+
+\begin{document}
+
+%=====================================================
+% Page de titre
+%=====================================================
+\begin{titlepage}
+  \centering
+  \vspace*{2.5cm}
+  {\Huge\bfseries PEKEGNO\par}
+  \vspace{0.3cm}
+  {\LARGE MANAGEMENT SYSTEM\par}
+  \vspace{1.8cm}
+  {\Large\bfseries Plan d'implémentation\\[0.3cm] Analyse des écarts \& découpage des tâches\par}
+  \vspace{1.5cm}
+  \begin{tabular}{rl}
+    \textbf{Base de travail} & Cahier des charges fonctionnel (Août 2026) \\[2mm]
+    \textbf{Périmètre} & Backend Laravel + Frontend React existants \\[2mm]
+    \textbf{Équipe} & Blackstar \& Le\_million \\[2mm]
+    \textbf{Durée prévisionnelle} & 20 semaines (10 sprints de 2 semaines) \\
+  \end{tabular}
+  \vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+%=====================================================
+\section{Objet du document}
+%=====================================================
+
+Ce document fait le lien entre le \emph{cahier des charges fonctionnel} PEKEGNO et l'application réellement développée à ce jour (backend Laravel 13 / PostgreSQL, frontend React 19 / Vite / Tailwind v4). Il :
+
+\begin{enumerate}[nosep]
+  \item dresse l'état des lieux précis du code existant ;
+  \item identifie les écarts entre l'existant et les exigences du cahier des charges ;
+  \item corrige deux interprétations erronées validées avec la direction : le modèle \textbf{Agence $\rightarrow$ Départements typés} et la navigation par \textbf{barre de contexte permanente} ;
+  \item découpe le travail restant en tâches chiffrées en durée, réparties entre deux développeurs, \textbf{Blackstar} et \textbf{Le\_million}, qui permutent entre backend et frontend à chaque sprint.
+\end{enumerate}
+
+%=====================================================
+\section{État des lieux du projet}
+%=====================================================
+
+\subsection{Backend (Laravel 13, PostgreSQL)}
+
+Environ 70 migrations, 40 modèles Eloquent, 57 contrôleurs, authentification Sanctum avec portails séparés (\texttt{staff}/\texttt{client}), sessions uniques, RBAC maison (rôles + permissions \texttt{entité.action}) et périmètres de visibilité via \texttt{ScopeService}.
+
+\begin{tabularx}{\textwidth}{|l|Y|}
+\hline
+\rowcolor{peklight}\textbf{Domaine} & \textbf{Ce qui existe} \\ \hline
+Organisation & \texttt{organizations}, \texttt{countries}, \texttt{cities}, \texttt{agencies}, \texttt{departments}, chefs d'agence/département, \texttt{user\_assignments} \\ \hline
+Catalogue & \texttt{categories}, \texttt{services} (+ promotions, historique prix, tiers séminaire), \texttt{products} (flag stock non exploité), \texttt{courses}, \texttt{training\_sessions}, \texttt{trainers}, \texttt{enrollments} \\ \hline
+CRM & Clients = utilisateurs rôle \og client \fg{} (\texttt{client\_number}, catégorie, pays/ville, commercial référent), \texttt{prospects} + conversion, \texttt{commercials} (points, type commission) \\ \hline
+Ventes & \texttt{invoices} + \texttt{invoice\_items} + \texttt{invoice\_payments} (cash/OM/MoMo), annulation, \texttt{orders}/\texttt{order\_lines}, vente rapide \\ \hline
+Commissions & \texttt{commission\_payments} calculées à l'encaissement (taux snapshot par commercial), points fidélité \\ \hline
+Abonnements & \texttt{subscription\_packs}, \texttt{subscriptions} (cycle de vie, renouvellement), \texttt{subscription\_notifications} (J-14/7/2/1) \\ \hline
+Finance & \texttt{accounting\_categories}, \texttt{accounting\_transactions}, \texttt{daily\_balances}, bilans jour/période, statistiques (groupe, pays, agence, mensuel) \\ \hline
+Système & \texttt{activity\_logs}, \texttt{login\_logs}, \texttt{settings}, uploads, exports CSV (maatwebsite/excel), Swagger L5 \\ \hline
+\end{tabularx}
+
+\subsection{Frontend (React 19, Vite, Tailwind v4, react-router 6)}
+
+Kit UI maison (\texttt{components/ui/}), i18n FR/EN (~1530 clés), axios wrapper avec intercepteurs 401/403, contextes \texttt{AuthContext} et \texttt{ToastContext} uniquement.
+
+Navigation actuelle : imbrication d'URLs \texttt{/} $\rightarrow$ \texttt{/countries/:id} $\rightarrow$ \texttt{/countries/:id/agencies/:id} $\rightarrow$ départements, chaque niveau exposant son contexte via \texttt{useOutletContext}. Un \texttt{AgencySwitcher} permet de changer d'agence depuis une agence, un \texttt{DepartmentSwitcher} entre départements d'une même agence.
+
+\begin{tabularx}{\textwidth}{|l|Y|}
+\hline
+\rowcolor{peklight}\textbf{Module} & \textbf{État} \\ \hline
+Dashboards & Groupe, pays, agence, département (pages implémentées) \\ \hline
+Admin & Pays, agences, départements, utilisateurs, rôles/privileges, audit, settings, profil/2FA \\ \hline
+Ventes/Factures & Liste, création, détail, encaissement, Quick Sale, impression ; comptabilité ; bilans ; abonnements \\ \hline
+Academy & Cours, sessions, formateurs, apprenants (7 pages) — imbriqués sous l'\emph{agence} comme \og ligne Formations \fg{} \\ \hline
+CRM & Clients (liste/détail) ; prospects : API prête mais \textbf{aucune page} \\ \hline
+Store & \textbf{Absent} (aucune page, aucun appel API produits) \\ \hline
+Studio & \textbf{Absent} totalement \\ \hline
+Notifications & Dossier vide, aucune UI \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Analyse des écarts avec le cahier des charges}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|l|l|Y|}
+\hline
+\rowcolor{peklight}\textbf{Exigence (CDC)} & \textbf{État} & \textbf{Écart constaté} \\ \hline
+Départements typés (4 branches) & Écart majeur & \texttt{departments} = simple libellé rattaché à une agence ; pas de colonne \texttt{type}. L'app a modélisé Academy comme une \og ligne \fg{} de l'agence (\texttt{agencies.type} agency/academy/mixed) au lieu d'un département. \\ \hline
+Barre de contexte permanente & Manquant & Navigation par drill-down uniquement ; aucun sélecteur global Pays/Agence/Département/Période ; impossible de sauter directement vers une agence d'un autre pays. \\ \hline
+Menus latéraux par branche & Partiel & Sidebar agence binaire (prestations/formations) ; les menus détaillés CDC (Store, Studio, Agency) n'existent pas. \\ \hline
+Command Center + drill-down & Partiel & Stats existantes mais pas de vue Groupe consolidée KPI ni descente jusqu'à la transaction. \\ \hline
+CRM complet & Partiel & Prospects sans UI, pas de pipeline visuel, pas d'activités/relances, pas d'entreprises. \\ \hline
+Trésorerie multi-comptes & Partiel & Paiements liés aux factures mais aucun compte de trésorerie (caisse/MoMo/banque) ni mouvements rattachés. \\ \hline
+Bilan journalier automatique & Partiel & \texttt{daily\_balances} saisis manuellement ; non généré depuis ventes/paiements/dépenses. \\ \hline
+Dépenses avec workflow & Partiel & Dépenses = transactions comptables libres ; pas de cycle demande$\rightarrow$validation$\rightarrow$décaissement$\rightarrow$justificatif. \\ \hline
+Commissions versionnées & Partiel & Taux fixé sur la fiche commercial ; aucune règle configurable/versionnée/paliers. \\ \hline
+Agency : contrats/renouvellements & Partiel & Abonnements mensuels seulement ; pas d'objet contrat, publicité séparée du budget client. \\ \hline
+Academy : présences/certificats/créances & Partiel & Présence booléenne sur inscription ; pas de feuille de présence par session ni certificats. \\ \hline
+Store complet & Manquant & Produits (flag stock inutilisé) ; zéro stock, fournisseurs, achats, commandes store, livraisons, retours, inventaires. \\ \hline
+Studio complet & Manquant & Rien : devis, projets, briefs, planning, production, révisions, livraisons. \\ \hline
+Notifications centralisées & Manquant & Rappels d'abonnement uniquement. \\ \hline
+Rapports/filtres communs & Partiel & Exports CSV ciblés ; pas de moteur de rapports filtrable période/pays/agence/département/commercial. \\ \hline
+Migration Google Sheets & Manquant & Aucun outillage d'import. \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Recadrages d'architecture décidés}
+%=====================================================
+
+\subsection{Modèle organisationnel corrigé}
+
+L'agence contient des \textbf{départements}, et chaque département porte un \textbf{type} parmi les quatre branches. Entrer dans une agence amène sur la page \textbf{Départements}, d'où l'on crée un département de l'un des quatre types. La notion d'\og agence academy/mixed \fg{} et le switcher \og Ligne Prestations / Ligne Formations \fg{} sont supprimés.
+
+\begin{verbatim}
+PEKEGNO GROUP
+|-- CAMEROUN                        (country)
+|   |-- DOUALA                      (agency)
+|   |   |-- ACADEMY                 (department, type=academy)
+|   |   |-- AGENCY                  (department, type=agency)
+|   |   |-- STORE                   (department, type=store)
+|   |   \-- STUDIO                  (department, type=studio)
+|   \-- YAOUNDE                     (agency)
+|       \-- ...
+\-- COTE D'IVOIRE                   (country)
+    \-- ABIDJAN                     (agency)
+        \-- ...
+\end{verbatim}
+
+\subsection{Barre de contexte permanente}
+
+Une barre supérieure unique, présente dans toutes les vues authentifiées :
+
+\begin{center}
+\texttt{PEKEGNO~|~Pays~$\blacktriangledown$~|~Agence~$\blacktriangledown$~|~Département~$\blacktriangledown$~|~Période~$\blacktriangledown$~|~Recherche~|~Notifications~|~Profil}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item Chaque sélecteur est alimenté par un arbre organisationnel chargé une seule fois (endpoint \texttt{/scope/context} enrichi) puis caché côté client.
+  \item Sélection directe à n'importe quel niveau : depuis Cameroun $\rightarrow$ Yaoundé $\rightarrow$ Academy, on peut ouvrir \og Agence \fg{} et choisir directement une agence d'un autre pays — la barre recalcule le contexte et redirige proprement.
+  \item Le contexte courant est persisté (localStorage + URL) et partagé via un \texttt{OrgContext} global ; les pages consomment le contexte au lieu de le recalculer depuis l'URL.
+  \item La période (ce mois, ce trimestre, personnalisée) pilote tous les KPI affichés.
+\end{itemize}
+
+\subsection{Sidebars dynamiques par type de département}
+
+Chaque type de département possède sa propre barre latérale, reprenant exactement les menus du cahier des charges :
+
+\begin{description}[leftmargin=2.2cm, style=nextline]
+  \item[type academy] Dashboard · Prospects · Apprenants · Inscriptions · Formations (Catalogue, Sessions, Planning, Formateurs) · Présences · Paiements · Créances · Certificats · Performances commerciales · Rapports
+  \item[type agency] Dashboard · Prospects · Clients · Packages · Contrats · Prestations · Équipe client · Community Management · Publicité · Renouvellements · Paiements · Créances · Rapports clients · Performance
+  \item[type store] Dashboard · Catalogue / Produits / Catégories · Stocks · Approvisionnements · Fournisseurs · Achats · Commandes · Ventes · Livraisons · Retours · Inventaires · Rapports
+  \item[type studio] Dashboard · Prospects / Clients · Services · Devis · Projets · Briefs · Planning · Production · Révisions · Livraisons · Paiements · Rapports
+\end{description}
+
+Les routes migrent de \texttt{/countries/:c/agencies/:a/academy/*} vers \texttt{/departments/:departmentId/*} (redirections compatibles maintenues pendant la transition).
+
+\subsection{Sémantique Studio (précisions métier)}
+
+Un \textbf{projet} Studio est une production concrète commandée par une marque (ex. filmer une publicité). \textbf{Devis} : calcul du montant à verser pour le projet, éditable en lignes, soumis à validation puis conversion en projet après acompte. \textbf{Briefs} : réunions rattachées au projet ; chaque brief est daté, avec participants et \textbf{notes riches} saisies dans un éditeur de type Summernote (points de réunion, mise en forme, listes). \textbf{Planning} : plan de réalisation (jalons/tâches datées). \textbf{Production} : projets en cours de réalisation. \textbf{Révisions} : allers-retours avec le client avant validation. \textbf{Livraisons} : remise finale des livrables, solde, clôture.
+
+%=====================================================
+\section{Organisation de l'équipe}
+%=====================================================
+
+\subsection{Principe d'alternance}
+
+Deux développeurs, \textbf{Blackstar} et \textbf{Le\_million}. Chaque sprint dure 2 semaines (10 jours ouvrés) et couvre un chantier. Les rôles \textbf{permutent à chaque sprint} afin que chacun progresse sur toute la stack :
+
+\begin{tabularx}{\textwidth}{|c|l|c|c|}
+\hline
+\rowcolor{peklight}\textbf{Sprint} & \textbf{Semaines} & \textbf{Backend} & \textbf{Frontend} \\ \hline
+S1 & S1--S2 & Blackstar & Le\_million \\ \hline
+S2 & S3--S4 & Le\_million & Blackstar \\ \hline
+S3 & S5--S6 & Blackstar & Le\_million \\ \hline
+S4 & S7--S8 & Le\_million & Blackstar \\ \hline
+S5 & S9--S10 & Blackstar & Le\_million \\ \hline
+S6 & S11--S12 & Le\_million & Blackstar \\ \hline
+S7 & S13--S14 & Blackstar & Le\_million \\ \hline
+S8 & S15--S16 & Le\_million & Blackstar \\ \hline
+S9 & S17--S18 & Blackstar & Le\_million \\ \hline
+S10 & S19--S20 & Le\_million & Blackstar \\ \hline
+\end{tabularx}
+
+Capacité : $2 \times 10$ jours-homme par sprint, soit \textbf{200 j-h} sur 20 semaines.
+
+\subsection{Definition of Done (toute tâche)}
+
+\begin{itemize}[nosep]
+  \item \textbf{BE} : migration testée (\texttt{migrate:fresh -{}-seed}), permissions \texttt{entité.action} câblées, policies/périmètres appliqués, endpoints documentés (Swagger régénéré), journalisation \texttt{activity\_logs} sur actions sensibles.
+  \item \textbf{FE} : page branchée au menu latéral du bon scope, i18n FR/EN complète, états chargement/erreur/vide gérés, responsive mobile, permissions côté client alignées sur le backend.
+  \item \textbf{QA} : parcours critique testé manuellement de bout en bout par le binôme (revue croisée), exports vérifiés.
+\end{itemize}
+
+%=====================================================
+\section{Découpage des tâches par chantier}
+%=====================================================
+
+Durées en jours-homme (1 j $\approx$ 7 h). Resp. : BS = Blackstar, LM = Le\_million.
+
+%-----------------------------------------------------
+\subsection{C0 --- Recadrage organisationnel \& navigation contextuelle (Sprint 1)}
+\addcontentsline{toc}{subsection}{C0 --- Recadrage organisationnel \& navigation contextuelle}
+
+\begin{tabularx}{\textwidth}{|l|Y|c|c|c|}
+\hline
+\rowcolor{peklight}\textbf{ID} & \textbf{Tâche} & \textbf{Flux} & \textbf{Resp.} & \textbf{Durée} \\ \hline
+T0.1 & Migration \texttt{departments.type} enum(\texttt{academy|agency|store|studio}) + backfill des données existantes, dépréciation de \texttt{agencies.type} & BE & BS & 3 j \\ \hline
+T0.2 & Endpoint \texttt{/scope/context} enrichi : arbre pays$\rightarrow$agences$\rightarrow$départements (filtré par périmètre utilisateur), filtres par type & BE & BS & 3 j \\ \hline
+T0.6 & Seeders de démonstration (agences avec départements des 4 types), Swagger, tests feature & BE & BS & 2 j \\ \hline
+T0.3 & Store global de contexte (\texttt{OrgContext}) + \textbf{ContextBar} permanente : Pays/Agence/Département/Période + recherche + notifications (placeholder) + profil ; saut direct inter-pays/agences & FE & LM & 5 j \\ \hline
+T0.4 & Suppression du switcher \og lignes \fg{} ; landing agence = page Départements ; modale de création de département avec les 4 types (icônes/couleurs) & FE & LM & 4 j \\ \hline
+QA0 & Revue croisée parcours Groupe$\rightarrow$Pays$\rightarrow$Agence$\rightarrow$Département, redirections anciennes URLs, i18n & QA & Binôme & 3 j \\ \hline
+\end{tabularx}
+
+%-----------------------------------------------------
+\subsection{C1 --- Trésorerie \& paiements (Sprint 2)}
+\addcontentsline{toc}{subsection}{C1 --- Trésorerie \& paiements}
+
+\begin{tabularx}{\textwidth}{|l|Y|c|c|c|}
+\hline
+\rowcolor{peklight}\textbf{ID} & \textbf{Tâche} & \textbf{Flux} & \textbf{Resp.} & \textbf{Durée} \\ \hline
+T1.1 & Tables \texttt{treasury\_accounts} (cash / mobile money / banque, rattachées agence) + \texttt{treasury\_transactions} ; chaque paiement facture écrit un mouvement & BE & LM & 4 j \\ \hline
+T1.2 & Bilan journalier \textbf{généré} : agrégation ventes/encaissements/dépenses/trésorerie, comparaison solde théorique vs réel, justification d'écart & BE & LM & 3 j \\ \hline
+T1.7 & Tests, Swagger, seeders comptes (Caisses Douala/Yaoundé/Abidjan, OM, MTN MoMo, Afriland, CCA) & BE & LM & 1 j \\ \hline
+T1.4 & Formulaire d'encaissement enrichi : sélection du compte de trésorerie destination, référence, affichage du compte sur l'historique paiements & FE & BS & 3 j \\ \hline
+T1.5 & Page FINANCE/Trésorerie : soldes par compte, flux de la période, filtres compte/type/période, transferts internes (lecture v1) & FE & BS & 5 j \\ \hline
+QA1 & Parcours : vente 100~000 FCFA en 3 tranches $\rightarrow$ 3 paiements $\rightarrow$ trésorerie $\rightarrow$ bilan cohérent & QA & Binôme & 4 j \\ \hline
+\end{tabularx}
+
+%-----------------------------------------------------
+\subsection{C2 --- Dépenses \& C3 --- Commissions (Sprint 3)}
+\addcontentsline{toc}{subsection}{C2 --- Dépenses \& C3 --- Commissions}
+
+\begin{tabularx}{\textwidth}{|l|Y|c|c|c|}
+\hline
+\rowcolor{peklight}\textbf{ID} & \textbf{Tâche} & \textbf{Flux} & \textbf{Resp.} & \textbf{Durée} \\ \hline
+T2.1 & Module dépenses : table dédiée, statuts brouillon$\rightarrow$soumis$\rightarrow$validé/rejeté$\rightarrow$payé/clos, catégories configurables, justificatifs (upload), notification validateur & BE & BS & 4 j \\ \hline
+T2.2 & Moteur de commissions versionnées : \texttt{commission\_rules} (bénéficiaire, périmètre, formule \% / fixe / paliers, déclenchement, dates de validité), snapshot de règle sur chaque commission générée à l'encaissement & BE & BS & 4 j \\ \hline
+QA2b & Tests règles multiples sur une même vente, reproductibilité des calculs & QA & BS & 2 j \\ \hline
+T2.3 & Pages Dépenses : demande, file de validation (badge), décaissement lié au compte de trésorerie, pièces jointes, historique statuts & FE & LM & 5 j \\ \hline
+T2.4 & Page COMMISSIONS : CRUD règles (formulaire paliers), liste commissions par période, workflow calculée$\rightarrow$à valider$\rightarrow$validée$\rightarrow$payée, traçabilité version de règle & FE & LM & 4 j \\ \hline
+QA2 & Revue croisée workflow dépense + commission & QA & Binôme & 1 j \\ \hline
+\end{tabularx}
+
+%-----------------------------------------------------
+\subsection{C4 --- CRM complet (Sprint 4)}
+\addcontentsline{toc}{subsection}{C4 --- CRM complet}
+
+\begin{tabularx}{\textwidth}{|l|Y|c|c|c|}
+\hline
+\rowcolor{peklight}\textbf{ID} & \textbf{Tâche} & \textbf{Flux} & \textbf{Resp.} & \textbf{Durée} \\ \hline
+T4.1 & Opportunités/pipeline : stages contrôlés (nouveau, contacté, qualifié, proposition, négociation, gagné, perdu), valeur, date prévue & BE & LM & 3 j \\ \hline
+T4.2 & Activités/relances : appels, RDV, notes, rappels planifiés + job quotidien de rappel & BE & LM & 3 j \\ \hline
+T4.3 & Entprises (\texttt{companies}) + liaison contacts$\leftrightarrow$entreprises + recherche anti-doublons & BE & LM & 2 j \\ \hline
+QA4b & Tests pipeline + rappels & QA & LM & 2 j \\ \hline
+T4.4 & Kanban prospects/opportunités (drag \& drop entre stages, filtres commercial/agence/département) & FE & BS & 4 j \\ \hline
+T4.5 & Fiche prospect complète (identité, acquisition, intérêt, responsable, pipeline, activités) + conversion client & FE & BS & 3 j \\ \hline
+T4.6 & Timeline relationnelle client (achats, paiements, activités, relances) & FE & BS & 2 j \\ \hline
+QA4 & Revue croisée CRM & QA & Binôme & 1 j \\ \hline
+\end{tabularx}
+
+%-----------------------------------------------------
+\subsection{C5 --- Academy compléments \& C6 --- Contrats Agency (Sprint 5)}
+\addcontentsline{toc}{subsection}{C5 --- Academy compléments \& C6 --- Contrats Agency}
+
+\begin{tabularx}{\textwidth}{|l|Y|c|c|c|}
+\hline
+\rowcolor{peklight}\textbf{ID} & \textbf{Tâche} & \textbf{Flux} & \textbf{Resp.} & \textbf{Durée} \\ \hline
+T5.1 & Feuille de présence par session (multi-apprenants, historique) remplaçant le booléen & BE & BS & 2 j \\ \hline
+T5.2 & Certificats : génération (numéro, date, mention), statut délivré/retiré, PDF imprimable & BE & BS & 2 j \\ \hline
+T6.1 & Contrats Agency : entité contrat (client, service/package, montant, cycles, échéance calculée), renouvellements avec alertes configurables, statuts actif / à renouveler / expiré / suspendu / résilié ; distinction honoraires vs budget publicitaire & BE & BS & 4 j \\ \hline
+QA5b & Tests renouvellements + certificats & QA & BS & 2 j \\ \hline
+T5.3 & UI présence session + certificats + fiche apprenant enrichie (échéancier N paiements, solde calculé, documents) & FE & LM & 5 j \\ \hline
+T6.2 & Pages Contrats \& Renouvellements (alertes J-X, tâches de relance auto, historique) & FE & LM & 4 j \\ \hline
+QA5 & Revue croisée Academy/Agency & QA & Binôme & 1 j \\ \hline
+\end{tabularx}
+
+%-----------------------------------------------------
+\subsection{C7 --- Store / Matootoo (Sprints 6 et 7)}
+\addcontentsline{toc}{subsection}{C7 --- Store / Matootoo}
+
+\begin{tabularx}{\textwidth}{|l|Y|c|c|c|}
+\hline
+\rowcolor{peklight}\textbf{ID} & \textbf{Tâche} & \textbf{Flux} & \textbf{Resp.} & \textbf{Durée} \\ \hline
+\multicolumn{5}{|l|}{\cellcolor{peklight}\textit{Sprint 6 --- S11--S12 (BE : LM / FE : BS)}} \\ \hline
+T7.1 & Fournisseurs + achats/approvisionnements + réceptions (impact stock automatique) & BE & LM & 4 j \\ \hline
+T7.2 & Stocks multi-agences : niveaux, \texttt{stock\_movements} typés (entrée, sortie, vente, retour, perte, ajustement, transfert inter-agence), seuils d'alerte & BE & LM & 4 j \\ \hline
+QA7b & Tests mouvements + transferts & QA & LM & 2 j \\ \hline
+T7.3 & UI Catalogue Store (produits/SKU/catégories) + page Stocks (niveaux, journal des mouvements, transfert guidé) & FE & BS & 5 j \\ \hline
+T7.4 & UI Fournisseurs \& Achats (bon de commande, réception partielle) & FE & BS & 4 j \\ \hline
+QA7.1 & Revue croisée & QA & Binôme & 1 j \\ \hline
+\multicolumn{5}{|l|}{\cellcolor{peklight}\textit{Sprint 7 --- S13--S14 (BE : BS / FE : LM)}} \\ \hline
+T7.5 & Commandes Store + livraisons + retours (impact stock et trésorerie, statuts contrôlés) & BE & BS & 4 j \\ \hline
+T7.6 & Inventaires : sessions de comptage, écarts valorisés, ajustement traçable & BE & BS & 3 j \\ \hline
+T7.7 & Rapports Store (rotation, marge, top produits) & BE & BS & 1 j \\ \hline
+QA7c & Tests inventaire + retours & QA & BS & 2 j \\ \hline
+T7.8 & Ventes Store : adaptation Quick Sale avec sortie de stock automatique & FE & LM & 3 j \\ \hline
+T7.9 & UI Commandes / Livraisons / Retours & FE & LM & 4 j \\ \hline
+T7.10 & UI Inventaires + Rapports Store & FE & LM & 2 j \\ \hline
+QA7 & Revue croisée Store complet & QA & Binôme & 1 j \\ \hline
+\end{tabularx}
+
+%-----------------------------------------------------
+\subsection{C8 --- Studio (Sprints 8 et 9)}
+\addcontentsline{toc}{subsection}{C8 --- Studio}
+
+\begin{tabularx}{\textwidth}{|l|Y|c|c|c|}
+\hline
+\rowcolor{peklight}\textbf{ID} & \textbf{Tâche} & \textbf{Flux} & \textbf{Resp.} & \textbf{Durée} \\ \hline
+\multicolumn{5}{|l|}{\cellcolor{peklight}\textit{Sprint 8 --- S15--S16 (BE : LM / FE : BS)}} \\ \hline
+T8.1 & Devis Studio : lignes, remises, TVA, statuts (brouillon, envoyé, accepté, refusé), conversion devis$\rightarrow$projet & BE & LM & 4 j \\ \hline
+T8.2 & Projets (statuts pipeline), Briefs (réunions datées + notes riches Summernote côté FE), Planning (jalons/tâches datées) & BE & LM & 4 j \\ \hline
+QA8b & Tests devis$\rightarrow$projet & QA & LM & 2 j \\ \hline
+T8.3 & UI Devis (éditeur de lignes, aperçu imprimable) + liste Projets (pipeline visuel) & FE & BS & 5 j \\ \hline
+T8.4 & UI Briefs (intégration éditeur Summernote) + Planning (vue calendrier/liste des jalons) & FE & BS & 4 j \\ \hline
+QA8.1 & Revue croisée & QA & Binôme & 1 j \\ \hline
+\multicolumn{5}{|l|}{\cellcolor{peklight}\textit{Sprint 9 --- S17--S18 (BE : BS / FE : LM)}} \\ \hline
+T8.5 & Production/Révisions/Livrables : suivi d'avancement, cycles de révision, validation client, livraison, acompte/solde, clôture & BE & BS & 4 j \\ \hline
+T9.1 & Centre de notifications unifié : table générale + règles déclencheurs (créance échue, renouvellement proche, stock sous seuil, dépense soumise, objectif) + destinataires configurables & BE & BS & 4 j \\ \hline
+QA8c/QA9b & Tests notifications + clôture projet & QA & BS & 2 j \\ \hline
+T8.6 & UI Production / Révisions / Livraisons + encaissements projet reliés au noyau de ventes & FE & LM & 5 j \\ \hline
+T9.2 & Cloche de notifications (temps quasi-réel via polling), centre, préférences & FE & LM & 4 j \\ \hline
+QA8/QA9 & Revue croisée & QA & Binôme & 1 j \\ \hline
+\end{tabularx}
+
+%-----------------------------------------------------
+\subsection{C9 --- Command Center, rapports \& préparation migration (Sprint 10)}
+\addcontentsline{toc}{subsection}{C9 --- Command Center, rapports \& préparation migration}
+
+\begin{tabularx}{\textwidth}{|l|Y|c|c|c|}
+\hline
+\rowcolor{peklight}\textbf{ID} & \textbf{Tâche} & \textbf{Flux} & \textbf{Resp.} & \textbf{Durée} \\ \hline
+T10.1 & API KPI consolidée : CA, encaissements, créances, dépenses, trésorerie, performance ; drill-down Groupe$\rightarrow$Pays$\rightarrow$Agence$\rightarrow$Département$\rightarrow$transaction ; comparaison période précédente & BE & LM & 4 j \\ \hline
+T10.2 & Exports Excel/PDF/CSV étendus + squelette importeur CSV Google Sheets (mapping configurable, journal d'anomalies, import test) & BE & LM & 4 j \\ \hline
+QA10b & Cohérence KPI vs données sources & QA & LM & 2 j \\ \hline
+T10.3 & Command Center : vue Groupe consolidée, cartes KPI cliquables avec descente jusqu'à la transaction, alertes & FE & BS & 5 j \\ \hline
+T10.4 & RAPPORTS transverses : filtres communs période/pays/agence/département/commercial, exports & FE & BS & 3 j \\ \hline
+T10.5 & Recette générale du périmètre, corrections, documentation & QA & Binôme & 2 j \\ \hline
+\end{tabularx}
+
+%-----------------------------------------------------
+\subsection{Synthèse des charges}
+
+\begin{tabularx}{\textwidth}{|l|Y|c|c|}
+\hline
+\rowcolor{peklight}\textbf{Chantier} & \textbf{Contenu} & \textbf{Charge} & \textbf{Calendaire} \\ \hline
+C0 & Organisation, ContextBar, départements typés & 20 j-h & S1--S2 \\ \hline
+C1 & Trésorerie, bilan journalier auto & 20 j-h & S3--S4 \\ \hline
+C2/C3 & Dépenses workflow, commissions versionnées & 20 j-h & S5--S6 \\ \hline
+C4 & CRM complet (pipeline, activités, entreprises) & 20 j-h & S7--S8 \\ \hline
+C5/C6 & Academy compléments, contrats \& renouvellements & 20 j-h & S9--S10 \\ \hline
+C7 & Store complet (stocks, achats, ventes, inventaires) & 40 j-h & S11--S14 \\ \hline
+C8/C10 & Studio complet + notifications & 40 j-h & S15--S18 \\ \hline
+C9 & Command Center, rapports, outillage migration & 20 j-h & S19--S20 \\ \hline
+\rowcolor{peklight}\textbf{Total} & & \textbf{200 j-h} & \textbf{20 semaines} \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Calendrier prévisionnel}
+%=====================================================
+
+\begin{figure}[h!]
+\centering
+\scriptsize
+\begin{tabular}{|l|*{20}{W}|}
+\hline
+\rowcolor{peklight}\textbf{Chantier / Semaine} & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 & 13 & 14 & 15 & 16 & 17 & 18 & 19 & 20 \\ \hline
+C0 Navigation \& contexte & \cellcolor{pekblue} & \cellcolor{pekblue} & & & & & & & & & & & & & & & & & & \\ \hline
+C1 Trésorerie \& paiements & & & \cellcolor{pekblue} & \cellcolor{pekblue} & & & & & & & & & & & & & & & & \\ \hline
+C2 Dépenses / C3 Commissions & & & & & \cellcolor{pekgreen} & \cellcolor{pekgreen} & & & & & & & & & & & & & & \\ \hline
+C4 CRM complet & & & & & & & \cellcolor{pekgreen} & \cellcolor{pekgreen} & & & & & & & & & & & & \\ \hline
+C5 Academy / C6 Contrats & & & & & & & & & \cellcolor{pekgreen} & \cellcolor{pekgreen} & & & & & & & & & & \\ \hline
+C7 Store & & & & & & & & & & & \cellcolor{pekamber} & \cellcolor{pekamber} & \cellcolor{pekamber} & \cellcolor{pekamber} & & & & & & \\ \hline
+C8 Studio + Notifications & & & & & & & & & & & & & & & \cellcolor{pekamber} & \cellcolor{pekamber} & \cellcolor{pekamber} & \cellcolor{pekamber} & & \\ \hline
+C9 Command Center \& rapports & & & & & & & & & & & & & & & & & & & \cellcolor{pekblue} & \cellcolor{pekblue} \\ \hline
+\rowcolor{peklight}\textbf{Jalon} & \multicolumn{2}{c|}{J1} & \multicolumn{2}{c|}{J2} & \multicolumn{2}{c|}{J3a} & \multicolumn{2}{c|}{J3b} & \multicolumn{2}{c|}{J3c} & \multicolumn{4}{c|}{J4} & \multicolumn{4}{c|}{J5} & \multicolumn{2}{c|}{J6} \\ \hline
+\end{tabular}
+\caption{Planning calendaire (1 cellule = 1 semaine). J1 : navigation recadrée · J2 : noyau financier · J3 : métiers prioritaires complets (fin S10) · J4 : Store livré · J5 : Studio + notifications · J6 : recette finale.}
+\end{figure}
+
+%=====================================================
+\section{Jalons de validation}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|l|Y|c|}
+\hline
+\rowcolor{peklight}\textbf{Jalon} & \textbf{Contenu validé avec Pekegno} & \textbf{Fin} \\ \hline
+J1 & Arbre pays$\rightarrow$agence$\rightarrow$départements typés opérationnel, ContextBar, menus latéraux par branche & S2 \\ \hline
+J2 & Trésorerie multi-comptes, bilan journalier auto, dépenses workflow, commissions versionnées & S6 \\ \hline
+J3 & CRM complet, Academy complété, contrats/renouvellements Agency & S10 \\ \hline
+J4 & Store complet (catalogue, stocks, achats, ventes, livraisons, retours, inventaires) & S14 \\ \hline
+J5 & Studio complet + centre de notifications & S18 \\ \hline
+J6 & Command Center drill-down, rapports transverses, recette, outillage migration prêt & S20 \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Points de décision bloquants (à arbitrer avec Pekegno)}
+%=====================================================
+
+Ces arbitrages conditionnent les tâches indiquées et doivent être tranchés \textbf{avant} le sprint concerné :
+
+\begin{enumerate}[nosep]
+  \item Définition comptable exacte du chiffre d'affaires par activité (avant S19, T10.1).
+  \item Moment de déclenchement des commissions et formules réelles de prime : \% / fixe / paliers (avant S5, T2.2).
+  \item Workflow et seuils de validation des dépenses (avant S5, T2.1).
+  \item Règles de renouvellement Agency et délais d'alerte (avant S9, T6.1).
+  \item Liste définitive des comptes de trésorerie Cash / Mobile Money / banques (avant S3, T1.1).
+  \item Matrice définitive rôles/périmètres incluant les départements typés (avant S1, T0.2).
+  \item Périmètre et qualité des données Sheets 2022--2026 à migrer (avant S19, T10.2).
+\end{enumerate}
+
+%=====================================================
+\section{Risques et mitigations}
+%=====================================================
+
+\begin{tabularx}{\textwidth}{|Y|Y|}
+\hline
+\rowcolor{peklight}\textbf{Risque} & \textbf{Mitigation} \\ \hline
+KPI non figés par la direction financière & Afficher dès J2 des définitions provisoires paramétrables dans \texttt{settings} ; figer au plus tard fin S18. \\ \hline
+Formules de commissions complexes (paliers) & Moteur de règles générique + snapshot versionné : une règle nouvelle n'altère jamais les commissions passées. \\ \hline
+Refonte navigation perturbe les utilisateurs existants & Redirections permanentes des anciennes URLs pendant tout le chantier C0 + revue avec Pekegno au jalon J1. \\ \hline
+Alternance BE/FE ralentit un développeur sur un domaine & DoD stricte, revue croisée systématique en QA, documentation Swagger et types TS synchronisés à chaque tâche BE. \\ \hline
+Données Sheets de mauvaise qualité & Import test obligatoire avec rapprochement des totaux historiques ; anomalies tracées plutôt que converties silencieusement. \\ \hline
+Dérive du périmètre Store/Studio & Menus latéraux figés par le cahier des charges ; toute addition passe par une décision documentée. \\ \hline
+\end{tabularx}
+
+%=====================================================
+\section{Critères de fin de projet}
+%=====================================================
+
+\begin{itemize}[nosep]
+  \item Une donnée métier est saisie une seule fois ; soldes, créances, trésorerie et commissions en découlent automatiquement.
+  \item Vente $\neq$ paiement respectée partout (N paiements par vente, aucun champ \og tranche 1/tranche 2 \fg{}).
+  \item Depuis la barre de contexte, tout utilisateur autorisé atteint n'importe quel pays/agence/département en une interaction.
+  \item Chaque département affiche exactement les menus de sa branche.
+  \item Le bilan journalier se génère sans ressaisie ; les écarts se justifient dans l'outil.
+  \item Les opérations sensibles (paiements, dépenses, commissions, permissions) sont auditables.
+  \item L'importeur Sheets exécute un import test dont les totaux sont rapprochés des sources.
+\end{itemize}
+
+\end{document}

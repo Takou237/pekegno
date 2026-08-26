@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { client } from './client';
 import type {
   TreasuryAccount,
   TreasuryAccountListParams,
@@ -10,15 +10,15 @@ import type {
 
 export const treasuryApi = {
   listAccounts(params?: TreasuryAccountListParams): Promise<TreasuryAccount[]> {
-    return apiClient.get('/treasury/accounts', { params }).then((r) => r.data);
+    return client.get('/treasury/accounts', { params }).then((r) => r.data);
   },
 
   getAccount(id: string): Promise<TreasuryAccount> {
-    return apiClient.get(`/treasury/accounts/${id}`).then((r) => r.data);
+    return client.get(`/treasury/accounts/${id}`).then((r) => r.data);
   },
 
   listTransactions(params?: TreasuryTransactionListParams): Promise<TreasuryTransactionsResponse> {
-    return apiClient.get('/treasury/transactions', { params }).then((r) => r.data);
+    return client.get('/treasury/transactions', { params }).then((r) => r.data);
   },
 
   transfer(payload: TransferPayload): Promise<{
@@ -27,6 +27,6 @@ export const treasuryApi = {
     out: TreasuryTransaction;
     in: TreasuryTransaction;
   }> {
-    return apiClient.post('/treasury/transfer', payload).then((r) => r.data);
+    return client.post('/treasury/transfer', payload).then((r) => r.data);
   },
 };

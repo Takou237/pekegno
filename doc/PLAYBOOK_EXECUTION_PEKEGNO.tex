@@ -1,0 +1,1179 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage[strings]{underscore}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+
+\hypersetup{
+  pdftitle={PEKEGNO Management System -- Playbook d'execution developpement},
+  pdfauthor={Equipe developpement Pekegno},
+  pdfsubject={Specifications executables Backend / Frontend par sprint et par tache}
+}
+
+\setlength{\parskip}{0.35em}
+
+% Couleurs
+\definecolor{pekblue}{RGB}{54,65,245}
+\definecolor{peklight}{RGB}{228,231,255}
+\definecolor{pekgreen}{RGB}{21,150,110}
+\definecolor{codebg}{RGB}{245,246,250}
+
+% Blocs de code / DDL (sans accents pour compatibilite listings)
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{pekgrayline},
+  framerule=0.3pt,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  aboveskip=0.6em,
+  belowskip=0.6em,
+}
+\definecolor{pekgrayline}{RGB}{200,205,215}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\be}{\textsc{Be}}
+\newcommand{\fe}{\textsc{Fe}}
+\newcommand{\qa}{\textsc{Qa}}
+\newcommand{\tache}[2]{\subsection{Tâche #1 --- #2}\label{task:#1}}
+\newcommand{\critere}{$\square$ }
+
+\begin{document}
+
+%=====================================================
+% Page de titre
+%=====================================================
+\begin{titlepage}
+  \centering
+  \vspace*{2.5cm}
+  {\Huge\bfseries PEKEGNO\par}
+  \vspace{0.3cm}
+  {\LARGE MANAGEMENT SYSTEM\par}
+  \vspace{1.8cm}
+  {\Large\bfseries Playbook d'exécution\\[0.3cm] Spécifications Backend \& Frontend\\ par sprint et par tâche\par}
+  \vspace{1.5cm}
+  \begin{tabular}{rl}
+    \textbf{Destinataires} & Agents de développement (opencode ou humain) \\[2mm]
+    \textbf{Usage} & \og Exécute le sprint S3 \fg{} ou \og Exécute la tâche T2.1 \fg{} \\[2mm]
+    \textbf{Référentiel} & Cahier des charges fonctionnel (Août 2026) \\[2mm]
+    \textbf{Équipe} & Blackstar \& Le\_million (alternance BE/FE) \\
+  \end{tabular}
+  \vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+%=====================================================
+\section{Objet et mode d'emploi du document}
+%=====================================================
+
+Ce document est la \textbf{source de vérité technique} pour le développement restant de l'application PEKEGNO Management System. Il découpe le travail en \textbf{sprints} (S1 à S10) contenant des \textbf{tâches} identifiées (T0.1, T1.2, \ldots), chacune spécifiée avec ses modifications de base de données, ses endpoints, ses fichiers à créer ou modifier, et ses critères d'acceptation vérifiables.
+
+\subsection{Grammaire de commandes}
+
+Un agent de développement (ou un collègue utilisant opencode) peut donner l'une des instructions suivantes :
+
+\begin{center}
+\begin{tabularx}{\textwidth}{|l|Y|}
+\hline
+\rowcolor{peklight}\textbf{Instruction} & \textbf{Comportement attendu de l'agent} \\ \hline
+\verb|Exécute le sprint S3| & Exécuter séquentiellement toutes les tâches du sprint 3, dans l'ordre de leur numéro, en respectant intégralement le protocole de la section~\ref{sec:protocole}. \\ \hline
+\verb|Exécute la tâche T2.1| & Exécuter uniquement cette tâche, même protocole. \\ \hline
+\verb|Reprend la tâche T7.5| & Vérifier d'abord l'état du dépôt (ce qui existe déjà), compléter ce qui manque, puis finir la tâche. \\ \hline
+\verb|Vérifie le sprint S2| & Passer en revue tous les critères d'acceptation du sprint et produire un rapport de conformité sans rien modifier. \\ \hline
+\end{tabularx}
+\end{center}
+
+\subsection{Règles d'or (à lire avant toute exécution)}
+
+\begin{enumerate}[nosep]
+  \item \textbf{Une tâche à la fois.} Ne jamais commencer une tâche tant que la précédente du même sprint n'est pas terminée et validée.
+  \item \textbf{Ce document prime.} En cas de conflit entre le code existant et ce document, ce document gagne ; signaler l'écart dans le rapport final.
+  \item \textbf{Zéro destruction.} Jamais de migration destructive sur des tables en production (toujours additive : ajout de colonnes, de tables). Renommer interdit ; déprécier autorisé.
+  \item \textbf{Rien codé en dur.} Pays, agences, départements, catégories, seuils et statuts viennent de la base ou de \texttt{settings}.
+  \item \textbf{Vente $\neq$ paiement.} Une vente possède N paiements ; interdiction absolue de créer des colonnes type \og tranche1 / tranche2 \fg{}.
+  \item \textbf{Périmètre de tâche strict.} Ne pas retoucher des modules hors du périmètre de la tâche en cours, sauf point d'intégration explicitement décrit.
+\end{enumerate}
+
+%=====================================================
+\section{Environnement et commandes}
+%=====================================================
+
+\subsection{Backend (Laravel 13, PHP 8.3, PostgreSQL)}
+
+Le backend tourne via l'image Docker locale \verb|pekegno-php|. Depuis la racine du projet :
+
+\begin{lstlisting}
+# Installer les dependances PHP
+sudo docker run --rm -v "$PWD":/app -w /app --network=host pekegno-php composer install --no-interaction
+
+# Reinitialiser completement la base (migrations + seeders)
+cd backend && sudo docker run --rm -v "$PWD":/app -w /app --network=host pekegno-php php artisan migrate:fresh --seed --force
+
+# Regenerer la documentation Swagger apres toute modification d'API
+sudo docker run --rm -v "$PWD":/app -w /app --network=host pekegno-php php artisan l5-swagger:generate --all
+
+# Lancer les tests
+sudo docker run --rm -v "$PWD":/app -w /app --network=host pekegno-php php artisan test
+
+# Lister les routes / shell interactif
+sudo docker run --rm -v "$PWD":/app -w /app --network=host pekegno-php php artisan route:list
+sudo docker run --rm -it -v "$PWD":/app -w /app --network=host pekegno-php php artisan tinker
+
+# Inspecter les tables PostgreSQL
+sudo -u postgres psql -d pekegno -c "\dt"
+sudo -u postgres psql -d pekegno -c "\d treasury_accounts"
+\end{lstlisting}
+
+\subsection{Frontend (React 19, Vite 6, Tailwind v4)}
+
+\begin{lstlisting}
+cd frontend
+npm install          # premiere fois uniquement
+npm run dev          # serveur de dev, proxy /api -> http://localhost:8000
+npm run build        # DOIT passer sans erreur TypeScript (validation obligatoire)
+\end{lstlisting}
+
+Le build frontend (\verb|npm run build|) est le validateur minimal de chaque tâche frontend : il compile TypeScript en mode strict.
+
+\subsection{Comptes de test}
+
+Après \verb|migrate:fresh --seed| : connexion staff \verb|admin@pekegno.com| / \verb|password| (rôle super-admin, accès total). Dix utilisateurs de démonstration existent avec différents rôles (voir \verb|UserSeeder|).
+
+%=====================================================
+\section{Conventions obligatoires}
+%=====================================================
+
+Ces conventions reflètent le code existant. Les respecter à la lettre garantit l'homogénéité.
+
+\subsection{Base de données}
+
+\begin{itemize}[nosep]
+  \item Clé primaire : \verb|$table->uuid('id')->primary()| ; modèles avec trait \verb|HasUuids|.
+  \item Clés étrangères explicites : \verb|$table->foreign('x_id')->references('id')->on('table')->nullOnDelete()| (ou \verb|restrictOnDelete()| / \verb|cascadeOnDelete()| justifié).
+  \item Montants : \verb|decimal('montant', 14, 2)|. Devise implicite FCFA, jamais stockée par ligne.
+  \item Statuts métier : \verb|string| + contrainte CHECK PostgreSQL + constantes publiques dans le modèle (\verb|const STATUS_DRAFT = 'draft';|). Jamais de texte libre.
+  \item Entités métier : \verb|timestamps()| + \verb|softDeletes()| + trio d'endpoints \verb|GET /x/trash|, \verb|POST /x/{id}/restore|, \verb|DELETE /x/{id}/force-delete|.
+  \item Index sur chaque FK et sur les colonnes de filtrage fréquent.
+  \item Transactions financières : suppression dure interdite. Annulation traçable (\verb|cancelled_at| + \verb|cancelled_by| + écriture miroir si trésorerie impactée).
+  \item Commentaires français dans les migrations (\verb|->comment('...')|) pour toute ambiguïté.
+\end{itemize}
+
+Gabarit de migration canonique (respecter ce style) :
+
+\begin{lstlisting}
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('exemple_tables', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->string('name', 150);
+            $table->uuid('agency_id');
+            $table->foreign('agency_id')->references('id')->on('agencies')->cascadeOnDelete();
+            $table->string('status', 20)->default('draft');
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('agency_id');
+            $table->index('status');
+        });
+
+        // Contrainte CHECK specifique PostgreSQL si necessaire
+        DB::statement("ALTER TABLE exemple_tables ADD CONSTRAINT exemple_tables_status_check
+            CHECK (status IN ('draft','active','closed'))");
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('exemple_tables');
+    }
+};
+\end{lstlisting}
+
+\subsection{API backend}
+
+\begin{itemize}[nosep]
+  \item Toutes les routes staff vivent dans le groupe middleware \verb|['auth:sanctum','single.session','inactivity.logout','update.activity','portal:staff']| de \verb|routes/api.php|.
+  \item Contrôle d'accès par middleware \verb|permission:<entite>.<action>|. Actions normalisées (9, voir \verb|PermissionSeeder|) : \verb|creer|, \verb|modifier|, \verb|supprimer|, \verb|consulter|, \verb|exporter|, \verb|imprimer|, \verb|valider|, \verb|encaisser|, \verb|annuler|. Toute nouvelle entité doit déclarer ses permissions dans \verb|PermissionSeeder| et les mapper aux rôles dans \verb|RoleSeeder|.
+  \item Périmètres de visibilité via \verb|App\Services\ScopeService| : un utilisateur non-global ne voit que ses agences/départements assignés. Appliquer systématiquement dans les \verb|index| et filtres.
+  \item Validation inline \verb|$request->validate([...])| avec messages français ; erreurs 422 au format Laravel.
+  \item Logique réutilisable dans \verb|app/Services/*| (ex. PaymentService, CommissionService) ; contrôleurs minces.
+  \item Journalisation des actions sensibles : trait \verb|App\Observers\Concerns\LogsActivity| ou \verb|ActivityLogger| (paiements, annulations, validations, changements de permissions).
+  \item Annotations Swagger \verb|@OA\*| obligatoires sur chaque endpoint public, puis régénérer (\verb|l5-swagger:generate --all|).
+  \item Listes paginées : \verb|per_page| (défaut 15), réponse au format paginate Laravel.
+\end{itemize}
+
+\subsection{Frontend}
+
+\begin{itemize}[nosep]
+  \item Un module API par domaine dans \verb|src/api/<domaine>.api.ts|, typé via \verb|src/types/<domaine>.ts|, consommant \verb|client| de \verb|src/api/client.ts|. Gabarit :
+\end{itemize}
+
+\begin{lstlisting}
+import { client } from './client';
+import type { Expense, ExpenseListParams } from '@/types/expense';
+import type { PaginatedResponse } from '@/types/agency';
+
+export const expensesApi = {
+  async list(params: ExpenseListParams = {}): Promise<PaginatedResponse<Expense>> {
+    const { data } = await client.get<PaginatedResponse<Expense>>('/expenses', { params });
+    return data;
+  },
+  async create(payload: Partial<Expense>): Promise<Expense> {
+    const { data } = await client.post<Expense>('/expenses', payload);
+    return data;
+  },
+};
+\end{lstlisting}
+
+\begin{itemize}[nosep]
+  \item Pages dans \verb|src/pages/<module>/|, importées en \emph{lazy} dans \verb|src/router/index.tsx| avec fallback \verb|SkeletonPage| (suivre le motif existant).
+  \item Composants UI exclusivement depuis \verb|src/components/ui/| (Button, Input, Select, Modal, ConfirmDialog, Badge, Pagination, PeriodPicker, Autocomplete, Alert, Skeleton\ldots). Pas de nouvelle dépendance UI sans décision.
+  \item Menus latéraux : \verb|src/components/layout/navItems.ts| (global) et fonctions par périmètre (\verb|getAgencyItems|, \verb|getDepartmentItems|\ldots). Chaque entrée : \verb|{ to, label: t('nav.cle'), icon: IconLucide, end: false }|.
+  \item i18n : \textbf{les deux} fichiers \verb|src/i18n/locales/fr.ts| et \verb|en.ts| doivent contenir chaque nouvelle clé. Aucun texte littéral dans les composants.
+  \item Montants : \verb|formatCurrency| (\verb|src/utils/number.ts|) ; dates : utilitaires de \verb|src/utils/date.ts|.
+  \item Permissions côté client : utilitaires purs dans \verb|src/utils/*Permissions.ts| calqués sur les policies backend (indicatifs, le backend reste maître).
+\end{itemize}
+
+%=====================================================
+\section{Architecture cible : navigation et contexte}\label{sec:navigation}
+%=====================================================
+
+\subsection{Modèle organisationnel corrigé}
+
+\begin{lstlisting}
+PEKEGNO GROUP (organization)
+|-- country (ex: Cameroun)
+|   |-- agency (ex: Douala)          <- structure physique
+|   |   |-- department type=academy
+|   |   |-- department type=agency   <- branche prestations
+|   |   |-- department type=store
+|   |   |-- department type=studio
+\end{lstlisting}
+
+Entrer dans une agence amène sur la page \textbf{Départements}. On y crée un département de l'un des quatre types. La notion actuelle d'\og agence academy/mixed \fg{} (\verb|agencies.type|) est \textbf{dépréciée} : ne plus ni l'écrire ni la lire. Le switcher \og Ligne Prestations / Ligne Formations \fg{} de \verb|AgencyLayout.tsx| est supprimé.
+
+\subsection{Barre de contexte permanente (ContextBar)}
+
+Présente en haut de toutes les vues authentifiées :
+
+\begin{center}\ttfamily
+PEKEGNO ~|~ Pays $\blacktriangledown$ ~|~ Agence $\blacktriangledown$ ~|~ Département $\blacktriangledown$ ~|~ Période $\blacktriangledown$ ~|~ Recherche ~|~ Notifications ~|~ Profil
+\end{center}
+
+\begin{itemize}[nosep]
+  \item Alimentée par un arbre chargé une fois via \verb|GET /scope/context| (forme ci-dessous), mis en cache dans un provider React global \verb|OrgContext| (\verb|src/context/OrgContext.tsx|) persisté en localStorage.
+  \item Sélection à n'importe quel niveau, y compris saut direct vers un autre pays : choisir \og Côte d'Ivoire $\rightarrow$ Abidjan \fg{} depuis Cameroun/Yaoundé/Academy doit rediriger proprement vers le nouveau contexte.
+  \item La sélection pilote l'URL (routes paramétrées) et la période pilote tous les KPI.
+\end{itemize}
+
+\begin{lstlisting}
+// GET /scope/context : forme cible
+{
+  "user": {"is_global": true, "assignments": [...]},
+  "countries": [
+    {
+      "id": "...", "name": "Cameroun", "code": "CMR",
+      "agencies": [
+        {
+          "id": "...", "name": "Yaounde", "code": "AG002",
+          "departments": [
+            {"id": "...", "name": "Academy Yaounde", "type": "academy"},
+            {"id": "...", "name": "Store Yaounde", "type": "store"}
+          ]
+        }
+      ]
+    }
+  ]
+}
+\end{lstlisting}
+
+\subsection{Sidebars dynamiques par type de département}
+
+\verb|getDepartmentItems(type)| retourne exactement ces menus :
+
+\begin{itemize}[nosep]
+  \item \textbf{academy} : Dashboard · Prospects · Apprenants · Inscriptions · Formations (Catalogue, Sessions, Planning, Formateurs) · Présences · Paiements · Créances · Certificats · Performances commerciales · Rapports
+  \item \textbf{agency} : Dashboard · Prospects · Clients · Packages · Contrats · Prestations · Équipe client · Community Management · Publicité · Renouvellements · Paiements · Créances · Rapports clients · Performance
+  \item \textbf{store} : Dashboard · Catalogue / Produits / Catégories · Stocks · Approvisionnements · Fournisseurs · Achats · Commandes · Ventes · Livraisons · Retours · Inventaires · Rapports
+  \item \textbf{studio} : Dashboard · Prospects / Clients · Services · Devis · Projets · Briefs · Planning · Production · Révisions · Livraisons · Paiements · Rapports
+\end{itemize}
+
+Les pages existantes d'Academy (7 pages sous \verb|src/pages/academy/|) sont \textbf{réutilisées telles quelles} mais re-racines sous \verb|/departments/:departmentId/...|.
+
+\subsection{Correspondance des routes (ancien $\rightarrow$ nouveau)}
+
+\begin{tabularx}{\textwidth}{|Y|Y|}
+\hline
+\rowcolor{peklight}\textbf{Ancienne route} & \textbf{Nouvelle route} \\ \hline
+/countries/:countryId/agencies/:agencyId (overview lignes) & /countries/:countryId/agencies/:agencyId (page Départements = landing) \\ \hline
+\ldots/agencies/:agencyId/academy/* & /departments/:departmentId/(dashboard|prospects|learners|courses|sessions|trainers|presences|payments|receivables|certificates|reports) \\ \hline
+\ldots/agencies/:agencyId/services & /departments/:departmentId/services (dept type agency) \\ \hline
+/departments/:departmentId (actuel, 3 menus) & /departments/:departmentId/dashboard + menus dynamiques selon type \\ \hline
+\end{tabularx}
+
+Redirections permanentes des anciennes URLs maintenues pendant toute la durée du projet (composant de redirection dédié).
+
+%=====================================================
+\section{Modèle de données cible}\label{sec:modele}
+%=====================================================
+
+Spécification DDL complète des évolutions. Types abrégés : \verb|uuid| = UUID PK/FK, \verb|str(n)| = varchar(n), \verb|dec| = decimal(14,2), \verb|ts| = timestamps, \verb|sd| = softDeletes.
+
+\subsection{M0 --- Organisation (Sprint 1)}
+
+\begin{lstlisting}
+ALTER departments
+  + type           str(20) NOT NULL DEFAULT 'agency'
+                   CHECK IN ('academy','agency','store','studio'), INDEX
+  Backfill : departments heritant de agencies.type
+             ('academy' -> academy, sinon 'agency').
+DEPRECATED : agencies.type (ne plus lire/ecrire).
+
+ALTER invoices     + department_id uuid NULL -> departments.id
+ALTER orders       + department_id uuid NULL -> departments.id
+  (contexte "branche" de chaque vente, requis par le noyau de ventes CDC)
+\end{lstlisting}
+
+\subsection{M1 --- Trésorerie (Sprint 2)}
+
+\begin{lstlisting}
+treasury_accounts
+  id uuid PK
+  agency_id      uuid NULL -> agencies.id nullOnDelete (NULL = compte groupe)
+  name           str(100)
+  type           str(20) CHECK IN ('cash','mobile_money','bank')
+  provider       str(50) NULL  -- orange_money, mtn_momo, afriland, cca, other
+  account_number str(50) NULL
+  opening_balance dec DEFAULT 0
+  currency_code  str(3) DEFAULT 'XAF'
+  is_active      bool DEFAULT true
+  ts + sd ; UNIQUE(agency_id, name) ; INDEX(type)
+
+treasury_transactions
+  id uuid PK
+  treasury_account_id uuid -> treasury_accounts.id restrictOnDelete
+  direction      str(10) CHECK IN ('in','out')
+  amount         dec > 0
+  source_type    str(50) NULL  -- morph: invoice_payment, expense, transfer, manual
+  source_id      uuid NULL
+  category       str(50) NULL  -- vente, approvisionnement, salaire, autre
+  label          str(200)
+  reference      str(100) NULL
+  transacted_at  timestamp
+  created_by     uuid -> users.id nullOnDelete
+  ts ; INDEX(account_id, transacted_at) ; INDEX(source_type, source_id)
+
+ALTER invoice_payments + treasury_account_id uuid NULL -> treasury_accounts.id NULL
+  (backfill : compte cash de l'agence de la facture)
+\end{lstlisting}
+
+Invariant : le solde d'un compte n'est \textbf{jamas stocké} ; il vaut \verb|opening_balance + SUM(in) - SUM(out)|.
+
+\subsection{M2 --- Dépenses (Sprint 3)}
+
+\begin{lstlisting}
+expenses
+  id uuid PK
+  number             str(30) UNIQUE  -- EXP-00001
+  agency_id          uuid -> agencies.id cascadeOnDelete
+  department_id      uuid NULL -> departments.id nullOnDelete
+  category_id        uuid -> accounting_categories.id restrictOnDelete
+                     (categories type='expense' uniquement, valide au save)
+  amount             dec > 0
+  expense_date       date
+  status             str(20) DEFAULT 'draft'
+                     CHECK IN ('draft','submitted','approved','rejected','paid','closed')
+  requested_by       uuid -> users.id (demandeur)
+  approved_by        uuid NULL -> users.id ; approved_at ts NULL
+  rejected_by        uuid NULL -> users.id ; rejection_reason str(255) NULL
+  paid_by            uuid NULL -> users.id ; paid_at ts NULL
+  treasury_account_id uuid NULL -> treasury_accounts.id (compte debite au paiement)
+  justification_path str(255) NULL  -- upload (photo/PDF)
+  note               text NULL
+  cancelled_at       ts NULL ; cancelled_by uuid NULL -> users.id
+  ts + sd ; INDEX(status), INDEX(agency_id, expense_date)
+
+Workflow : draft -> submitted -> approved -> paid -> closed
+                       \-> rejected (raison obligatoire)
+Transitions controlees dans ExpenseService ; passage a 'paid' =
+  ecriture treasury_transactions(direction=out) + accounting_transactions
+  (categorie depense) automatiques, atomique (DB::transaction).
+\end{lstlisting}
+
+\subsection{M3 --- Commissions versionnées (Sprint 3)}
+
+\begin{lstlisting}
+commission_rules
+  id uuid PK
+  rule_group_id   uuid  -- identite de la regle a travers ses versions
+  version         int DEFAULT 1  -- incremente a chaque edition
+  name            str(150)
+  beneficiary_commercial_id uuid NULL -> commercials.id nullOnDelete
+                  -- beneficiaire designe OU portee generique ci-dessous
+  scope_country_id   uuid NULL -> countries.id
+  scope_agency_id    uuid NULL -> agencies.id
+  scope_department_id uuid NULL -> departments.id
+  service_id         uuid NULL -> services.id  -- NULL = tout produit/service
+  trigger_event   str(20) CHECK IN ('on_sale','on_payment','on_full_payment')
+  formula_type    str(10) CHECK IN ('percent','fixed','tiered')
+  percent_value   dec(5,2) NULL   -- si percent
+  fixed_amount    dec NULL        -- si fixed
+  tiers_json      jsonb NULL      -- si tiered : [{up_to, value, mode}]
+  starts_on / ends_on date NULL
+  is_active       bool DEFAULT true
+  created_by      uuid -> users.id
+  ts + sd ; INDEX(rule_group_id, version) UNIQUE(rule_group_id, version)
+
+IMMUTABILITE : une regle publiee n'est jamais modifiee en place ;
+l'edition cree une nouvelle ligne (version+1, meme rule_group_id)
+et desactive la precedente.
+
+commission_entries
+  id uuid PK
+  invoice_id        uuid -> invoices.id cascadeOnDelete
+  invoice_payment_id uuid NULL -> invoice_payments.id nullOnDelete
+  commission_rule_id uuid -> commission_rules.id restrictOnDelete
+  rule_snapshot     jsonb  -- copie integrale de la regle appliquee
+  beneficiary_commercial_id uuid -> commercials.id
+  base_amount       dec
+  amount            dec
+  status            str(20) DEFAULT 'calculated'
+                    CHECK IN ('calculated','validated','paid','cancelled')
+  validated_by uuid NULL ; validated_at ts NULL
+  paid_by      uuid NULL ; paid_at      ts NULL
+  ts ; INDEX(invoice_id), INDEX(beneficiary..., status)
+
+Plusieurs lignes possibles sur une meme vente/paiement.
+CommissionService : a l'encaissement, evaluer TOUTES les regles actives
+matchant le contexte ; conserver le fallback taux-fiche-commercial
+(commission_payments existant) tant que aucune regle ne matche.
+\end{lstlisting}
+
+\subsection{M4 --- CRM complet (Sprint 4)}
+
+\begin{lstlisting}
+companies
+  id uuid PK ; name str(150) ; industry str(100) NULL
+  phone/email/address NULL ; city str(100) NULL ; country str(100) NULL
+  website str(150) NULL ; ts + sd ; INDEX(name)
+
+ALTER prospects + company_id uuid NULL -> companies.id nullOnDelete
+
+opportunities
+  id uuid PK
+  title str(200)
+  prospect_id   uuid NULL -> prospects.id cascadeOnDelete
+  client_id     uuid NULL -> users.id nullOnDelete
+  company_id    uuid NULL -> companies.id nullOnDelete
+  agency_id     uuid -> agencies.id cascadeOnDelete
+  department_id uuid NULL -> departments.id nullOnDelete
+  commercial_id uuid -> commercials.id cascadeOnDelete
+  stage         str(20) DEFAULT 'new' CHECK IN
+                ('new','contacted','qualified','proposal','negotiation','won','lost')
+  expected_amount dec NULL ; expected_close_date date NULL
+  won_at / lost_at ts NULL
+  ts + sd ; INDEX(stage), INDEX(commercial_id)
+
+activities
+  id uuid PK
+  subject_type str(50) ; subject_id uuid  -- morph: Prospect, Opportunity, User(client)
+  assigned_to  uuid -> users.id nullOnDelete
+  created_by   uuid -> users.id nullOnDelete
+  type    str(20) CHECK IN ('call','meeting','email','whatsapp','note','followup')
+  title   str(200) ; notes text NULL
+  due_at  ts NULL ; completed_at ts NULL
+  outcome str(255) NULL
+  ts ; INDEX(subject_type, subject_id), INDEX(assigned_to, due_at)
+
+Job quotidien (routes/console.php) : rappels des activities echues non
+completees -> notifications.
+Dedoublonnage clients/prospects : recherche par telephone normalise
+(chiffres seulement, suffixe 8 derniers chiffres).
+\end{lstlisting}
+
+\subsection{M5 --- Academy compléments (Sprint 5)}
+
+\begin{lstlisting}
+attendances
+  id uuid PK
+  training_session_id uuid -> training_sessions.id cascadeOnDelete
+  enrollment_id       uuid -> enrollments.id cascadeOnDelete
+  status str(10) DEFAULT 'present' CHECK IN ('present','absent','late','excused')
+  recorded_by uuid -> users.id nullOnDelete ; recorded_at ts
+  ts ; UNIQUE(training_session_id, enrollment_id)
+
+certificates
+  id uuid PK
+  enrollment_id uuid -> enrollments.id cascadeOnDelete UNIQUE
+  number  str(30) UNIQUE  -- CERT-00001
+  issued_on date ; mention str(100) NULL
+  status  str(10) DEFAULT 'issued' CHECK IN ('issued','revoked')
+  revoked_reason str(255) NULL
+  file_path str(255) NULL  -- PDF genere/imprimable
+  created_by uuid -> users.id nullOnDelete
+  ts + sd
+
+ALTER enrollments + invoice_id uuid NULL -> invoices.id nullOnDelete
+  (facture d'inscription ; solde apprenant = calcule depuis cette facture
+   et ses paiements valides ; JAMAIS ressaisi)
+\end{lstlisting}
+
+\subsection{M6 --- Contrats Agency \& renouvellements (Sprint 5)}
+
+\begin{lstlisting}
+contracts
+  id uuid PK
+  number str(30) UNIQUE  -- CTR-00001
+  client_id     uuid -> users.id restrictOnDelete (role client)
+  company_id    uuid NULL -> companies.id nullOnDelete
+  agency_id     uuid -> agencies.id cascadeOnDelete
+  department_id uuid NULL -> departments.id nullOnDelete (dept type agency)
+  pack_id       uuid NULL -> subscription_packs.id nullOnDelete
+  start_date / end_date date
+  billing_cycle str(20) DEFAULT 'monthly'
+                CHECK IN ('one_shot','monthly','quarterly','yearly')
+  amount dec
+  status str(20) DEFAULT 'active' CHECK IN
+         ('active','due_soon','expired','suspended','terminated')
+  auto_renew bool DEFAULT false ; renewal_count int DEFAULT 0
+  parent_contract_id uuid NULL -> contracts.id nullOnDelete (chaine historique)
+  notes text NULL ; terminated_at ts NULL ; terminated_reason str(255) NULL
+  ts + sd ; INDEX(client_id), INDEX(status, end_date)
+
+contract_services
+  contract_id uuid -> contracts.id cascadeOnDelete
+  service_id  uuid -> services.id restrictOnDelete
+  price dec NULL  -- surcharge du prix catalogue
+  UNIQUE(contract_id, service_id)
+
+ALTER accounting_categories + is_pass_through bool DEFAULT false
+  -- true = budget publicitaire gere POUR le client : mouvement trace mais
+  -- EXCLU du chiffre d'affaires (regle comptable CDC section 8.2)
+
+Job quotidien 06:30 : end_date <= J+30 et status='active' -> 'due_soon'
+  + notification ; end_date passee -> 'expired' + alerte.
+Settings : renew_alert_days jsonb DEFAULT '[30,7]'
+\end{lstlisting}
+
+\subsection{M7 --- Store / Matootoo (Sprints 6--7)}
+
+\begin{lstlisting}
+suppliers
+  id uuid PK ; code str(20) UNIQUE  -- FRN-00001
+  name str(150) ; phone/email/address NULL ; city str(100) NULL
+  notes text NULL ; agency_id uuid NULL -> agencies.id nullOnDelete
+  is_active bool DEFAULT true ; ts + sd ; INDEX(name)
+
+purchases                      -- Achats / Approvisionnements
+  id uuid PK ; number str(30) UNIQUE  -- ACH-00001
+  supplier_id  uuid -> suppliers.id restrictOnDelete
+  agency_id    uuid -> agencies.id cascadeOnDelete
+  department_id uuid NULL -> departments.id nullOnDelete
+  status  str(20) DEFAULT 'draft' CHECK IN
+          ('draft','ordered','partially_received','received','cancelled')
+  order_date date ; expected_at date NULL ; received_at ts NULL
+  subtotal dec ; discount dec DEFAULT 0 ; tax_rate dec(5,2) DEFAULT 0
+  total_amount dec
+  payment_status str(20) DEFAULT 'unpaid'
+                 CHECK IN ('unpaid','partial','paid')
+  treasury_account_id uuid NULL -> treasury_accounts.id  -- sortie fournisseur
+  notes text NULL ; created_by uuid -> users.id
+  ts + sd ; INDEX(supplier_id), INDEX(status, order_date)
+
+purchase_lines
+  id uuid PK ; purchase_id uuid -> purchases.id cascadeOnDelete
+  product_id  uuid -> products.id restrictOnDelete
+  qty_ordered dec(12,2) ; qty_received dec(12,2) DEFAULT 0
+  unit_cost dec ; line_total dec
+  ts
+
+stock_levels
+  id uuid PK
+  product_id uuid -> products.id cascadeOnDelete
+  agency_id uuid -> agencies.id cascadeOnDelete
+  department_id uuid NULL -> departments.id nullOnDelete
+  warehouse str(100) DEFAULT 'principal'
+  qty_on_hand dec(12,2) DEFAULT 0
+  reorder_point dec(12,2) DEFAULT 0
+  ts ; UNIQUE(product_id, agency_id, department_id, warehouse)
+
+stock_movements
+  id uuid PK
+  product_id uuid -> products.id restrictOnDelete
+  agency_id uuid -> agencies.id restrictOnDelete
+  department_id uuid NULL -> departments.id nullOnDelete
+  type str(20) CHECK IN ('in','sale','out','return','loss','adjustment',
+                         'transfer_in','transfer_out')
+  quantity dec(12,2) > 0   -- toujours positif ; le sens vient du type
+  unit_cost dec NULL ; reference str(100) NULL
+  source_type str(50) NULL ; source_id uuid NULL  -- purchase_line, order_line...
+  transfer_ref uuid NULL  -- couple transfert (out/in) partage cet uuid
+  moved_at ts ; created_by uuid -> users.id
+  ts ; INDEX(product_id, moved_at), INDEX(type), INDEX(transfer_ref)
+
+StockService : seule porte d'ecriture du stock. Dans une DB::transaction :
+  1) inserer stock_movements  2) recalculer qty_on_hand depuis les mouvements
+  3) si qty_on_hand < reorder_point -> notification.
+Types sortants : sale/out/loss/transfer_out. Entrants : in/return/transfer_in.
+adjustment : delta signe via quantity positif + label.
+
+ALTER order_lines + product_id uuid NULL -> products.id nullOnDelete
+  (vente catalogue store ; line_type='catalog')
+
+deliveries
+  id uuid PK ; order_id uuid -> orders.id cascadeOnDelete
+  status str(20) DEFAULT 'pending' CHECK IN
+         ('pending','preparing','shipped','delivered','cancelled')
+  carrier str(100) NULL ; tracking_number str(100) NULL
+  delivered_at ts NULL ; received_by str(150) NULL
+  notes text NULL ; ts ; INDEX(order_id, status)
+
+returns                        -- Retours produits
+  id uuid PK ; number str(30) UNIQUE  -- RET-00001
+  order_id uuid NULL -> orders.id nullOnDelete
+  invoice_id uuid NULL -> invoices.id nullOnDelete
+  client_id uuid NULL -> users.id nullOnDelete
+  product_id uuid -> products.id restrictOnDelete
+  quantity dec(12,2) > 0 ; reason str(20) CHECK IN
+           ('defective','wrong_item','client_remorse')
+  restock bool DEFAULT true   -- reintegre le stock via StockService
+  refund_amount dec DEFAULT 0 ; refund_method str(20) NULL
+  treasury_account_id uuid NULL -> treasury_accounts.id  -- sortie remboursement
+  status str(20) DEFAULT 'requested' CHECK IN
+         ('requested','accepted','rejected','refunded','closed')
+  processed_by uuid NULL -> users.id ; processed_at ts NULL
+  ts + sd ; INDEX(status)
+
+inventories
+  id uuid PK ; number str(30) UNIQUE  -- INV-00001
+  agency_id uuid -> agencies.id cascadeOnDelete
+  department_id uuid NULL -> departments.id nullOnDelete
+  status str(20) DEFAULT 'open' CHECK IN ('open','counting','closed')
+  started_by uuid -> users.id ; closed_at ts NULL ; note text NULL
+  ts + sd
+
+inventory_lines
+  id uuid PK ; inventory_id uuid -> inventories.id cascadeOnDelete
+  product_id uuid -> products.id restrictOnDelete
+  expected_qty dec(12,2)  -- gele a la creation de la session
+  counted_qty dec(12,2) NULL
+  unit_cost dec NULL
+  adjustment_movement_id uuid NULL -> stock_movements.id nullOnDelete
+  UNIQUE(inventory_id, product_id)
+
+Cloture inventaire : ecart = counted_qty - expected_qty ; cree un
+stock_movement type='adjustment' par ligne en ecart, valorise unit_cost.
+\end{lstlisting}
+
+\subsection{M8 --- Studio (Sprints 8--9)}
+
+\begin{lstlisting}
+quotes                          -- Devis
+  id uuid PK ; number str(30) UNIQUE  -- DEV-00001
+  client_id uuid NULL -> users.id nullOnDelete
+  prospect_id uuid NULL -> prospects.id nullOnDelete
+  company_id  uuid NULL -> companies.id nullOnDelete
+  agency_id uuid -> agencies.id cascadeOnDelete
+  department_id uuid NULL -> departments.id nullOnDelete
+  status str(20) DEFAULT 'draft' CHECK IN
+         ('draft','sent','accepted','refused','expired')
+  valid_until date NULL ; sent_at ts NULL ; decided_at ts NULL
+  subtotal dec ; discount dec DEFAULT 0 ; tax_rate dec(5,2) DEFAULT 0
+  total_amount dec
+  converted_project_id uuid NULL  -- pose a la conversion (pas de FK directe)
+  created_by uuid -> users.id
+  ts + sd ; INDEX(status)
+
+quote_lines
+  id uuid PK ; quote_id uuid -> quotes.id cascadeOnDelete
+  label str(200) ; description text NULL
+  unit_price dec ; quantity dec(12,2) DEFAULT 1 ; line_total dec
+  position int DEFAULT 0 ; ts
+
+projects
+  id uuid PK ; number str(30) UNIQUE  -- PRJ-00001
+  title str(200) ; description text NULL
+  client_id uuid -> users.id restrictOnDelete
+  company_id uuid NULL -> companies.id nullOnDelete
+  quote_id uuid NULL -> quotes.id nullOnDelete
+  agency_id uuid -> agencies.id cascadeOnDelete
+  department_id uuid NULL -> departments.id nullOnDelete
+  manager_id uuid NULL -> users.id nullOnDelete
+  status str(20) DEFAULT 'planning' CHECK IN
+         ('planning','in_production','in_revision','delivered','closed','cancelled')
+  start_date date NULL ; due_date date NULL
+  delivered_at ts NULL ; closed_at ts NULL
+  budget_amount dec NULL
+  invoice_deposit_id uuid NULL -> invoices.id nullOnDelete  -- acompte
+  invoice_balance_id uuid NULL -> invoices.id nullOnDelete  -- solde
+  ts + sd ; INDEX(status), INDEX(department_id)
+
+project_briefs                  -- reunions de cadrage, notes riches
+  id uuid PK ; project_id uuid -> projects.id cascadeOnDelete
+  title str(200) ; meeting_date date
+  participants text NULL        -- noms separes par virgule (v1)
+  content_html longtext NULL    -- rendu Summernote (HTML assaini)
+  created_by uuid -> users.id
+  ts ; INDEX(project_id)
+
+project_tasks                   -- planning / production
+  id uuid PK ; project_id uuid -> projects.id cascadeOnDelete
+  title str(200) ; description text NULL
+  assignee_id uuid NULL -> users.id nullOnDelete
+  start_date / due_date date NULL
+  status str(20) DEFAULT 'todo' CHECK IN ('todo','in_progress','done','blocked')
+  position int DEFAULT 0 ; completed_at ts NULL
+  ts ; INDEX(project_id, status)
+
+project_revisions
+  id uuid PK ; project_id uuid -> projects.id cascadeOnDelete
+  round int DEFAULT 1
+  request_note text ; requested_by uuid -> users.id
+  requested_at ts ; resolved_note text NULL ; resolved_at ts NULL
+  status str(20) DEFAULT 'pending' CHECK IN ('pending','resolved')
+  ts ; INDEX(project_id, status)
+
+deliverables
+  id uuid PK ; project_id uuid -> projects.id cascadeOnDelete
+  title str(200) ; file_path str(255)
+  revision_id uuid NULL -> project_revisions.id nullOnDelete
+  version int DEFAULT 1
+  uploaded_by uuid -> users.id
+  delivered_at ts NULL
+  ts ; INDEX(project_id)
+
+Cycle CDC : Prospect -> Brief -> Devis -> Validation -> Acompte ->
+Planification -> Production -> Revision -> Validation client ->
+Livraison -> Solde -> Cloture.
+\end{lstlisting}
+
+\subsection{M9 --- Notifications centralisées (Sprint 9)}
+
+\begin{lstlisting}
+notifications (table generale, schema natif Laravel ok)
+  id uuid PK ; user_id uuid -> users.id cascadeOnDelete
+  type str(50)   -- receivable_overdue, renewal_due, stock_low,
+                 -- expense_submitted, expense_decided, activity_reminder
+  title str(200) ; body text NULL
+  entity_type str(50) NULL ; entity_id uuid NULL
+  read_at ts NULL
+  timestamps ; INDEX(user_id, read_at)
+
+NotificationService::notify(users[], type, title, body, entity)
+Declencheurs a cabler :
+  - immediat : expense submitted -> validateurs du perimetre ;
+    stock sous seuil (apres StockService) ;
+  - job quotidien 07:00 : creances echues (factures impayees echues),
+    renouvellements contrats/abonnements J-X, rappels activities.
+\end{lstlisting}
+
+\subsection{M10 --- KPI, exports, outillage migration (Sprint 10)}
+
+\begin{lstlisting}
+import_logs
+  id uuid PK ; filename str(255) ; entity str(50)
+  mapping_version str(50) ; rows_total int ; rows_imported int
+  rows_skipped int ; errors jsonb ; dry_run bool DEFAULT true
+  executed_by uuid -> users.id ; ts
+
+Commande : php artisan pekegno:import-sheets {file} {entity} [--dry-run]
+Mappings : config/storage json versionne (storage/app/import-maps/*.json)
+Regles : jamais d'ecriture comptable certifiee sans --force ;
+   anomalies journalisees dans errors, lignes ignorees listees.
+\end{lstlisting}
+
+%=====================================================
+\section{Endpoints API cibles}\label{sec:endpoints}
+%=====================================================
+
+Tous sous préfixe \verb|/api|, groupe staff authentifié. \verb|CRUD| signifie index/store/show/update/destroy + trash/restore/force-delete quand l'entité a \verb|softDeletes|.
+
+\begin{longtable}{|p{1.3cm}|p{4.6cm}|p{2.7cm}|p{6.8cm}|}
+\caption{Endpoints nouveaux ou modifiés par sprint.} \\
+\hline
+\rowcolor{peklight}\textbf{Verbe} & \textbf{Route} & \textbf{Permission} & \textbf{Description} \\
+\hline
+\endfirsthead
+\hline
+\rowcolor{peklight}\textbf{Verbe} & \textbf{Route} & \textbf{Permission} & \textbf{Description} \\
+\hline
+\endhead
+\multicolumn{4}{|l|}{\cellcolor{peklight}\textit{S1 --- Contexte}} \\ \hline
+GET & /scope/context & (auth) & Arbre pays$\rightarrow$agences$\rightarrow$départements du périmètre utilisateur, enrichi des types. \\ \hline
+PUT & /scope/context-selection & (auth) & Persiste la dernière sélection de contexte de l'utilisateur (colonne \texttt{settings} JSON côté user ou table settings clé \texttt{context\_selection:\{userId\}}). \\ \hline
+\multicolumn{4}{|l|}{\cellcolor{peklight}\textit{S2 --- Trésorerie}} \\ \hline
+CRUD & /treasury/accounts & tresories.* & Comptes de trésorerie (cash/MoMo/banque). \\ \hline
+GET & /treasury/accounts/\{account\}/transactions & tresories.consulter & Mouvements paginés d'un compte, filtres période/type. \\ \hline
+POST & /treasury/transfers & tresories.valider & Transfert entre deux comptes (2 mouvements liés). \\ \hline
+GET & /treasury/summary & tresories.consulter & Soldes courants par compte + totaux période. \\ \hline
+GET & /bilans/daily & bilans.consulter & Bilan journalier \textbf{généré} (ventes par branche, encaissements par compte, dépenses, solde théorique vs réel). Paramètre \texttt{date}. \\ \hline
+\multicolumn{4}{|l|}{\cellcolor{peklight}\textit{S3 --- Dépenses \& commissions}} \\ \hline
+CRUD & /expenses & depenses.* & Dépenses. \\ \hline
+POST & /expenses/\{expense\}/submit & depenses.modifier & draft $\rightarrow$ submitted. \\ \hline
+POST & /expenses/\{expense\}/approve & depenses.valider & submitted $\rightarrow$ approved. \\ \hline
+POST & /expenses/\{expense\}/reject & depenses.valider & submitted $\rightarrow$ rejected (raison requise). \\ \hline
+POST & /expenses/\{expense\}/pay & depenses.encaisser & approved $\rightarrow$ paid : sortie trésorerie + écriture comptable. \\ \hline
+CRUD & /commission-rules & commissions.* & Règles versionnées (update = nouvelle version). \\ \hline
+GET & /commissions/entries & commissions.consulter & Lignes générées, filtres période/statut/bénéficiaire. \\ \hline
+POST & /commissions/entries/\{entry\}/validate & commissions.valider & calculated $\rightarrow$ validated. \\ \hline
+POST & /commissions/entries/\{entry\}/pay & commissions.valider & validated $\rightarrow$ paid. \\ \hline
+\multicolumn{4}{|l|}{\cellcolor{peklight}\textit{S4 --- CRM}} \\ \hline
+CRUD & /companies & entreprises.* & Entreprises. \\ \hline
+CRUD & /opportunities & opportunites.* & Opportunités ; PATCH stage inclus. \\ \hline
+CRUD & /activities & activites.* & Activités polymorphes ; POST \ldots/complete. \\ \hline
+GET & /crm/timeline\{?\}subject\_type,subject\_id & crm.consulter & Timeline relationnelle unifiée. \\ \hline
+\multicolumn{4}{|l|}{\cellcolor{peklight}\textit{S5 --- Academy \& contrats}} \\ \hline
+PUT & /training-sessions/\{session\}/attendances & presences.modifier & Sauvegarde bulk feuille de présence. \\ \hline
+CRUD & /certificates & certificats.* & Émission/révocation ; GET PDF imprimable. \\ \hline
+CRUD & /contracts & contrats.* & Contrats Agency + services liés. \\ \hline
+POST & /contracts/\{contract\}/renew & contrats.creer & Renouvelle : nouveau contrat chaîné, ancien $\rightarrow$ renewed/expired. \\ \hline
+POST & /contracts/\{contract\}/terminate & contrats.annuler & Résiliation motivée. \\ \hline
+\multicolumn{4}{|l|}{\cellcolor{peklight}\textit{S6--S7 --- Store}} \\ \hline
+CRUD & /suppliers & fournisseurs.* & Fournisseurs. \\ \hline
+CRUD & /purchases & achats.* & Achats/approvisionnements. \\ \hline
+POST & /purchases/\{purchase\}/receive & achats.valider & Réception (qty par ligne) $\rightarrow$ mouvements \texttt{in}. \\ \hline
+POST & /purchases/\{purchase\}/pay & achats.encaisser & Paiement fournisseur $\rightarrow$ sortie trésorerie. \\ \hline
+GET & /stocks/levels & stocks.consulter & Niveaux, filtres produit/agence/département/seuil. \\ \hline
+GET & /stocks/movements & stocks.consulter & Journal des mouvements. \\ \hline
+POST & /stocks/movements & stocks.creer & Mouvement manuel (ajustement, perte, transfert). \\ \hline
+POST & /orders/\{order\}/deliveries & livraisons.creer & Crée la livraison d'une commande. \\ \hline
+PATCH & /deliveries/\{delivery\} & livraisons.modifier & Statut livraison. \\ \hline
+CRUD & /returns & retours.* & Retours ; accept/refund intégrés au workflow. \\ \hline
+CRUD & /inventories & inventaires.* & Sessions d'inventaire + lignes. \\ \hline
+POST & /inventories/\{inventory\}/close & inventaires.valider & Clôture : ajustements de stock générés. \\ \hline
+GET & /reports/store & rapports.consulter & Rotation, marge, top produits. \\ \hline
+\multicolumn{4}{|l|}{\cellcolor{peklight}\textit{S8--S9 --- Studio \& notifications}} \\ \hline
+CRUD & /quotes & devis.* & Devis ; POST \ldots/send, /accept, /refuse. \\ \hline
+POST & /quotes/\{quote\}/convert & devis.valider & Convertit en projet (statut planning). \\ \hline
+CRUD & /projects & projets.* & Projets studio. \\ \hline
+CRUD & /projects/\{project\}/briefs & briefs.* & Briefs (notes HTML). \\ \hline
+CRUD & /projects/\{project\}/tasks & projets.* & Tâches/planning ; réordonnancement via position. \\ \hline
+CRUD & /projects/\{project\}/revisions & revisions.* & Cycles de révision. \\ \hline
+CRUD & /projects/\{project\}/deliverables & projets.* & Livrables (upload). \\ \hline
+POST & /projects/\{project\}/close & projets.valider & Clôture (solde facturé exigé). \\ \hline
+GET & /notifications & (auth) & Liste personnelle, filtre non-lues. \\ \hline
+POST & /notifications/read-all & (auth) & Marque tout lu. \\ \hline
+PATCH & /notifications/\{notification\} & (auth) & Marque lu/non lu. \\ \hline
+\multicolumn{4}{|l|}{\cellcolor{peklight}\textit{S10 --- Command Center \& imports}} \\ \hline
+GET & /command-center & kpi.consulter & Cartes KPI consolidées + comparaison période précédente. Filtres : pays/agence/département/période. \\ \hline
+GET & /kpi/drill-down & kpi.consulter & Descente dimensionnelle jusqu'à la transaction. \\ \hline
+POST & /imports/preview & kpi.creer & Analyse CSV vs mapping, rapport d'anomalies (dry-run). \\ \hline
+POST & /imports/run & kpi.creer & Import définitif journalisé (--force équivalent). \\ \hline
+\end{longtable}
+
+Permissions nouvelles à déclarer dans \verb|PermissionSeeder| (entités) : \verb|tresories|, \verb|depenses|, \verb|commissions| (si absent), \verb|entreprises|, \verb|opportunites|, \verb|activites|, \verb|presences|, \verb|certificats|, \verb|contrats|, \verb|fournisseurs|, \verb|achats|, \verb|stocks|, \verb|livraisons|, \verb|retours|, \verb|inventaires|, \verb|devis|, \verb|projets|, \verb|briefs|, \verb|revisions|, \verb|notifications|, \verb|kpi| --- avec les 9 actions normalisées quand pertinent. Mapping rôles (\verb|RoleSeeder|) : \verb|direction-generale| = tout ; \verb|responsable-agence| / \verb|responsable-departement| = tout sur leur périmètre ; \verb|comptable| = tresories, depenses, commissions, bilans ; \verb|caissier| = tresories consulter+encaisser, depenses consulter+creer ; \verb|commercial| = crm/opportunites/activites/devis consulter+creer+modifier.
+
+%=====================================================
+\section{Planning et alternance}
+%=====================================================
+
+Deux développeurs, Blackstar (BS) et Le\_million (LM). Sprint = 2 semaines ; les rôles BE/FE permutent à chaque sprint :
+
+\begin{tabularx}{\textwidth}{|c|c|c|c|Y|}
+\hline
+\rowcolor{peklight}\textbf{Sprint} & \textbf{Semaines} & \textbf{Backend} & \textbf{Frontend} & \textbf{Chantier} \\ \hline
+S1 & S1--S2 & BS & LM & Navigation \& contexte (T0.x) \\ \hline
+S2 & S3--S4 & LM & BS & Trésorerie \& paiements (T1.x) \\ \hline
+S3 & S5--S6 & BS & LM & Dépenses + commissions (T2.x) \\ \hline
+S4 & S7--S8 & LM & BS & CRM complet (T4.x) \\ \hline
+S5 & S9--S10 & BS & LM & Academy + contrats (T5.x) \\ \hline
+S6 & S11--S12 & LM & BS & Store 1/2 (T7.x) \\ \hline
+S7 & S13--S14 & BS & LM & Store 2/2 (T7.x) \\ \hline
+S8 & S15--S16 & LM & BS & Studio 1/2 (T8.x) \\ \hline
+S9 & S17--S18 & BS & LM & Studio 2/2 + notifications (T8/T9.x) \\ \hline
+S10 & S19--S20 & LM & BS & Command Center \& imports (T10.x) \\ \hline
+\end{tabularx}
+
+Un développeur exécute les tâches de son flux (BE ou FE) ; les tâches \qa{} sont binômes. Quand une instruction porte sur un sprint entier, l'agent exécute les tâches correspondant à son flux puis signale celles du binôme.
+
+%=====================================================
+\section{Protocole d'exécution d'une tâche}\label{sec:protocole}
+%=====================================================
+
+À appliquer pour CHAQUE tâche, sans exception :
+
+\begin{enumerate}
+  \item \textbf{Lire} la carte de tâche et les sections référencées (modèle §\ref{sec:modele}, endpoints §\ref{sec:endpoints}, navigation §\ref{sec:navigation}).
+  \item \textbf{Vérifier l'état} : \verb|git status| propre, \verb|migrate:fresh --seed| passe, \verb|npm run build| passe. Si une dépendance de la carte n'existe pas encore (tâche d'un autre flux non réalisée), implémenter le minimum syndical côté API (contrats définis ici) et le noter dans le rapport.
+  \item \textbf{Backend} (si tâche BE) : migration(s) $\rightarrow$ modèle(s) avec constantes de statuts et relations $\rightarrow$ Service si logique métier $\rightarrow$ contrôleur + routes + middleware permission $\rightarrow$ ScopeService sur les listes $\rightarrow$ LogsActivity sur actions sensibles $\rightarrow$ annotations Swagger $\rightarrow$ mise à jour PermissionSeeder/RoleSeeder $\rightarrow$ seeder de démonstration réaliste.
+  \item \textbf{Validation backend} : \verb|migrate:fresh --seed --force| sans erreur, \verb|php artisan test| vert, \verb|l5-swagger:generate --all|, vérifier les nouveaux endpoints via \verb|route:list|.
+  \item \textbf{Frontend} (si tâche FE) : types TS $\rightarrow$ module \verb|*.api.ts| $\rightarrow$ page(s) avec kit UI $\rightarrow$ routes lazy + Skeleton $\rightarrow$ entrées de menu (navItems ou getDepartmentItems) $\rightarrow$ i18n fr \textbf{et} en $\rightarrow$ permissions utilitaires si besoin $\rightarrow$ états loading/error/empty.
+  \item \textbf{Validation frontend} : \verb|npm run build| vert (TypeScript strict). Smoke test manuel du parcours critique décrit dans les critères.
+  \item \textbf{Commit} : un commit par tâche, message \verb|feat(scope): TX.Y resume| (scope = backend, frontend, ou fullstack).
+  \item \textbf{Rapport de tâche} (sortie finale obligatoire) : liste des fichiers créés/modifiés, endpoints exposés, migrations créées, écarts éventuels avec cette spécification, points ouverts.
+\end{enumerate}
+
+\subsection{Checklist Definition of Done globale}
+
+\critere Migrations additives uniquement ; \verb|migrate:fresh --seed --force| passe. \\
+\critere Statuts contrôlés (CHECK + constantes), aucun statut libre. \\
+\critere Permissions \verb|entite.action| câblées et mappées aux rôles. \\
+\critere Périmètre utilisateur respecté sur toutes les listes (ScopeService). \\
+\critere Actions sensibles journalisées (activity\_logs). \\
+\critere Swagger régénéré. \\
+\critere i18n FR/EN complète, aucun texte en dur. \\
+\critere \verb|npm run build| et \verb|php artisan test| verts. \\
+\critere Solde/trésorerie/commission : calculés depuis les transactions sources, jamais ressaisis. \\
+\critere Aucune donnée (pays, agence, département, catégorie, seuil) codée en dur.
+
+%=====================================================
+\section{SPRINT 1 --- Recadrage organisationnel \& navigation contextuelle}
+%=====================================================
+
+Objectif : appliquer le modèle Agence $\rightarrow$ Départements typés et livrer la ContextBar. Références : §\ref{sec:navigation}, modèle M0 (§\ref{sec:modele}).
+
+\tache{T0.1}{Départements typés (BE, BS, 3 j)}
+\textbf{Prérequis} : aucun. \\
+\textbf{Travail backend} :
+\begin{enumerate}[nosep]
+  \item Migration additive : colonne \verb|type| sur \verb|departments| (M0) + backfill dans la migration (\verb|UPDATE departments JOIN agencies| selon \verb|agencies.type|).
+  \item Modèle \verb|Department| : constantes \verb|TYPE_ACADEMY='academy'| etc., \verb|TYPES| array, validation dans DepartmentController \verb|in:academy,agency,store,studio|.
+  \item Déprécier \verb|agencies.type| : retirer toute lecture/écriture (modèle \verb|Agency::deriveType|, \verb|TYPES|, affichages), garder la colonne. Commentaire de dépréciation.
+  \item \verb|DepartmentController@store/update| : champ type requis/validé ; réponse inclut \verb|type|.
+  \item Seeder : \verb|AgencySeeder| crée 4 départements (un par type) par agence de démonstration.
+  \item Tests feature : création/refus type invalide, backfill correct.
+\end{enumerate}
+\textbf{Critères d'acceptation} :
+\critere \verb|\d departments| montre la colonne type + CHECK. \\
+\critere POST /departments sans type $\Rightarrow$ 422 ; avec \verb|"store"| $\Rightarrow$ 201 avec type persisté. \\
+\critere Aucune référence active à \verb|agencies.type| hors migration historique (grep).
+
+\tache{T0.2}{Arbre de contexte enrichi (BE, BS, 3 j)}
+\textbf{Travail backend} : étendre \verb|ScopeController@__invoke| pour retourner la forme JSON de §\ref{sec:navigation} (pays $\rightarrow$ agences $\rightarrow$ départements avec \verb|id,name,type|), filtrée par \verb|ScopeService| ; ajouter option \verb|?types=academy,store|. Eager load performant (\verb|with| imbriqué). Tests : un utilisateur assigné à une seule agence ne voit que son sous-arbre.
+\textbf{Critères} :
+\critere Réponse conforme à la forme JSON documentée. \\
+\critere Temps de réponse $<$ 300 ms avec données de démo. \\
+\critere super-admin voit les 2 pays ; commercial limité.
+
+\tache{T0.6}{Seeders \& Swagger (BE, BS, 2 j)}
+Données de démonstration cohérentes : 2 pays, 3 villes, 3 agences, chacune avec ses 4 départements typés nommés proprement (\og Academy Douala \fg{}\ldots), utilisateurs de démo assignés à des départements précis. Swagger régénéré.
+
+\tache{T0.3}{OrgContext + ContextBar (FE, LM, 5 j)}
+\textbf{Travail frontend} :
+\begin{enumerate}[nosep]
+  \item Nouveau module \verb|src/api/scope.api.ts| (getContext, saveSelection).
+  \item Provider \verb|src/context/OrgContext.tsx| : état \verb|{tree, selection:{countryId,agencyId,departmentId,period}, loading}|, persistance localStorage (\verb|pekegno_context|), hooks \verb|useOrgContext()|.
+  \item Composant \verb|src/components/layout/ContextBar.tsx| : 4 dropdowns en cascade (Pays/Agence/Département/Période via \verb|PeriodPicker|), recherche globale (redirige vers page correspondante), cloche notifications (placeholder badge 0, lien futur), profil (réutilise \verb|UserMenu|).
+  \item Intégration : monter la barre dans \verb|AppLayout|, \verb|CountryLayout|, \verb|AgencyLayout|, \verb|DepartmentLayout| (remplacer les headers back existants). Sélection = navigation vers l'URL canonique du niveau choisi ; changement de pays réinitialise agence/département.
+\end{enumerate}
+\textbf{Critères} :
+\critere Depuis CMR/Yaoundé/Academy, ouvrir \og Pays \fg{} et choisir Côte d'Ivoire $\Rightarrow$ redirection immédiate vers Abidjan (ou liste agences CI) sans repasser par le dashboard. \\
+\critere Le contexte survit au refresh (localStorage + URL cohérents). \\
+\critere i18n fr/en complète.
+
+\tache{T0.4}{Suppression du switcher de lignes + landing Départements (FE, LM, 4 j)}
+\begin{enumerate}[nosep]
+  \item \verb|AgencyLayout.tsx| : supprimer \verb|AgencyLine|, \verb|navigateLine|, \verb|getAgencyItems/getAcademyItems| et le segmented control ; la sidebar agence devient : Overview · Départements (défaut) · Équipes · Promotions · Abonnements · Services transverses · Settings.
+  \item Landing agence = page Départements ; cartes de départements montrant le type (icônes : GraduationCap/Briefcase/ShoppingBag/Video), filtres par type.
+  \item Modale de création : Select type (4 options traduites) + nom + description.
+\end{enumerate}
+\critere Plus aucune trace de \og Ligne Prestations/Formations \fg{}. \\
+\critere Création d'un département de chaque type possible depuis l'UI.
+
+\tache{T0.5}{Départements comme espaces de travail (FE, LM, 4 j + QA partagé)}
+\begin{enumerate}[nosep]
+  \item \verb|getDepartmentItems(type)| dans \verb|navItems.ts| retournant les menus §\ref{sec:navigation} ; items non encore implémentés pointent vers des routes placeholder propres (page \og À venir -- Sprint X \fg{} référençant la tâche).
+  \item Ré-raciner Academy : routes \verb|/departments/:departmentId/{courses,sessions,trainers,learners,...}| réutilisant les composants existants (props \verb|departmentId| au lieu de \verb|agencyId| ; adapter les appels API qui filtrent déjà par \verb|agency_id| via query param).
+  \item Redirections : \verb|/countries/:c/agencies/:a/academy/*| $\rightarrow$ département academy de l'agence (composant \verb|LegacyRedirect|).
+  \item QA binôme : parcours Groupe $\rightarrow$ Pays $\rightarrow$ Agence $\rightarrow$ Département $\rightarrow$ cours Academy complet.
+\end{enumerate}
+
+%=====================================================
+\section{SPRINT 2 --- Trésorerie \& bilan journalier}
+%=====================================================
+
+Références : modèle M1, endpoints §\ref{sec:endpoints}. Décisions requises en amont : liste des comptes réels (sinon seeder générique).
+
+\tache{T1.1}{Comptes \& mouvements de trésorerie (BE, LM, 4 j)}
+\begin{enumerate}[nosep]
+  \item Migrations M1 (tables + colonnes ajoutées à \verb|invoices|, \verb|orders|, \verb|invoice_payments|) ; backfill \verb|invoice_payments.treasury_account_id| avec le compte cash de l'agence de la facture.
+  \item Modèles + relations ; constantes \verb|TreasuryAccount::TYPE_*|, \verb|TreasuryTransaction::DIRECTION_*|.
+  \item \verb|TreasuryService| : unique porte d'écriture \verb|recordMovement(account, direction, amount, source, ...)| en transaction ; méthode \verb|balanceFor(account)| ; \verb|transfer(from,to,amount)| = 2 mouvements liés.
+  \item Branchement \verb|PaymentService| : chaque \verb|invoice_payments| enregistre le mouvement \verb|in| correspondant (montant, source=morph, référence numéro facture).
+  \item Contrôleurs + routes + permissions \verb|tresories.*| ; Swagger ; tests (paiement $\Rightarrow$ solde juste ; annulation facture $\Rightarrow$ contrepassation).
+\end{enumerate}
+\critere Encaissement de 3 tranches sur une facture $\Rightarrow$ 3 mouvements \texttt{in}, solde exact. \\
+\critere Impossible de payer une dépense depuis un compte inexistant/inactif (422).
+
+\tache{T1.2}{Bilan journalier généré (BE, LM, 3 j)}
+Refactorer \verb|BilanController| : \verb|GET /bilans/daily?date=&agency_id=| calcule depuis les sources : ventes par département type (via \verb|invoices.department_id|), encaissements par compte type, dépenses payées, solde théorique initial + in $-$ out ; compare à \verb|daily_balances.solde_final| saisi (écart + %). Conserver l'ancien endpoint compatible. Tests numériques exacts.
+
+\tache{T1.4}{Encaissement avec compte (FE, BS, 3 j)}
+Formulaire d'encaissement (InvoiceDetail + QuickSale) : Select compte de trésorerie (filtré agence, groupé par type avec icônes Banknote/Smartphone/Landmark), champ référence ; affichage colonne compte dans l'historique paiements. Types TS + i18n.
+
+\tache{T1.5}{Page Trésorerie (FE, BS, 5 j)}
+Menu FINANCE (global + pays + agence) : cartes soldes par compte, tableau flux paginé avec filtres (compte/type/période/Direction), modale transfert entre comptes, accès bilan jour. Permission \verb|tresories.consulter|.
+
+\tache{QA-C1}{QA binôme (4 j)} Parcours CDC : vente 100~000 FCFA $\rightarrow$ 3 paiements $\rightarrow$ trésorerie $\rightarrow$ bilan cohérent ; transfert inter-comptes ; écarts affichés.
+
+%=====================================================
+\section{SPRINT 3 --- Dépenses \& moteur de commissions}
+%=====================================================
+
+Références : modèles M2, M3. Décision requise : formules réelles de prime (sinon règles de démo).
+
+\tache{T2.1}{Module dépenses (BE, BS, 4 j)}
+Tables M2 ; \verb|ExpenseService| (transitions contrôlées, refus motivé, paiement atomique : mouvement out + écriture comptable) ; contrôleurs/routes/permissions \verb|depenses.*| ; notification validateur (placeholder event, branchée au centre S9) ; upload justificatif via \verb|/uploads| ; tests workflow complet + refus de transition invalide.
+\critere Transition \texttt{draft}$\rightarrow$\texttt{approved} directe impossible. \\
+\critere Après \texttt{pay} : solde du compte baissé du montant exact, transaction comptable présente.
+
+\tache{T2.2}{Règles de commissions versionnées (BE, BS, 4 j)}
+Tables M3 ; extension \verb|CommissionService| : à l'encaissement, évaluer les règles actives matchant (périmètre, service, trigger) et créer les \verb|commission_entries| avec \verb|rule_snapshot| ; fallback existant préservé ; endpoints CRUD (update = nouvelle version) + entries + validate/pay ; tests multi-règles et paliers.
+\critere Modifier une règle ne change PAS les entrées passées (snapshot). \\
+\critere Deux règles matchant une même vente $\Rightarrow$ deux entrées.
+
+\tache{T2.3}{UI Dépenses (FE, LM, 5 j)}
+Pages : liste avec onglets par statut (badges colorés), formulaire demande (catégorie Select depuis \verb|accounting-categories| type expense, montant, date, compte visé, justificatif upload, note), file de validation (actions Valider/Rejeter avec raison), vue détail avec historique des statuts. Menu FINANCE/Dépenses, permissions alignées.
+
+\tache{T2.4}{UI Commissions (FE, LM, 4 j)}
+Page COMMISSIONS : onglet Règles (liste + modale création/édition : bénéficiaire, périmètres, formule percent/fixed/tiers avec éditeur de lignes de palier, dates, trigger ; avertissement \og édition = nouvelle version \fg{} + historique versions visible), onglet Commissions (entries paginées, filtres période/statut, actions Valider/Payer, aperçu du snapshot de règle appliquée).
+
+\tache{QA-C2/C3}{QA binôme (1 j)} Parcours : règle 5\,\% Academy Douala $\rightarrow$ vente + encaissement $\rightarrow$ entry calculée $\rightarrow$ validation $\rightarrow$ paiement.
+
+%=====================================================
+\section{SPRINT 4 --- CRM complet}
+%=====================================================
+
+Référence : modèle M4. Réutilise \verb|prospects.api.ts| (déjà prêt).
+
+\tache{T4.1}{Opportunités \& pipeline (BE, LM, 3 j)} Table opportunities + CRUD + PATCH stage (transitions libres tracées) ; conversion gagné $\Rightarrow$ possibilité créer client/facture liée (réutiliser convert prospect) ; scopes ; tests.
+
+\tache{T4.2}{Activités \& relances (BE, LM, 3 j)} Table activities polymorphe + CRUD + \verb|POST /activities/{id}/complete| ; job quotidien de rappel (console.php 07:00) créant les notifications (service placeholder si M9 pas encore là : log + table prête).
+
+\tache{T4.3}{Entreprises \& dédoublonnage (BE, LM, 2 j)} Table companies + CRUD + liaison prospect.company_id ; recherche clients/prospects normalisée téléphone (suffixe 8 chiffres) ; tests doublons.
+
+\tache{T4.4}{Kanban prospects (FE, BS, 4 j)} Page PROSPECTS (manquante !) : kanban 7 colonnes (stages), drag \& drop HTML5 natif (aucune lib), carte = prospect/opportunité (nom, montant attendu, âge), filtres (commercial, agence, département, recherche), compteur par colonne ; menu CRM global + pays + agence.
+
+\tache{T4.5}{Fiche prospect complète (FE, BS, 3 j)} Page détail : blocs Identité / Acquisition (source) / Intérêt (types cochables) / Responsable / Pipeline (stage + montant) / Activités (timeline + formulaire rapide appel/RDV/note/relance avec échéance) ; bouton Convertir en client (existante) ; i18n.
+
+\tache{T4.6}{Timeline client (FE, BS, 2 j)} Onglet timeline sur ClientDetailPage : activités + factures + paiements + opportunités fusionnés chronologiquement (\verb|/crm/timeline|).
+
+\tache{QA-C4}{QA binôme (1 j)} Parcours CDC prospect $\rightarrow$ qualification $\rightarrow$ proposition $\rightarrow$ gagné $\rightarrow$ client.
+
+%=====================================================
+\section{SPRINT 5 --- Academy compléments \& Contrats Agency}
+%=====================================================
+
+Références : modèles M5, M6.
+
+\tache{T5.1}{Présences par session (BE, BS, 2 j)} Table attendances + \verb|PUT /training-sessions/{session}/attendances| (bulk upsert, valide enrollment appartient à la session) ; garde compat booléen \verb|enrollments.attendance| synchronisé (présent si dernière présence = present/late) ; tests.
+
+\tache{T5.2}{Certificats (BE, BS, 2 j)} Table certificates ; émission si enrollment completed ; numéro CERT-##### ; révocation motivée ; route PDF imprimable simple (vue Blade print) ; permissions \verb|certificats.*| ; tests.
+
+\tache{T6.1}{Contrats \& renouvellements (BE, BS, 4 j)} Tables M6 ; \verb|ContractService| : statuts calculés par job 06:30 (due\_soon à J-X depuis setting \verb|renew_alert_days|, expired après end\_date) ; renew (nouveau contrat chaîné parent\_contract\_id, renewal\_count++) ; terminate ; \verb|is_pass_through| sur catégories comptables + exclusion du CA dans StatsController (CA net du pass-through) ; tests renouvellement et exclusion CA.
+
+\tache{T5.3}{UI Academy compléments (FE, LM, 5 j)} Feuille de présence session (tableau apprenants + 4 statuts radio, sauvegarde bulk, indicateur taux présence) ; onglet Certificats fiche apprenant (émis/revoqué, imprimable) ; bloc Finance fiche apprenant : échéancier = liste des paiements de la facture liée + solde calculé (déjà partiel, fiabiliser via \verb|enrollments.invoice_id|).
+
+\tache{T6.2}{UI Contrats \& Renouvellements (FE, LM, 4 j)} Menu département type agency : Contrats (liste statuts colorés, modale création client+pack+services+prix+cycle+dates, détail avec services et historique renouvellements chaînés) ; Renouvellements (file due\_soon/expired avec actions Renouveler/Résilier, badges J-x).
+
+\tache{QA-C5/C6}{QA binôme (1 j)} Parcours CDC : contrat $\rightarrow$ alerte J-7 simulée (job manuel tinker) $\rightarrow$ renouvellement $\rightarrow$ chaîne visible.
+
+%=====================================================
+\section{SPRINTS 6--7 --- Store / Matootoo}
+%=====================================================
+
+Référence : modèles M7. Tout le Store vit sous le département type \texttt{store}.
+
+\tache{T7.1}{Fournisseurs \& achats (BE, LM, 4 j)} Tables suppliers/purchases/purchase\_lines ; receive (qty par ligne, statut partial/received, mouvements \texttt{in} via StockService, MAJ purchase\_price produit si fourni) ; pay fournisseur (sortie trésorerie, payment\_status) ; permissions ; tests réception partielle.
+
+\tache{T7.2}{Stocks (BE, LM, 4 j)} Tables stock\_levels/stock\_movements + \verb|StockService| (transaction : mouvement $\rightarrow$ recalcul niveau $\rightarrow$ alerte seuil) ; endpoints levels/movements/movement manuel ; transfert inter-agences (paire transfer\_out/transfer\_in même transfer\_ref, 2 appels service atomiques) ; tests invariants (somme mouvements = niveau).
+
+\tache{T7.3}{UI Catalogue \& Stocks (FE, BS, 5 j)} Sous dept store : Catalogue (produits existants API + catégories ; SKU, prix achat/vente, gestion stock on/off, dispo agence), Stocks (niveaux avec badge sous-seuil rouge, journal mouvements filtrable, modales ajustement/perte/transfert guidé 3 étapes).
+
+\tache{T7.4}{UI Fournisseurs \& Achats (FE, BS, 4 j)} Fournisseurs CRUD ; Achats : liste statuts, création multi-lignes produits (Autocomplete produits), réception par ligne (qty reçue), paiement fournisseur, impression bon.
+
+\tache{T7.5}{Commandes, livraisons, retours (BE, BS, 4 j)} order\_lines.product\_id ; commande store confirmée $\rightarrow$ réservation simple v1 ; deliveries CRUD/statuts ; returns workflow complet (accept $\rightarrow$ restock via StockService ; refund $\rightarrow$ sortie trésorerie) ; tests impacts stock/trésorerie.
+
+\tache{T7.6}{Inventaires (BE, BS, 3 j)} Tables + open (gèle expected), counting (saisie counted), close (écarts $\rightarrow$ mouvements adjustment valorisés) ; permissions ; tests clôture avec écarts.
+
+\tache{T7.7}{Rapports store (BE, BS, 1 j)} \verb|GET /reports/store| : rotation (qté vendue/stock moyen période), marge ((PV-PA)/PV pondérée), top produits, valeur du stock.
+
+\tache{T7.8}{Ventes Store POS (FE, LM, 3 j)} Adapter QuickSale : onglets Services/Produits ; panier produits ; validation $\Rightarrow$ order + invoice + paiements + mouvements \texttt{sale} (backend orchestré dans OrderController confirm/invoice) ; stock temps réel dans le panier (badge rupture).
+
+\tache{T7.9}{UI Commandes/Livraisons/Retours (FE, LM, 4 j)} Trois pages menu store : commandes (statuts, génération livraison), livraisons (kanban statuts simple + scan réf), retours (demande, traitement accept/reject, remboursement avec compte).
+
+\tache{T7.10}{UI Inventaires \& rapports (FE, LM, 2 j)} Inventaires (sessions, saisie comptage mobile-friendly, écran écarts valorisés avant clôture) ; Rapports store (cartes rotation/marge/valeur stock + top produits).
+
+\tache{QA-C7}{QA binôme (2+1 j)} Parcours CDC complet : achat 50 unités $\rightarrow$ vente 3 $\rightarrow$ retour 1 $\rightarrow$ inventaire $\rightarrow$ ajustement $\rightarrow$ rapports cohérents.
+
+%=====================================================
+\section{SPRINTS 8--9 --- Studio \& Notifications}
+%=====================================================
+
+Références : modèles M8, M9. Sémantique : projet = production concrète (ex. film publicitaire) ; devis = calcul du montant ; briefs = réunions avec notes Summernote.
+
+\tache{T8.1}{Devis (BE, LM, 4 j)} Tables quotes/quote\_lines ; transitions send/accept/refuse datées ; expiration (valid\_until, job) ; convert $\rightarrow$ project planning (copie lignes en description) ; permissions \verb|devis.*| ; tests conversion.
+
+\tache{T8.2}{Projets, briefs, planning (BE, LM, 4 j)} Tables projects/project\_briefs/project\_tasks ; réordonnancement tasks (position) ; statuts contrôlés ; sanitisation HTML briefs (\verb|purifier| ou strip\_tags liste blanche) ; permissions ; tests.
+
+\tache{T8.3}{UI Devis \& Projets (FE, BS, 5 j)} Devis : liste pipeline coloré, éditeur lignes dynamique (label/prix/qté/remise/TVA, total live), aperçu imprimable, actions Send/Accept/Refuse/Convertir. Projets : cartes statuts (pipeline), détail avec onglets.
+
+\tache{T8.4}{UI Briefs \& Planning (FE, BS, 4 j)} Briefs : liste réunions du projet + éditeur \textbf{Summernote} (installer \verb|react-summernote| + jQuery peer, décision validée car exigence métier ; fallback textarea HTML si build KO) ; participants, date ; rendu HTML consultable. Planning : tâches en vue calendrier mois simple (grille CSS native) + liste drag \& drop statuts.
+
+\tache{T8.5}{Production, révisions, livraisons, clôture (BE, BS, 4 j)} Endpoints revisions (round auto-incrémenté par projet), deliverables (upload, version++), close (exige facture solde payée ou solde zéro ; passe delivered$\rightarrow$closed) ; acompte : à la conversion, générer facture acompte (50\,\% paramétrable settings) liée \verb|invoice_deposit_id| ; tests cycle complet CDC.
+
+\tache{T8.6}{UI Production/Révisions/Livraisons (FE, LM, 5 j)} Onglets projet : Production (tâches en cours, avancement \%), Révisions (cycles demandeur/résolution), Livraisons (upload livrables versionnés, bouton livrer $\rightarrow$ statut delivered), Paiements (acompte/solde reliés factures, bouton encaisser réutilisant composant S2).
+
+\tache{T9.1}{Centre de notifications (BE, BS, 4 j)} Table + \verb|NotificationService| ; brancher TOUS les déclencheurs M9 (dépense soumise, stock bas, créances échues, renouvellements, rappels activités, objectif) ; endpoints liste/read-all/patch ; job 07:00 consolidé ; rate-limit anti-spam (unique user+type+entité+jour).
+
+\tache{T9.2}{Cloche \& centre (FE, LM, 4 j)} Cloche ContextBar (polling 60 s, badge count) ; panneau latéral notifications (non-lues en gras, clic $\Rightarrow$ navigation entité liée) ; page centre avec tout-lu et filtres ; i18n.
+
+\tache{QA-C8/C9}{QA binôme (1+1 j)} Parcours CDC Studio complet prospect$\rightarrow$clôture + scénario notifications multi-déclencheurs.
+
+%=====================================================
+\section{SPRINT 10 --- Command Center, rapports \& migration}
+%=====================================================
+
+Référence : modèle M10. Décision requise : définitions KPI finales (sinon provisoires documentées).
+
+\tache{T10.1}{API KPI consolidée (BE, LM, 4 j)} \verb|GET /command-center| : CA (net pass-through), encaissements, créances, dépenses, trésorerie par compte, performance (par pays/agence/dépt/commercial), alertes (top 10) ; chaque valeur = série comparable période précédente ; \verb|GET /kpi/drill-down?dimension=...| descente Groupe$\rightarrow$Pays$\rightarrow$Agence$\rightarrow$Dépt$\rightarrow$transaction (payload borné : 100 lignes max par niveau) ; cache 60 s.
+
+\tache{T10.2}{Exports \& importeur Sheets (BE, LM, 4 j)} Etendre ExportController (command-center, treasury, expenses, commissions, contracts, store-report, studio-report) Excel/PDF/CSV ; commande \verb|pekegno:import-sheets {file} {entity} --dry-run|--\verb|force| avec mappings JSON versionnés, normalisation (dates, téléphones, montants), dédoublonnage par téléphone, import\_logs ; entités supportées v1 : clients, prospects, produits, formations.
+
+\tache{T10.3}{Command Center (FE, BS, 5 j)} Redesign \verb|PEKEGNOGroupDashboard| : cartes KPI cliquables (delta \% vs période précédente, flèche tendance), drill-down au clic (modal/tableau niveau suivant jusqu'à la transaction avec lien facture), section Alertes actionable, tout piloté par ContextBar (pays/agence/dépt/période) ; graphiques : réutiliser le pattern CSS bars existant ou ajouter recharts (décision rapide à trancher, défaut : CSS).
+
+\tache{T10.4}{Rapports transverses (FE, BS, 3 j)} Page RAPPORTS : filtres communs (période PeriodPicker, pays, agence, département, commercial) persistés dans l'URL ; onglets Direction/Commercial/Finance/Academy/Agency/Store/Studio consommant les endpoints existants + nouveaux ; boutons export.
+
+\tache{T10.5}{Recette générale (QA, binôme, 2 j)} Exécuter les 7 parcours critiques du CDC de bout en bout sur données de démo ; corriger les bloquants trouvés ; checklist DoD §\ref{sec:protocole} complète ; rapport final.
+
+%=====================================================
+\section{Annexe --- Interdits et pièges connus}
+%=====================================================
+
+\begin{itemize}[nosep]
+  \item Ne PAS réutiliser \verb|AdminDashboardPage| / \verb|DashboardPlaceholderPage| (orphelins legacy) : partir du composant existant group dashboard.
+  \item \verb|CatalogSeeder| existe mais n'est pas appelé par \verb|DatabaseSeeder| : l'appeler si la tâche a besoin de catalogue de démo.
+  \item Le frontend n'a AUCUN framework de test : ne pas en introduire dans une tâche métier (décision séparée).
+  \item Pas de spatie/laravel-permission : RBAC maison (\verb|roles|, \verb|permissions|, \verb|role_permission|, \verb|users.role_id|).
+  \item Portails Sanctum distincts staff/client (\verb|portal:staff|) : ne jamais exposer de routes business côté \verb|portal:client| sans décision.
+  \item \verb|agencies.type| déprécié dès S1 ; ne plus s'y fier dans le moindre nouveau code.
+  \item Les montants s'affichent en FCFA via \verb|formatCurrency| ; ne jamais formater à la main.
+  \item Toute route nouvelle doit apparaître dans \verb|route:list| ET Swagger ; toute clé i18n doit exister dans fr.ts ET en.ts.
+\end{itemize}
+
+\end{document}

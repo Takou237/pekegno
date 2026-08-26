@@ -89,6 +89,11 @@ const CommissionEntriesPage = lazy(() => import('@/pages/commissions/CommissionE
 const CompanyListPage = lazy(() => import('@/pages/companies/CompanyListPage'));
 const OpportunityKanbanPage = lazy(() => import('@/pages/opportunities/OpportunityKanbanPage'));
 const OpportunityDetailPage = lazy(() => import('@/pages/opportunities/OpportunityDetailPage'));
+const AttendanceSheetPage = lazy(() => import('@/pages/academy/AttendanceSheetPage'));
+const CertificateListPage = lazy(() => import('@/pages/academy/CertificateListPage'));
+const ContractListPage = lazy(() => import('@/pages/agency/ContractListPage'));
+const ContractDetailPage = lazy(() => import('@/pages/agency/ContractDetailPage'));
+const RenewalsPage = lazy(() => import('@/pages/agency/RenewalsPage'));
 
 function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
   return <Suspense fallback={fallback}>{node}</Suspense>;
@@ -231,22 +236,24 @@ export const router = createBrowserRouter([
           { path: 'enrollments', element: page(<ComingSoonPage />, table) },
           { path: 'courses', element: page(<AcademyCoursesPage />, cards) },
           { path: 'sessions', element: page(<AcademySessionsPage />, table) },
+          { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
           { path: 'trainers', element: page(<AcademyTrainersPage />, table) },
           { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
-          { path: 'presences', element: page(<ComingSoonPage />, table) },
+          { path: 'presences', element: page(<AcademySessionsPage />, table) },
           { path: 'payments', element: page(<ComingSoonPage />, table) },
           { path: 'receivables', element: page(<ComingSoonPage />, table) },
-          { path: 'certificates', element: page(<ComingSoonPage />, table) },
+          { path: 'certificates', element: page(<CertificateListPage />, table) },
           { path: 'reports', element: page(<ComingSoonPage />, table) },
           // Agency routes
           { path: 'clients', element: page(<ClientListPage />, table) },
           { path: 'clients/:id', element: page(<ClientDetailPage />, detail) },
           { path: 'packages', element: page(<ComingSoonPage />, cards) },
-          { path: 'contracts', element: page(<ComingSoonPage />, table) },
+          { path: 'contracts', element: page(<ContractListPage />, table) },
+          { path: 'contracts/:contractId', element: page(<ContractDetailPage />, detail) },
           { path: 'services', element: page(<ServiceListPage />, cards) },
           { path: 'community', element: page(<ComingSoonPage />, table) },
           { path: 'advertising', element: page(<ComingSoonPage />, table) },
-          { path: 'renewals', element: page(<ComingSoonPage />, table) },
+          { path: 'renewals', element: page(<RenewalsPage />, table) },
           // Store routes
           { path: 'catalog', element: page(<ComingSoonPage />, cards) },
           { path: 'stocks', element: page(<ComingSoonPage />, table) },

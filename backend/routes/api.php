@@ -49,7 +49,10 @@ use App\Http\Controllers\Api\LearnerController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ActivityController;
 use App\Http\Controllers\Api\CommissionController;
+use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\CertificateController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\ContractController;
 use App\Http\Controllers\Api\OpportunityController;
 use App\Http\Controllers\Api\TrainingSessionController;
 use App\Http\Controllers\Api\UploadController;
@@ -362,4 +365,22 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::put('/activities/{activity}', [ActivityController::class, 'update'])->middleware('permission:activites.modifier');
     Route::post('/activities/{activity}/complete', [ActivityController::class, 'complete'])->middleware('permission:activites.modifier');
     Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->middleware('permission:activites.supprimer');
+
+    // === Sprint 5 : Présences ===
+    Route::get('/training-sessions/{session}/attendances', [AttendanceController::class, 'index'])->middleware('permission:presences.consulter');
+    Route::put('/training-sessions/{session}/attendances', [AttendanceController::class, 'bulkUpdate'])->middleware('permission:presences.modifier');
+
+    // === Sprint 5 : Certificats ===
+    Route::get('/certificates', [CertificateController::class, 'index'])->middleware('permission:certificats.consulter');
+    Route::post('/certificates', [CertificateController::class, 'store'])->middleware('permission:certificats.creer');
+    Route::get('/certificates/{certificate}', [CertificateController::class, 'show'])->middleware('permission:certificats.consulter');
+    Route::post('/certificates/{certificate}/revoke', [CertificateController::class, 'revoke'])->middleware('permission:certificats.modifier');
+
+    // === Sprint 5 : Contrats ===
+    Route::get('/contracts', [ContractController::class, 'index'])->middleware('permission:contrats.consulter');
+    Route::post('/contracts', [ContractController::class, 'store'])->middleware('permission:contrats.creer');
+    Route::get('/contracts/{contract}', [ContractController::class, 'show'])->middleware('permission:contrats.consulter');
+    Route::put('/contracts/{contract}', [ContractController::class, 'update'])->middleware('permission:contrats.modifier');
+    Route::post('/contracts/{contract}/renew', [ContractController::class, 'renew'])->middleware('permission:contrats.modifier');
+    Route::post('/contracts/{contract}/terminate', [ContractController::class, 'terminate'])->middleware('permission:contrats.supprimer');
 });

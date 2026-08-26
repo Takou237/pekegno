@@ -18,6 +18,7 @@ class Enrollment extends Model
         'attendance',
         'attended_at',
         'notes',
+        'invoice_id',
     ];
 
     protected function casts(): array

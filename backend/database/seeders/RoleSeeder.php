@@ -65,6 +65,9 @@ class RoleSeeder extends Seeder
                 $p('entreprises', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
                 $p('opportunites', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
                 $p('activites', ['consulter', 'creer', 'modifier', 'supprimer']),
+                $p('presences', ['consulter', 'modifier']),
+                $p('certificats', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
+                $p('contrats', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
             ),
             'responsable-departement' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
@@ -89,6 +92,9 @@ class RoleSeeder extends Seeder
                 $p('entreprises', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('opportunites', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('activites', ['consulter', 'creer', 'modifier', 'supprimer']),
+                $p('presences', ['consulter', 'modifier']),
+                $p('certificats', ['consulter']),
+                $p('contrats', ['consulter', 'creer', 'modifier']),
             ),
             'commercial' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
@@ -105,6 +111,9 @@ class RoleSeeder extends Seeder
                 $p('entreprises', ['consulter', 'creer', 'modifier']),
                 $p('opportunites', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('activites', ['consulter', 'creer', 'modifier', 'supprimer']),
+                $p('presences', ['consulter']),
+                $p('certificats', ['consulter']),
+                $p('contrats', ['consulter', 'creer']),
             ),
             'caissier' => array_merge(
                 $p('clients', ['consulter']),
@@ -146,6 +155,8 @@ class RoleSeeder extends Seeder
                 $p('entreprises', ['consulter', 'exporter']),
                 $p('opportunites', ['consulter', 'exporter']),
                 $p('activites', ['consulter']),
+                $p('certificats', ['consulter']),
+                $p('contrats', ['consulter']),
             ),
             'formateur' => array_merge(
                 $p('services', ['consulter']),
@@ -155,6 +166,7 @@ class RoleSeeder extends Seeder
                 $p('courses', ['consulter']),
                 $p('sessions', ['consulter', 'creer', 'modifier']),
                 $p('enrollments', ['consulter', 'modifier']),
+                $p('presences', ['consulter', 'modifier']),
             ),
             'client' => array_merge(
                 $p('services', ['consulter']),
