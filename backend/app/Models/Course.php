@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -18,10 +19,15 @@ class Course extends Model
         'code',
         'name',
         'description',
+        'objective',
+        'prerequisites',
+        'cover_image',
         'mode',
         'category_id',
         'price',
         'duration_hours',
+        'duration_type',
+        'duration_months',
         'agency_id',
         'is_active',
     ];
@@ -31,6 +37,7 @@ class Course extends Model
         return [
             'price' => 'decimal:2',
             'duration_hours' => 'integer',
+            'duration_months' => 'smallInteger',
             'is_active' => 'boolean',
         ];
     }
@@ -38,6 +45,11 @@ class Course extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class, 'course_categories');
     }
 
     public function agency(): BelongsTo
@@ -48,6 +60,21 @@ class Course extends Model
     public function sessions(): HasMany
     {
         return $this->hasMany(TrainingSession::class, 'course_id');
+    }
+
+    public function modules(): HasMany
+    {
+        return $this->hasMany(CourseModule::class, 'course_id')->orderBy('order_index');
+    }
+
+    public function formationEnrollments(): HasMany
+    {
+        return $this->hasMany(FormationEnrollment::class, 'course_id');
+    }
+
+    public function promotions(): HasMany
+    {
+        return $this->hasMany(Promotion::class, 'formation_id');
     }
 
     public function scopeSearch(Builder $query, ?string $search): Builder
@@ -63,9 +90,6 @@ class Course extends Model
         });
     }
 
-    /**
-     * Disponibilité : filtre par agence en incluant les cours globaux.
-     */
     public function scopeAvailableIn(Builder $query, string $agencyId): Builder
     {
         return $query->where(fn ($q) => $q->where('agency_id', $agencyId)->orWhereNull('agency_id'));
@@ -78,5 +102,38 @@ class Course extends Model
             ->max();
 
         return 'CRS-'.str_pad((string) (($last ?: 0) + 1), 5, '0', STR_PAD_LEFT);
+    }
+
+    public function activePromotion(): ?Promotion
+    {
+        if ($this->relationLoaded('promotions')) {
+            return $this->promotions
+                ->filter(fn (Promotion $p) => $p->isActive())
+                ->sortBy('start_date')
+                ->first();
+        }
+
+        return $this->promotions()
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->orderByDesc('start_date')
+            ->first();
+    }
+
+    public function getEffectivePriceAttribute(): string
+    {
+        $active = $this->activePromotion();
+
+        if (! $active) {
+            return (string) $this->price;
+        }
+
+        if ($active->type === 'percent' && $active->discount_percent !== null) {
+            $discounted = (float) $this->price * (1 - (float) $active->discount_percent / 100);
+
+            return (string) round($discounted, 2);
+        }
+
+        return (string) ($active->promo_price ?? $this->price);
     }
 }

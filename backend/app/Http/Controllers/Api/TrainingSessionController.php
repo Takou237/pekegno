@@ -58,9 +58,10 @@ class TrainingSessionController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = TrainingSession::with(['course', 'trainer', 'agency'])
+        $query = TrainingSession::with(['course', 'module', 'trainer', 'agency'])
             ->withCount('enrollments')
             ->when($request->course_id, fn ($q, $v) => $q->where('course_id', $v))
+            ->when($request->module_id, fn ($q, $v) => $q->where('module_id', $v))
             ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
             ->when($request->from, fn ($q, $v) => $q->where('start_at', '>=', $v))
@@ -115,7 +116,7 @@ class TrainingSessionController extends Controller
     )]
     public function show(TrainingSession $trainingSession): TrainingSessionResource
     {
-        return new TrainingSessionResource($trainingSession->load(['course', 'trainer', 'agency']));
+        return new TrainingSessionResource($trainingSession->load(['course', 'module', 'trainer', 'agency']));
     }
 
     #[OA\Put(

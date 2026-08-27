@@ -19,9 +19,15 @@ export interface AttendanceBulkItem {
   status: AttendanceStatus;
 }
 
-export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
-  present: 'Présent',
-  absent: 'Absent',
-  late: 'En retard',
-  excused: 'Excusé',
-};
+export function attendanceStatusLabel(
+  status: AttendanceStatus,
+  t: (key: string) => string,
+): string {
+  switch (status) {
+    case 'present': return t('attendance.present');
+    case 'absent': return t('attendance.absent');
+    case 'late': return t('attendance.late');
+    case 'excused': return t('attendance.excused');
+    default: return status;
+  }
+}

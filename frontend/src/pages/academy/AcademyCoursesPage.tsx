@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { Search, Plus, Pencil, Trash2, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type Course } from '@/api/academy.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -13,10 +13,11 @@ import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
 import { formatCurrency } from '@/utils/number';
-import type { Agency } from '@/types/agency';
+import type { Department } from '@/types/department';
 
-interface AgencyLayoutContext {
-  agency: Agency | null;
+interface DepartmentLayoutContext {
+  department?: Department | null;
+  departmentId?: string;
   agencyId?: string;
 }
 
@@ -34,23 +35,34 @@ function modeLabel(mode: Course['mode'], t: ReturnType<typeof useTranslation>['t
 interface FormState {
   name: string;
   description: string;
+  objective: string;
+  prerequisites: string;
   mode: Course['mode'];
   price: string;
   duration_hours: string;
+  duration_type: 'limited' | 'unlimited';
+  duration_months: string;
+  category_ids: string[];
 }
 
 const emptyForm: FormState = {
   name: '',
   description: '',
+  objective: '',
+  prerequisites: '',
   mode: 'in_person',
   price: '',
   duration_hours: '',
+  duration_type: 'unlimited',
+  duration_months: '',
+  category_ids: [],
 };
 
 export default function AcademyCoursesPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
-  const { agencyId } = useOutletContext<AgencyLayoutContext>();
+  const { agencyId } = useOutletContext<DepartmentLayoutContext>();
+  const { departmentId } = useParams<{ departmentId: string }>();
   const [courses, setCourses] = useState<Course[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [search, setSearch] = useState('');
@@ -111,9 +123,14 @@ export default function AcademyCoursesPage() {
     setForm({
       name: course.name,
       description: course.description ?? '',
+      objective: course.objective ?? '',
+      prerequisites: course.prerequisites ?? '',
       mode: course.mode,
       price: course.price != null ? String(course.price) : '',
       duration_hours: course.duration_hours != null ? String(course.duration_hours) : '',
+      duration_type: course.duration_type ?? 'unlimited',
+      duration_months: course.duration_months != null ? String(course.duration_months) : '',
+      category_ids: course.categories?.map((c) => c.id) ?? [],
     });
     setFormError(null);
     setFieldErrors({});
@@ -130,9 +147,14 @@ export default function AcademyCoursesPage() {
     const payload = {
       name: form.name,
       description: form.description || null,
+      objective: form.objective || null,
+      prerequisites: form.prerequisites || null,
       mode: form.mode,
       price: form.price ? Number(form.price) : null,
       duration_hours: form.duration_hours ? Number(form.duration_hours) : null,
+      duration_type: form.duration_type,
+      duration_months: form.duration_type === 'limited' && form.duration_months ? Number(form.duration_months) : null,
+      category_ids: form.category_ids.length > 0 ? form.category_ids : undefined,
       agency_id: agencyId,
     };
 
@@ -220,19 +242,38 @@ export default function AcademyCoursesPage() {
 
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                   <Badge variant="brand">{modeLabel(course.mode, t)}</Badge>
-                  {course.price != null && (
+                  {course.effective_price && course.effective_price !== String(course.price) && (
+                    <span className="font-medium text-success-600 dark:text-success-400">
+                      {formatCurrency(Number(course.effective_price))}
+                    </span>
+                  )}
+                  {!course.effective_price && course.price != null && (
                     <span className="font-medium text-gray-700 dark:text-gray-200">
                       {formatCurrency(course.price)}
                     </span>
                   )}
                   {course.duration_hours != null && (
-                    <span>
+                    <span className="inline-flex items-center gap-1">
                       {course.duration_hours} {t('academy.hours')}
+                      <Badge variant={course.duration_type === 'limited' ? 'warning' : 'neutral'}>
+                        {course.duration_type === 'limited' ? t('academy.limited') : t('academy.unlimited')}
+                      </Badge>
                     </span>
                   )}
                 </div>
 
+                {course.objective && (
+                  <p className="mt-1 text-xs italic text-gray-400 dark:text-gray-500 line-clamp-1">{course.objective}</p>
+                )}
+
                 <div className="mt-auto flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800 mt-3">
+                  <Link
+                    to={`/departments/${departmentId}/courses/${course.id}/modules`}
+                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
+                    title={t('academy.modules')}
+                  >
+                    <Layers className="h-4 w-4" />
+                  </Link>
                   <button
                     type="button"
                     onClick={() => openEdit(course)}
@@ -332,6 +373,56 @@ export default function AcademyCoursesPage() {
               rows={3}
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.objective')}
+            </label>
+            <textarea
+              value={form.objective}
+              onChange={(e) => setForm((prev) => ({ ...prev, objective: e.target.value }))}
+              rows={2}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.prerequisites')}
+            </label>
+            <textarea
+              value={form.prerequisites}
+              onChange={(e) => setForm((prev) => ({ ...prev, prerequisites: e.target.value }))}
+              rows={2}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('academy.durationType')}
+              </label>
+              <select
+                value={form.duration_type}
+                onChange={(e) => setForm((prev) => ({ ...prev, duration_type: e.target.value as 'limited' | 'unlimited' }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              >
+                <option value="limited">{t('academy.limited')}</option>
+                <option value="unlimited">{t('academy.unlimited')}</option>
+              </select>
+            </div>
+            {form.duration_type === 'limited' && (
+              <Input
+                label={t('academy.durationMonths')}
+                type="number"
+                min="1"
+                value={form.duration_months}
+                onChange={(e) => setForm((prev) => ({ ...prev, duration_months: e.target.value }))}
+                error={fieldErrors.duration_months}
+              />
+            )}
           </div>
 
           <div className="mt-2 flex justify-end gap-3">

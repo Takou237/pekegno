@@ -1,4 +1,7 @@
 import { client } from './client';
+import type { CourseModule, CourseModulePayload, FormationEnrollment, FormationEnrollmentPayload, LearnerObservation as LearnerObservationItem, SellerProfile } from '@/types/formation';
+
+export type { CourseModule, CourseModulePayload, FormationEnrollment, FormationEnrollmentPayload, LearnerObservationItem, SellerProfile };
 
 export interface Paginated<T> {
   data: T[];
@@ -15,14 +18,23 @@ export interface Course {
   code: string;
   name: string;
   description: string | null;
+  objective: string | null;
+  prerequisites: string | null;
+  cover_image: string | null;
   mode: 'online' | 'in_person' | 'mixed';
   category?: { id: string | null; name: string | null; color: string | null } | null;
+  categories?: { id: string; name: string; color: string | null }[];
   price: number | null;
+  effective_price?: string | null;
   duration_hours: number | null;
+  duration_type: 'limited' | 'unlimited';
+  duration_months: number | null;
   agency?: { id: string; name: string; code: string } | null;
   availability: 'agency' | 'global';
   is_active: boolean;
   sessions_count?: number;
+  modules_count?: number;
+  formation_enrollments_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -31,10 +43,16 @@ export interface CoursePayload {
   name: string;
   code?: string;
   description?: string | null;
+  objective?: string | null;
+  prerequisites?: string | null;
+  cover_image?: string | null;
   mode?: Course['mode'];
   price?: number | null;
   duration_hours?: number | null;
+  duration_type?: 'limited' | 'unlimited';
+  duration_months?: number | null;
   agency_id?: string | null;
+  category_ids?: string[];
   is_active?: boolean;
 }
 
@@ -91,6 +109,7 @@ export type SessionStatus = 'planned' | 'ongoing' | 'completed' | 'cancelled';
 export interface TrainingSession {
   id: string;
   course?: { id: string; code: string; name: string; mode: Course['mode'] } | null;
+  module?: { id: string; name: string; order_index: number } | null;
   trainer?: {
     id: string;
     first_name: string | null;
@@ -112,6 +131,7 @@ export interface TrainingSession {
 
 export interface SessionPayload {
   course_id: string;
+  module_id?: string | null;
   trainer_id?: string | null;
   agency_id?: string | null;
   start_at: string;
@@ -302,5 +322,70 @@ export const academyApi = {
   async learnerStats(learnerId: string): Promise<LearnerStats> {
     const { data } = await client.get<LearnerStats>(`/learners/${learnerId}/stats`);
     return data;
+  },
+
+  // === Modules ===
+  async modules(courseId: string): Promise<CourseModule[]> {
+    const { data } = await client.get<CourseModule[]>(`/courses/${courseId}/modules`);
+    return data;
+  },
+
+  async createModule(courseId: string, payload: CourseModulePayload): Promise<CourseModule> {
+    const { data } = await client.post<CourseModule>(`/courses/${courseId}/modules`, payload);
+    return data;
+  },
+
+  async updateModule(courseId: string, moduleId: string, payload: Partial<CourseModulePayload>): Promise<CourseModule> {
+    const { data } = await client.put<CourseModule>(`/courses/${courseId}/modules/${moduleId}`, payload);
+    return data;
+  },
+
+  async removeModule(courseId: string, moduleId: string): Promise<void> {
+    await client.delete(`/courses/${courseId}/modules/${moduleId}`);
+  },
+
+  async reorderModules(courseId: string, order: string[]): Promise<CourseModule[]> {
+    const { data } = await client.put<CourseModule[]>(`/courses/${courseId}/modules/reorder`, { order });
+    return data;
+  },
+
+  // === Formation Enrollments ===
+  async formationEnrollments(params: { course_id?: string; agency_id?: string; status?: string; per_page?: number; page?: number } = {}): Promise<Paginated<FormationEnrollment>> {
+    const { data } = await client.get<Paginated<FormationEnrollment>>('/formation-enrollments', { params });
+    return data;
+  },
+
+  async createFormationEnrollment(payload: FormationEnrollmentPayload): Promise<FormationEnrollment> {
+    const { data } = await client.post<FormationEnrollment>('/formation-enrollments', payload);
+    return data;
+  },
+
+  async updateFormationEnrollment(id: string, payload: Partial<FormationEnrollmentPayload>): Promise<FormationEnrollment> {
+    const { data } = await client.put<FormationEnrollment>(`/formation-enrollments/${id}`, payload);
+    return data;
+  },
+
+  async removeFormationEnrollment(id: string): Promise<void> {
+    await client.delete(`/formation-enrollments/${id}`);
+  },
+
+  async courseLearners(courseId: string): Promise<FormationEnrollment[]> {
+    const { data } = await client.get<FormationEnrollment[]>(`/courses/${courseId}/learners`);
+    return data;
+  },
+
+  // === Learner Observations ===
+  async learnerObservations(params: { learner_user_id?: string; course_id?: string; per_page?: number; page?: number } = {}): Promise<Paginated<LearnerObservationItem>> {
+    const { data } = await client.get<Paginated<LearnerObservationItem>>('/learner-observations', { params });
+    return data;
+  },
+
+  async createLearnerObservation(payload: { learner_user_id: string; course_id?: string; session_id?: string; content: string }): Promise<LearnerObservationItem> {
+    const { data } = await client.post<LearnerObservationItem>('/learner-observations', payload);
+    return data;
+  },
+
+  async removeLearnerObservation(id: string): Promise<void> {
+    await client.delete(`/learner-observations/${id}`);
   },
 };

@@ -15,6 +15,7 @@ class TrainingSession extends Model
 
     protected $fillable = [
         'course_id',
+        'module_id',
         'trainer_id',
         'agency_id',
         'start_at',
@@ -46,6 +47,11 @@ class TrainingSession extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class, 'course_id');
+    }
+
+    public function module(): BelongsTo
+    {
+        return $this->belongsTo(CourseModule::class, 'module_id');
     }
 
     public function trainer(): BelongsTo

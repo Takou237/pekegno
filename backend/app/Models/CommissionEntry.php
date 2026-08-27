@@ -29,8 +29,12 @@ class CommissionEntry extends Model
         'commission_rule_id',
         'rule_snapshot',
         'beneficiary_commercial_id',
+        'seller_profile_id',
         'base_amount',
         'amount',
+        'category',
+        'product_id',
+        'product_type',
         'status',
         'validated_by',
         'validated_at',
@@ -67,6 +71,11 @@ class CommissionEntry extends Model
     public function beneficiary(): BelongsTo
     {
         return $this->belongsTo(Commercial::class, 'beneficiary_commercial_id');
+    }
+
+    public function sellerProfile(): BelongsTo
+    {
+        return $this->belongsTo(SellerProfile::class);
     }
 
     public function validator(): BelongsTo

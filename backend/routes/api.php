@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CommercialController;
 use App\Http\Controllers\Api\CommercialReportController;
 use App\Http\Controllers\Api\CourseController;
+use App\Http\Controllers\Api\CourseModuleController;
 use App\Http\Controllers\Api\CountryController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScopeController;
+use App\Http\Controllers\Api\SellerProfileController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StatsController;
@@ -53,6 +55,8 @@ use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\CertificateController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\ContractController;
+use App\Http\Controllers\Api\FormationEnrollmentController;
+use App\Http\Controllers\Api\LearnerObservationController;
 use App\Http\Controllers\Api\OpportunityController;
 use App\Http\Controllers\Api\TrainingSessionController;
 use App\Http\Controllers\Api\UploadController;
@@ -383,4 +387,37 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::put('/contracts/{contract}', [ContractController::class, 'update'])->middleware('permission:contrats.modifier');
     Route::post('/contracts/{contract}/renew', [ContractController::class, 'renew'])->middleware('permission:contrats.modifier');
     Route::post('/contracts/{contract}/terminate', [ContractController::class, 'terminate'])->middleware('permission:contrats.supprimer');
+
+    // === Academy — Modules de formation ===
+    Route::get('/courses/{course}/modules', [CourseModuleController::class, 'index'])->middleware('permission:courses.consulter');
+    Route::post('/courses/{course}/modules', [CourseModuleController::class, 'store'])->middleware('permission:courses.creer');
+    Route::get('/courses/{course}/modules/{module}', [CourseModuleController::class, 'show'])->middleware('permission:courses.consulter');
+    Route::put('/courses/{course}/modules/{module}', [CourseModuleController::class, 'update'])->middleware('permission:courses.modifier');
+    Route::delete('/courses/{course}/modules/{module}', [CourseModuleController::class, 'destroy'])->middleware('permission:courses.supprimer');
+    Route::put('/courses/{course}/modules/reorder', [CourseModuleController::class, 'reorder'])->middleware('permission:courses.modifier');
+
+    // === Academy — Inscriptions formations ===
+    Route::get('/formation-enrollments', [FormationEnrollmentController::class, 'index'])->middleware('permission:enrollments.consulter');
+    Route::post('/formation-enrollments', [FormationEnrollmentController::class, 'store'])->middleware('permission:enrollments.creer');
+    Route::get('/formation-enrollments/{formationEnrollment}', [FormationEnrollmentController::class, 'show'])->middleware('permission:enrollments.consulter');
+    Route::put('/formation-enrollments/{formationEnrollment}', [FormationEnrollmentController::class, 'update'])->middleware('permission:enrollments.modifier');
+    Route::delete('/formation-enrollments/{formationEnrollment}', [FormationEnrollmentController::class, 'destroy'])->middleware('permission:enrollments.supprimer');
+    Route::get('/courses/{course}/learners', [FormationEnrollmentController::class, 'learners'])->middleware('permission:enrollments.consulter');
+
+    // === Academy — Observations apprenants ===
+    Route::get('/learner-observations', [LearnerObservationController::class, 'index'])->middleware('permission:presences.consulter');
+    Route::post('/learner-observations', [LearnerObservationController::class, 'store'])->middleware('permission:presences.creer');
+    Route::delete('/learner-observations/{learnerObservation}', [LearnerObservationController::class, 'destroy'])->middleware('permission:presences.supprimer');
+
+    // === Academy — Promotions formations ===
+    Route::post('/courses/{course}/promotions', [PromotionController::class, 'storeForFormation'])->middleware('permission:promotions.creer');
+
+    // === Vendeurs & Commissions ===
+    Route::get('/seller-profiles', [SellerProfileController::class, 'index'])->middleware('permission:commissions.consulter');
+    Route::post('/seller-profiles', [SellerProfileController::class, 'store'])->middleware('permission:commissions.creer');
+    Route::get('/seller-profiles/{sellerProfile}', [SellerProfileController::class, 'show'])->middleware('permission:commissions.consulter');
+    Route::put('/seller-profiles/{sellerProfile}', [SellerProfileController::class, 'update'])->middleware('permission:commissions.modifier');
+    Route::delete('/seller-profiles/{sellerProfile}', [SellerProfileController::class, 'destroy'])->middleware('permission:commissions.supprimer');
+    Route::get('/seller-profiles/{sellerProfile}/commissions', [SellerProfileController::class, 'commissions'])->middleware('permission:commissions.consulter');
+    Route::post('/seller-profiles/{sellerProfile}/pay', [SellerProfileController::class, 'payCommission'])->middleware('permission:commissions.valider');
 });

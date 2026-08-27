@@ -15,10 +15,10 @@ import { Alert } from '@/components/ui/Alert';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
-import type { Agency } from '@/types/agency';
 
-interface AgencyLayoutContext {
-  agency: Agency | null;
+interface DepartmentLayoutContext {
+  department?: { id: string; agency_id?: string; type?: string } | null;
+  departmentId?: string;
   agencyId?: string;
 }
 
@@ -58,8 +58,8 @@ export default function AcademyLearnersPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const { countryId } = useParams<{ countryId?: string }>();
-  const { agencyId } = useOutletContext<AgencyLayoutContext>();
+  const { departmentId } = useParams<{ departmentId?: string }>();
+  const { agencyId } = useOutletContext<DepartmentLayoutContext>();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [statusFilter, setStatusFilter] = useState<'' | (typeof STATUSES)[number]>('');
@@ -228,12 +228,8 @@ export default function AcademyLearnersPage() {
   }
 
   function openLearner(enrollment: Enrollment) {
-    if (!enrollment.learner?.id) return;
-    navigate(
-      countryId
-        ? `/countries/${countryId}/agencies/${agencyId}/academy/learners/${enrollment.learner.id}`
-        : `/agencies/${agencyId}/academy/learners/${enrollment.learner.id}`,
-    );
+    if (!enrollment.learner?.id || !departmentId) return;
+    navigate(`/departments/${departmentId}/learners/${enrollment.learner.id}`);
   }
 
   return (

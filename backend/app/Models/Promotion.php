@@ -12,6 +12,7 @@ class Promotion extends Model
 
     protected $fillable = [
         'service_id',
+        'formation_id',
         'type',
         'promo_price',
         'discount_percent',
@@ -34,13 +35,18 @@ class Promotion extends Model
         return $this->belongsTo(Service::class);
     }
 
+    public function formation(): BelongsTo
+    {
+        return $this->belongsTo(Course::class, 'formation_id');
+    }
+
     public function isActive(): bool
     {
         return $this->start_date <= now() && $this->end_date >= now();
     }
 
     /**
-     * Prix effectif de la promotion (rebasé sur le prix du service pour le type percent).
+     * Prix effectif de la promotion (rebasé sur le prix du service/formation pour le type percent).
      */
     public function effectivePrice(?float $basePrice = null): ?float
     {

@@ -1,0 +1,503 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\geometry{margin=2.2cm}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{graphicx}
+
+\pagestyle{fancy}
+\fancyhead[L]{PEKEGNO --- Manuel Utilisateur Academy}
+\fancyhead[R]{\today}
+\fancyfoot[C]{\thepage}
+
+\definecolor{brand}{HTML}{6366f1}
+\definecolor{step}{HTML}{2563eb}
+\definecolor{tip}{HTML}{059669}
+\definecolor{warn}{HTML}{d97706}
+
+\newcommand{\etape}[1]{\textcolor{step}{\textbf{\'Etape :} #1}}
+\newcommand{\astuce}[1]{\textcolor{tip}{\textbf{Astuce :} #1}}
+\newcommand{\action}[1]{\textcolor{brand}{\textit{Action :} #1}}
+\newcommand{\remarque}[1]{\textcolor{warn}{\textbf{Remarque :} #1}}
+
+\title{\textbf{Manuel Utilisateur --- Module Academy} \\ \large Guide d'utilisation pour les responsables et formateurs}
+\author{PEKEGNO}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+Le module \textbf{Academy} est le departement dedie a la gestion des formations, apprenants, formateurs et commissions au sein d'une agence PEKEGNO.
+
+\subsection{Acces au module}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Connectez-vous a PEKEGNO avec vos identifiants.
+  \item Selectionnez une \textbf{agence} puis un \textbf{departement de type ``Academy''} dans le menu contextuel.
+  \item Le menu lateral gauche affiche les differents sous-menus du module.
+\end{enumerate}
+
+\subsection{Menus disponibles}
+Le menu lateral de l'Academy contient les rubriques suivantes :
+
+\begin{longtable}{ll}
+  \toprule
+  \textbf{Menu} & \textbf{Description} \\
+  \midrule
+  \endhead
+  Tableau de bord & Vue d'ensemble (pages et stats) \\
+  Prospects & Gestion des prospects / leads \\
+  Apprenants & Inscriptions et suivi des apprenants \\
+  Inscriptions & Inscriptions aux formations \\
+  Formations & Catalogue de formations proposees \\
+  Sessions & Sessions de formation (liees aux formations) \\
+  Formateurs & Gestion des formateurs rattaches \\
+  Presences & Feuilles de presence par session \\
+  Vendeurs & Profils vendeurs et paiement de commissions \\
+  Creances & Suivi des factures impayees \\
+  Certificats & Delivrance et gestion des certificats \\
+  Rapports & Statistiques et indicateurs \\
+  \bottomrule
+\end{longtable}
+
+
+% ============================================================
+\section{Prospects}
+% ============================================================
+
+La rubrique \textbf{Prospects} permet de gerer les leads avant qu'ils ne deviennent des clients.
+
+\subsection{Consulter la liste}
+\begin{itemize}
+  \item La page affiche un tableau avec les colonnes : Nom, Contact (email, telephone), Ville, Actions.
+  \item Utilisez la \textbf{barre de recherche} en haut pour filtrer par nom ou email.
+  \item La pagination s'affiche automatiquement si plus de 15 prospects existent.
+\end{itemize}
+
+\subsection{Creer un prospect}
+\action{Cliquer sur ``Ajouter un prospect'' (bouton primaire en haut a droite).}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Remplir les champs obligatoires : \textbf{Prenom} et \textbf{Nom}.
+  \item Renseigner optionnellement : email, telephone, ville, pays, adresse, notes.
+  \item Cliquer sur ``Enregistrer''.
+\end{enumerate}
+
+\subsection{Modifier un prospect}
+\action{Cliquer sur l'icone crayon (\includegraphics[width=1em]{pencil}) dans la colonne Actions.}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Modifier les champs souhaites.
+  \item Cliquer sur ``Enregistrer''.
+\end{enumerate}
+
+\subsection{Convertir un prospect en client}
+\remarque{Cette action cree definitivement un client a partir du prospect.}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Cliquer sur l'icone de conversion (\includegraphics[width=1em]{arrows}) dans la colonne Actions.
+  \item Confirmer en cliquant sur ``Devenir client''.
+  \item Le prospect est converti et apparaît dans la liste des clients de l'agence.
+\end{enumerate}
+
+\subsection{Supprimer un prospect}
+\action{Cliquer sur l'icone poubelle (\includegraphics[width=1em]{trash}) dans la colonne Actions.}
+Confirmer la suppression dans la boite de dialogue.
+
+
+% ============================================================
+\section{Apprenants}
+% ============================================================
+
+La rubrique \textbf{Apprenants} gere les personnes inscrites aux formations.
+
+\subsection{Consulter la liste}
+Le tableau affiche : Nom de l'apprenant, Formation, Date de session, Statut.
+\begin{itemize}
+  \item Utilisez le \textbf{filtre par statut} (Inscrit, Termine, Annule) pour affiner la vue.
+  \item Cliquez sur une ligne pour afficher le \textbf{detail} de l'apprenant.
+\end{itemize}
+
+\subsection{Creer un nouvel apprenant}
+\action{Cliquer sur ``Nouvel apprenant'' (bouton outline).}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Remplir les champs obligatoires : \textbf{Prenom}, \textbf{Nom}, \textbf{Email}, \textbf{Mot de passe} (8 caracteres min.), confirmation du mot de passe.
+  \item Ajouter optionnellement le telephone.
+  \item Cliquer sur ``Creer''.
+  \item L'apprenant est cree en tant que ``client'' dans le systeme.
+\end{enumerate}
+
+\subsection{Inscrire un apprenant a une session}
+\action{Cliquer sur ``Nouvelle inscription'' (bouton primaire).}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Selectionner une \textbf{Session} via l'autocomplete (tapez pour chercher).
+  \item Selectionner un \textbf{Apprenant} via l'autocomplete.
+  \item Ajouter des notes optionnelles.
+  \item Cliquer sur ``Creer''.
+\end{enumerate}
+
+\subsection{Detail d'un apprenant}
+La page de detail affiche :
+
+\begin{itemize}
+  \item \textbf{Carte de profil} : photo (initiales), nom, numero client, statut actif/inactif, email, telephone.
+  \item \textbf{4 cartes de statistiques} : inscriptions totales, formations suivies, sessions a venir, total investi.
+  \item \textbf{Metriques} : inscriptions terminees, presences, taux de completion, heures acquises.
+  \item \textbf{Barre d'avancement} : visualisation du taux enrolled/completed/cancelled.
+  \item \textbf{Sessions a venir} et \textbf{Inscriptions recentes} (tableaux).
+  \item \textbf{Observations} : notes privees sur l'apprenant.
+\end{itemize}
+
+
+% ============================================================
+\section{Inscriptions Formations}
+% ============================================================
+
+La rubrique \textbf{Inscriptions} gere les inscriptions au niveau de la \textbf{formation} (pas a la session).
+
+\subsection{Consulter la liste}
+Le tableau affiche : Apprenant, Formation, Statut (cliquer pour changer), Date d'inscription, Vendeur.
+\begin{itemize}
+  \item Filtre par statut : Inscrit, Termine, Annule.
+  \item Le badge de statut est \textbf{cliquable} pour changer le statut directement.
+\end{itemize}
+
+\subsection{Creer une inscription}
+\action{Cliquer sur ``Nouvelle inscription''.}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Selectionner une \textbf{Formation} via l'autocomplete.
+  \item Selectionner un \textbf{Apprenant} via l'autocomplete.
+  \item Ajouter des notes optionnelles.
+  \item Cliquer sur ``Creer''.
+  \item \remarque{Un apprenant ne peut etre inscrit qu'une seule fois a une meme formation (contrainte unique).}
+\end{enumerate}
+
+\subsection{Modifier le statut}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Cliquer sur le badge de statut dans la ligne concernee.
+  \item Dans le modal, selectionner le nouveau statut : Inscrit / Termine / Annule.
+  \item Cliquer sur ``Enregistrer''.
+\end{enumerate}
+
+
+% ============================================================
+\section{Formations}
+% ============================================================
+
+La rubrique \textbf{Formations} est le catalogue des formations proposees par l'agence.
+
+\subsection{Consulter le catalogue}
+Les formations sont affichees sous forme de \textbf{cartes} (pas un tableau) :
+\begin{itemize}
+  \item Chaque carte affiche : nom, code, description, mode (Presentiel/En ligne/Hybride), prix, duree, objectif.
+  \item Un badge indique si la duree est ``Limitee'' ou ``Illimitee''.
+  \item La barre d'actions en bas de chaque carte contient : Modules, Modifier, Supprimer.
+  \item Utilisez la \textbf{barre de recherche} pour filtrer par nom ou code.
+\end{itemize}
+
+\subsection{Creer une formation}
+\action{Cliquer sur ``Nouvelle formation'' (bouton primaire).}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Remplir les champs obligatoires : \textbf{Nom de la formation}.
+  \item Selectionner le \textbf{Mode} : Presentiel, En ligne, ou Hybride.
+  \item Definir le \textbf{Prix} (FCFA) et la \textbf{Duree en heures}.
+  \item Ajouter la \textbf{Description}, l'\textbf{Objectif} et les \textbf{Prerequis} (optionnels).
+  \item Pour une duree limitee : selectionner ``Limitee'' puis indiquer le nombre de mois.
+  \item Cliquer sur ``Creer''.
+\end{enumerate}
+
+\subsection{Gerer les modules d'une formation}
+\action{Cliquer sur l'icone ``Modules'' (calque) en bas de la carte de la formation.}
+Vous etes redirige vers la page des modules de cette formation.
+
+\subsection{Modifier / Supprimer}
+Utilisez les icones crayon et poubelle sur la carte de la formation.
+
+
+% ============================================================
+\section{Modules de Formation}
+% ============================================================
+
+Les modules structurent une formation en parties independantes avec chacune un ordre, un formateur et une duree.
+
+\subsection{Consulter les modules}
+Le tableau affiche : Ordre, Nom (+ description), Formateur, Duree, Actions.
+\begin{itemize}
+  \item Les icones fleche haut/bas permettent de \textbf{reordonner} les modules (cliquez pour monter ou descendre).
+  \item L'ordre est mis a jour automatiquement dans le systeme.
+\end{itemize}
+
+\subsection{Creer un module}
+\action{Cliquer sur ``Nouveau module''.}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Remplir le \textbf{Nom du module} (obligatoire).
+  \item Ajouter une \textbf{Description} (optionnelle).
+  \item Definir la \textbf{Duree en heures} (optionnel, pas 0.5).
+  \item Selectionner un \textbf{Formateur} specifique a ce module (optionnel).
+  \item Cliquer sur ``Creer''.
+\end{enumerate}
+
+\astuce{Si aucun formateur n'est attribue au module, le formateur de la session sera utilise.}
+
+
+% ============================================================
+\section{Sessions}
+% ============================================================
+
+Les sessions relient une formation a un formateur, une date et des apprenants.
+
+\subsection{Consulter les sessions}
+Le tableau affiche : Formation, Module, Formateur, Date, Inscriptions (nombre/capacite), Statut, Actions.
+\begin{itemize}
+  \item Filtre par statut : Planifiee, En cours, Terminee, Annulee.
+  \item Les statuts sont colores : bleu=planifiee, jaune=en cours, vert=terminee, rouge=annulee.
+\end{itemize}
+
+\subsection{Creer une session}
+\action{Cliquer sur ``Nouvelle session''.}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Selectionner une \textbf{Formation} via l'autocomplete.
+  \item Si la formation a des modules, selectionner un \textbf{Module} (optionnel).
+  \item Selectionner un \textbf{Formateur} (optionnel).
+  \item Definir la \textbf{Date de debut} (obligatoire) et la \textbf{Date de fin}.
+  \item Definir la \textbf{Capacite maximale} et le \textbf{Prix} (optionnels).
+  \item Renseigner le \textbf{Lieu} (optionnel).
+  \item Selectionner le \textbf{Statut} : Planifiee.
+  \item Cliquer sur ``Creer''.
+\end{enumerate}
+
+\astuce{Si le prix de la session est laisse vide, le prix de la formation sera utilise automatiquement.}
+
+
+% ============================================================
+\section{Feuille de Presences}
+% ============================================================
+
+La feuille de presences enregistre la presence de chaque apprenant a une session.
+
+\subsection{Acceder a la feuille}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Allez dans le menu ``Presences'' (ou ``Sessions'').
+  \item Cliquez sur l'icone de presences d'une session dans la colonne Actions.
+  \item La feuille de presences s'ouvre.
+\end{enumerate}
+
+\subsection{Enregistrer les presences}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Le tableau affiche la liste des apprenants inscrits a la session.
+  \item Pour chaque apprenant, selectionnez le statut en cliquant sur le bouton radio correspondant :
+    \begin{itemize}
+      \item \textcolor{green}{\textbullet} \textbf{Present} (vert)
+      \item \textcolor{red}{\textbullet} \textbf{Absent} (rouge)
+      \item \textcolor{orange}{\textbullet} \textbf{En retard} (orange)
+      \item \textcolor{blue}{\textbullet} \textbf{Excuse} (bleu)
+    \end{itemize}
+  \item Utilisez les boutons rapides en haut (``Tout present'' / ``Tout absent'') pour affecter tous les apprenants en une fois.
+  \item Le \textbf{taux de presence} est calcule en temps reel.
+  \item Cliquer sur ``Enregistrer'' pour sauvegarder.
+\end{enumerate}
+
+
+% ============================================================
+\section{Formateurs}
+% ============================================================
+
+\subsection{Consulter la liste}
+Le tableau affiche : Nom (+ avatar + badge compte lie), Email, Telephone, Sessions, Statut, Actions.
+\begin{itemize}
+  \item Cliquez sur une ligne pour afficher le \textbf{detail} du formateur.
+  \item Utilisez la \textbf{barre de recherche} pour filtrer par nom ou email.
+\end{itemize}
+
+\subsection{Creer un formateur}
+\action{Cliquer sur ``Nouveau formateur''.}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Remplir : Prenom, Nom, Email, Telephone (optionnel).
+  \item \textbf{Lier un compte} (optionnel) : selectionnez un utilisateur existant pour que le formateur puisse se connecter a la plateforme.
+  \item Cliquer sur ``Creer''.
+\end{enumerate}
+
+\astuce{Un formateur n'a pas besoin de compte pour etre assigne a des sessions. Le lien peut etre ajoute plus tard.}
+
+\subsection{Detail d'un formateur}
+La page de detail affiche :
+\begin{itemize}
+  \item \textbf{Carte de profil} : initiales, nom, statut actif/inactif, compte lie/non lie, email, telephone, bio.
+  \item \textbf{Statistiques} : sessions totales, sessions a venir, apprenants formes, revenus potentiels.
+  \item \textbf{Metriques} : inscriptions totales, taux de completion, taux de presence, heures enseignees.
+  \item \textbf{Barre d'avancement} : planifiee/en cours/terminee/annulee.
+  \item \textbf{Sessions} : tables ``Sessions a venir'' et ``Sessions recentes''.
+\end{itemize}
+
+
+% ============================================================
+\section{Profils Vendeurs et Commissions}
+% ============================================================
+
+La rubrique \textbf{Vendeurs} gere les profils vendeurs (formateurs, commerciaux, employes) et le paiement de leurs commissions.
+
+\subsection{Consulter les profils}
+Le tableau affiche : Nom, Type (Formateur/Commercial/Employe), Type de commission (\%/fixe/aucune), Valeur, Statut.
+\begin{itemize}
+  \item \textbf{Filtre par type} : tous, formateur, commercial, employe.
+  \item \textbf{Cliquer sur une ligne} pour developper le panneau de detail.
+\end{itemize}
+
+\subsection{Creer un profil vendeur}
+\action{Cliquer sur ``Nouveau profil''.}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Selectionner un \textbf{Utilisateur} via l'autocomplete (obligatoire).
+  \item Selectionner le \textbf{Type} : Formateur, Commercial, ou Employe.
+  \item Selectionner le \textbf{Type de commission} :
+    \begin{itemize}
+      \item Pourcentage (\%) : la commission est calculee en pourcentage du montant.
+      \item Montant fixe (FCFA) : la commission est un montant fixe par vente.
+      \item Aucune : pas de commission automatique.
+    \end{itemize}
+  \item Si type different de ``Aucune'', definir la \textbf{Valeur}.
+  \item Cliquer sur ``Creer''.
+\end{enumerate}
+
+\subsection{Consulter les commissions d'un vendeur}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Cliquez sur une ligne de profil pour developper le panneau.
+  \item Les \textbf{5 cartes de resume} s'affichent :
+    \begin{itemize}
+      \item Total formations (vert)
+      \item Total services (bleu)
+      \item Total du (montant total a payer)
+      \item Total paye (montant deja paye)
+      \item Solde restant (rouge si a payer, vert si a zero)
+    \end{itemize}
+  \item Le tableau \textbf{Entrees de commission} liste les commissions generees (facture, categorie, montant, statut).
+  \item Le tableau \textbf{Paiements de commission} liste les versements effectues (date, montant).
+\end{enumerate}
+
+\subsection{Payer une commission}
+\action{Cliquer sur l'icone portefeuille (\includegraphics[width=1em]{wallet}) dans la colonne Actions.}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Entrer le \textbf{Montant} a payer.
+  \item Selectionner le \textbf{Compte de tresorerie} source (liste des comptes de l'agence).
+  \item Renseigner l'\textbf{ID entrée de commission} (optionnel, pour rattacher le paiement).
+  \item Ajouter des \textbf{Notes} (optionnel).
+  \item Cliquer sur ``Payer la commission''.
+  \item \remarque{Le paiement genere automatiquement : un mouvement de tresorerie (sortie) et une transaction comptable (depense). Le solde du vendeur est diminue du montant paye.}
+\end{enumerate}
+
+
+% ============================================================
+\section{Creances}
+% ============================================================
+
+La rubrique \textbf{Creances} affiche les factures impayees de l'agence.
+
+\subsection{Consulter les creances}
+\begin{itemize}
+  \item Un \textbf{badge ambr en haut} affiche le total des creances en attente.
+  \item La \textbf{barre de recherche} permet de filtrer par numero de facture ou nom client.
+  \item Le tableau affiche : Facture (numero en bleu), Client, Date, Montant total, Avance, Solde (restant a payer), Statut.
+  \item Les statuts sont colores : vert=paye, orange=partiellement paye, rouge=impaye.
+\end{itemize}
+
+\remarque{Cette page est en lecture seule. Pour encaisser un paiement, utilisez la rubrique Caisse de l'agence.}
+
+
+% ============================================================
+\section{Certificats}
+% ============================================================
+
+\subsection{Consulter les certificats}
+Le tableau affiche : Numero, Apprenant, Formation, Date de delivrance, Mention, Statut (delivre/annule), Actions.
+\begin{itemize}
+  \item Filtre par statut : Tous, Delivre, Annule.
+  \item Le bouton \textbf{Rafraichir} recharge la liste.
+\end{itemize}
+
+\subsection{Delivrer un certificat}
+\action{Cliquer sur ``Delivrer un certificat'' (bouton primaire).}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Entrer l'\textbf{ID d'inscription} (formation enrollment ID).
+  \item Ajouter une \textbf{Mention} (optionnel, ex: ``Bien'', ``Tres bien'').
+  \item Cliquer sur ``Confirmer''.
+  \item Le certificat est cree avec un \textbf{numero automatique}.
+\end{enumerate}
+
+\subsection{Annuler (revoquer) un certificat}
+\action{Cliquer sur l'icone d'annulation (rouge) dans la colonne Actions.}
+\begin{enumerate}[label=\etape{\arabic*}]
+  \item Renseigner le \textbf{Motif de la revocation} (obligatoire).
+  \item Cliquer sur ``Confirmer''.
+\end{enumerate}
+
+\remarque{Seuls les certificats au statut ``Delivre'' peuvent etre annules.}
+
+
+% ============================================================
+\section{Rapports}
+% ============================================================
+
+La page \textbf{Rapports} affiche un tableau de bord synthetique.
+
+\subsection{Consulter les statistiques}
+La page affiche \textbf{5 cartes de metriques} :
+\begin{itemize}
+  \item \textbf{Total formations} : nombre de formations actives (icon livre, bleu).
+  \item \textbf{Total sessions} : nombre de sessions enregistrees (icon calendrier, violet).
+  \item \textbf{Total inscriptions} : nombre total d'inscriptions (icon utilisateurs, vert).
+  \item \textbf{Total revenus} : montant total des factures (icon dollar, ambr).
+  \item \textbf{Impayes} : montant total des factures impayees (icon tendance, rouge).
+\end{itemize}
+
+\remarque{Les donnees sont chargees en parallele. Si une API echoue, les autres donnees restent affichees.}
+
+
+% ============================================================
+\section{Synthese des Permissions}
+% ============================================================
+
+Chaque action est controlee par une permission. Voici les permissions liees a l'Academy :
+
+\begin{longtable}{ll}
+  \toprule
+  \textbf{Permission} & \textbf{Actions associees} \\
+  \midrule
+  \endhead
+  formations.creer & Creer des formations et des modules \\
+  formations.modifier & Modifier des formations et modules, reordonner \\
+  formations.supprimer & Supprimer des formations et modules \\
+  formations.consulter & Consulter formations, modules, formateurs \\
+  sessions.creer & Creer des sessions et des formateurs \\
+  sessions.modifier & Modifier des sessions, lier formateur-utilisateur \\
+  sessions.supprimer & Supprimer des sessions \\
+  sessions.consulter & Consulter sessions, utilisateurs disponibles \\
+  inscriptions.creer & Creer des inscriptions \\
+  inscriptions.modifier & Modifier des inscriptions, changer de statut \\
+  inscriptions.supprimer & Supprimer des inscriptions \\
+  inscriptions.consulter & Consulter inscriptions, stats apprenants \\
+  presences.consulter & Consulter feuilles de presence, observations \\
+  presences.modifier & Enregistrer les presences \\
+  presences.creer & Creer des observations sur apprenants \\
+  presences.supprimer & Supprimer des observations \\
+  certificats.creer & Delivrer des certificats \\
+  certificats.modifier & Annuler (revoquer) des certificats \\
+  certificats.consulter & Consulter les certificats \\
+  commissions.creer & Creer des profils vendeurs \\
+  commissions.modifier & Modifier des profils vendeurs \\
+  commissions.supprimer & Supprimer des profils vendeurs \\
+  commissions.consulter & Consulter profils, commissions, factures \\
+  commissions.valider & Payer les commissions \\
+  \bottomrule
+\end{longtable}
+
+
+\end{document}

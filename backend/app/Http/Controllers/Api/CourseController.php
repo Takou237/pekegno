@@ -57,11 +57,14 @@ class CourseController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Course::with(['category', 'agency'])
-            ->withCount('sessions')
+        $query = Course::with(['category', 'agency', 'categories'])
+            ->withCount('sessions', 'modules', 'formationEnrollments')
             ->search($request->input('search'))
             ->when($request->mode, fn ($q, $v) => $q->where('mode', $v))
             ->when($request->category_id, fn ($q, $v) => $q->where('category_id', $v))
+            ->when($request->filled('categories'), function ($q) use ($request) {
+                $q->whereHas('categories', fn ($cq) => $cq->whereIn('categories.id', (array) $request->input('categories')));
+            })
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->when($request->agency_id, fn ($q, $v) => $q->availableIn($v));
 
@@ -94,9 +97,16 @@ class CourseController extends Controller
         $data = $request->validated();
         $data['code'] = $data['code'] ?? Course::generateCode();
 
+        $categoryIds = $data['category_ids'] ?? [];
+        unset($data['category_ids']);
+
         $course = Course::create($data);
 
-        return (new CourseResource($course->load(['category', 'agency'])))
+        if (! empty($categoryIds)) {
+            $course->categories()->sync($categoryIds);
+        }
+
+        return (new CourseResource($course->load(['category', 'agency', 'categories'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -116,7 +126,7 @@ class CourseController extends Controller
     )]
     public function show(Course $course): CourseResource
     {
-        return new CourseResource($course->load(['category', 'agency', 'sessions']));
+        return new CourseResource($course->load(['category', 'agency', 'categories', 'modules.trainer', 'sessions']));
     }
 
     #[OA\Put(
@@ -135,9 +145,17 @@ class CourseController extends Controller
     )]
     public function update(UpdateCourseRequest $request, Course $course): CourseResource
     {
-        $course->update($request->validated());
+        $data = $request->validated();
+        $categoryIds = $data['category_ids'] ?? null;
+        unset($data['category_ids']);
 
-        return new CourseResource($course->fresh()->load(['category', 'agency']));
+        $course->update($data);
+
+        if ($categoryIds !== null) {
+            $course->categories()->sync($categoryIds);
+        }
+
+        return new CourseResource($course->fresh()->load(['category', 'agency', 'categories']));
     }
 
     #[OA\Delete(

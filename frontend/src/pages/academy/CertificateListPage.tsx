@@ -4,7 +4,6 @@ import { Plus, RefreshCw, Ban } from 'lucide-react';
 import { certificatesApi } from '@/api/certificates.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
-import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';

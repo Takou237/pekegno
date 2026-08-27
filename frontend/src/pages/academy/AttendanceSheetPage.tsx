@@ -8,7 +8,7 @@ import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
-import { ATTENDANCE_STATUS_LABELS, type AttendanceStatus, type Attendance } from '@/types/attendance';
+import { attendanceStatusLabel, type AttendanceStatus, type Attendance } from '@/types/attendance';
 import type { TrainingSession } from '@/api/academy.api';
 
 interface EnrollmentRow {
@@ -172,7 +172,7 @@ export default function AttendanceSheetPage() {
                 onClick={() => setAll(s)}
                 className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
               >
-                {ATTENDANCE_STATUS_LABELS[s]}
+                {attendanceStatusLabel(s, t)}
               </button>
             ))}
           </div>
@@ -190,7 +190,7 @@ export default function AttendanceSheetPage() {
                   <th className="px-5 py-3 font-medium">{t('nav.learners')}</th>
                   {STATUSES.map((s) => (
                     <th key={s} className="px-5 py-3 text-center font-medium">
-                      {ATTENDANCE_STATUS_LABELS[s]}
+                      {attendanceStatusLabel(s, t)}
                     </th>
                   ))}
                 </tr>

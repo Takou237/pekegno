@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Search, Plus, Pencil, Trash2, BadgeCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type Trainer } from '@/api/academy.api';
@@ -12,10 +12,11 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Autocomplete } from '@/components/ui/Autocomplete';
-import type { Agency } from '@/types/agency';
+import type { Department } from '@/types/department';
 
-interface AgencyLayoutContext {
-  agency: Agency | null;
+interface DepartmentLayoutContext {
+  department?: Department | null;
+  departmentId?: string;
   agencyId?: string;
 }
 
@@ -49,9 +50,7 @@ export default function AcademyTrainersPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const { agencyId, countryId } = useParams<{ agencyId: string; countryId?: string }>();
-  const outlet = useOutletContext<AgencyLayoutContext>();
-  const effectiveAgencyId = agencyId ?? outlet.agencyId;
+  const { departmentId, agencyId: effectiveAgencyId } = useOutletContext<DepartmentLayoutContext>();
 
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [search, setSearch] = useState('');
@@ -183,11 +182,7 @@ export default function AcademyTrainersPage() {
   }
 
   function openTrainer(trainer: Trainer) {
-    navigate(
-      countryId
-        ? `/countries/${countryId}/agencies/${agencyId}/academy/trainers/${trainer.id}`
-        : `/agencies/${agencyId}/academy/trainers/${trainer.id}`,
-    );
+    navigate(`/departments/${departmentId}/trainers/${trainer.id}`);
   }
 
   function trainerName(trainer: Trainer): string {

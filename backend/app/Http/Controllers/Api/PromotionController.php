@@ -8,6 +8,7 @@ use App\Http\Resources\PromotionResource;
 use App\Models\PriceHistory;
 use App\Models\Promotion;
 use App\Models\Service;
+use App\Models\Course;
 use App\Services\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -206,5 +207,38 @@ class PromotionController extends Controller
             'price' => $promotion->effectivePrice((float) $service->price) ?? $service->price,
             'changed_at' => $promotion->start_date,
         ]);
+    }
+
+    /**
+     * Créer une promotion sur une formation.
+     */
+    public function storeForFormation(Request $request, Course $course): JsonResponse
+    {
+        $validated = $request->validate([
+            'type' => 'required|string|in:amount,percent',
+            'promo_price' => 'required_if:type,amount|nullable|numeric|min:0',
+            'discount_percent' => 'required_if:type,percent|nullable|numeric|min:0|max:100',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $validated['formation_id'] = $course->id;
+
+        $promotion = Promotion::create($validated);
+
+        $this->logger->log(
+            'created',
+            'promotion',
+            $promotion->id,
+            "Promotion créée sur la formation {$course->name}"
+                .($promotion->type === 'percent'
+                    ? " ({$promotion->discount_percent}%)"
+                    : " ({$promotion->promo_price} FCFA)"),
+            newValues: $promotion->only(['type', 'promo_price', 'discount_percent', 'start_date', 'end_date']),
+        );
+
+        return (new PromotionResource($promotion->load('formation')))
+            ->response()
+            ->setStatusCode(201);
     }
 }

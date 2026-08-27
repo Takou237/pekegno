@@ -15,6 +15,9 @@ class CommissionPayment extends Model
         'invoice_id',
         'payment_id',
         'service_id',
+        'seller_profile_id',
+        'commission_entry_id',
+        'treasury_account_id',
         'amount',
         'base_amount',
         'rule',
@@ -53,8 +56,23 @@ class CommissionPayment extends Model
         return $this->belongsTo(Service::class);
     }
 
+    public function sellerProfile(): BelongsTo
+    {
+        return $this->belongsTo(SellerProfile::class);
+    }
+
+    public function commissionEntry(): BelongsTo
+    {
+        return $this->belongsTo(CommissionEntry::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function treasuryAccount(): BelongsTo
+    {
+        return $this->belongsTo(TreasuryAccount::class);
     }
 }
