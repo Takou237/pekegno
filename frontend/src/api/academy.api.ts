@@ -104,6 +104,26 @@ export interface Enrollment {
   created_at: string;
 }
 
+export interface Learner {
+  id: string;
+  learner: {
+    id: string;
+    client_number: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    is_active: boolean;
+  };
+  status: Enrollment['status'] | null;
+  enrollments_count: number;
+  session: {
+    id: string;
+    start_at: string | null;
+    course?: { id: string; name: string } | null;
+  } | null;
+}
+
 export type SessionStatus = 'planned' | 'ongoing' | 'completed' | 'cancelled';
 
 export interface TrainingSession {
@@ -276,6 +296,11 @@ export const academyApi = {
 
   async enrollments(params: { agency_id?: string; status?: string; per_page?: number; page?: number } = {}): Promise<Paginated<Enrollment>> {
     const { data } = await client.get<Paginated<Enrollment>>('/enrollments', { params });
+    return data;
+  },
+
+  async learners(params: { agency_id?: string; status?: string; search?: string; per_page?: number; page?: number } = {}): Promise<Paginated<Learner>> {
+    const { data } = await client.get<Paginated<Learner>>('/learners', { params });
     return data;
   },
 

@@ -33,6 +33,120 @@ class LearnerController extends Controller
         return $query;
     }
 
+    /**
+     * Sous-requête des inscriptions restreintes au périmètre organisationnel.
+     */
+    private function scopedEnrollmentQuery(?array $scopeAgencyIds)
+    {
+        $query = Enrollment::query();
+
+        if ($scopeAgencyIds !== null) {
+            $query->whereHas('session', fn ($sq) => $sq->whereIn('agency_id', $scopeAgencyIds));
+        }
+
+        return $query;
+    }
+
+    #[OA\Get(
+        path: '/api/learners',
+        summary: 'Lister les apprenants (clients) d\'une agence avec leur inscription la plus récente',
+        tags: ['Académie — Apprenants'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency_id', in: 'query', description: 'Filtrer par agence', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut d\'inscription', schema: new OA\Schema(type: 'string', enum: ['enrolled', 'completed', 'cancelled'])),
+            new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par nom/email/numéro client', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Liste paginée des apprenants'),
+        ]
+    )]
+    public function index(Request $request): JsonResponse
+    {
+        $scopeAgencyIds = $this->scopeService->agencyIds($request->user());
+        $agencyId = $request->input('agency_id');
+
+        if ($agencyId && $scopeAgencyIds !== null) {
+            $scopeAgencyIds = array_values(array_intersect($scopeAgencyIds, [$agencyId]));
+        } elseif ($agencyId) {
+            $scopeAgencyIds = [$agencyId];
+        }
+
+        $enrollQuery = fn () => $this->scopedEnrollmentQuery($scopeAgencyIds);
+
+        $query = User::query()
+            ->whereHas('role', fn ($q) => $q->where('name', 'client'));
+
+        if ($scopeAgencyIds !== null) {
+            $query->where(function ($q) use ($enrollQuery, $scopeAgencyIds) {
+                $q->whereIn('registered_agency_id', $scopeAgencyIds)
+                    ->orWhereIn('id', $enrollQuery()->select('learner_user_id'));
+            });
+        }
+
+        if ($request->search) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('client_number', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->whereIn('id', $enrollQuery()->where('status', $request->status)->select('learner_user_id'));
+        }
+
+        $learners = $query->orderByDesc('created_at')->paginate(min((int) $request->input('per_page', 15), 100));
+
+        $learnerIds = collect($learners->items())->pluck('id');
+        $enrollments = $enrollQuery()
+            ->with(['session.course'])
+            ->whereIn('learner_user_id', $learnerIds)
+            ->get()
+            ->groupBy('learner_user_id');
+
+        $rows = collect($learners->items())->map(function (User $learner) use ($enrollments) {
+            $list = $enrollments->get($learner->id, collect());
+            $primary = $list->sortByDesc('created_at')->first();
+
+            return [
+                'id' => $learner->id,
+                'learner' => [
+                    'id' => $learner->id,
+                    'first_name' => $learner->first_name,
+                    'last_name' => $learner->last_name,
+                    'email' => $learner->email,
+                    'phone' => $learner->phone,
+                    'client_number' => $learner->client_number,
+                    'is_active' => $learner->is_active,
+                ],
+                'status' => $primary?->status,
+                'enrollments_count' => $list->count(),
+                'session' => $primary?->session ? [
+                    'id' => $primary->session->id,
+                    'start_at' => $primary->session->start_at?->toISOString(),
+                    'course' => [
+                        'id' => $primary->session->course?->id,
+                        'name' => $primary->session->course?->name,
+                    ],
+                ] : null,
+            ];
+        });
+
+        return response()->json([
+            'data' => $rows->values(),
+            'meta' => [
+                'current_page' => $learners->currentPage(),
+                'last_page' => $learners->lastPage(),
+                'per_page' => $learners->perPage(),
+                'total' => $learners->total(),
+            ],
+        ]);
+    }
+
     #[OA\Get(
         path: '/api/learners/{learner}/stats',
         summary: 'Statistiques d\'un apprenant : inscriptions, formations suivies, présences, investissement',

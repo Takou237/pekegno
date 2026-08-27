@@ -31,7 +31,7 @@ export default function ExpenseListPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterStatus, setFilterStatus] = useState<ExpenseStatus | ''>('');
   const [filterSearch, setFilterSearch] = useState('');
   const [page, setPage] = useState(1);
 
@@ -164,7 +164,7 @@ export default function ExpenseListPage() {
           <Select
             label={t('expenses.filterByStatus')}
             value={filterStatus}
-            onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+            onChange={(e) => { setFilterStatus(e.target.value as ExpenseStatus | ''); setPage(1); }}
           >
             <option value="">{t('common.all')}</option>
             <option value="draft">{t('expenses.statusDraft')}</option>

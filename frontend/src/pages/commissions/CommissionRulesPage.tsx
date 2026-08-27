@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Plus, Pencil, Trash2, History, Eye } from 'lucide-react';
+import { RefreshCw, Plus, Pencil, Trash2, History } from 'lucide-react';
 import { commissionsApi } from '@/api/commissions.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';

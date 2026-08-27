@@ -3,6 +3,8 @@ import { useOutletContext } from 'react-router-dom';
 import { Search, Plus, Pencil, Trash2, ArrowRightLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { prospectsApi } from '@/api/prospects.api';
+import { commercialsApi } from '@/api/commercials.api';
+import { employeesApi } from '@/api/employees.api';
 import type { Prospect } from '@/types/prospect';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -12,6 +14,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
+import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 
 interface DepartmentLayoutContext {
   department?: { id: string; agency_id?: string } | null;
@@ -20,6 +23,7 @@ interface DepartmentLayoutContext {
 }
 
 interface FormState {
+  commercial_id: string;
   first_name: string;
   last_name: string;
   email: string;
@@ -31,6 +35,7 @@ interface FormState {
 }
 
 const emptyForm: FormState = {
+  commercial_id: '',
   first_name: '',
   last_name: '',
   email: '',
@@ -84,6 +89,29 @@ export default function AcademyProspectsPage() {
 
   useEffect(() => { fetchProspects(); }, [fetchProspects]);
 
+  const fetchCommercialOptions = useCallback(
+    async (query: string): Promise<AutocompleteOption[]> => {
+      const [commercials, employees] = await Promise.all([
+        commercialsApi.list({ agency_id: agencyId || undefined, per_page: 100 }),
+        employeesApi.list({ agency_id: agencyId || undefined, per_page: 100 }),
+      ]);
+      const all = [
+        ...commercials.data.map((c) => ({ id: c.id, kind: 'commercial' as const, name: `${c.first_name} ${c.last_name}`.trim(), email: c.email ?? '' })),
+        ...employees.data.map((e) => ({ id: e.id, kind: 'employe' as const, name: `${e.first_name} ${e.last_name}`.trim(), email: e.email ?? '' })),
+      ];
+      const q = query.trim().toLowerCase();
+      const filtered = q
+        ? all.filter((o) => o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q))
+        : all;
+      return filtered.map((o) => ({
+        id: o.id,
+        label: o.name || o.email || o.id,
+        subtitle: o.email || (o.kind === 'employe' ? t('prospects.employee') : t('prospects.commercial')),
+      }));
+    },
+    [agencyId, t],
+  );
+
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
@@ -95,6 +123,7 @@ export default function AcademyProspectsPage() {
   function openEdit(p: Prospect) {
     setEditing(p);
     setForm({
+      commercial_id: p.commercial_id ?? '',
       first_name: p.first_name,
       last_name: p.last_name,
       email: p.email ?? '',
@@ -114,6 +143,11 @@ export default function AcademyProspectsPage() {
     setIsSubmitting(true);
     setFormError(null);
     setFieldErrors({});
+    if (!form.commercial_id) {
+      setFieldErrors({ commercial_id: t('prospects.commercialRequired') });
+      setIsSubmitting(false);
+      return;
+    }
     try {
       if (editing) {
         await prospectsApi.update(editing.id, form);
@@ -254,10 +288,18 @@ export default function AcademyProspectsPage() {
         isOpen={formOpen}
         onClose={() => setFormOpen(false)}
         title={editing ? t('prospects.editTitle') : t('prospects.createTitle')}
-        maxWidth="lg"
+        maxWidth="max-w-md"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {formError && <Alert variant="error">{formError}</Alert>}
+          <Autocomplete
+            label={t('prospects.commercial') + ' *'}
+            value={form.commercial_id}
+            onChange={(id) => setForm((prev) => ({ ...prev, commercial_id: id }))}
+            fetchOptions={fetchCommercialOptions}
+            error={fieldErrors.commercial_id}
+            placeholder={t('prospects.commercialPlaceholder')}
+          />
           <div className="grid grid-cols-2 gap-4">
             <Input
               label={t('prospects.firstName') + ' *'}

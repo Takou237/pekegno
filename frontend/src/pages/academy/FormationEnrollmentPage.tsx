@@ -4,6 +4,8 @@ import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type Course } from '@/api/academy.api';
 import { clientsApi } from '@/api/clients.api';
+import { commercialsApi } from '@/api/commercials.api';
+import { employeesApi } from '@/api/employees.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -47,12 +49,14 @@ const STATUS_BADGE_CLASSES: Record<EnrollmentStatus, string> = {
 interface FormState {
   course_id: string;
   learner_user_id: string;
+  seller_user_id: string;
   notes: string;
 }
 
 const emptyForm: FormState = {
   course_id: '',
   learner_user_id: '',
+  seller_user_id: '',
   notes: '',
 };
 
@@ -136,6 +140,30 @@ export default function FormationEnrollmentPage() {
     [agencyId],
   );
 
+  const sellerOptions = useCallback(
+    async (query: string) => {
+      if (!agencyId) return [];
+      const [commercials, employees] = await Promise.all([
+        commercialsApi.list({ agency_id: agencyId, per_page: 100 }),
+        employeesApi.list({ agency_id: agencyId, per_page: 100 }),
+      ]);
+      const all = [
+        ...commercials.data.map((c) => ({ user_id: c.user_id, name: `${c.first_name} ${c.last_name}`.trim(), email: c.email ?? '', kind: 'commercial' as const })),
+        ...employees.data.map((e) => ({ user_id: e.user_id, name: `${e.first_name} ${e.last_name}`.trim(), email: e.email ?? '', kind: 'employe' as const })),
+      ].filter((o) => o.user_id);
+      const q = query.trim().toLowerCase();
+      const filtered = q
+        ? all.filter((o) => o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q))
+        : all;
+      return filtered.map((o) => ({
+        id: o.user_id as string,
+        label: o.name || o.email || (o.user_id as string),
+        subtitle: o.email || (o.kind === 'employe' ? t('academy.employee') : t('academy.commercial')),
+      }));
+    },
+    [agencyId, t],
+  );
+
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
@@ -149,6 +177,7 @@ export default function FormationEnrollmentPage() {
     setForm({
       course_id: enrollment.course_id,
       learner_user_id: enrollment.learner_user_id,
+      seller_user_id: enrollment.seller_user_id ?? '',
       notes: enrollment.notes ?? '',
     });
     setFormError(null);
@@ -166,6 +195,7 @@ export default function FormationEnrollmentPage() {
     const payload: FormationEnrollmentPayload = {
       course_id: form.course_id,
       learner_user_id: form.learner_user_id,
+      seller_user_id: form.seller_user_id || undefined,
       notes: form.notes || undefined,
     };
 
@@ -389,6 +419,15 @@ export default function FormationEnrollmentPage() {
             onChange={(userId) => setForm((prev) => ({ ...prev, learner_user_id: userId }))}
             fetchOptions={learnerOptions}
             error={fieldErrors.learner_user_id}
+          />
+
+          <Autocomplete
+            label={t('academy.seller')}
+            placeholder={t('academy.searchSellerPlaceholder')}
+            value={form.seller_user_id}
+            onChange={(userId) => setForm((prev) => ({ ...prev, seller_user_id: userId }))}
+            fetchOptions={sellerOptions}
+            error={fieldErrors.seller_user_id}
           />
 
           <div>

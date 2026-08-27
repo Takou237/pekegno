@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreInvoicePaymentRequest;
 use App\Http\Requests\Api\StoreInvoiceRequest;
 use App\Http\Requests\Api\UpdateInvoiceRequest;
+use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\Service;
 use App\Services\AccountingService;
@@ -55,6 +56,10 @@ class InvoiceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $base = Invoice::query()
+            ->when($request->boolean('from_enrollments'), fn ($q) => $q->whereIn(
+                'invoices.id',
+                FormationEnrollment::query()->whereNotNull('invoice_id')->pluck('invoice_id')
+            ))
             ->when($request->search, fn ($q, $s) => $q->where(function ($q) use ($s) {
                 $q->where('number', 'like', "%{$s}%")
                     ->when(Schema::hasColumn('invoices', 'client_name'), fn ($q) => $q->orWhere('client_name', 'like', "%{$s}%"))

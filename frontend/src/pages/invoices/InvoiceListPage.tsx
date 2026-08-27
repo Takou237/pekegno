@@ -40,7 +40,7 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   }
 }
 
-export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
+export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly }: { fixedAgencyId?: string; enrollmentOnly?: boolean }) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
@@ -81,6 +81,7 @@ export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: str
         commercial_id: commercialId || undefined,
         from: from || undefined,
         to: to || undefined,
+        from_enrollments: enrollmentOnly || undefined,
         page,
         per_page: 15,
       });
@@ -92,7 +93,7 @@ export default function InvoiceListPage({ fixedAgencyId }: { fixedAgencyId?: str
     } finally {
       setIsLoading(false);
     }
-  }, [search, status, agencyId, clientId, commercialId, from, to, page, t]);
+  }, [search, status, agencyId, clientId, commercialId, from, to, enrollmentOnly, page, t]);
 
   useEffect(() => {
     fetchInvoices();

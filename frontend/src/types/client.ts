@@ -38,6 +38,7 @@ export interface ClientPayload {
   country?: string | null;
   address?: string | null;
   is_active?: boolean;
+  registered_agency_id?: string | null;
 }
 
 export interface RegisterPayload {

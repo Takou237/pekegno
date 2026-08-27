@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, CalendarPlus } from 'lucide-react';
-import { academyApi, type Enrollment, type TrainingSession } from '@/api/academy.api';
+import { academyApi, type Learner, type TrainingSession } from '@/api/academy.api';
 import { clientsApi } from '@/api/clients.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -60,9 +60,10 @@ export default function AcademyLearnersPage() {
   const navigate = useNavigate();
   const { departmentId } = useParams<{ departmentId?: string }>();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [learners, setLearners] = useState<Learner[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [statusFilter, setStatusFilter] = useState<'' | (typeof STATUSES)[number]>('');
+  const [searchFilter, setSearchFilter] = useState('');
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -83,29 +84,30 @@ export default function AcademyLearnersPage() {
   const [learnerError, setLearnerError] = useState<string | null>(null);
   const [learnerFieldErrors, setLearnerFieldErrors] = useState<Record<string, string>>({});
 
-  const fetchEnrollments = useCallback(async () => {
+  const fetchLearners = useCallback(async () => {
     if (!agencyId) return;
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await academyApi.enrollments({
+      const response = await academyApi.learners({
         agency_id: agencyId,
         status: statusFilter || undefined,
+        search: searchFilter || undefined,
         page,
         per_page: 15,
       });
-      setEnrollments(response.data);
+      setLearners(response.data);
       setMeta(response.meta);
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('academy.loadFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, statusFilter, page, t]);
+  }, [agencyId, statusFilter, searchFilter, page, t]);
 
   useEffect(() => {
-    fetchEnrollments();
-  }, [fetchEnrollments]);
+    fetchLearners();
+  }, [fetchLearners]);
 
   // Sessions ouvertes (planifiées / en cours) chargées une fois par ouverture
   // du modal, puis filtrées localement (pas de recherche serveur sur ce endpoint).
@@ -187,7 +189,7 @@ export default function AcademyLearnersPage() {
       showToast(t('academy.enrollmentCreated'), 'success');
       setEnrollmentOpen(false);
       setPage(1);
-      fetchEnrollments();
+      fetchLearners();
     } catch (error) {
       setEnrollmentError(extractErrorMessage(error, t('academy.saveFailed')));
       setEnrollmentFieldErrors(extractFieldErrors(error));
@@ -210,9 +212,12 @@ export default function AcademyLearnersPage() {
         phone: learnerForm.phone || null,
         password: learnerForm.password,
         password_confirmation: learnerForm.password_confirmation,
+        registered_agency_id: agencyId,
       });
       showToast(t('academy.learnerCreated'), 'success');
       setLearnerOpen(false);
+      setPage(1);
+      fetchLearners();
     } catch (error) {
       setLearnerError(extractErrorMessage(error, t('academy.saveFailed')));
       setLearnerFieldErrors(extractFieldErrors(error));
@@ -221,15 +226,16 @@ export default function AcademyLearnersPage() {
     }
   }
 
-  function statusBadge(status: Enrollment['status']) {
+  function statusBadge(status: Learner['status']) {
     if (status === 'completed') return <Badge variant="success">{t('academy.statusCompleted')}</Badge>;
     if (status === 'cancelled') return <Badge variant="error">{t('academy.statusCancelled')}</Badge>;
-    return <Badge variant="brand">{t('academy.statusEnrolled')}</Badge>;
+    if (status === 'enrolled') return <Badge variant="brand">{t('academy.statusEnrolled')}</Badge>;
+    return <Badge variant="neutral">{t('academy.noEnrollments')}</Badge>;
   }
 
-  function openLearner(enrollment: Enrollment) {
-    if (!enrollment.learner?.id || !departmentId) return;
-    navigate(`/departments/${departmentId}/learners/${enrollment.learner.id}`);
+  function openLearner(learner: Learner) {
+    if (!learner.learner?.id || !departmentId) return;
+    navigate(`/departments/${departmentId}/learners/${learner.learner.id}`);
   }
 
   return (
@@ -252,7 +258,16 @@ export default function AcademyLearnersPage() {
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex max-w-xs gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            value={searchFilter}
+            onChange={(e) => {
+              setPage(1);
+              setSearchFilter(e.target.value);
+            }}
+            placeholder={t('academy.searchLearners')}
+            className="w-56 rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+          />
           <select
             value={statusFilter}
             onChange={(e) => {
@@ -280,7 +295,7 @@ export default function AcademyLearnersPage() {
           <SkeletonTable rows={5} />
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
-        ) : enrollments.length === 0 ? (
+        ) : learners.length === 0 ? (
           <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('academy.noEnrollments')}</p>
         ) : (
           <div className="overflow-x-auto">
@@ -294,33 +309,33 @@ export default function AcademyLearnersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {enrollments.map((enrollment) => (
+                {learners.map((learner) => (
                   <tr
-                    key={enrollment.id}
-                    onClick={() => openLearner(enrollment)}
+                    key={learner.id}
+                    onClick={() => openLearner(learner)}
                     className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
                   >
                     <td className="px-5 py-3">
                       <span className="font-medium text-gray-800 dark:text-gray-100">
-                        {[enrollment.learner?.first_name, enrollment.learner?.last_name]
+                        {[learner.learner?.first_name, learner.learner?.last_name]
                           .filter(Boolean)
-                          .join(' ') || enrollment.learner?.email || '—'}
+                          .join(' ') || learner.learner?.email || '—'}
                       </span>
-                      {enrollment.learner?.client_number && (
+                      {learner.learner?.client_number && (
                         <span className="ml-2 font-mono text-xs text-gray-400">
-                          {enrollment.learner.client_number}
+                          {learner.learner.client_number}
                         </span>
                       )}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {enrollment.session?.course?.name ?? '—'}
+                      {learner.session?.course?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {enrollment.session?.start_at
-                        ? new Date(enrollment.session.start_at).toLocaleDateString(currentLocale())
+                      {learner.session?.start_at
+                        ? new Date(learner.session.start_at).toLocaleDateString(currentLocale())
                         : '—'}
                     </td>
-                    <td className="px-5 py-3">{statusBadge(enrollment.status)}</td>
+                    <td className="px-5 py-3">{statusBadge(learner.status)}</td>
                   </tr>
                 ))}
               </tbody>

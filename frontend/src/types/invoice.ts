@@ -89,6 +89,7 @@ export interface InvoiceListParams {
   from?: string;
   to?: string;
   include_cancelled?: boolean;
+  from_enrollments?: boolean;
   per_page?: number;
   page?: number;
 }

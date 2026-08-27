@@ -60,9 +60,7 @@ interface FormState {
   trainer_id: string;
   start_at: string;
   end_at: string;
-  location: string;
   max_capacity: string;
-  price: string;
   status: SessionStatus;
 }
 
@@ -72,9 +70,7 @@ const emptyForm: FormState = {
   trainer_id: '',
   start_at: '',
   end_at: '',
-  location: '',
   max_capacity: '',
-  price: '',
   status: 'planned',
 };
 
@@ -197,9 +193,7 @@ export default function AcademySessionsPage() {
       trainer_id: session.trainer?.id ?? '',
       start_at: toDatetimeLocal(session.start_at),
       end_at: toDatetimeLocal(session.end_at),
-      location: session.location ?? '',
       max_capacity: session.max_capacity != null ? String(session.max_capacity) : '',
-      price: session.price != null ? String(session.price) : '',
       status: session.status,
     });
     setFormError(null);
@@ -221,9 +215,7 @@ export default function AcademySessionsPage() {
       agency_id: agencyId,
       start_at: form.start_at,
       end_at: form.end_at || null,
-      location: form.location || null,
       max_capacity: form.max_capacity ? Number(form.max_capacity) : null,
-      price: form.price ? Number(form.price) : null,
       status: form.status,
     };
 
@@ -335,6 +327,15 @@ export default function AcademySessionsPage() {
                         dateStyle: 'short',
                         timeStyle: 'short',
                       })}
+                      {session.end_at && (
+                        <>
+                          {' → '}
+                          {new Date(session.end_at).toLocaleString(currentLocale(), {
+                            dateStyle: 'short',
+                            timeStyle: 'short',
+                          })}
+                        </>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {session.enrollments_count ?? 0}
@@ -446,24 +447,6 @@ export default function AcademySessionsPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, max_capacity: e.target.value }))}
               error={fieldErrors.max_capacity}
             />
-            <Input
-              label={t('academy.price')}
-              type="number"
-              min="0"
-              step="1"
-              value={form.price}
-              onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
-              error={fieldErrors.price}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('academy.location')}
-              value={form.location}
-              onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))}
-              error={fieldErrors.location}
-            />
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('common.status')}
@@ -481,8 +464,6 @@ export default function AcademySessionsPage() {
               </select>
             </div>
           </div>
-
-          <p className="text-xs text-gray-400 dark:text-gray-500">{t('academy.sessionPriceHint')}</p>
 
           <div className="mt-2 flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setFormOpen(false)} disabled={isSubmitting} className="flex-1">

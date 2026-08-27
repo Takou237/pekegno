@@ -37,7 +37,7 @@ class Course extends Model
         return [
             'price' => 'decimal:2',
             'duration_hours' => 'integer',
-            'duration_months' => 'smallInteger',
+            'duration_months' => 'integer',
             'is_active' => 'boolean',
         ];
     }

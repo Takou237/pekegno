@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Activity as ActivityIcon, Phone, Mail, MessageCircle, Clock, Check, Calendar } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { clientsApi } from '@/api/clients.api';
 import { invoicesApi } from '@/api/invoices.api';
@@ -76,7 +76,7 @@ export default function ClientDetailPage() {
     if (tab !== 'timeline' || !client) return;
     setTimelineLoading(true);
     activitiesApi.list({ subject_type: 'App\\Models\\User', subject_id: client.id, per_page: 50 })
-      .then((res) => setTimelineActivities(res.data))
+      .then((res) => setTimelineActivities(res.data.data))
       .catch(() => {})
       .finally(() => setTimelineLoading(false));
   }, [tab, client]);

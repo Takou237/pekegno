@@ -144,6 +144,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/trainers/{trainer}', [TrainerController::class, 'show'])->middleware('permission:sessions.consulter');
     Route::put('/trainers/{trainer}', [TrainerController::class, 'update'])->middleware('permission:sessions.modifier');
     Route::delete('/trainers/{trainer}', [TrainerController::class, 'destroy'])->middleware('permission:sessions.supprimer');
+    Route::get('/learners', [LearnerController::class, 'index'])->middleware('permission:enrollments.consulter');
     Route::get('/learners/{learner}/stats', [LearnerController::class, 'stats'])->middleware('permission:enrollments.consulter');
 
     Route::get('/reports/subscriptions', [ReportController::class, 'subscriptions'])->middleware('permission:reports.consulter');
@@ -391,10 +392,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     // === Academy — Modules de formation ===
     Route::get('/courses/{course}/modules', [CourseModuleController::class, 'index'])->middleware('permission:courses.consulter');
     Route::post('/courses/{course}/modules', [CourseModuleController::class, 'store'])->middleware('permission:courses.creer');
+    Route::put('/courses/{course}/modules/reorder', [CourseModuleController::class, 'reorder'])->middleware('permission:courses.modifier');
     Route::get('/courses/{course}/modules/{module}', [CourseModuleController::class, 'show'])->middleware('permission:courses.consulter');
     Route::put('/courses/{course}/modules/{module}', [CourseModuleController::class, 'update'])->middleware('permission:courses.modifier');
     Route::delete('/courses/{course}/modules/{module}', [CourseModuleController::class, 'destroy'])->middleware('permission:courses.supprimer');
-    Route::put('/courses/{course}/modules/reorder', [CourseModuleController::class, 'reorder'])->middleware('permission:courses.modifier');
 
     // === Academy — Inscriptions formations ===
     Route::get('/formation-enrollments', [FormationEnrollmentController::class, 'index'])->middleware('permission:enrollments.consulter');

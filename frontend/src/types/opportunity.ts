@@ -1,5 +1,5 @@
 import type { Commercial } from './commercial';
-import type { Agency } from './settings';
+import type { Agency } from './agency';
 import type { Prospect } from './prospect';
 
 export type OpportunityStage = 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';

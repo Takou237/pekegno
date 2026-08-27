@@ -26,7 +26,7 @@ export default function CommissionEntriesPage() {
   const [entries, setEntries] = useState<CommissionEntry[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterStatus, setFilterStatus] = useState<CommissionEntryStatus | ''>('');
   const [page, setPage] = useState(1);
 
   const load = useCallback(() => {
@@ -73,7 +73,7 @@ export default function CommissionEntriesPage() {
           <Select
             label={t('commissions.filterByStatus')}
             value={filterStatus}
-            onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+            onChange={(e) => { setFilterStatus(e.target.value as CommissionEntryStatus | ''); setPage(1); }}
           >
             <option value="">{t('common.all')}</option>
             <option value="calculated">{t('commissions.statusCalculated')}</option>
@@ -111,7 +111,7 @@ export default function CommissionEntriesPage() {
                       {entry.beneficiary ? `${entry.beneficiary.first_name} ${entry.beneficiary.last_name}` : '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {entry.rule_snapshot?.name ?? entry.rule?.name ?? '—'}
+                      {(entry.rule_snapshot?.name as string | undefined) ?? entry.rule?.name ?? '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{formatCurrency(entry.base_amount)}</td>
                     <td className="py-2 pr-3">

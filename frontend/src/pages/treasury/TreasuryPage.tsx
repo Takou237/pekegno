@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Landmark, ArrowDownCircle, ArrowUpCircle, ArrowLeftRight, RefreshCw } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, ArrowLeftRight, RefreshCw } from 'lucide-react';
 import { treasuryApi } from '@/api/treasury.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
-import type { TreasuryAccount, TreasuryTransaction, TreasuryTransactionsResponse } from '@/types/treasury';
+import type { TreasuryAccount, TreasuryDirection, TreasuryTransaction } from '@/types/treasury';
 import type { PaginationMeta } from '@/types/agency';
 
 const TYPE_ICONS: Record<string, string> = {
@@ -34,7 +34,7 @@ export default function TreasuryPage() {
   const [txLoading, setTxLoading] = useState(true);
 
   const [filterAccount, setFilterAccount] = useState('');
-  const [filterDirection, setFilterDirection] = useState('');
+  const [filterDirection, setFilterDirection] = useState<TreasuryDirection | ''>('');
   const [txPage, setTxPage] = useState(1);
 
   const [transferOpen, setTransferOpen] = useState(false);
@@ -181,7 +181,7 @@ export default function TreasuryPage() {
           <Select
             label={t('treasury.filterByDirection')}
             value={filterDirection}
-            onChange={(e) => { setFilterDirection(e.target.value); setTxPage(1); }}
+            onChange={(e) => { setFilterDirection(e.target.value as TreasuryDirection | ''); setTxPage(1); }}
           >
             <option value="">{t('common.all')}</option>
             <option value="in">{t('treasury.directionIn')}</option>

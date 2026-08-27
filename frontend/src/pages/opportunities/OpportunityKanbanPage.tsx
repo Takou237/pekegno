@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent, useRef } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, GripVertical, Building2, Filter, RefreshCw } from 'lucide-react';
 import { opportunitiesApi } from '@/api/opportunities.api';
-import { companiesApi } from '@/api/companies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
@@ -10,10 +9,8 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Alert } from '@/components/ui/Alert';
 import type { Opportunity, OpportunityStage, PipelineEntry } from '@/types/opportunity';
 import { STAGE_LABELS, STAGE_COLORS, OPEN_STAGES } from '@/types/opportunity';
-import type { Company } from '@/types/company';
 
 const ALL_STAGES: OpportunityStage[] = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
 
@@ -24,14 +21,13 @@ export default function OpportunityKanbanPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [pipeline, setPipeline] = useState<PipelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterCommercial, setFilterCommercial] = useState('');
+  const [filterCommercial] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [createStage, setCreateStage] = useState<OpportunityStage>('new');
   const [form, setForm] = useState({ title: '', expected_amount: '', company_id: '', agency_id: '', commercial_id: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [draggedOpp, setDraggedOpp] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -39,12 +35,10 @@ export default function OpportunityKanbanPage() {
     Promise.all([
       opportunitiesApi.list({ per_page: 200, commercial_id: filterCommercial || undefined, search: filterSearch || undefined }),
       opportunitiesApi.pipeline(),
-      companiesApi.list({ per_page: 100 }),
     ])
-      .then(([oppsRes, pipeRes, coRes]) => {
-        setOpportunities(oppsRes.data);
-        setPipeline(pipeRes);
-        setCompanies(coRes.data);
+      .then(([oppsRes, pipeRes]) => {
+        setOpportunities(oppsRes.data.data);
+        setPipeline(pipeRes.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -247,7 +241,7 @@ export default function OpportunityKanbanPage() {
       )}
 
       {/* Create modal */}
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title={t('opportunities.newOpportunity')} size="md">
+      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title={t('opportunities.newOpportunity')} maxWidth="max-w-md">
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
           <Input
             label={t('opportunities.titleField')}

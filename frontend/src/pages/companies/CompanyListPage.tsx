@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Plus, Building2, Trash2, Edit, Search, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Plus, Building2, Trash2, Edit, Search, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { companiesApi } from '@/api/companies.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';

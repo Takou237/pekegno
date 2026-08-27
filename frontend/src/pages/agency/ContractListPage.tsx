@@ -13,11 +13,9 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
-import { SkeletonTable } from '@/components/ui/Skeleton';
 import {
   Contract,
   ContractStatus,
-  ContractPayload,
   CONTRACT_STATUS_LABELS,
   CONTRACT_STATUS_COLORS,
   BILLING_CYCLE_LABELS,

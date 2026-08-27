@@ -10,7 +10,6 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
-import { SkeletonTable } from '@/components/ui/Skeleton';
 import {
   Contract,
   CONTRACT_STATUS_LABELS,
@@ -101,7 +100,7 @@ export default function RenewalsPage() {
 
   async function handleRenew(id: string) {
     try {
-      const res = await contractsApi.renew(id);
+      await contractsApi.renew(id);
       showToast(t('contracts.renewed'), 'success');
       load();
     } catch (error) {

@@ -1,10 +1,9 @@
-import type { DepartmentType } from './department';
-
 export type TreasuryAccountType = 'cash' | 'mobile_money' | 'bank';
 
 export interface TreasuryAccount {
   id: string;
   agency_id: string | null;
+  agency?: { id: string; name: string } | null;
   name: string;
   type: TreasuryAccountType;
   provider: string | null;

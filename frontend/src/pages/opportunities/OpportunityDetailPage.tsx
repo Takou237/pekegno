@@ -78,7 +78,7 @@ export default function OpportunityDetailPage() {
     setLoading(true);
     opportunitiesApi
       .get(id)
-      .then((data) => setOpportunity(data))
+      .then((data) => setOpportunity(data.data))
       .catch((err) =>
         setError(extractErrorMessage(err, t('opportunities.loadError')))
       )
@@ -94,7 +94,7 @@ export default function OpportunityDetailPage() {
         subject_id: id,
         per_page: 100,
       })
-      .then((res) => setActivities(res.data))
+      .then((res) => setActivities(res.data.data))
       .catch(() => {})
       .finally(() => setActivitiesLoading(false));
   }, [id]);
@@ -113,7 +113,7 @@ export default function OpportunityDetailPage() {
         opportunity.id,
         newStage
       );
-      setOpportunity(updated);
+      setOpportunity(updated.data);
       showToast(t('opportunities.stageMoved'), 'success');
     } catch (err) {
       showToast(extractErrorMessage(err, t('opportunities.error')), 'error');
