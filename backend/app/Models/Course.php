@@ -22,8 +22,8 @@ class Course extends Model
         'objective',
         'prerequisites',
         'cover_image',
+        'presentation_video',
         'mode',
-        'category_id',
         'price',
         'duration_hours',
         'duration_type',
@@ -42,14 +42,9 @@ class Course extends Model
         ];
     }
 
-    public function category(): BelongsTo
-    {
-        return $this->belongsTo(Category::class);
-    }
-
     public function categories(): BelongsToMany
     {
-        return $this->belongsToMany(Category::class, 'course_categories');
+        return $this->belongsToMany(CourseCategory::class, 'course_course_category');
     }
 
     public function agency(): BelongsTo

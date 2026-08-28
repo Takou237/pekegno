@@ -16,3 +16,21 @@ export interface CategoryPayload {
   color?: string | null;
   icon?: string | null;
 }
+
+export interface CourseCategory {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  courses_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CourseCategoryPayload {
+  name: string;
+  description?: string | null;
+  color?: string | null;
+  icon?: string | null;
+}

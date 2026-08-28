@@ -741,6 +741,22 @@ export default {
     viewServices: 'View services',
   },
 
+  courseCategories: {
+    newCategory: 'New training category',
+    empty: 'No training categories.',
+    createTitle: 'Create training category',
+    editTitle: 'Edit training category',
+    name: 'Name',
+    namePlaceholder: 'e.g. Web development',
+    description: 'Description',
+    descriptionPlaceholder: 'Describe the trainings in this category...',
+    color: 'Color',
+    icon: 'Icon',
+    saveFailed: 'Unable to save the training category.',
+    saved: 'Training category created successfully.',
+    updated: 'Training category updated successfully.',
+  },
+
   services: {
     title: 'Services',
     subtitle: 'Manage the services offered by the PEKEGNO network.',
@@ -1909,6 +1925,20 @@ export default {
     baseAmount: 'Base amount',
     searchModulePlaceholder: 'Search a module…',
     limited: 'Limited',
+    presentationVideo: 'Presentation video (URL)',
+    uploadCover: 'Choose an image file (JPEG, PNG, GIF, WebP)',
+    uploading: 'Uploading...',
+    uploadFailed: 'Unable to upload the image.',
+    removeCover: 'Remove image',
+    promotions: 'Promotions',
+    newPromotion: 'New promotion',
+    editPromotion: 'Edit promotion',
+    promoPrice: 'Promo price',
+    promoStart: 'Start',
+    promoEnd: 'End',
+    promoStatus: 'Status',
+    noPromotions: 'No promotions.',
+    courseDetails: 'Training details',
   },
 
   courseModules: {

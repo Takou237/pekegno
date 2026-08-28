@@ -15,16 +15,11 @@ class CourseResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'mode' => $this->mode,
-            'category' => $this->whenLoaded('category', fn () => [
-                'id' => $this->category?->id,
-                'name' => $this->category?->name,
-                'color' => $this->category?->color,
-                'icon' => $this->category?->icon,
-            ]),
             'categories' => $this->whenLoaded('categories', fn () => $this->categories->map(fn ($c) => [
                 'id' => $c->id,
                 'name' => $c->name,
                 'color' => $c->color,
+                'icon' => $c->icon,
             ]) ?? []),
             'price' => (float) $this->price,
             'effective_price' => (float) $this->effective_price,
@@ -34,6 +29,7 @@ class CourseResource extends JsonResource
             'objective' => $this->objective,
             'prerequisites' => $this->prerequisites,
             'cover_image' => $this->cover_image,
+            'presentation_video' => $this->presentation_video,
             'agency' => $this->whenLoaded('agency', fn () => [
                 'id' => $this->agency?->id,
                 'name' => $this->agency?->name,
@@ -44,6 +40,7 @@ class CourseResource extends JsonResource
             'sessions_count' => $this->whenCounted('sessions'),
             'modules_count' => $this->whenCounted('modules'),
             'formation_enrollments_count' => $this->whenCounted('formationEnrollments'),
+            'promotions' => PromotionResource::collection($this->whenLoaded('promotions')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

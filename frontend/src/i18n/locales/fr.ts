@@ -748,6 +748,22 @@ export default {
     viewServices: 'Voir les services',
   },
 
+  courseCategories: {
+    newCategory: 'Nouvelle catégorie de formation',
+    empty: 'Aucune catégorie de formation.',
+    createTitle: 'Créer une catégorie de formation',
+    editTitle: 'Modifier la catégorie de formation',
+    name: 'Nom',
+    namePlaceholder: 'Ex. : Développement web',
+    description: 'Description',
+    descriptionPlaceholder: 'Décrivez les formations de cette catégorie...',
+    color: 'Couleur',
+    icon: 'Icône',
+    saveFailed: 'Impossible d\'enregistrer la catégorie de formation.',
+    saved: 'Catégorie de formation créée avec succès.',
+    updated: 'Catégorie de formation mise à jour avec succès.',
+  },
+
   services: {
     title: 'Services',
     subtitle: 'Gérez les services et prestations du réseau PEKEGNO.',
@@ -1917,6 +1933,20 @@ export default {
     baseAmount: 'Montant de base',
     searchModulePlaceholder: 'Rechercher un module…',
     limited: 'Limitée',
+    presentationVideo: 'Vidéo de présentation (URL)',
+    uploadCover: 'Choisir un fichier image (JPEG, PNG, GIF, WebP)',
+    uploading: 'Envoi en cours...',
+    uploadFailed: 'Impossible d\'envoyer l\'image.',
+    removeCover: 'Retirer l\'image',
+    promotions: 'Promotions',
+    newPromotion: 'Nouvelle promotion',
+    editPromotion: 'Modifier la promotion',
+    promoPrice: 'Prix promo',
+    promoStart: 'Début',
+    promoEnd: 'Fin',
+    promoStatus: 'Statut',
+    noPromotions: 'Aucune promotion.',
+    courseDetails: 'Détails de la formation',
   },
 
   courseModules: {

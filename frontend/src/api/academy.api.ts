@@ -21,11 +21,12 @@ export interface Course {
   objective: string | null;
   prerequisites: string | null;
   cover_image: string | null;
+  presentation_video: string | null;
+  promotions?: CoursePromotion[];
   mode: 'online' | 'in_person' | 'mixed';
-  category?: { id: string | null; name: string | null; color: string | null } | null;
   categories?: { id: string; name: string; color: string | null }[];
   price: number | null;
-  effective_price?: string | null;
+  effective_price?: number | null;
   duration_hours: number | null;
   duration_type: 'limited' | 'unlimited';
   duration_months: number | null;
@@ -39,6 +40,30 @@ export interface Course {
   updated_at: string;
 }
 
+export type CoursePromotionType = 'amount' | 'percent';
+
+export interface CoursePromotion {
+  id: string;
+  formation_id: string | null;
+  service_id: string | null;
+  type: CoursePromotionType;
+  promo_price: string | null;
+  discount_percent: string | null;
+  effective_price: number | string | null;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export interface CoursePromotionPayload {
+  type: CoursePromotionType;
+  promo_price?: string | number | null;
+  discount_percent?: string | number | null;
+  start_date: string;
+  end_date: string;
+}
+
 export interface CoursePayload {
   name: string;
   code?: string;
@@ -46,6 +71,7 @@ export interface CoursePayload {
   objective?: string | null;
   prerequisites?: string | null;
   cover_image?: string | null;
+  presentation_video?: string | null;
   mode?: Course['mode'];
   price?: number | null;
   duration_hours?: number | null;
@@ -411,6 +437,12 @@ export const academyApi = {
   async courseLearners(courseId: string): Promise<FormationEnrollment[]> {
     const { data } = await client.get<FormationEnrollment[]>(`/courses/${courseId}/learners`);
     return data;
+  },
+
+  // === Formation Promotions ===
+  async createFormationPromotion(courseId: string, payload: CoursePromotionPayload): Promise<CoursePromotion> {
+    const { data } = await client.post<{ data: CoursePromotion }>(`/courses/${courseId}/promotions`, payload);
+    return data.data ?? (data as unknown as CoursePromotion);
   },
 
   // === Learner Observations ===

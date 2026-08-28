@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Auth\StaffLoginController;
 use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\BilanController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\CourseCategoryController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CommercialController;
@@ -113,6 +114,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/categories/{category}/restore', [CategoryController::class, 'restore']);
     Route::delete('/categories/{category}/force-delete', [CategoryController::class, 'forceDelete']);
     Route::apiResource('categories', CategoryController::class);
+
+    Route::apiResource('course-categories', CourseCategoryController::class);
 
     Route::post('/products', [ProductController::class, 'store'])->middleware('permission:products.creer');
     Route::get('/products/trash', [ProductController::class, 'trash'])->middleware('permission:products.consulter');

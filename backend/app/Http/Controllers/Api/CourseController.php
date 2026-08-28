@@ -45,7 +45,6 @@ class CourseController extends Controller
         parameters: [
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par nom, code ou description', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'mode', in: 'query', schema: new OA\Schema(type: 'string', enum: ['online', 'in_person', 'mixed'])),
-            new OA\Parameter(name: 'category_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'agency_id', in: 'query', description: 'Disponibilité : cours de l\'agence + cours globaux', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'sort_by', in: 'query', schema: new OA\Schema(type: 'string', enum: ['name', 'price', 'created_at'])),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
@@ -57,13 +56,12 @@ class CourseController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Course::with(['category', 'agency', 'categories'])
+        $query = Course::with(['agency', 'categories', 'promotions'])
             ->withCount('sessions', 'modules', 'formationEnrollments')
             ->search($request->input('search'))
             ->when($request->mode, fn ($q, $v) => $q->where('mode', $v))
-            ->when($request->category_id, fn ($q, $v) => $q->where('category_id', $v))
             ->when($request->filled('categories'), function ($q) use ($request) {
-                $q->whereHas('categories', fn ($cq) => $cq->whereIn('categories.id', (array) $request->input('categories')));
+                $q->whereHas('categories', fn ($cq) => $cq->whereIn('course_categories.id', (array) $request->input('categories')));
             })
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->when($request->agency_id, fn ($q, $v) => $q->availableIn($v));
@@ -106,7 +104,7 @@ class CourseController extends Controller
             $course->categories()->sync($categoryIds);
         }
 
-        return (new CourseResource($course->load(['category', 'agency', 'categories'])))
+        return (new CourseResource($course->load(['agency', 'categories'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -126,7 +124,7 @@ class CourseController extends Controller
     )]
     public function show(Course $course): CourseResource
     {
-        return new CourseResource($course->load(['category', 'agency', 'categories', 'modules.trainer', 'sessions']));
+        return new CourseResource($course->load(['agency', 'categories', 'modules.trainer', 'sessions']));
     }
 
     #[OA\Put(
@@ -155,7 +153,7 @@ class CourseController extends Controller
             $course->categories()->sync($categoryIds);
         }
 
-        return new CourseResource($course->fresh()->load(['category', 'agency', 'categories']));
+        return new CourseResource($course->fresh()->load(['agency', 'categories']));
     }
 
     #[OA\Delete(
@@ -190,7 +188,7 @@ class CourseController extends Controller
     public function trash(Request $request): AnonymousResourceCollection
     {
         $query = Course::onlyTrashed()
-            ->with(['category', 'agency'])
+            ->with(['categories', 'agency'])
             ->search($request->input('search'));
 
         $this->scopeQuery($request, $query);
@@ -206,7 +204,7 @@ class CourseController extends Controller
         $course = Course::onlyTrashed()->findOrFail($id);
         $course->restore();
 
-        return new CourseResource($course->load(['category', 'agency']));
+        return new CourseResource($course->load(['categories', 'agency']));
     }
 
     public function forceDelete(string $id): JsonResponse

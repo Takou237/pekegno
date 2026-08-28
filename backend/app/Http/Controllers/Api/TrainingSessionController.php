@@ -175,7 +175,7 @@ class TrainingSessionController extends Controller
         $agencyIds = $this->scopeService->agencyIds($request->user());
 
         $courses = Course::withCount('sessions')
-            ->with(['category', 'agency'])
+            ->with(['categories', 'agency'])
             ->when($request->filled('course_id'), fn ($q) => $q->where('id', $request->input('course_id')))
             ->when($agencyIds !== null, function ($q) use ($agencyIds) {
                 return $q->where(fn ($c) => $c->whereNull('agency_id')->orWhereIn('agency_id', $agencyIds));
@@ -215,7 +215,7 @@ class TrainingSessionController extends Controller
             'code' => $course->code,
             'name' => $course->name,
             'mode' => $course->mode,
-            'category' => $course->category?->name,
+            'category' => $course->categories->first()?->name,
             'agency' => $course->agency?->name ?: 'Global',
             'price' => (float) $course->price,
             'report' => $course->training_report,

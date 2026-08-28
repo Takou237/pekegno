@@ -38,7 +38,7 @@ class PromotionController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Promotion::query()
-            ->with('service.agency', 'service.category')
+            ->with('service.agency', 'service.category', 'formation')
             ->when($request->agency_id, function ($q, $agencyId) {
                 $q->whereHas('service', fn ($s) => $s->where('agency_id', $agencyId));
             })
@@ -152,7 +152,7 @@ class PromotionController extends Controller
             newValues: $promotion->only(['type', 'promo_price', 'discount_percent', 'start_date', 'end_date']),
         );
 
-        return new PromotionResource($promotion->load('service'));
+        return new PromotionResource($promotion->load('service', 'formation'));
     }
 
     #[OA\Delete(
@@ -216,9 +216,24 @@ class PromotionController extends Controller
     {
         $validated = $request->validate([
             'type' => 'required|string|in:amount,percent',
-            'promo_price' => 'required_if:type,amount|nullable|numeric|min:0',
-            'discount_percent' => 'required_if:type,percent|nullable|numeric|min:0|max:100',
-            'start_date' => 'required|date',
+            'promo_price' => ['required_if:type,amount', 'nullable', 'numeric', 'min:0', function ($attribute, $value, $fail) use ($course) {
+                if ($value !== null && (float) $value >= (float) $course->price) {
+                    $fail('Le prix promotionnel doit être inférieur au prix de la formation.');
+                }
+            }],
+            'discount_percent' => ['required_if:type,percent', 'nullable', 'numeric', 'min:0', 'max:100'],
+            'start_date' => ['required', 'date', function ($attribute, $value, $fail) use ($course, $request) {
+                $end = $request->input('end_date');
+
+                $overlap = Promotion::where('formation_id', $course->id)
+                    ->where('start_date', '<', $end)
+                    ->where('end_date', '>', $value)
+                    ->exists();
+
+                if ($overlap) {
+                    $fail('Une autre promotion chevauche déjà cette période pour cette formation.');
+                }
+            }],
             'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
