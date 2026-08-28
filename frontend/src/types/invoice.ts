@@ -82,7 +82,7 @@ export interface InvoiceTotals {
 
 export interface InvoiceListParams {
   search?: string;
-  status?: InvoiceStatus;
+  status?: InvoiceStatus | `${InvoiceStatus},${InvoiceStatus}`;
   agency_id?: string;
   client_id?: string;
   commercial_id?: string;

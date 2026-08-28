@@ -33,6 +33,10 @@ export interface FormationEnrollment {
     name: string;
     code: string;
     modules?: CourseModule[];
+    price?: number | null;
+    effective_price?: number | null;
+    sessions_count?: number;
+    modules_count?: number;
   };
   learner?: { id: string; first_name: string; last_name: string; email: string; name?: string };
   seller?: { id: string; first_name: string; last_name: string };

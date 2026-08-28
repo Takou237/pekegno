@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreTrainerRequest;
 use App\Http\Requests\Api\UpdateTrainerRequest;
+use App\Models\CourseModule;
 use App\Models\Enrollment;
 use App\Models\Trainer;
 use App\Models\User;
@@ -354,6 +355,12 @@ class TrainerController extends Controller
             ->limit(5)
             ->get();
 
+        $assignedModules = CourseModule::where('trainer_id', $trainer->id)
+            ->with('course:id,name,code')
+            ->orderBy('course_id')
+            ->orderBy('order_index')
+            ->get();
+
         return response()->json([
             'trainer' => [
                 'id' => $trainer->id,
@@ -387,6 +394,12 @@ class TrainerController extends Controller
             ],
             'recent_sessions' => $recentSessions->map(fn ($s) => $this->formatSession($s))->values(),
             'upcoming_sessions' => $upcomingSessions->map(fn ($s) => $this->formatSession($s))->values(),
+            'assigned_modules' => $assignedModules->map(fn ($m) => [
+                'id' => $m->id,
+                'name' => $m->name,
+                'order_index' => $m->order_index,
+                'course' => $m->course ? ['id' => $m->course->id, 'name' => $m->course->name, 'code' => $m->course->code] : null,
+            ])->values(),
         ]);
     }
 

@@ -11,14 +11,23 @@ import {
   BadgeCheck,
   Mail,
   Phone,
+  Users,
+  Award,
+  MessageSquare,
+  Trash2,
+  CalendarCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type LearnerEnrollmentItem, type LearnerStats } from '@/api/academy.api';
+import { certificatesApi } from '@/api/certificates.api';
 import { extractErrorMessage } from '@/api/errors';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
 import { formatCurrency } from '@/utils/number';
+import type { Certificate } from '@/types/certificate';
 
 function StatCard({
   label,
@@ -81,6 +90,7 @@ function EnrollmentTable({
                 <th className="pb-2 pr-4 font-medium">{t('nav.courses')}</th>
                 <th className="pb-2 pr-4 font-medium">{t('nav.trainers')}</th>
                 <th className="pb-2 pr-4 font-medium">{t('academy.sessionDate')}</th>
+                <th className="pb-2 pr-4 font-medium">{t('academy.location')}</th>
                 <th className="pb-2 font-medium">{t('common.status')}</th>
               </tr>
             </thead>
@@ -101,6 +111,9 @@ function EnrollmentTable({
                         })
                       : '—'}
                   </td>
+                  <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
+                    {item.location ?? '—'}
+                  </td>
                   <td className="py-2.5">{statusBadge(item.status)}</td>
                 </tr>
               ))}
@@ -116,30 +129,60 @@ export default function AcademyLearnerDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { learnerId } = useParams<{ learnerId: string }>();
+  const { showToast } = useToast();
   const [data, setData] = useState<LearnerStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [observations, setObservations] = useState<{ id: string; content: string; created_at: string }[]>([]);
+  const [newObs, setNewObs] = useState('');
+  const [addingObs, setAddingObs] = useState(false);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
 
   useEffect(() => {
     if (!learnerId) return;
     let active = true;
     setIsLoading(true);
     setLoadError(null);
-    academyApi
-      .learnerStats(learnerId)
-      .then((response) => {
-        if (active) setData(response);
+    Promise.all([
+      academyApi.learnerStats(learnerId),
+      academyApi.learnerObservations({ learner_user_id: learnerId, per_page: 10 }).catch(() => ({ data: [] })),
+      certificatesApi.list({ per_page: 50 }).catch(() => ({ data: [] as Certificate[], current_page: 1, last_page: 1, per_page: 50, total: 0 })),
+    ])
+      .then(([statsRes, obsRes, certRes]) => {
+        if (!active) return;
+        setData(statsRes);
+        setObservations(obsRes.data as { id: string; content: string; created_at: string }[]);
+        setCertificates(certRes.data as Certificate[]);
       })
       .catch((error) => {
         if (active) setLoadError(extractErrorMessage(error, t('academy.loadFailed')));
       })
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
   }, [learnerId, t]);
+
+  async function handleAddObservation() {
+    if (!learnerId || !newObs.trim()) return;
+    setAddingObs(true);
+    try {
+      const created = await academyApi.createLearnerObservation({ learner_user_id: learnerId, content: newObs.trim() });
+      setObservations((prev) => [created as { id: string; content: string; created_at: string }, ...prev]);
+      setNewObs('');
+      showToast(t('common.saved'), 'success');
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('academy.saveFailed')), 'error');
+    } finally { setAddingObs(false); }
+  }
+
+  async function handleDeleteObservation(id: string) {
+    if (!window.confirm(t('common.confirmDelete'))) return;
+    try {
+      await academyApi.removeLearnerObservation(id);
+      setObservations((prev) => prev.filter((o) => o.id !== id));
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('academy.deleteFailed')), 'error');
+    }
+  }
 
   if (isLoading) return <SkeletonDashboard />;
 
@@ -186,6 +229,7 @@ export default function AcademyLearnerDetailPage() {
         {t('nav.learners')}
       </button>
 
+      {/* Profil apprenant */}
       <div className="rounded-2xl border border-gray-100 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex flex-wrap items-center gap-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-sky-50 text-lg font-semibold text-sky-600 dark:bg-sky-500/10 dark:text-sky-300">
@@ -217,12 +261,19 @@ export default function AcademyLearnerDetailPage() {
                   {learner.phone}
                 </span>
               )}
+              {learner.created_at && (
+                <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                  <CalendarCheck className="h-3.5 w-3.5" />
+                  {t('academy.memberSince')} {new Date(learner.created_at).toLocaleDateString(currentLocale(), { dateStyle: 'medium' })}
+                </span>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* KPIs */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label={t('academy.enrollmentsTotal')}
           value={stats.enrollments_total}
@@ -234,6 +285,12 @@ export default function AcademyLearnerDetailPage() {
           value={stats.courses_unique}
           icon={<BookOpen className="h-5 w-5" />}
           tone="bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400"
+        />
+        <StatCard
+          label={t('academy.trainersUnique')}
+          value={stats.trainers_unique ?? '—'}
+          icon={<Users className="h-5 w-5" />}
+          tone="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
         />
         <StatCard
           label={t('academy.sessionsUpcoming')}
@@ -249,6 +306,7 @@ export default function AcademyLearnerDetailPage() {
         />
       </div>
 
+      {/* Métriques détaillées + barres de progression */}
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           {t('academy.metricsTitle')}
@@ -310,6 +368,83 @@ export default function AcademyLearnerDetailPage() {
             );
           })}
         </div>
+      </div>
+
+      {/* Certificats obtenus */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <Award className="h-4 w-4" />
+          {t('certificates.title')} ({certificates.length})
+        </h2>
+        {certificates.length === 0 ? (
+          <p className="text-sm text-gray-400">{t('academy.noCertificates')}</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {certificates.map((cert) => (
+              <div
+                key={cert.id}
+                className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 dark:border-green-700/50 dark:bg-green-900/20"
+              >
+                <Award className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <div>
+                  <p className="text-xs font-semibold text-green-700 dark:text-green-300">
+                    {cert.enrollment?.course?.name ?? cert.number}
+                  </p>
+                  <p className="text-[10px] text-green-600/70 dark:text-green-400/70">
+                    {cert.number} · {new Date(cert.issued_on).toLocaleDateString(currentLocale(), { dateStyle: 'medium' })}
+                    {cert.mention && ` · ${cert.mention}`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Observations */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <MessageSquare className="h-4 w-4" />
+          {t('academy.observations')}
+        </h2>
+        <div className="mb-3 flex gap-2">
+          <textarea
+            value={newObs}
+            onChange={(e) => setNewObs(e.target.value)}
+            rows={2}
+            placeholder={t('academy.addObservationPlaceholder')}
+            className="flex-1 resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+          <Button onClick={handleAddObservation} isLoading={addingObs} disabled={!newObs.trim()}>
+            {t('common.add')}
+          </Button>
+        </div>
+        {observations.length === 0 ? (
+          <p className="text-sm text-gray-400">{t('academy.noObservations')}</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
+            {observations.map((obs) => (
+              <li key={obs.id} className="flex items-start justify-between gap-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-700 dark:text-gray-200">{obs.content}</p>
+                  <p className="mt-0.5 text-xs text-gray-400">
+                    {new Date(obs.created_at).toLocaleString(currentLocale(), {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteObservation(obs.id)}
+                  className="shrink-0 rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 dark:text-gray-600 dark:hover:bg-red-500/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <EnrollmentTable

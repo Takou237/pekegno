@@ -2,7 +2,7 @@ import { client } from './client';
 import type { Certificate, CertificatePayload } from '@/types/certificate';
 
 export const certificatesApi = {
-  list(params?: { status?: string; page?: number; per_page?: number }) {
+  list(params?: { status?: string; search?: string; course_id?: string; page?: number; per_page?: number }) {
     return client.get('/certificates', { params }).then((r) => r.data);
   },
   get(id: string): Promise<Certificate> {

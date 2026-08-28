@@ -1,6 +1,7 @@
-import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, Wallet } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { sellerProfilesApi, type CommissionEntry, type CommissionPayment } from '@/api/sellerProfiles.api';
 import { usersApi } from '@/api/users.api';
@@ -84,6 +85,42 @@ const emptyPayForm: PayFormState = {
   treasury_account_id: '',
   note: '',
 };
+
+function CommissionTrendChart({ entries }: { entries: CommissionEntry[] }) {
+  const { t } = useTranslation();
+  const data = useMemo(() => {
+    const byMonth = new Map<string, number>();
+    for (const entry of entries) {
+      if (entry.status === 'cancelled') continue;
+      const m = new Date(entry.created_at);
+      const key = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`;
+      byMonth.set(key, (byMonth.get(key) ?? 0) + entry.amount);
+    }
+    return Array.from(byMonth.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-8)
+      .map(([k, v]) => ({
+        month: new Date(`${k}-01`).toLocaleDateString(currentLocale(), { month: 'short', year: '2-digit' }),
+        commissions: Math.round(v),
+      }));
+  }, [entries]);
+
+  if (data.length === 0) {
+    return <p className="text-sm text-gray-400">{t('academy.noCommissionData')}</p>;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={160}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+        <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+        <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
+        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+        <Bar dataKey="commissions" name={t('academy.commissionTrend')} fill="#22c55e" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
 
 export default function SellerProfilesPage() {
   const { t } = useTranslation();
@@ -445,6 +482,15 @@ export default function SellerProfilesPage() {
                                   </p>
                                 </div>
                               </div>
+
+                              {entries.length > 0 && (
+                                <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                                  <h4 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {t('academy.commissionTrend')}
+                                  </h4>
+                                  <CommissionTrendChart entries={entries} />
+                                </div>
+                              )}
 
                               {entries.length > 0 && (
                                 <div>

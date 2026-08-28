@@ -328,14 +328,16 @@ export default function AcademyLearnersPage() {
                       )}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {learner.session?.course?.name ?? '—'}
+                      {learner.primary?.course_name ?? learner.session?.course?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {learner.session?.start_at
-                        ? new Date(learner.session.start_at).toLocaleDateString(currentLocale())
-                        : '—'}
+                      {learner.primary?.date
+                        ? new Date(learner.primary.date).toLocaleDateString(currentLocale())
+                        : learner.session?.start_at
+                          ? new Date(learner.session.start_at).toLocaleDateString(currentLocale())
+                          : '—'}
                     </td>
-                    <td className="px-5 py-3">{statusBadge(learner.status)}</td>
+                    <td className="px-5 py-3">{statusBadge(learner.primary?.status ?? null)}</td>
                   </tr>
                 ))}
               </tbody>

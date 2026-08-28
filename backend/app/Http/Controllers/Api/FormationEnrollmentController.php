@@ -23,7 +23,7 @@ class FormationEnrollmentController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = FormationEnrollment::with(['course', 'learner', 'invoice', 'seller']);
+        $query = FormationEnrollment::with(['course' => fn ($q) => $q->withCount('sessions', 'modules'), 'learner', 'invoice', 'seller']);
 
         if ($request->filled('course_id')) {
             $query->where('course_id', $request->input('course_id'));

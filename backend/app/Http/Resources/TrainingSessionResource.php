@@ -17,6 +17,11 @@ class TrainingSessionResource extends JsonResource
                 'name' => $this->course?->name,
                 'mode' => $this->course?->mode,
             ]),
+            'module' => $this->whenLoaded('module', fn () => $this->module ? [
+                'id' => $this->module->id,
+                'name' => $this->module->name,
+                'order_index' => $this->module->order_index,
+            ] : null),
             'trainer' => $this->whenLoaded('trainer', fn () => [
                 'id' => $this->trainer?->id,
                 'first_name' => $this->trainer?->first_name,

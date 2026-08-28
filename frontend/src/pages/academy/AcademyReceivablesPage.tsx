@@ -23,6 +23,7 @@ export default function AcademyReceivablesPage() {
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
+  const [totalReceivable, setTotalReceivable] = useState(0);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,13 +35,15 @@ export default function AcademyReceivablesPage() {
     try {
       const response = await invoicesApi.list({
         agency_id: agencyId || undefined,
-        status: 'unpaid',
+        from_enrollments: true,
+        status: 'unpaid,partial',
         search: search || undefined,
         page,
         per_page: 15,
       });
       setInvoices(response.invoices.data);
       setMeta(response.invoices.meta);
+      setTotalReceivable(response.totals?.outstanding ?? 0);
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('common.error')));
     } finally {
@@ -60,8 +63,6 @@ export default function AcademyReceivablesPage() {
     if (status === 'cancelled') return <Badge variant="error">{t('invoices.statusCancelled')}</Badge>;
     return <Badge variant="error">{t('invoices.statusUnpaid')}</Badge>;
   }
-
-  const totalReceivable = invoices.reduce((sum, inv) => sum + balance(inv), 0);
 
   return (
     <div className="flex flex-col gap-6">

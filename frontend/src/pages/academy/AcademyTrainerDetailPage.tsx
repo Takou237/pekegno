@@ -12,6 +12,7 @@ import {
   BadgeCheck,
   Mail,
   Phone,
+  Layers,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type TrainerSessionItem, type TrainerStats } from '@/api/academy.api';
@@ -233,6 +234,13 @@ export default function AcademyTrainerDetailPage() {
                   {trainer.phone}
                 </span>
               )}
+              {trainer.created_at && (
+                <span className="flex items-center gap-1.5">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  {t('academy.memberSince')}:{' '}
+                  {new Date(trainer.created_at).toLocaleDateString(currentLocale(), { dateStyle: 'long' })}
+                </span>
+              )}
             </div>
             {trainer.bio && (
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{trainer.bio}</p>
@@ -329,6 +337,33 @@ export default function AcademyTrainerDetailPage() {
             );
           })}
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <Layers className="h-4 w-4" />
+          {t('academy.assignedModules')}
+        </h2>
+        {!data.assigned_modules || data.assigned_modules.length === 0 ? (
+          <p className="text-sm text-gray-400">{t('academy.noAssignedModules')}</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {data.assigned_modules.map((module) => (
+              <span
+                key={module.id}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800"
+              >
+                <span className="font-medium text-gray-800 dark:text-gray-100">{module.name}</span>
+                {module.course && (
+                  <span className="text-xs text-gray-400">
+                    {module.course.name}
+                    {module.course.code ? ` · ${module.course.code}` : ''}
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <SessionTable

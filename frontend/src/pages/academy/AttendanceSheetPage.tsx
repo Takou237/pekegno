@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, Download, MapPin, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { client } from '@/api/client';
 import { attendancesApi } from '@/api/attendances.api';
@@ -44,7 +44,7 @@ export default function AttendanceSheetPage() {
     try {
       const [sessionRes, enrollmentsRes, attendancesRes] = await Promise.all([
         client.get(`/training-sessions/${sessionId}`),
-        client.get(`/training-sessions/${sessionId}/enrollments`),
+        client.get('/enrollments', { params: { session_id: sessionId, per_page: 100 } }),
         attendancesApi.list(sessionId).catch(() => [] as Attendance[]),
       ]);
 
@@ -116,6 +116,32 @@ export default function AttendanceSheetPage() {
   const totalCount = enrollments.length;
   const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
+  function handleExport() {
+    if (!session) return;
+    const statusLabelMap = (s: AttendanceStatus) => attendanceStatusLabel(s, t);
+    const rows = [
+      [t('nav.learners'), ...STATUSES.map(statusLabelMap)],
+      ...enrollments.map((enr) => [
+        enr.learnerName,
+        ...STATUSES.map((s) => (records[enr.id] === s ? 'X' : '')),
+      ]),
+    ];
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(','),
+      )
+      .join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${t('academy.attendanceSheet').replace(/\s+/g, '-')}-${session.id}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (isLoading) {
     return <SkeletonTable rows={5} />;
   }
@@ -140,14 +166,40 @@ export default function AttendanceSheetPage() {
             {t('academy.attendanceSheet')}
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {session.course?.name ?? '—'} —{' '}
-            {new Date(session.start_at).toLocaleDateString()}
+            {session.course?.name ?? '—'}
+            {session.module?.name ? ` · ${session.module.name}` : ''} —{' '}
+            {new Date(session.start_at).toLocaleString()}
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+            {session.trainer && (
+              <span className="flex items-center gap-1">
+                <User className="h-3.5 w-3.5 text-gray-400" />
+                {[session.trainer.first_name, session.trainer.last_name].filter(Boolean).join(' ') || session.trainer.email}
+              </span>
+            )}
+            {session.location && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                {session.location}
+              </span>
+            )}
+            {session.end_at && (
+              <span>
+                {t('academy.endAt')}: {new Date(session.end_at).toLocaleString()}
+              </span>
+            )}
+          </div>
         </div>
-        <Button onClick={handleSave} isLoading={saving}>
-          <Save className="h-4 w-4" />
-          {t('common.save')}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={enrollments.length === 0}>
+            <Download className="h-4 w-4" />
+            {t('common.export')}
+          </Button>
+          <Button onClick={handleSave} isLoading={saving}>
+            <Save className="h-4 w-4" />
+            {t('common.save')}
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">

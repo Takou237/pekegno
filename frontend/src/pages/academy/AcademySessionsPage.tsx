@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { Plus, Pencil, Trash2, ClipboardList } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   academyApi,
@@ -85,6 +85,7 @@ export default function AcademySessionsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
+  const { departmentId } = useParams<{ departmentId?: string }>();
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [statusFilter, setStatusFilter] = useState<'' | SessionStatus>('');
@@ -302,6 +303,7 @@ export default function AcademySessionsPage() {
                   <th className="px-5 py-3 font-medium">{t('academy.module')}</th>
                   <th className="px-5 py-3 font-medium">{t('nav.trainers')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.sessionDate')}</th>
+                  <th className="px-5 py-3 font-medium">{t('academy.price')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.enrollmentsCount')}</th>
                   <th className="px-5 py-3 font-medium">{t('common.status')}</th>
                   <th className="px-5 py-3" />
@@ -337,13 +339,56 @@ export default function AcademySessionsPage() {
                         </>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {session.enrollments_count ?? 0}
-                      {session.max_capacity != null && ` / ${session.max_capacity}`}
+                    {/* Prix */}
+                    <td className="px-5 py-3">
+                      <span className="font-medium text-gray-800 dark:text-gray-100">
+                        {session.effective_price != null
+                          ? `${Number(session.effective_price).toLocaleString()} FCFA`
+                          : '—'}
+                      </span>
+                      {session.effective_price != null &&
+                        session.price != null &&
+                        Number(session.effective_price) < session.price && (
+                          <span className="ml-1.5 text-xs text-success-600 dark:text-success-400">-X%</span>
+                        )}
+                    </td>
+                    {/* Inscriptions avec barre de capacité */}
+                    <td className="px-5 py-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                          {session.enrollments_count ?? 0}
+                          {session.max_capacity != null && (
+                            <span className="text-xs font-normal text-gray-400"> / {session.max_capacity}</span>
+                          )}
+                        </span>
+                        {session.max_capacity != null && session.max_capacity > 0 && (
+                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                (session.enrollments_count ?? 0) >= session.max_capacity
+                                  ? 'bg-error-500'
+                                  : (session.enrollments_count ?? 0) >= session.max_capacity * 0.8
+                                    ? 'bg-warning-500'
+                                    : 'bg-success-500'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.round(((session.enrollments_count ?? 0) / session.max_capacity) * 100))}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3">{statusBadge(session.status, t)}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        {/* Lien vers la feuille de présences */}
+                        <Link
+                          to={`/departments/${departmentId}/sessions/${session.id}/attendances`}
+                          className="rounded-lg p-2 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-500/10"
+                          title={t('academy.attendanceSheet')}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                        </Link>
                         <button
                           type="button"
                           onClick={() => openEdit(session)}

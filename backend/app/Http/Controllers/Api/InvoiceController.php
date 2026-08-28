@@ -67,7 +67,10 @@ class InvoiceController extends Controller
                         ->orWhere('last_name', 'like', "%{$s}%")
                         ->orWhere('email', 'like', "%{$s}%"));
             }))
-            ->when($request->status, fn ($q, $s) => $q->where('status', $s))
+            ->when($request->status, function ($q, $s) {
+                $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
+                $q->whereIn('status', $statuses);
+            })
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))
             ->when($request->commercial_id, fn ($q, $id) => $q->where('commercial_id', $id))
@@ -76,7 +79,7 @@ class InvoiceController extends Controller
             ->when(! $request->boolean('include_cancelled'), fn ($q) => $q->whereNull('cancelled_at'));
 
         $totals = (clone $base)->selectRaw(
-            'coalesce(sum(case when status = \'paid\' then total_amount else 0 end), 0) as revenue, '
+            'coalesce(sum(amount_paid), 0) as revenue, '
             ."coalesce(sum(case when status in ('unpaid','partial') then total_amount - amount_paid else 0 end), 0) as outstanding"
         )->first();
 

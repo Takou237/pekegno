@@ -74,14 +74,20 @@ class LearnerController extends Controller
         }
 
         $enrollQuery = fn () => $this->scopedEnrollmentQuery($scopeAgencyIds);
+        $formationQuery = fn () => \App\Models\FormationEnrollment::query()
+            ->when(
+                $scopeAgencyIds !== null,
+                fn ($q) => $q->whereHas('course', fn ($cq) => $cq->whereIn('agency_id', $scopeAgencyIds)),
+            );
 
         $query = User::query()
             ->whereHas('role', fn ($q) => $q->where('name', 'client'));
 
         if ($scopeAgencyIds !== null) {
-            $query->where(function ($q) use ($enrollQuery, $scopeAgencyIds) {
+            $query->where(function ($q) use ($enrollQuery, $formationQuery, $scopeAgencyIds) {
                 $q->whereIn('registered_agency_id', $scopeAgencyIds)
-                    ->orWhereIn('id', $enrollQuery()->select('learner_user_id'));
+                    ->orWhereIn('id', $enrollQuery()->select('learner_user_id'))
+                    ->orWhereIn('id', $formationQuery()->select('learner_user_id'));
             });
         }
 
@@ -96,21 +102,57 @@ class LearnerController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->whereIn('id', $enrollQuery()->where('status', $request->status)->select('learner_user_id'));
+            $query->where(function ($q) use ($enrollQuery, $formationQuery, $request) {
+                $q->whereIn('id', $enrollQuery()->where('status', $request->status)->select('learner_user_id'))
+                    ->orWhereIn('id', $formationQuery()->where('status', $request->status)->select('learner_user_id'));
+            });
         }
 
         $learners = $query->orderByDesc('created_at')->paginate(min((int) $request->input('per_page', 15), 100));
 
         $learnerIds = collect($learners->items())->pluck('id');
-        $enrollments = $enrollQuery()
+
+        $sessionEnrollments = $enrollQuery()
             ->with(['session.course'])
             ->whereIn('learner_user_id', $learnerIds)
             ->get()
             ->groupBy('learner_user_id');
 
-        $rows = collect($learners->items())->map(function (User $learner) use ($enrollments) {
-            $list = $enrollments->get($learner->id, collect());
-            $primary = $list->sortByDesc('created_at')->first();
+        $formationEnrollments = $formationQuery()
+            ->with(['course'])
+            ->whereIn('learner_user_id', $learnerIds)
+            ->get()
+            ->groupBy('learner_user_id');
+
+        $rows = collect($learners->items())->map(function (User $learner) use ($sessionEnrollments, $formationEnrollments) {
+            $sessions = $sessionEnrollments->get($learner->id, collect());
+            $formations = $formationEnrollments->get($learner->id, collect());
+
+            $primaryFormation = $formations->sortByDesc('enrolled_at')->first();
+            $primarySession = $sessions->sortByDesc('created_at')->first();
+
+            if ($primaryFormation) {
+                $primaryStatus = $primaryFormation->status;
+                $course = $primaryFormation->course;
+                $primary = [
+                    'source' => 'formation',
+                    'course_id' => $course?->id,
+                    'course_name' => $course?->name,
+                    'course_code' => $course?->code,
+                    'status' => $primaryStatus,
+                    'date' => $primaryFormation->enrolled_at?->toISOString(),
+                ];
+            } else {
+                $primaryStatus = $primarySession?->status;
+                $primary = [
+                    'source' => 'session',
+                    'course_id' => $primarySession?->session?->course?->id,
+                    'course_name' => $primarySession?->session?->course?->name,
+                    'course_code' => $primarySession?->session?->course?->code,
+                    'status' => $primaryStatus,
+                    'date' => $primarySession?->session?->start_at?->toISOString(),
+                ];
+            }
 
             return [
                 'id' => $learner->id,
@@ -123,16 +165,26 @@ class LearnerController extends Controller
                     'client_number' => $learner->client_number,
                     'is_active' => $learner->is_active,
                 ],
-                'status' => $primary?->status,
-                'enrollments_count' => $list->count(),
-                'session' => $primary?->session ? [
-                    'id' => $primary->session->id,
-                    'start_at' => $primary->session->start_at?->toISOString(),
+                'primary' => $primary,
+                'status' => $primaryStatus,
+                'enrollments_count' => $sessionEnrollments->get($learner->id, collect())->count()
+                    + $formationEnrollments->get($learner->id, collect())->count(),
+                'session' => $primarySession?->session ? [
+                    'id' => $primarySession->session->id,
+                    'start_at' => $primarySession->session->start_at?->toISOString(),
                     'course' => [
-                        'id' => $primary->session->course?->id,
-                        'name' => $primary->session->course?->name,
+                        'id' => $primarySession->session->course?->id,
+                        'name' => $primarySession->session->course?->name,
                     ],
                 ] : null,
+                'formations' => $formations->map(fn ($f) => [
+                    'id' => $f->id,
+                    'course_id' => $f->course_id,
+                    'course_name' => $f->course?->name,
+                    'course_code' => $f->course?->code,
+                    'status' => $f->status,
+                    'enrolled_at' => $f->enrolled_at?->toISOString(),
+                ])->values(),
             ];
         });
 

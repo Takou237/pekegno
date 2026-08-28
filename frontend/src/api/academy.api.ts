@@ -117,6 +117,14 @@ export interface Learner {
   };
   status: Enrollment['status'] | null;
   enrollments_count: number;
+  primary: {
+    source: 'formation' | 'session';
+    course_id: string | null;
+    course_name: string | null;
+    course_code: string | null;
+    status: Enrollment['status'] | null;
+    date: string | null;
+  } | null;
   session: {
     id: string;
     start_at: string | null;
@@ -201,6 +209,12 @@ export interface TrainerStats {
   };
   recent_sessions: TrainerSessionItem[];
   upcoming_sessions: TrainerSessionItem[];
+  assigned_modules: {
+    id: string;
+    name: string;
+    order_index: number;
+    course?: { id: string; name: string; code: string } | null;
+  }[];
 }
 
 export interface LearnerEnrollmentItem {

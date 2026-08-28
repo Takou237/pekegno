@@ -310,6 +310,8 @@ export default function FormationEnrollmentPage() {
                 <tr>
                   <th className="px-5 py-3 font-medium">{t('academy.learner')}</th>
                   <th className="px-5 py-3 font-medium">{t('nav.courses')}</th>
+                  <th className="px-5 py-3 font-medium">{t('academy.price')}</th>
+                  <th className="px-5 py-3 font-medium">{t('academy.sessionsCount')}</th>
                   <th className="px-5 py-3 font-medium">{t('common.status')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.enrolledAt')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.seller')}</th>
@@ -331,6 +333,14 @@ export default function FormationEnrollmentPage() {
                       {enrollment.course?.code && (
                         <span className="ml-2 font-mono text-xs text-gray-400">{enrollment.course.code}</span>
                       )}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {enrollment.course?.price != null
+                        ? `${Number(enrollment.course.price).toLocaleString()} FCFA`
+                        : '—'}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {enrollment.course?.sessions_count != null ? enrollment.course.sessions_count : '—'}
                     </td>
                     <td className="px-5 py-3">
                       <button

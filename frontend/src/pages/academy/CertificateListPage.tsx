@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, RefreshCw, Ban } from 'lucide-react';
+import { Plus, RefreshCw, Ban, Search } from 'lucide-react';
 import { certificatesApi } from '@/api/certificates.api';
+import { academyApi } from '@/api/academy.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +15,12 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import type { Certificate } from '@/types/certificate';
 import type { PaginationMeta } from '@/types/agency';
 
+interface DepartmentLayoutContext {
+  department?: { id: string; agency_id?: string } | null;
+  departmentId?: string;
+  agencyId?: string;
+}
+
 const STATUS_BADGES: Record<string, string> = {
   issued: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   revoked: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
@@ -21,11 +29,16 @@ const STATUS_BADGES: Record<string, string> = {
 export default function CertificateListPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { agencyId } = useOutletContext<DepartmentLayoutContext>();
 
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [courseFilter, setCourseFilter] = useState('');
+  const [courseOptions, setCourseOptions] = useState<{ id: string; name: string; code: string }[]>([]);
   const [page, setPage] = useState(1);
 
   const [issueOpen, setIssueOpen] = useState(false);
@@ -43,6 +56,8 @@ export default function CertificateListPage() {
     certificatesApi
       .list({
         status: filterStatus || undefined,
+        search: debouncedSearch || undefined,
+        course_id: courseFilter || undefined,
         page,
         per_page: 15,
       })
@@ -52,11 +67,33 @@ export default function CertificateListPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [filterStatus, page]);
+  }, [filterStatus, debouncedSearch, courseFilter, page]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    if (!agencyId) return;
+    let active = true;
+    academyApi
+      .courses({ agency_id: agencyId, per_page: 100 })
+      .then((res) => {
+        if (active) setCourseOptions(res.data.map((c) => ({ id: c.id, name: c.name, code: c.code })));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [agencyId]);
 
   function extractFieldErrors(error: unknown): Record<string, string> {
     const err = error as { response?: { data?: { errors?: Record<string, string[]> } } };
@@ -124,6 +161,34 @@ export default function CertificateListPage() {
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <div className="mb-4 flex flex-wrap items-end gap-3">
+          <div className="min-w-[220px] flex-1">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('certificates.searchPlaceholder')}
+                className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('nav.courses')}
+            </label>
+            <select
+              value={courseFilter}
+              onChange={(e) => { setCourseFilter(e.target.value); setPage(1); }}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="">{t('common.all')}</option>
+              {courseOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('common.status')}
@@ -150,6 +215,7 @@ export default function CertificateListPage() {
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
                   <th className="px-5 py-3 font-medium">{t('certificates.number')}</th>
+                  <th className="px-5 py-3 font-medium">{t('certificates.enrollmentId')}</th>
                   <th className="px-5 py-3 font-medium">{t('nav.learners')}</th>
                   <th className="px-5 py-3 font-medium">{t('nav.courses')}</th>
                   <th className="px-5 py-3 font-medium">{t('certificates.issuedOn')}</th>
@@ -162,6 +228,7 @@ export default function CertificateListPage() {
                 {certificates.map((cert) => (
                   <tr key={cert.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{cert.number}</td>
+                    <td className="px-5 py-3 font-mono text-xs text-gray-400">{cert.enrollment_id}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {cert.enrollment?.learner
                         ? [cert.enrollment.learner.first_name, cert.enrollment.learner.last_name]
