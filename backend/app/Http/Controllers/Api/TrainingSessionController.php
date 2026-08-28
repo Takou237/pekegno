@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreTrainingSessionRequest;
 use App\Http\Requests\Api\UpdateTrainingSessionRequest;
 use App\Http\Resources\TrainingSessionResource;
+use App\Models\Attendance;
 use App\Models\Course;
+use App\Models\FormationEnrollment;
 use App\Models\TrainingSession;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
@@ -59,7 +61,7 @@ class TrainingSessionController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = TrainingSession::with(['course', 'module', 'trainer', 'agency'])
-            ->withCount('enrollments')
+            ->withCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->when($request->course_id, fn ($q, $v) => $q->where('course_id', $v))
             ->when($request->module_id, fn ($q, $v) => $q->where('module_id', $v))
             ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
@@ -116,7 +118,11 @@ class TrainingSessionController extends Controller
     )]
     public function show(TrainingSession $trainingSession): TrainingSessionResource
     {
-        return new TrainingSessionResource($trainingSession->load(['course', 'module', 'trainer', 'agency']));
+        return new TrainingSessionResource(
+            $trainingSession
+                ->load(['course', 'module', 'trainer', 'agency'])
+                ->loadCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
+        );
     }
 
     #[OA\Put(
@@ -183,29 +189,39 @@ class TrainingSessionController extends Controller
             ->orderBy('name')
             ->get();
 
-        $courses->each(function ($course) {
+        $courses->each(function (Course $course) {
             $sessions = $course->sessions()->withTrashed()->get();
+            $sessionIds = $sessions->pluck('id');
 
-            $enrollments = \App\Models\Enrollment::whereIn('session_id', $sessions->pluck('id'))->get();
-            $enrolled = $enrollments->where('status', 'enrolled')->count();
-            $completed = $enrollments->where('status', 'completed')->count();
-            $present = $enrollments->where('attendance', true)->count();
+            $activeEnrollments = FormationEnrollment::where('course_id', $course->id)
+                ->whereNot('status', 'cancelled')
+                ->get();
 
-            $revenue = $sessions->sum(function ($session) use ($course) {
-                $enrolledCount = \App\Models\Enrollment::where('session_id', $session->id)->where('status', 'enrolled')->count();
+            $enrolled = $activeEnrollments->count();
+            $completed = $activeEnrollments->where('status', 'completed')->count();
+            $present = $sessionIds->isNotEmpty()
+                ? Attendance::whereIn('training_session_id', $sessionIds)
+                    ->where('status', Attendance::STATUS_PRESENT)
+                    ->count()
+                : 0;
 
-                return $enrolledCount * (float) ($session->price !== null ? $session->price : ($course->price ?? 0));
+            $revenue = $sessions->sum(function ($session) use ($enrolled, $course) {
+                $price = $session->price !== null ? (float) $session->price : (float) ($course->price ?? 0);
+
+                return $enrolled * $price;
             });
+
+            $expectedPresences = $enrolled * $sessions->count();
 
             $course->training_report = [
                 'sessions_count' => $sessions->count(),
                 'sessions_planned' => $sessions->where('status', 'planned')->count(),
                 'sessions_completed' => $sessions->where('status', 'completed')->count(),
-                'enrollments_total' => $enrollments->count(),
+                'enrollments_total' => $enrolled,
                 'enrollments_enrolled' => $enrolled,
                 'enrollments_completed' => $completed,
                 'attendance_count' => $present,
-                'attendance_rate' => $enrolled > 0 ? round($present / $enrolled * 100, 1) : 0,
+                'attendance_rate' => $expectedPresences > 0 ? round($present / $expectedPresences * 100, 1) : 0,
                 'potential_revenue' => round($revenue, 2),
             ];
         });
@@ -236,7 +252,7 @@ class TrainingSessionController extends Controller
     {
         $query = TrainingSession::onlyTrashed()
             ->with(['course', 'trainer', 'agency'])
-            ->withCount('enrollments');
+            ->withCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')]);
 
         $this->scopeQuery($request, $query);
 

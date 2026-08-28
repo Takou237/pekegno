@@ -1,21 +1,20 @@
-export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
+export type AttendanceStatus = 'present' | 'absent';
 
-export interface Attendance {
-  id: string;
-  training_session_id: string;
-  enrollment_id: string;
-  status: AttendanceStatus;
-  recorded_by: string | null;
-  recorded_at: string | null;
-  created_at: string;
-  enrollment?: {
+export interface AttendanceRosterItem {
+  formation_enrollment_id: string;
+  learner_user_id: string;
+  learner: {
     id: string;
-    learner?: { id: string; first_name: string; last_name: string; name?: string };
-  };
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+  } | null;
+  status: AttendanceStatus;
+  recorded_at: string | null;
 }
 
 export interface AttendanceBulkItem {
-  enrollment_id: string;
+  learner_user_id: string;
   status: AttendanceStatus;
 }
 
@@ -26,8 +25,6 @@ export function attendanceStatusLabel(
   switch (status) {
     case 'present': return t('attendance.present');
     case 'absent': return t('attendance.absent');
-    case 'late': return t('attendance.late');
-    case 'excused': return t('attendance.excused');
     default: return status;
   }
 }

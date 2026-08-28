@@ -307,7 +307,6 @@ class LearnerController extends Controller
                 ? trim(($session->trainer->first_name ?? '').' '.($session->trainer->last_name ?? ''))
                 : null,
             'start_at' => $session?->start_at?->toISOString(),
-            'location' => $session?->location,
             'status' => $enrollment->status,
             'attendance' => $enrollment->attendance,
         ];

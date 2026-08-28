@@ -89,7 +89,6 @@ function SessionTable({
               <tr>
                 <th className="pb-2 pr-4 font-medium">{t('nav.courses')}</th>
                 <th className="pb-2 pr-4 font-medium">{t('academy.sessionDate')}</th>
-                <th className="pb-2 pr-4 font-medium">{t('academy.location')}</th>
                 <th className="pb-2 pr-4 font-medium">{t('academy.enrollmentsCount')}</th>
                 <th className="pb-2 font-medium">{t('common.status')}</th>
               </tr>
@@ -105,9 +104,6 @@ function SessionTable({
                       dateStyle: 'short',
                       timeStyle: 'short',
                     })}
-                  </td>
-                  <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
-                    {session.location ?? '—'}
                   </td>
                   <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                     {session.enrollments_count}

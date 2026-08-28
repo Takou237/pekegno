@@ -10,7 +10,6 @@ import {
   CalendarDays,
   UserCheck,
   TrendingUp,
-  MapPin,
   Clock,
 } from 'lucide-react';
 import { client } from '@/api/client';
@@ -33,7 +32,6 @@ interface OverviewSession {
   status: 'planned' | 'ongoing' | 'completed' | 'cancelled';
   course?: { name?: string; mode?: string } | null;
   trainer?: { first_name?: string; last_name?: string } | null;
-  location?: string | null;
   max_capacity?: number;
   enrollments_count?: number;
 }
@@ -382,12 +380,6 @@ export default function DepartmentOverviewPage() {
                         minute: '2-digit',
                       })}
                     </span>
-                    {s.location && (
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {s.location}
-                      </span>
-                    )}
                     {trainer && <span className="flex items-center gap-1.5">{trainer}</span>}
                     <span>
                       {t('academy.enrollmentsCount')} : {s.enrollments_count ?? 0}

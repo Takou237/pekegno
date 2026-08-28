@@ -1793,7 +1793,6 @@ export default {
     startAt: 'Start',
     endAt: 'End',
     maxCapacity: 'Max capacity',
-    location: 'Location',
     sessionPriceHint: 'If price is empty, the course price is used.',
     newLearner: 'New learner',
     newEnrollment: 'New enrollment',
@@ -2037,8 +2036,6 @@ export default {
     noEnrollments: 'No enrollments for this session.',
     present: 'Present',
     absent: 'Absent',
-    late: 'Late',
-    excused: 'Excused',
   },
 
   certificates: {

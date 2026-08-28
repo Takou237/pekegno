@@ -8,7 +8,6 @@ import {
   DollarSign,
   TrendingUp,
   UserCheck,
-  MapPin,
   Clock,
   GraduationCap,
   Percent,
@@ -78,7 +77,6 @@ interface SessionRow {
   status: 'planned' | 'ongoing' | 'completed' | 'cancelled';
   course?: { mode: 'online' | 'in_person' | 'mixed'; price?: number; name?: string } | null;
   trainer?: { first_name?: string; last_name?: string } | null;
-  location?: string | null;
   max_capacity?: number;
   enrollments_count?: number;
 }
@@ -601,12 +599,6 @@ export default function AcademyReportsPage() {
                             minute: '2-digit',
                           })}
                         </span>
-                        {s.location && (
-                          <span className="flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {s.location}
-                          </span>
-                        )}
                         {trainer && <span className="flex items-center gap-1.5">{trainer}</span>}
                         <span>
                           {t('academy.enrollmentsCount')} : {s.enrollments_count ?? 0}

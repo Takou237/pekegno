@@ -173,7 +173,6 @@ export interface TrainingSession {
   agency?: { id: string; name: string; code: string } | null;
   start_at: string;
   end_at: string | null;
-  location: string | null;
   max_capacity: number | null;
   price: number | null;
   effective_price?: number | null;
@@ -190,7 +189,6 @@ export interface SessionPayload {
   agency_id?: string | null;
   start_at: string;
   end_at?: string | null;
-  location?: string | null;
   max_capacity?: number | null;
   price?: number | null;
   status?: SessionStatus;
@@ -201,7 +199,6 @@ export interface TrainerSessionItem {
   course?: { id: string; name: string; code: string } | null;
   agency?: { id: string; name: string } | null;
   start_at: string;
-  location: string | null;
   status: SessionStatus;
   enrollments_count: number;
 }
@@ -248,7 +245,6 @@ export interface LearnerEnrollmentItem {
   course?: { id: string; name: string; code: string } | null;
   trainer?: string | null;
   start_at: string | null;
-  location: string | null;
   status: Enrollment['status'];
   attendance: boolean;
 }

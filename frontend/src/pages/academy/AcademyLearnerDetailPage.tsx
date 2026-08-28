@@ -90,7 +90,6 @@ function EnrollmentTable({
                 <th className="pb-2 pr-4 font-medium">{t('nav.courses')}</th>
                 <th className="pb-2 pr-4 font-medium">{t('nav.trainers')}</th>
                 <th className="pb-2 pr-4 font-medium">{t('academy.sessionDate')}</th>
-                <th className="pb-2 pr-4 font-medium">{t('academy.location')}</th>
                 <th className="pb-2 font-medium">{t('common.status')}</th>
               </tr>
             </thead>
@@ -110,9 +109,6 @@ function EnrollmentTable({
                           timeStyle: 'short',
                         })
                       : '—'}
-                  </td>
-                  <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
-                    {item.location ?? '—'}
                   </td>
                   <td className="py-2.5">{statusBadge(item.status)}</td>
                 </tr>

@@ -20,7 +20,6 @@ class TrainingSession extends Model
         'agency_id',
         'start_at',
         'end_at',
-        'location',
         'max_capacity',
         'price',
         'status',
@@ -67,6 +66,19 @@ class TrainingSession extends Model
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class, 'session_id');
+    }
+
+    /**
+     * Inscrits à la formation (cours) à laquelle appartient la session.
+     */
+    public function formationEnrollments(): HasMany
+    {
+        return $this->hasMany(FormationEnrollment::class, 'course_id', 'course_id');
+    }
+
+    public function scopedFormationEnrollments(): HasMany
+    {
+        return $this->formationEnrollments()->whereNot('status', 'cancelled');
     }
 
     /**

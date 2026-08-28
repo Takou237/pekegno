@@ -5,8 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreTrainerRequest;
 use App\Http\Requests\Api\UpdateTrainerRequest;
+use App\Models\Attendance;
 use App\Models\CourseModule;
-use App\Models\Enrollment;
+use App\Models\FormationEnrollment;
 use App\Models\Trainer;
 use App\Models\User;
 use App\Services\ScopeService;
@@ -307,25 +308,36 @@ class TrainerController extends Controller
         $sessions = $this->scopedSessions($request, $trainer)->with('course')->get();
 
         $sessionIds = $sessions->pluck('id');
+        $courseIds = $sessions->pluck('course_id')->filter()->unique()->values();
 
-        $enrollments = $sessionIds->isNotEmpty()
-            ? Enrollment::whereIn('session_id', $sessionIds)->get()
+        $enrollments = $courseIds->isNotEmpty()
+            ? FormationEnrollment::whereIn('course_id', $courseIds)->get()
             : collect();
 
-        $enrolled = $enrollments->where('status', 'enrolled')->count();
+        $enrolled = $enrollments->whereNot('status', 'cancelled')->count();
         $completed = $enrollments->where('status', 'completed')->count();
         $cancelled = $enrollments->where('status', 'cancelled')->count();
-        $present = $enrollments->where('attendance', true)->count();
+        $present = $sessionIds->isNotEmpty()
+            ? Attendance::whereIn('training_session_id', $sessionIds)
+                ->where('status', Attendance::STATUS_PRESENT)
+                ->count()
+            : 0;
 
-        // Revenus potentiels : inscrits (non annulés) × prix effectif de chaque session.
+        // Revenus potentiels : inscrits (non annulés) au cours × prix effectif de chaque session.
         $revenue = $sessions->sum(function ($session) use ($enrollments) {
             $count = $enrollments
-                ->where('session_id', $session->id)
-                ->whereIn('status', ['enrolled', 'completed'])
+                ->where('course_id', $session->course_id)
+                ->whereNot('status', 'cancelled')
                 ->count();
 
             return $count * $session->effective_price;
         });
+
+        // Présences attendues : un apprenant inscrit est attendu à chaque session de son cours.
+        $expectedPresences = $sessions->sum(fn ($session) => $enrollments
+            ->where('course_id', $session->course_id)
+            ->whereNot('status', 'cancelled')
+            ->count());
 
         // Heures enseignées : durée du cours des sessions terminées ou en cours.
         $hoursTaught = $sessions
@@ -341,14 +353,14 @@ class TrainerController extends Controller
 
         $recentSessions = $this->scopedSessions($request, $trainer)
             ->with(['course', 'agency'])
-            ->withCount('enrollments')
+            ->withCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->orderByDesc('start_at')
             ->limit(5)
             ->get();
 
         $upcomingSessions = $this->scopedSessions($request, $trainer)
             ->with(['course', 'agency'])
-            ->withCount('enrollments')
+            ->withCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->whereIn('status', ['planned', 'ongoing'])
             ->where('start_at', '>=', now())
             ->orderBy('start_at')
@@ -383,11 +395,11 @@ class TrainerController extends Controller
                 'enrollments_cancelled' => $cancelled,
                 'learners_unique' => $enrollments->pluck('learner_user_id')->unique()->count(),
                 'attendance_count' => $present,
-                'attendance_rate' => $enrolled + $completed > 0
-                    ? round($present / ($enrolled + $completed) * 100, 1)
+                'attendance_rate' => $expectedPresences > 0
+                    ? round($present / $expectedPresences * 100, 1)
                     : 0.0,
-                'completion_rate' => $enrollments->count() > 0
-                    ? round($completed / $enrollments->count() * 100, 1)
+                'completion_rate' => $enrolled > 0
+                    ? round($completed / $enrolled * 100, 1)
                     : 0.0,
                 'potential_revenue' => round($revenue, 2),
                 'hours_taught' => round($hoursTaught, 1),
@@ -417,7 +429,6 @@ class TrainerController extends Controller
                 'name' => $session->agency?->name,
             ],
             'start_at' => $session->start_at?->toISOString(),
-            'location' => $session->location,
             'status' => $session->status,
             'enrollments_count' => $session->enrollments_count ?? $session->enrollments()->count(),
         ];

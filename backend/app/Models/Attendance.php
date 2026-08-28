@@ -14,19 +14,15 @@ class Attendance extends Model
 
     public const STATUS_PRESENT = 'present';
     public const STATUS_ABSENT = 'absent';
-    public const STATUS_LATE = 'late';
-    public const STATUS_EXCUSED = 'excused';
 
     public const STATUSES = [
         self::STATUS_PRESENT,
         self::STATUS_ABSENT,
-        self::STATUS_LATE,
-        self::STATUS_EXCUSED,
     ];
 
     protected $fillable = [
         'training_session_id',
-        'enrollment_id',
+        'learner_user_id',
         'status',
         'recorded_by',
         'recorded_at',
@@ -44,9 +40,9 @@ class Attendance extends Model
         return $this->belongsTo(TrainingSession::class);
     }
 
-    public function enrollment(): BelongsTo
+    public function learner(): BelongsTo
     {
-        return $this->belongsTo(Enrollment::class);
+        return $this->belongsTo(User::class, 'learner_user_id');
     }
 
     public function recorder(): BelongsTo

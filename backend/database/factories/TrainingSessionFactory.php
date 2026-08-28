@@ -19,7 +19,6 @@ class TrainingSessionFactory extends Factory
             'agency_id' => null,
             'start_at' => now()->addWeek(),
             'end_at' => now()->addWeek()->addHours(fake()->numberBetween(2, 8)),
-            'location' => fake()->optional()->city(),
             'max_capacity' => fake()->numberBetween(5, 50),
             'price' => null,
             'status' => 'planned',

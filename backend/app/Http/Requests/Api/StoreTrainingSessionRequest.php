@@ -22,7 +22,6 @@ class StoreTrainingSessionRequest extends FormRequest
             'agency_id' => ['sometimes', 'nullable', 'string', Rule::exists('agencies', 'id')->whereNull('deleted_at')],
             'start_at' => ['required', 'date'],
             'end_at' => ['sometimes', 'nullable', 'date', 'after:start_at'],
-            'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'max_capacity' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'status' => ['sometimes', 'string', Rule::in(['planned', 'ongoing', 'completed', 'cancelled'])],

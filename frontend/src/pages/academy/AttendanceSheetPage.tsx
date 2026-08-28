@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Save, ArrowLeft, Download, MapPin, User } from 'lucide-react';
+import { Save, ArrowLeft, Download, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { client } from '@/api/client';
 import { attendancesApi } from '@/api/attendances.api';
@@ -8,21 +8,18 @@ import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
-import { attendanceStatusLabel, type AttendanceStatus, type Attendance } from '@/types/attendance';
+import {
+  attendanceStatusLabel,
+  type AttendanceRosterItem,
+  type AttendanceStatus,
+} from '@/types/attendance';
 import type { TrainingSession } from '@/api/academy.api';
 
-interface EnrollmentRow {
-  id: string;
-  learnerName: string;
-}
-
-const STATUSES: AttendanceStatus[] = ['present', 'absent', 'late', 'excused'];
+const STATUSES: AttendanceStatus[] = ['present', 'absent'];
 
 const STATUS_COLORS: Record<AttendanceStatus, string> = {
   present: 'text-green-600 dark:text-green-400',
   absent: 'text-red-600 dark:text-red-400',
-  late: 'text-amber-600 dark:text-amber-400',
-  excused: 'text-blue-600 dark:text-blue-400',
 };
 
 export default function AttendanceSheetPage() {
@@ -31,7 +28,7 @@ export default function AttendanceSheetPage() {
   const { showToast } = useToast();
 
   const [session, setSession] = useState<TrainingSession | null>(null);
-  const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
+  const [roster, setRoster] = useState<AttendanceRosterItem[]>([]);
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -42,33 +39,18 @@ export default function AttendanceSheetPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [sessionRes, enrollmentsRes, attendancesRes] = await Promise.all([
+      const [sessionRes, attendances] = await Promise.all([
         client.get(`/training-sessions/${sessionId}`),
-        client.get('/enrollments', { params: { session_id: sessionId, per_page: 100 } }),
-        attendancesApi.list(sessionId).catch(() => [] as Attendance[]),
+        attendancesApi.list(sessionId),
       ]);
 
       const sessionData: TrainingSession = sessionRes.data.data ?? sessionRes.data;
       setSession(sessionData);
-
-      const enrollmentRows: EnrollmentRow[] = (enrollmentsRes.data.data ?? enrollmentsRes.data).map(
-        (e: { id: string; learner?: { first_name: string; last_name: string } }) => ({
-          id: e.id,
-          learnerName: e.learner
-            ? [e.learner.first_name, e.learner.last_name].filter(Boolean).join(' ') || '—'
-            : '—',
-        }),
-      );
-      setEnrollments(enrollmentRows);
-
-      const existingMap: Record<string, AttendanceStatus> = {};
-      for (const att of attendancesRes) {
-        existingMap[att.enrollment_id] = att.status;
-      }
+      setRoster(attendances);
 
       const initial: Record<string, AttendanceStatus> = {};
-      for (const enr of enrollmentRows) {
-        initial[enr.id] = existingMap[enr.id] ?? 'present';
+      for (const item of attendances) {
+        initial[item.learner_user_id] = item.status === 'absent' ? 'absent' : 'present';
       }
       setRecords(initial);
     } catch (error) {
@@ -82,14 +64,14 @@ export default function AttendanceSheetPage() {
     loadData();
   }, [loadData]);
 
-  function setStatus(enrollmentId: string, status: AttendanceStatus) {
-    setRecords((prev) => ({ ...prev, [enrollmentId]: status }));
+  function setStatus(learnerUserId: string, status: AttendanceStatus) {
+    setRecords((prev) => ({ ...prev, [learnerUserId]: status }));
   }
 
   function setAll(status: AttendanceStatus) {
     const next: Record<string, AttendanceStatus> = {};
-    for (const enr of enrollments) {
-      next[enr.id] = status;
+    for (const item of roster) {
+      next[item.learner_user_id] = status;
     }
     setRecords(next);
   }
@@ -98,9 +80,9 @@ export default function AttendanceSheetPage() {
     if (!sessionId) return;
     setSaving(true);
     try {
-      const items = Object.entries(records).map(([enrollment_id, status]) => ({
-        enrollment_id,
-        status,
+      const items = roster.map((item) => ({
+        learner_user_id: item.learner_user_id,
+        status: records[item.learner_user_id] ?? (item.status === 'absent' ? 'absent' : 'present'),
       }));
       await attendancesApi.bulkUpdate(sessionId, items);
       showToast(t('common.saved'), 'success');
@@ -113,7 +95,7 @@ export default function AttendanceSheetPage() {
   }
 
   const presentCount = Object.values(records).filter((s) => s === 'present').length;
-  const totalCount = enrollments.length;
+  const totalCount = roster.length;
   const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
   function handleExport() {
@@ -121,9 +103,9 @@ export default function AttendanceSheetPage() {
     const statusLabelMap = (s: AttendanceStatus) => attendanceStatusLabel(s, t);
     const rows = [
       [t('nav.learners'), ...STATUSES.map(statusLabelMap)],
-      ...enrollments.map((enr) => [
-        enr.learnerName,
-        ...STATUSES.map((s) => (records[enr.id] === s ? 'X' : '')),
+      ...roster.map((item) => [
+        item.learner ? [item.learner.first_name, item.learner.last_name].filter(Boolean).join(' ') : '—',
+        ...STATUSES.map((s) => (records[item.learner_user_id] === s ? 'X' : '')),
       ]),
     ];
     const csv = rows
@@ -177,12 +159,6 @@ export default function AttendanceSheetPage() {
                 {[session.trainer.first_name, session.trainer.last_name].filter(Boolean).join(' ') || session.trainer.email}
               </span>
             )}
-            {session.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                {session.location}
-              </span>
-            )}
             {session.end_at && (
               <span>
                 {t('academy.endAt')}: {new Date(session.end_at).toLocaleString()}
@@ -191,7 +167,7 @@ export default function AttendanceSheetPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport} disabled={enrollments.length === 0}>
+          <Button variant="outline" onClick={handleExport} disabled={roster.length === 0}>
             <Download className="h-4 w-4" />
             {t('common.export')}
           </Button>
@@ -232,7 +208,7 @@ export default function AttendanceSheetPage() {
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-        {enrollments.length === 0 ? (
+        {roster.length === 0 ? (
           <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('academy.noEnrollments')}</p>
         ) : (
           <div className="overflow-x-auto">
@@ -248,18 +224,18 @@ export default function AttendanceSheetPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {enrollments.map((enr) => (
-                  <tr key={enr.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                {roster.map((item) => (
+                  <tr key={item.learner_user_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
-                      {enr.learnerName}
+                      {item.learner ? [item.learner.first_name, item.learner.last_name].filter(Boolean).join(' ') || '—' : '—'}
                     </td>
                     {STATUSES.map((s) => (
                       <td key={s} className="px-5 py-3 text-center">
                         <input
                           type="radio"
-                          name={`att-${enr.id}`}
-                          checked={records[enr.id] === s}
-                          onChange={() => setStatus(enr.id, s)}
+                          name={`att-${item.learner_user_id}`}
+                          checked={records[item.learner_user_id] === s}
+                          onChange={() => setStatus(item.learner_user_id, s)}
                           className={`h-4 w-4 accent-current ${STATUS_COLORS[s]}`}
                         />
                       </td>

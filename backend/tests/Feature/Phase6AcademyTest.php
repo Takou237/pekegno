@@ -216,7 +216,6 @@ class Phase6AcademyTest extends TestCase
             'trainer_user_id' => $trainer->id,
             'start_at' => now()->addDays(7)->toISOString(),
             'end_at' => now()->addDays(7)->addHours(4)->toISOString(),
-            'location' => 'Salle 1',
             'max_capacity' => 15,
             'status' => 'planned',
         ])->assertStatus(201)

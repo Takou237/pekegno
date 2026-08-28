@@ -35,12 +35,11 @@ class TrainingSessionResource extends JsonResource
             ]),
             'start_at' => $this->start_at?->toISOString(),
             'end_at' => $this->end_at?->toISOString(),
-            'location' => $this->location,
             'max_capacity' => $this->max_capacity,
             'price' => $this->price !== null ? (float) $this->price : null,
             'effective_price' => $this->effective_price,
             'status' => $this->status,
-            'enrollments_count' => $this->whenCounted('enrollments'),
+            'enrollments_count' => $this->enrollments_count ?? null,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

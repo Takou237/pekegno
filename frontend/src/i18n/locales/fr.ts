@@ -1801,7 +1801,6 @@ export default {
     startAt: 'Début',
     endAt: 'Fin',
     maxCapacity: 'Capacité max',
-    location: 'Lieu',
     sessionPriceHint: 'Si le prix est vide, le prix de la formation est utilisé.',
     newLearner: 'Nouvel apprenant',
     newEnrollment: 'Nouvelle inscription',
@@ -2045,8 +2044,6 @@ export default {
     noEnrollments: 'Aucun inscrit pour cette session.',
     present: 'Présent',
     absent: 'Absent',
-    late: 'En retard',
-    excused: 'Excusé',
   },
 
   certificates: {
