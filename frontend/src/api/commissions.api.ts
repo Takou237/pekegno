@@ -1,5 +1,8 @@
 import { client } from './client';
 import type {
+  CommissionBeneficiarySummary,
+  CommissionPayment,
+  CommissionPaymentPayload,
   CommissionRule,
   CommissionRulePayload,
   CommissionEntry,
@@ -42,5 +45,13 @@ export const commissionsApi = {
 
   cancelEntry(id: string): Promise<CommissionEntry> {
     return client.post(`/commissions/entries/${id}/cancel`).then((r) => r.data);
+  },
+
+  summaryBeneficiaries(params?: { agency_id?: string; search?: string }): Promise<CommissionBeneficiarySummary> {
+    return client.get('/commission-payments/summary', { params }).then((r) => r.data);
+  },
+
+  payCommission(payload: CommissionPaymentPayload): Promise<CommissionPayment> {
+    return client.post('/commission-payments', payload).then((r) => r.data);
   },
 };

@@ -99,6 +99,7 @@ const AcademyReceivablesPage = lazy(() => import('@/pages/academy/AcademyReceiva
 const AcademyReportsPage = lazy(() => import('@/pages/academy/AcademyReportsPage'));
 const AcademyPlanningPage = lazy(() => import('@/pages/academy/AcademyPlanningPage'));
 const AcademyInvoicesPage = lazy(() => import('@/pages/academy/AcademyInvoicesPage'));
+const AcademyCommissionsPage = lazy(() => import('@/pages/academy/AcademyCommissionsPage'));
 const ContractListPage = lazy(() => import('@/pages/agency/ContractListPage'));
 const ContractDetailPage = lazy(() => import('@/pages/agency/ContractDetailPage'));
 const RenewalsPage = lazy(() => import('@/pages/agency/RenewalsPage'));
@@ -252,6 +253,7 @@ export const router = createBrowserRouter([
           { path: 'presences', element: page(<AcademySessionsPage />, table) },
           { path: 'invoices', element: page(<AcademyInvoicesPage />, table) },
           { path: 'payments', element: page(<SellerProfilesPage />, table) },
+          { path: 'commissions', element: page(<AcademyCommissionsPage />, table) },
           { path: 'receivables', element: page(<AcademyReceivablesPage />, table) },
           { path: 'certificates', element: page(<CertificateListPage />, table) },
           { path: 'reports', element: page(<AcademyReportsPage />, table) },

@@ -348,6 +348,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/commissions/entries/{entry}/validate', [CommissionController::class, 'validateEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/entries/{entry}/pay', [CommissionController::class, 'payEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/entries/{entry}/cancel', [CommissionController::class, 'cancelEntry'])->middleware('permission:commissions.valider');
+Route::get('/commission-payments/summary', [CommissionController::class, 'summary'])->middleware('permission:commissions.consulter');
+Route::post('/commission-payments', [CommissionController::class, 'storePayment'])->middleware('permission:commissions.valider');
 
     // === Sprint 4 : CRM — Entreprises ===
     Route::get('/companies/search', [CompanyController::class, 'search'])->middleware('permission:entreprises.consulter');

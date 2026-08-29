@@ -38,10 +38,12 @@ class CommissionRule extends Model
         'version',
         'name',
         'beneficiary_commercial_id',
+        'beneficiary_seller_profile_id',
         'scope_country_id',
         'scope_agency_id',
         'scope_department_id',
         'service_id',
+        'course_id',
         'trigger_event',
         'formula_type',
         'percent_value',
@@ -69,6 +71,16 @@ class CommissionRule extends Model
     public function beneficiary(): BelongsTo
     {
         return $this->belongsTo(Commercial::class, 'beneficiary_commercial_id');
+    }
+
+    public function sellerProfile(): BelongsTo
+    {
+        return $this->belongsTo(SellerProfile::class, 'beneficiary_seller_profile_id');
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     public function scopeCountry(): BelongsTo
@@ -154,10 +166,12 @@ class CommissionRule extends Model
             'version' => $this->version,
             'name' => $this->name,
             'beneficiary_commercial_id' => $this->beneficiary_commercial_id,
+            'beneficiary_seller_profile_id' => $this->beneficiary_seller_profile_id,
             'scope_country_id' => $this->scope_country_id,
             'scope_agency_id' => $this->scope_agency_id,
             'scope_department_id' => $this->scope_department_id,
             'service_id' => $this->service_id,
+            'course_id' => $this->course_id,
             'trigger_event' => $this->trigger_event,
             'formula_type' => $this->formula_type,
             'percent_value' => $this->percent_value,

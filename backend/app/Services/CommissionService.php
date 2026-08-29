@@ -9,6 +9,7 @@ use App\Models\CommissionRule;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
+use App\Models\FormationEnrollment;
 use Illuminate\Support\Facades\DB;
 
 class CommissionService
@@ -135,9 +136,10 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
         $count = 0;
 
         foreach ($rules as $rule) {
-            $beneficiaryId = $rule->beneficiary_commercial_id ?? $invoice->commercial_id;
+            $sellerProfileId = $rule->beneficiary_seller_profile_id;
+            $beneficiaryId = $sellerProfileId ? null : ($rule->beneficiary_commercial_id ?? $invoice->commercial_id);
 
-            if (! $beneficiaryId) {
+            if (! $sellerProfileId && ! $beneficiaryId) {
                 continue;
             }
 
@@ -154,16 +156,34 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
                 continue;
             }
 
-            CommissionEntry::create([
+            $entryData = [
                 'invoice_id' => $invoice->id,
                 'invoice_payment_id' => $payment->id,
                 'commission_rule_id' => $rule->id,
                 'rule_snapshot' => $rule->snapshot(),
-                'beneficiary_commercial_id' => $beneficiaryId,
                 'base_amount' => $base,
                 'amount' => $amount,
                 'status' => CommissionEntry::STATUS_CALCULATED,
-            ]);
+            ];
+
+            if ($sellerProfileId) {
+                $entryData['seller_profile_id'] = $sellerProfileId;
+                $entryData['beneficiary_commercial_id'] = null;
+            } else {
+                $entryData['beneficiary_commercial_id'] = $beneficiaryId;
+            }
+
+            if ($rule->course_id) {
+                $entryData['category'] = 'training';
+                $entryData['product_id'] = $rule->course_id;
+                $entryData['product_type'] = 'course';
+            } elseif ($rule->service_id) {
+                $entryData['category'] = 'service';
+                $entryData['product_id'] = $rule->service_id;
+                $entryData['product_type'] = 'service';
+            }
+
+            CommissionEntry::create($entryData);
 
             $count++;
 
@@ -200,6 +220,12 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
             return false;
         }
 
+        if ($rule->course_id && ! FormationEnrollment::where('invoice_id', $invoice->id)
+            ->where('course_id', $rule->course_id)
+            ->exists()) {
+            return false;
+        }
+
         return true;
     }
 
@@ -219,7 +245,12 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
 
     private function baseForRule(CommissionRule $rule, Invoice $invoice, float $paidAmount): float
     {
-        if (! $rule->service_id) {
+        if (! $rule->service_id && ! $rule->course_id) {
+            return $paidAmount;
+        }
+
+        if ($rule->course_id) {
+            // Facture d'inscription à une formation : la ligne est liée via formation_enrollments.
             return $paidAmount;
         }
 

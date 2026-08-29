@@ -166,6 +166,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: 'presences', label: t('nav.presences'), icon: ClipboardList, end: false },
         { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
         { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
+        { to: 'commissions', label: t('nav.commissions'), icon: CircleDollarSign, end: false },
         { to: 'certificates', label: t('nav.certificates'), icon: FileText, end: false },
         { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
         { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },

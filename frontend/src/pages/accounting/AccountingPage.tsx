@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { Plus, Download, Pencil, Trash2, Tag } from 'lucide-react';
+import { Plus, Download, Pencil, Trash2, Tag, Banknote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { accountingApi } from '@/api/accounting.api';
+import { commissionsApi } from '@/api/commissions.api';
+import { treasuryApi } from '@/api/treasury.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,6 +22,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import type { AccountingTransaction, AccountingCategory, AccountingType, AccountingTransactionPayload } from '@/types/accounting';
+import type { CommissionBeneficiary } from '@/types/commissions';
+import type { TreasuryAccount } from '@/types/treasury';
 import type { PaginationMeta } from '@/types/agency';
 
 export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
@@ -68,6 +72,14 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
   const [deleteTarget, setDeleteTarget] = useState<AccountingTransaction | null>(null);
   const [deleteCatTarget, setDeleteCatTarget] = useState<AccountingCategory | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  const [payOpen, setPayOpen] = useState(false);
+  const [payBeneficiaries, setPayBeneficiaries] = useState<CommissionBeneficiary[]>([]);
+  const [payLoading, setPayLoading] = useState(false);
+  const [payForm, setPayForm] = useState({ beneficiary_id: '', amount: '', treasury_account_id: '', note: '' });
+  const [payErrors, setPayErrors] = useState<Record<string, string>>({});
+  const [paySubmitting, setPaySubmitting] = useState(false);
+  const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
 
   const canManage = ['super-admin', 'direction-generale', 'responsable-agence', 'comptable'].includes(
     currentUser?.role?.name ?? ''
@@ -257,6 +269,54 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
     }
   }
 
+  function openPayModal() {
+    setPayForm({ beneficiary_id: '', amount: '', treasury_account_id: '', note: '' });
+    setPayErrors({});
+    setPayOpen(true);
+    setPayLoading(true);
+    setPayBeneficiaries([]);
+    setTreasuryAccounts([]);
+    commissionsApi
+      .summaryBeneficiaries({ agency_id: agencyId || undefined })
+      .then((res) => setPayBeneficiaries(res.data ?? []))
+      .catch(() => setPayBeneficiaries([]))
+      .finally(() => setPayLoading(false));
+    treasuryApi
+      .listAccounts({ agency_id: agencyId || undefined })
+      .then(setTreasuryAccounts)
+      .catch(() => setTreasuryAccounts([]));
+  }
+
+  const payableBeneficiaries = payBeneficiaries.filter((b) => Number(b.balance ?? 0) > 0);
+
+  function selectedBeneficiary(): CommissionBeneficiary | undefined {
+    return payableBeneficiaries.find((b) => b.id === payForm.beneficiary_id);
+  }
+
+  async function handlePayCommission(event: FormEvent) {
+    event.preventDefault();
+    setPaySubmitting(true);
+    setPayErrors({});
+    try {
+      const beneficiary = selectedBeneficiary();
+      if (!beneficiary) throw new Error(t('accounting.selectBeneficiary'));
+      await commissionsApi.payCommission({
+        beneficiary_type: beneficiary.type,
+        beneficiary_id: beneficiary.id,
+        amount: Number(payForm.amount),
+        treasury_account_id: payForm.treasury_account_id,
+        note: payForm.note.trim() || undefined,
+      });
+      showToast(t('accounting.commissionPaid'), 'success');
+      setPayOpen(false);
+      fetchTransactions();
+    } catch (error) {
+      setPayErrors({ general: extractErrorMessage(error, t('accounting.commissionPaymentFailed')) });
+    } finally {
+      setPaySubmitting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -276,6 +336,10 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
               <Button variant="outline" onClick={openCreateCat}>
                 <Tag className="h-4 w-4" />
                 {t('accounting.newCategory')}
+              </Button>
+              <Button variant="outline" onClick={openPayModal}>
+                <Banknote className="h-4 w-4" />
+                {t('accounting.payCommission')}
               </Button>
               <Button onClick={openCreateTx}>
                 <Plus className="h-4 w-4" />
@@ -437,6 +501,59 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setCatOpen(false)} className="flex-1">{t('common.cancel')}</Button>
             <Button type="submit" isLoading={catSubmitting} className="flex-1">{t('common.save')}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={payOpen} onClose={() => setPayOpen(false)} title={t('accounting.payCommission')} maxWidth="max-w-lg">
+        <form onSubmit={handlePayCommission} className="flex flex-col gap-4">
+          <p className="-mt-2 text-sm text-gray-500 dark:text-gray-400">{t('accounting.payCommissionSubtitle')}</p>
+          {payErrors.general && <Alert variant="error">{payErrors.general}</Alert>}
+
+          <Select label={`${t('accounting.selectBeneficiary')} *`} required value={payForm.beneficiary_id} onChange={(e) => setPayForm((f) => ({ ...f, beneficiary_id: e.target.value }))} error={payErrors.beneficiary_id}>
+            <option value=""></option>
+            {payableBeneficiaries.map((b) => (
+              <option key={`${b.type}-${b.id}`} value={b.id}>
+                {b.name} — {formatCurrency(Number(b.balance ?? 0))}
+              </option>
+            ))}
+          </Select>
+
+          {selectedBeneficiary() && (
+            <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+              <span>{t('accounting.beneficiaryBalance')}</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(Number(selectedBeneficiary()?.balance ?? 0))}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label={`${t('common.amount')} *`}
+              type="number" min="0.01"
+              max={selectedBeneficiary() ? Number(selectedBeneficiary()?.balance) || undefined : undefined}
+              step="0.01" required
+              value={payForm.amount}
+              onChange={(e) => setPayForm((f) => ({ ...f, amount: e.target.value }))}
+              error={payErrors.amount}
+            />
+            <Select label={`${t('treasury.account')} *`} required value={payForm.treasury_account_id} onChange={(e) => setPayForm((f) => ({ ...f, treasury_account_id: e.target.value }))} error={payErrors.treasury_account_id}>
+              <option value=""></option>
+              {treasuryAccounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>{acc.name} ({formatCurrency(acc.balance)})</option>
+              ))}
+            </Select>
+          </div>
+
+          <Input label={t('accounting.colNote')} value={payForm.note} onChange={(e) => setPayForm((f) => ({ ...f, note: e.target.value }))} />
+
+          {payLoading && <p className="text-center text-xs text-gray-400">{t('common.loading')}</p>}
+          {!payLoading && payableBeneficiaries.length === 0 && (
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400">{t('accounting.noPayableBeneficiaries')}</p>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setPayOpen(false)} disabled={paySubmitting} className="flex-1">{t('common.cancel')}</Button>
+            <Button type="submit" isLoading={paySubmitting} className="flex-1">{t('accounting.payCommission')}</Button>
           </div>
         </form>
       </Modal>
