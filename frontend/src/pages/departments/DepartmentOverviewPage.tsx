@@ -8,6 +8,7 @@ import {
   Calendar,
   BookOpen,
   CalendarDays,
+  CalendarCheck,
   UserCheck,
   TrendingUp,
   Clock,
@@ -19,6 +20,10 @@ import {
   FileSignature,
   HandCoins,
   CalendarClock,
+  GraduationCap,
+  BarChart3,
+  ClipboardList,
+  type LucideIcon,
 } from 'lucide-react';
 import { client } from '@/api/client';
 import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
@@ -49,6 +54,13 @@ interface OverviewSession {
   enrollments_count?: number;
 }
 
+interface TopCourse {
+  id: string;
+  name: string;
+  sessions_count: number;
+  formation_enrollments_count: number;
+}
+
 interface TrainingReportResponse {
   data: Array<{
     report: {
@@ -72,8 +84,16 @@ interface BusinessOverview {
 interface OverviewCard {
   label: string;
   value: string | number;
-  icon: React.ElementType;
+  icon: LucideIcon;
   to?: string;
+  color: string;
+  bg: string;
+}
+
+interface QuickAction {
+  label: string;
+  to: string;
+  icon: LucideIcon;
   color: string;
   bg: string;
 }
@@ -84,6 +104,87 @@ function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   if (status === 'partial') return <Badge variant="warning">{t('invoices.statusPartial')}</Badge>;
   if (status === 'cancelled') return <Badge variant="error">{t('invoices.statusCancelled')}</Badge>;
   return <Badge variant="error">{t('invoices.statusUnpaid')}</Badge>;
+}
+
+function RecentInvoicesCard({ invoices, viewAllTo }: { invoices: Invoice[]; viewAllTo: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 xl:col-span-2">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          {t('dashboard.recentInvoices')}
+        </h2>
+        <Link
+          to={viewAllTo}
+          className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+        >
+          {t('agencies.overviewViewAll')}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+      {invoices.length === 0 ? (
+        <p className="mt-3 text-sm text-gray-400">{t('invoices.empty')}</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+              <tr>
+                <th className="pb-2 pr-4 font-medium">{t('invoices.colNumber')}</th>
+                <th className="pb-2 pr-4 font-medium">{t('invoices.colClient')}</th>
+                <th className="pb-2 pr-4 font-medium">{t('invoices.colDate')}</th>
+                <th className="pb-2 pr-4 text-right font-medium">{t('invoices.colTotal')}</th>
+                <th className="pb-2 text-right font-medium">{t('invoices.colStatus')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {invoices.map((inv) => (
+                <tr key={inv.id}>
+                  <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{inv.number}</td>
+                  <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
+                    {inv.client_label ?? inv.client?.client_number ?? inv.client_name ?? '—'}
+                  </td>
+                  <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
+                    {new Date(inv.invoice_date).toLocaleDateString(currentLocale())}
+                  </td>
+                  <td className="py-2.5 pr-4 text-right font-medium text-gray-800 dark:text-gray-100">
+                    {formatCurrency(inv.total_amount)}
+                  </td>
+                  <td className="py-2.5 text-right">
+                    <InvoiceStatusBadge status={inv.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuickActionsCard({ actions }: { actions: QuickAction[] }) {
+  const { t } = useTranslation();
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        {t('departments.quickActions')}
+      </h2>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        {actions.map(({ label, to, icon: Icon, color, bg }) => (
+          <Link
+            key={to}
+            to={to}
+            className="group flex flex-col items-center gap-2 rounded-xl border border-gray-100 p-3 text-center transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:hover:border-brand-500/40"
+          >
+            <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${bg} ${color}`}>
+              <Icon className="h-5 w-5" />
+            </span>
+            <span className="truncate text-xs font-medium text-gray-700 dark:text-gray-200">{label}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function DepartmentOverviewPage() {
@@ -98,6 +199,9 @@ export default function DepartmentOverviewPage() {
     learnersCount: number;
     enrollmentsCount: number;
     upcoming: OverviewSession[];
+    recentInvoices: Invoice[];
+    monthly: MonthlyRevenuePoint[];
+    topCourses: TopCourse[];
     isLoading: boolean;
   } | null>(null);
   const [business, setBusiness] = useState<BusinessOverview | null>(null);
@@ -134,6 +238,7 @@ export default function DepartmentOverviewPage() {
     }
     let outstanding = 0;
     let received = 0;
+    let recentInvoices: Invoice[] = [];
     try {
       const rows: { total_amount: string; amount_paid: string; status?: string }[] = [];
       let page = 1;
@@ -146,10 +251,11 @@ export default function DepartmentOverviewPage() {
           page,
         });
         const pag = res.invoices as unknown as {
-          data: { total_amount: string; amount_paid: string; status?: string }[];
+          data: Invoice[];
           last_page: number;
         };
-        rows.push(...pag.data);
+        if (page === 1) recentInvoices = pag.data.slice(0, 5);
+        rows.push(...(pag.data as { total_amount: string; amount_paid: string; status?: string }[]));
         last = pag.last_page;
         page += 1;
       } while (page <= last);
@@ -201,7 +307,25 @@ export default function DepartmentOverviewPage() {
     } catch {
       /* ignore */
     }
-    setAcademy({
+    let monthly: MonthlyRevenuePoint[] = [];
+    try {
+      monthly = await statsApi.monthlyRevenue({ months: 12, agencyId });
+    } catch {
+      /* ignore */
+    }
+    let topCourses: TopCourse[] = [];
+    try {
+      const res = await client.get<{ data: TopCourse[] }>('/courses', {
+        params: { agency_id: agencyId, per_page: 100 },
+      });
+      topCourses = res.data.data
+        .sort((a, b) => (b.formation_enrollments_count ?? 0) - (a.formation_enrollments_count ?? 0))
+        .slice(0, 5);
+    } catch {
+      /* ignore */
+    }
+    setAcademy((prev) => ({
+      ...(prev ?? { summary, avgAttendance: 0, outstanding: 0, received: 0, learnersCount: 0, enrollmentsCount: 0, upcoming: [], recentInvoices: [], monthly: [], topCourses: [], isLoading: false }),
       summary,
       avgAttendance: avg,
       outstanding,
@@ -209,8 +333,11 @@ export default function DepartmentOverviewPage() {
       learnersCount,
       enrollmentsCount,
       upcoming,
+      recentInvoices,
+      monthly,
+      topCourses,
       isLoading: false,
-    });
+    }));
   }, [isAcademy, agencyId]);
 
   const fetchBusiness = useCallback(async () => {
@@ -304,7 +431,7 @@ export default function DepartmentOverviewPage() {
       {
         label: t('reports.outstanding'),
         value: formatCurrency(academy.outstanding),
-        icon: TrendingUp,
+        icon: Clock,
         color: 'text-red-600 dark:text-red-400',
         bg: 'bg-red-50 dark:bg-red-500/10',
       },
@@ -402,7 +529,70 @@ export default function DepartmentOverviewPage() {
     [business, agencyCard, chiefCard, departmentId, t],
   );
 
-  const quickActions = useMemo(() => {
+  const academyQuickActions = useMemo<QuickAction[]>(() => {
+    if (!departmentId) return [];
+    const base = `/departments/${departmentId}`;
+    return [
+      {
+        label: t('nav.learners'),
+        to: `${base}/learners`,
+        icon: GraduationCap,
+        color: 'text-purple-600 dark:text-purple-400',
+        bg: 'bg-purple-50 dark:bg-purple-500/10',
+      },
+      {
+        label: t('nav.courses'),
+        to: `${base}/courses`,
+        icon: BookOpen,
+        color: 'text-blue-600 dark:text-blue-400',
+        bg: 'bg-blue-50 dark:bg-blue-500/10',
+      },
+      {
+        label: t('nav.sessions'),
+        to: `${base}/sessions`,
+        icon: CalendarDays,
+        color: 'text-indigo-600 dark:text-indigo-400',
+        bg: 'bg-indigo-50 dark:bg-indigo-500/10',
+      },
+      {
+        label: t('nav.planning'),
+        to: `${base}/planning`,
+        icon: CalendarCheck,
+        color: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-50 dark:bg-emerald-500/10',
+      },
+      {
+        label: t('nav.trainers'),
+        to: `${base}/trainers`,
+        icon: UserCheck,
+        color: 'text-cyan-600 dark:text-cyan-400',
+        bg: 'bg-cyan-50 dark:bg-cyan-500/10',
+      },
+      {
+        label: t('nav.presences'),
+        to: `${base}/presences`,
+        icon: ClipboardList,
+        color: 'text-sky-600 dark:text-sky-400',
+        bg: 'bg-sky-50 dark:bg-sky-500/10',
+      },
+      {
+        label: t('nav.invoices'),
+        to: `${base}/invoices`,
+        icon: Receipt,
+        color: 'text-amber-600 dark:text-amber-400',
+        bg: 'bg-amber-50 dark:bg-amber-500/10',
+      },
+      {
+        label: t('nav.reports'),
+        to: `${base}/reports`,
+        icon: BarChart3,
+        color: 'text-fuchsia-600 dark:text-fuchsia-400',
+        bg: 'bg-fuchsia-50 dark:bg-fuchsia-500/10',
+      },
+    ];
+  }, [departmentId, t]);
+
+  const businessQuickActions = useMemo<QuickAction[]>(() => {
     if (!departmentId) return [];
     const base = `/departments/${departmentId}`;
     return [
@@ -491,9 +681,64 @@ export default function DepartmentOverviewPage() {
       {isAcademy ? (
         academy && !academy.isLoading ? (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[...kpis, agencyCard, chiefCard].map(renderCard)}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {kpis.slice(0, 4).map(renderCard)}
             </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[...kpis.slice(4), agencyCard].map(renderCard)}
+            </div>
+
+            <MonthlyRevenueChart data={academy.monthly} />
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+              <RecentInvoicesCard
+                invoices={academy.recentInvoices}
+                viewAllTo={`/departments/${departmentId}/invoices`}
+              />
+              <QuickActionsCard actions={academyQuickActions} />
+            </div>
+
+            {academy.topCourses.length > 0 && (
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {t('reports.topCourses')}
+                  </h2>
+                  <Link
+                    to={`/departments/${departmentId}/courses`}
+                    className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+                  >
+                    {t('agencies.overviewViewAll')}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                      <tr>
+                        <th className="pb-2 pr-4 font-medium">{t('academy.courseName')}</th>
+                        <th className="pb-2 pr-4 text-right font-medium">{t('reports.totalSessions')}</th>
+                        <th className="pb-2 text-right font-medium">{t('reports.totalEnrollments')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {academy.topCourses.map((c) => (
+                        <tr key={c.id}>
+                          <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{c.name}</td>
+                          <td className="py-2.5 pr-4 text-right text-gray-600 dark:text-gray-300">
+                            {c.sessions_count}
+                          </td>
+                          <td className="py-2.5 text-right font-medium text-gray-800 dark:text-gray-100">
+                            {c.formation_enrollments_count ?? 0}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {academy.upcoming.length > 0 && (
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -552,80 +797,11 @@ export default function DepartmentOverviewPage() {
           <MonthlyRevenueChart data={business.monthly} />
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 xl:col-span-2">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  {t('dashboard.recentInvoices')}
-                </h2>
-                <Link
-                  to={`/departments/${departmentId}/invoices`}
-                  className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
-                >
-                  {t('agencies.overviewViewAll')}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-              {recentInvoices.length === 0 ? (
-                <p className="mt-3 text-sm text-gray-400">{t('invoices.empty')}</p>
-              ) : (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                      <tr>
-                        <th className="pb-2 pr-4 font-medium">{t('invoices.colNumber')}</th>
-                        <th className="pb-2 pr-4 font-medium">{t('invoices.colClient')}</th>
-                        <th className="pb-2 pr-4 font-medium">{t('invoices.colDate')}</th>
-                        <th className="pb-2 pr-4 text-right font-medium">{t('invoices.colTotal')}</th>
-                        <th className="pb-2 text-right font-medium">{t('invoices.colStatus')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {recentInvoices.map((inv) => (
-                        <tr key={inv.id}>
-                          <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
-                            {inv.number}
-                          </td>
-                          <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
-                            {inv.client_label ?? inv.client?.client_number ?? inv.client_name ?? '—'}
-                          </td>
-                          <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
-                            {new Date(inv.invoice_date).toLocaleDateString(currentLocale())}
-                          </td>
-                          <td className="py-2.5 pr-4 text-right font-medium text-gray-800 dark:text-gray-100">
-                            {formatCurrency(inv.total_amount)}
-                          </td>
-                          <td className="py-2.5 text-right">
-                            <InvoiceStatusBadge status={inv.status} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {t('departments.quickActions')}
-              </h2>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {quickActions.map(({ label, to, icon: Icon, color, bg }) => (
-                  <Link
-                    key={to}
-                    to={to}
-                    className="group flex flex-col items-center gap-2 rounded-xl border border-gray-100 p-3 text-center transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:hover:border-brand-500/40"
-                  >
-                    <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${bg} ${color}`}>
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="truncate text-xs font-medium text-gray-700 dark:text-gray-200">
-                      {label}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
+            <RecentInvoicesCard
+              invoices={recentInvoices}
+              viewAllTo={`/departments/${departmentId}/invoices`}
+            />
+            <QuickActionsCard actions={businessQuickActions} />
           </div>
 
           {topCommercials.length > 0 && (
@@ -654,9 +830,7 @@ export default function DepartmentOverviewPage() {
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                     {topCommercials.map((c) => (
                       <tr key={c.id}>
-                        <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
-                          {c.full_name}
-                        </td>
+                        <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{c.full_name}</td>
                         <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.sales_count}</td>
                         <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
                           {formatCurrency(c.turnover)}
