@@ -50,7 +50,9 @@ export default function AttendanceSheetPage() {
 
       const initial: Record<string, AttendanceStatus> = {};
       for (const item of attendances) {
-        initial[item.learner_user_id] = item.status === 'absent' ? 'absent' : 'present';
+        if (item.status) {
+          initial[item.learner_user_id] = item.status;
+        }
       }
       setRecords(initial);
     } catch (error) {
@@ -80,10 +82,10 @@ export default function AttendanceSheetPage() {
     if (!sessionId) return;
     setSaving(true);
     try {
-      const items = roster.map((item) => ({
-        learner_user_id: item.learner_user_id,
-        status: records[item.learner_user_id] ?? (item.status === 'absent' ? 'absent' : 'present'),
-      }));
+      const items = roster.flatMap((item) => {
+        const status = records[item.learner_user_id];
+        return status ? [{ learner_user_id: item.learner_user_id, status }] : [];
+      });
       await attendancesApi.bulkUpdate(sessionId, items);
       showToast(t('common.saved'), 'success');
       loadData();

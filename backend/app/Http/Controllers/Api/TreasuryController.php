@@ -8,6 +8,7 @@ use App\Models\TreasuryTransaction;
 use App\Services\TreasuryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
@@ -79,12 +80,15 @@ class TreasuryController extends Controller
             $query->direction($request->input('direction'));
         }
 
-        if ($request->filled('from') && $request->filled('to')) {
-            $query->betweenDates($request->input('from'), $request->input('to'));
-        } elseif ($request->filled('from')) {
-            $query->where('transacted_at', '>=', $request->input('from'));
-        } elseif ($request->filled('to')) {
-            $query->where('transacted_at', '<=', $request->input('to'));
+        $from = $request->filled('from') ? Carbon::parse($request->input('from'))->startOfDay() : null;
+        $to = $request->filled('to') ? Carbon::parse($request->input('to'))->endOfDay() : null;
+
+        if ($from && $to) {
+            $query->betweenDates($from->toDateTimeString(), $to->toDateTimeString());
+        } elseif ($from) {
+            $query->where('transacted_at', '>=', $from);
+        } elseif ($to) {
+            $query->where('transacted_at', '<=', $to);
         }
 
         $perPage = min((int) $request->input('per_page', 20), 100);

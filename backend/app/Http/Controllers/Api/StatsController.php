@@ -13,6 +13,7 @@ use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -31,8 +32,8 @@ class StatsController extends Controller
     )]
     public function overview(Request $request): JsonResponse
     {
-        $from = $request->date('from') ?? Carbon::now()->startOfMonth();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $to = Period::to($request);
 
         $scope = app(\App\Services\ScopeService::class);
         $agencyIds = $scope->agencyIds($request->user());
@@ -128,8 +129,8 @@ class StatsController extends Controller
             abort(403, 'Cette agence est hors de votre périmètre.');
         }
 
-        $from = $request->date('from') ?? Carbon::now()->startOfMonth();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $to = Period::to($request);
 
         $invoices = Invoice::where('agency_id', $agency->id)
             ->whereBetween('invoice_date', [$from, $to])
@@ -287,8 +288,8 @@ class StatsController extends Controller
     )]
     public function salesByCategory(Request $request): JsonResponse
     {
-        $from = $request->date('from') ?? Carbon::now()->startOfYear();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfYear());
+        $to = Period::to($request);
 
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 
@@ -323,8 +324,8 @@ class StatsController extends Controller
     )]
     public function paymentMethods(Request $request): JsonResponse
     {
-        $from = $request->date('from') ?? Carbon::now()->startOfYear();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfYear());
+        $to = Period::to($request);
 
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 
@@ -351,8 +352,8 @@ class StatsController extends Controller
     public function topProducts(Request $request): JsonResponse
     {
         $limit = min(max($request->integer('limit', 5), 1), 50);
-        $from = $request->date('from') ?? Carbon::now()->startOfYear();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfYear());
+        $to = Period::to($request);
 
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 
@@ -383,8 +384,8 @@ class StatsController extends Controller
     public function topAgencies(Request $request): JsonResponse
     {
         $limit = min(max($request->integer('limit', 5), 1), 50);
-        $from = $request->date('from') ?? Carbon::now()->startOfYear();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfYear());
+        $to = Period::to($request);
 
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 
@@ -422,8 +423,8 @@ class StatsController extends Controller
      */
     public function group(Request $request): JsonResponse
     {
-        $from = $request->date('from') ?? Carbon::now()->startOfYear();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfYear());
+        $to = Period::to($request);
 
         $scope = app(\App\Services\ScopeService::class);
         $agencyIds = $scope->agencyIds($request->user());
@@ -546,8 +547,8 @@ class StatsController extends Controller
             $countryAgencyIds = $allowed;
         }
 
-        $from = $request->date('from') ?? Carbon::now()->startOfMonth();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $to = Period::to($request);
 
         $invoices = Invoice::whereIn('agency_id', $countryAgencyIds)
             ->whereBetween('invoice_date', [$from, $to])

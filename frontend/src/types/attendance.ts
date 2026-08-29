@@ -9,7 +9,7 @@ export interface AttendanceRosterItem {
     last_name: string | null;
     email: string;
   } | null;
-  status: AttendanceStatus;
+  status: AttendanceStatus | null;
   recorded_at: string | null;
 }
 

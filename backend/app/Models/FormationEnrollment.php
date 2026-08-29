@@ -18,6 +18,7 @@ class FormationEnrollment extends Model
         'learner_user_id',
         'invoice_id',
         'seller_user_id',
+        'seller_trainer_id',
         'enrolled_at',
         'status',
         'notes',
@@ -48,5 +49,10 @@ class FormationEnrollment extends Model
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_user_id');
+    }
+
+    public function sellerTrainer(): BelongsTo
+    {
+        return $this->belongsTo(Trainer::class, 'seller_trainer_id');
     }
 }

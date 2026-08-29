@@ -15,7 +15,7 @@ class TrainingSessionFactory extends Factory
     {
         return [
             'course_id' => Course::factory(),
-            'trainer_user_id' => null,
+            'trainer_id' => null,
             'agency_id' => null,
             'start_at' => now()->addWeek(),
             'end_at' => now()->addWeek()->addHours(fake()->numberBetween(2, 8)),

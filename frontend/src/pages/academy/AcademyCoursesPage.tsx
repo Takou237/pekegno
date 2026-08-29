@@ -558,7 +558,9 @@ export default function AcademyCoursesPage() {
                       <span className="inline-flex items-center gap-1">
                         {course.duration_hours} {t('academy.hours')}
                         <Badge variant={course.duration_type === 'limited' ? 'warning' : 'neutral'}>
-                          {course.duration_type === 'limited' ? t('academy.limited') : t('academy.unlimited')}
+                          {course.duration_type === 'limited'
+                            ? `${t('academy.limited')}${course.duration_months != null ? ` · ${course.duration_months} ${t('academy.monthsShort')}` : ''}`
+                            : t('academy.unlimited')}
                         </Badge>
                       </span>
                     )}

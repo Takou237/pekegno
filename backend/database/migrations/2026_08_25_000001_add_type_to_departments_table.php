@@ -13,6 +13,10 @@ return new class extends Migration
             $table->string('type', 20)->default('agency')->after('name');
         });
 
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::statement("ALTER TABLE departments ADD CONSTRAINT departments_type_check
             CHECK (type IN ('academy','agency','store','studio'))");
 

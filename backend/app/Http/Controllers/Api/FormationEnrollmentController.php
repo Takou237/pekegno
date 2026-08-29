@@ -6,6 +6,7 @@ use App\Models\Commercial;
 use App\Models\Course;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Models\Trainer;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\InvoiceNumberGenerator;
@@ -23,7 +24,7 @@ class FormationEnrollmentController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = FormationEnrollment::with(['course' => fn ($q) => $q->withCount('sessions', 'modules'), 'learner', 'invoice', 'seller']);
+        $query = FormationEnrollment::with(['course' => fn ($q) => $q->withCount('sessions', 'modules'), 'learner', 'invoice', 'seller', 'sellerTrainer']);
 
         if ($request->filled('course_id')) {
             $query->where('course_id', $request->input('course_id'));
@@ -54,6 +55,7 @@ class FormationEnrollmentController extends Controller
             'learner_user_id' => 'required|exists:users,id',
             'invoice_id' => 'nullable|exists:invoices,id',
             'seller_user_id' => 'nullable|exists:users,id',
+            'seller_trainer_id' => 'nullable|exists:trainers,id|prohibits:seller_user_id',
             'notes' => 'nullable|string',
         ]);
 
@@ -77,7 +79,7 @@ class FormationEnrollmentController extends Controller
             }
 
             $enrollment = FormationEnrollment::create($validated);
-            $enrollment->load(['course', 'learner', 'invoice', 'seller']);
+            $enrollment->load(['course', 'learner', 'invoice', 'seller', 'sellerTrainer']);
 
             return $enrollment;
         });
@@ -87,7 +89,7 @@ class FormationEnrollmentController extends Controller
 
     public function show(FormationEnrollment $formationEnrollment): JsonResponse
     {
-        $formationEnrollment->load(['course.modules', 'learner', 'invoice', 'seller']);
+        $formationEnrollment->load(['course.modules', 'learner', 'invoice', 'seller', 'sellerTrainer']);
 
         return response()->json($formationEnrollment);
     }
@@ -99,10 +101,11 @@ class FormationEnrollmentController extends Controller
             'notes' => 'nullable|string',
             'invoice_id' => 'nullable|exists:invoices,id',
             'seller_user_id' => 'nullable|exists:users,id',
+            'seller_trainer_id' => 'nullable|exists:trainers,id|prohibits:seller_user_id',
         ]);
 
         $formationEnrollment->update($validated);
-        $formationEnrollment->load(['course', 'learner']);
+        $formationEnrollment->load(['course', 'learner', 'seller', 'sellerTrainer']);
 
         return response()->json($formationEnrollment);
     }
@@ -120,7 +123,7 @@ class FormationEnrollmentController extends Controller
     public function learners(Request $request, Course $course): JsonResponse
     {
         $enrollments = FormationEnrollment::where('course_id', $course->id)
-            ->with(['learner'])
+            ->with(['learner', 'seller', 'sellerTrainer'])
             ->get()
             ->map(fn (FormationEnrollment $e) => [
                 'id' => $e->id,
@@ -128,6 +131,7 @@ class FormationEnrollmentController extends Controller
                 'status' => $e->status,
                 'enrolled_at' => $e->enrolled_at,
                 'seller' => $e->seller,
+                'seller_trainer' => $e->sellerTrainer,
                 'notes' => $e->notes,
             ]);
 
@@ -154,7 +158,12 @@ class FormationEnrollmentController extends Controller
 
         $learner = User::find($validated['learner_user_id']);
 
-        $sellerUserId = $validated['seller_user_id'] ?? $request->user()?->id;
+        $sellerUserId = $validated['seller_user_id'] ?? null;
+
+        if ($sellerUserId === null && empty($validated['seller_trainer_id'])) {
+            $sellerUserId = $request->user()?->id;
+        }
+
         $commercialId = null;
 
         if (! empty($sellerUserId)) {
@@ -165,6 +174,21 @@ class FormationEnrollmentController extends Controller
             if ($commercial) {
                 $commercialId = $commercial->id;
             }
+        }
+
+        $sellerTrainerName = null;
+
+        if (! empty($validated['seller_trainer_id'])) {
+            $sellerTrainer = Trainer::find($validated['seller_trainer_id']);
+            $sellerTrainerName = $sellerTrainer
+                ? trim(implode(' ', array_filter([$sellerTrainer->first_name, $sellerTrainer->last_name]))) ?: null
+                : null;
+        }
+
+        $comment = "Inscription à la formation {$course->name}";
+
+        if ($sellerTrainerName) {
+            $comment .= " — Vendeur : {$sellerTrainerName}";
         }
 
         $invoice = Invoice::create([
@@ -181,7 +205,7 @@ class FormationEnrollmentController extends Controller
             'discount' => 0,
             'vat_rate' => 0,
             'status' => 'unpaid',
-            'comment' => "Inscription à la formation {$course->name}",
+            'comment' => $comment,
         ]);
 
         $invoice->items()->create([

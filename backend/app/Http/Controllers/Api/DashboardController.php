@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agency;
+use App\Support\Period;
 use App\Models\City;
 use App\Models\Country;
 use App\Models\Invoice;
@@ -49,8 +50,8 @@ class DashboardController extends Controller
     )]
     public function __invoke(Request $request): JsonResponse
     {
-        $from = $request->date('from') ?? Carbon::now()->startOfMonth();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $to = Period::to($request);
 
         $user = $request->user();
         $agencyIds = $this->scopeService->agencyIds($user);

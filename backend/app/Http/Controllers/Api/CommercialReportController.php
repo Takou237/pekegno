@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\CommercialReportService;
+use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -33,8 +34,8 @@ class CommercialReportController extends Controller
     )]
     public function report(Request $request): JsonResponse
     {
-        $from = $request->date('from') ?? Carbon::now()->startOfMonth();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $to = Period::to($request);
 
         if ($from->gt($to)) {
             return response()->json(['message' => 'La date de début doit précéder la date de fin.'], 422);

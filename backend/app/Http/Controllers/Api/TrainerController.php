@@ -314,7 +314,9 @@ class TrainerController extends Controller
             ? FormationEnrollment::whereIn('course_id', $courseIds)->get()
             : collect();
 
-        $enrolled = $enrollments->whereNot('status', 'cancelled')->count();
+        $notCancelled = fn ($enrollment) => $enrollment->status !== 'cancelled';
+
+        $enrolled = $enrollments->filter($notCancelled)->count();
         $completed = $enrollments->where('status', 'completed')->count();
         $cancelled = $enrollments->where('status', 'cancelled')->count();
         $present = $sessionIds->isNotEmpty()
@@ -324,10 +326,10 @@ class TrainerController extends Controller
             : 0;
 
         // Revenus potentiels : inscrits (non annulés) au cours × prix effectif de chaque session.
-        $revenue = $sessions->sum(function ($session) use ($enrollments) {
+        $revenue = $sessions->sum(function ($session) use ($enrollments, $notCancelled) {
             $count = $enrollments
                 ->where('course_id', $session->course_id)
-                ->whereNot('status', 'cancelled')
+                ->filter($notCancelled)
                 ->count();
 
             return $count * $session->effective_price;
@@ -336,7 +338,7 @@ class TrainerController extends Controller
         // Présences attendues : un apprenant inscrit est attendu à chaque session de son cours.
         $expectedPresences = $sessions->sum(fn ($session) => $enrollments
             ->where('course_id', $session->course_id)
-            ->whereNot('status', 'cancelled')
+            ->filter($notCancelled)
             ->count());
 
         // Heures enseignées : durée du cours des sessions terminées ou en cours.

@@ -92,12 +92,17 @@ class LearnerController extends Controller
         }
 
         if ($request->search) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('client_number', 'like', "%{$search}%");
+            // Recherche multi-termes : « rap bro » doit matcher prénom + nom.
+            $terms = preg_split('/\s+/', trim($request->search));
+            $query->where(function ($q) use ($terms) {
+                foreach ($terms as $term) {
+                    $q->where(function ($inner) use ($term) {
+                        $inner->where('first_name', 'like', "%{$term}%")
+                            ->orWhere('last_name', 'like', "%{$term}%")
+                            ->orWhere('email', 'like', "%{$term}%")
+                            ->orWhere('client_number', 'like', "%{$term}%");
+                    });
+                }
             });
         }
 

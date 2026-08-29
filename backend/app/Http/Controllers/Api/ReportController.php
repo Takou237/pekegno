@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -33,8 +34,8 @@ class ReportController extends Controller
     )]
     public function subscriptions(Request $request): JsonResponse
     {
-        $from = $request->date('from') ?? Carbon::now()->startOfYear();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfYear());
+        $to = Period::to($request);
 
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 
@@ -132,8 +133,8 @@ class ReportController extends Controller
     )]
     public function customers(Request $request): JsonResponse
     {
-        $from = $request->date('from') ?? Carbon::now()->startOfYear();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfYear());
+        $to = Period::to($request);
         $limit = min(max($request->integer('limit', 10), 1), 50);
 
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
@@ -236,8 +237,8 @@ class ReportController extends Controller
         $dimension = $request->string('dimension', 'agency')->lower()->toString();
         abort_unless(in_array($dimension, ['country', 'city', 'agency'], true), 422, 'Dimension invalide.');
 
-        $from = $request->date('from') ?? Carbon::now()->startOfYear();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfYear());
+        $to = Period::to($request);
 
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 

@@ -269,7 +269,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
           {canManage && (
             <Button onClick={openCreate}>
               <UserPlus className="h-4 w-4" />
-              {t(`${ns}.createEmployee`)}
+              {t(ns === 'employees' ? 'employees.createEmployee' : 'commercials.createCommercial')}
             </Button>
           )}
         </div>

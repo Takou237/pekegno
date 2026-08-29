@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\BilanService;
+use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -63,8 +64,8 @@ class BilanController extends Controller
     )]
     public function period(Request $request): JsonResponse
     {
-        $from = $request->date('from') ?? Carbon::today();
-        $to = $request->date('to') ?? $from;
+        $from = Period::from($request, Carbon::today());
+        $to = Period::to($request, $from->copy()->endOfDay());
         $agencyId = $request->input('agency_id');
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
 

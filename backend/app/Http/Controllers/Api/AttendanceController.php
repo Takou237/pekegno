@@ -81,7 +81,7 @@ class AttendanceController extends Controller
                     'last_name' => $learner?->last_name,
                     'email' => $learner?->email,
                 ],
-                'status' => $attendance?->status ?? Attendance::STATUS_PRESENT,
+                'status' => $attendance?->status,
                 'recorded_at' => $attendance?->recorded_at?->toISOString(),
             ];
         })->values()->all();

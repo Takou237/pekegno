@@ -72,16 +72,24 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
 
   const setSelection = useCallback((patch: Partial<ContextSelection>) => {
     setSelectionState((prev) => {
-      const next = { ...prev, ...patch };
-      // When country changes, reset agency and department
-      if (patch.countryId && patch.countryId !== prev.countryId) {
-        next.agencyId = null;
-        next.departmentId = null;
+      let next = { ...prev, ...patch };
+
+      // When country changes, reset agency/department — unless they were provided explicitly.
+      if (patch.countryId !== undefined && patch.countryId !== prev.countryId) {
+        if (patch.agencyId === undefined) next.agencyId = null;
+        if (patch.departmentId === undefined) next.departmentId = null;
       }
-      // When agency changes, reset department
-      if (patch.agencyId && patch.agencyId !== prev.agencyId) {
-        next.departmentId = null;
+      // When agency changes, reset department — unless it was provided explicitly.
+      if (patch.agencyId !== undefined && patch.agencyId !== prev.agencyId) {
+        if (patch.departmentId === undefined) next.departmentId = null;
       }
+
+      const unchanged =
+        next.countryId === prev.countryId &&
+        next.agencyId === prev.agencyId &&
+        next.departmentId === prev.departmentId;
+      if (unchanged) return prev;
+
       persistSelection(next);
       return next;
     });

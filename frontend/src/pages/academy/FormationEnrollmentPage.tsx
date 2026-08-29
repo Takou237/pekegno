@@ -3,7 +3,6 @@ import { useOutletContext } from 'react-router-dom';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type Course } from '@/api/academy.api';
-import { clientsApi } from '@/api/clients.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -50,13 +49,17 @@ interface FormState {
   course_id: string;
   learner_user_id: string;
   seller_user_id: string;
+  seller_trainer_id: string;
   notes: string;
 }
+
+const SELLER_TRAINER_PREFIX = 'trainer:';
 
 const emptyForm: FormState = {
   course_id: '',
   learner_user_id: '',
   seller_user_id: '',
+  seller_trainer_id: '',
   notes: '',
 };
 
@@ -126,16 +129,25 @@ export default function FormationEnrollmentPage() {
   const learnerOptions = useCallback(
     async (query: string) => {
       if (!agencyId) return [];
-      const response = await clientsApi.list({
+      const q = query.trim();
+      const response = await academyApi.learners({
         agency_id: agencyId,
-        search: query.trim() || undefined,
-        per_page: 20,
+        search: q || undefined,
+        per_page: q ? 50 : 100,
       });
-      return response.data.map((client) => ({
-        id: client.id,
-        label: [client.first_name, client.last_name].filter(Boolean).join(' ') || client.name || client.email,
-        subtitle: client.email,
-      }));
+      return response.data.map((learner) => {
+        const fullName =
+          [learner.learner?.first_name, learner.learner?.last_name].filter(Boolean).join(' ') ||
+          learner.learner?.email ||
+          '';
+        return {
+          id: learner.id,
+          label: fullName,
+          subtitle: [learner.learner?.client_number, learner.learner?.email]
+            .filter(Boolean)
+            .join(' — '),
+        };
+      });
     },
     [agencyId],
   );
@@ -143,23 +155,59 @@ export default function FormationEnrollmentPage() {
   const sellerOptions = useCallback(
     async (query: string) => {
       if (!agencyId) return [];
-      const [commercials, employees] = await Promise.all([
+      type SellerEntry = {
+        user_id: string;
+        name: string;
+        email: string;
+        kind: 'commercial' | 'employe' | 'trainer';
+      };
+      const [commercials, employees, trainers] = await Promise.all([
         commercialsApi.list({ agency_id: agencyId, per_page: 100 }),
         employeesApi.list({ agency_id: agencyId, per_page: 100 }),
+        academyApi.trainers({ agency_id: agencyId, per_page: 100 }),
       ]);
-      const all = [
+      const entries: SellerEntry[] = [
         ...commercials.data.map((c) => ({ user_id: c.user_id, name: `${c.first_name} ${c.last_name}`.trim(), email: c.email ?? '', kind: 'commercial' as const })),
         ...employees.data.map((e) => ({ user_id: e.user_id, name: `${e.first_name} ${e.last_name}`.trim(), email: e.email ?? '', kind: 'employe' as const })),
-      ].filter((o) => o.user_id);
+        ...trainers.data
+          .filter((tr) => tr.user_id)
+          .map((tr) => ({
+            user_id: tr.user_id as string,
+            name: [tr.first_name, tr.last_name].filter(Boolean).join(' ').trim(),
+            email: tr.email ?? '',
+            kind: 'trainer' as const,
+          })),
+        ...trainers.data
+          .filter((tr) => !tr.user_id && tr.id)
+          .map((tr) => ({
+            user_id: SELLER_TRAINER_PREFIX + tr.id,
+            name: [tr.first_name, tr.last_name].filter(Boolean).join(' ').trim(),
+            email: tr.email ?? '',
+            kind: 'trainer' as const,
+          })),
+      ].filter((o): o is SellerEntry => Boolean(o.user_id));
+
+      const all = Array.from(
+        new Map(entries.map((entry) => [entry.user_id, entry])).values(),
+      );
+
       const q = query.trim().toLowerCase();
       const filtered = q
         ? all.filter((o) => o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q))
         : all;
-      return filtered.map((o) => ({
-        id: o.user_id as string,
-        label: o.name || o.email || (o.user_id as string),
-        subtitle: o.email || (o.kind === 'employe' ? t('academy.employee') : t('academy.commercial')),
-      }));
+      return filtered.map((o) => {
+        const kindLabel =
+          o.kind === 'trainer'
+            ? t('academy.trainer')
+            : o.kind === 'employe'
+              ? t('academy.employee')
+              : t('academy.commercial');
+        return {
+          id: o.user_id,
+          label: o.name || o.email || o.user_id,
+          subtitle: [o.email, kindLabel].filter(Boolean).join(' · '),
+        };
+      });
     },
     [agencyId, t],
   );
@@ -178,6 +226,7 @@ export default function FormationEnrollmentPage() {
       course_id: enrollment.course_id,
       learner_user_id: enrollment.learner_user_id,
       seller_user_id: enrollment.seller_user_id ?? '',
+      seller_trainer_id: enrollment.seller_trainer_id ?? '',
       notes: enrollment.notes ?? '',
     });
     setFormError(null);
@@ -196,6 +245,7 @@ export default function FormationEnrollmentPage() {
       course_id: form.course_id,
       learner_user_id: form.learner_user_id,
       seller_user_id: form.seller_user_id || undefined,
+      seller_trainer_id: form.seller_trainer_id || undefined,
       notes: form.notes || undefined,
     };
 
@@ -360,7 +410,9 @@ export default function FormationEnrollmentPage() {
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {enrollment.seller
                         ? [enrollment.seller.first_name, enrollment.seller.last_name].filter(Boolean).join(' ')
-                        : '—'}
+                        : enrollment.seller_trainer
+                          ? [enrollment.seller_trainer.first_name, enrollment.seller_trainer.last_name].filter(Boolean).join(' ')
+                          : '—'}
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -434,8 +486,16 @@ export default function FormationEnrollmentPage() {
           <Autocomplete
             label={t('academy.seller')}
             placeholder={t('academy.searchSellerPlaceholder')}
-            value={form.seller_user_id}
-            onChange={(userId) => setForm((prev) => ({ ...prev, seller_user_id: userId }))}
+            value={form.seller_trainer_id
+              ? SELLER_TRAINER_PREFIX + form.seller_trainer_id
+              : form.seller_user_id}
+            onChange={(id) =>
+              setForm((prev) =>
+                id.startsWith(SELLER_TRAINER_PREFIX)
+                  ? { ...prev, seller_trainer_id: id.slice(SELLER_TRAINER_PREFIX.length), seller_user_id: '' }
+                  : { ...prev, seller_user_id: id, seller_trainer_id: '' },
+              )
+            }
             fetchOptions={sellerOptions}
             error={fieldErrors.seller_user_id}
           />

@@ -144,16 +144,21 @@ export default function AcademyLearnersPage() {
   const learnerOptions = useCallback(
     async (query: string) => {
       if (!agencyId) return [];
-      const response = await clientsApi.list({
+      const q = query.trim();
+      const response = await academyApi.learners({
         agency_id: agencyId,
-        search: query.trim() || undefined,
-        per_page: 20,
+        search: q || undefined,
+        per_page: q ? 50 : 100,
       });
-      return response.data.map((client) => ({
-        id: client.id,
+      return response.data.map((learner) => ({
+        id: learner.id,
         label:
-          [client.first_name, client.last_name].filter(Boolean).join(' ') || client.email,
-        subtitle: [client.client_number, client.email].filter(Boolean).join(' — '),
+          [learner.learner?.first_name, learner.learner?.last_name].filter(Boolean).join(' ') ||
+          learner.learner?.email ||
+          '',
+        subtitle: [learner.learner?.client_number, learner.learner?.email]
+          .filter(Boolean)
+          .join(' — '),
       }));
     },
     [agencyId],

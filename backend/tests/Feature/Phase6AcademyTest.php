@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Role;
 use App\Models\TrainingSession;
+use App\Models\Trainer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -91,10 +92,19 @@ class Phase6AcademyTest extends TestCase
             ->json();
     }
 
-    private function createTrainer(): User
+    private function createTrainer(): Trainer
     {
-        return User::factory()->create([
+        $user = User::factory()->create([
             'role_id' => Role::where('name', 'formateur')->value('id'),
+        ]);
+
+        return Trainer::create([
+            'user_id' => $user->id,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'is_active' => true,
         ]);
     }
 
@@ -213,7 +223,7 @@ class Phase6AcademyTest extends TestCase
 
         $this->postJson('/api/training-sessions', [
             'course_id' => $course['id'],
-            'trainer_user_id' => $trainer->id,
+            'trainer_id' => $trainer->id,
             'start_at' => now()->addDays(7)->toISOString(),
             'end_at' => now()->addDays(7)->addHours(4)->toISOString(),
             'max_capacity' => 15,
@@ -234,7 +244,7 @@ class Phase6AcademyTest extends TestCase
 
         $this->postJson('/api/training-sessions', [
             'course_id' => $course['id'],
-            'trainer_user_id' => $commercial->id,
+            'trainer_id' => $commercial->id,
             'start_at' => now()->addDays(7)->toISOString(),
         ])->assertStatus(422);
     }
@@ -331,6 +341,37 @@ class Phase6AcademyTest extends TestCase
             ->assertJsonPath('attendance', true);
 
         $this->assertNotNull(Enrollment::find($enrollment['id'])->attended_at);
+    }
+
+    public function test_attendance_sheet_has_no_default_status_until_marked(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $session = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertCreated()
+            ->json();
+
+$this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201);
+
+        // Aucun statut par défaut : la feuille arrive sans coche.
+        $this->getJson("/api/training-sessions/{$session['id']}/attendances")
+            ->assertOk()
+            ->assertJsonCount(1, 'attendances')
+            ->assertJsonPath('attendances.0.status', null);
+
+        // Une fois marqué, le statut est enregistré.
+        $this->putJson("/api/training-sessions/{$session['id']}/attendances", [
+            'attendances' => [['learner_user_id' => $client->id, 'status' => 'present']],
+        ])->assertOk()
+            ->assertJsonCount(1, 'attendances')
+            ->assertJsonPath('attendances.0.status', 'present');
     }
 
     public function test_enrollment_rejects_non_client_learner(): void
@@ -437,8 +478,8 @@ class Phase6AcademyTest extends TestCase
         ])->assertCreated()
             ->json();
 
-        $this->postJson('/api/enrollments', [
-            'session_id' => $session['id'],
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
 
@@ -476,5 +517,102 @@ class Phase6AcademyTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.course.name', 'Cours CMR');
+    }
+
+    public function test_learners_search_matches_full_name_across_terms(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+
+        $rapBro = User::factory()->create([
+            'role_id' => Role::where('name', 'client')->value('id'),
+            'first_name' => 'rap',
+            'last_name' => 'bro',
+            'registered_agency_id' => $agency->id,
+        ]);
+        User::factory()->create([
+            'role_id' => Role::where('name', 'client')->value('id'),
+            'first_name' => 'Autre',
+            'last_name' => 'Personne',
+            'registered_agency_id' => $agency->id,
+        ]);
+
+        $response = $this->getJson('/api/learners?agency_id='.$agency->id.'&search=rap+bro')
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id');
+        $this->assertTrue($ids->contains($rapBro->id), 'La recherche « rap bro » doit trouver le prénom + nom.');
+        $this->assertCount(1, $ids);
+
+        // Une seule partie du nom suffit aussi.
+        $this->getJson('/api/learners?agency_id='.$agency->id.'&search=rap')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_enrollment_accepts_trainer_seller_without_account(): void
+    {
+        $admin = $this->admin();
+        $course = $this->createCourse(['price' => 50000]);
+        $client = $this->createClient();
+        $trainer = Trainer::create([
+            'first_name' => 'rap',
+            'last_name' => 'poo',
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'seller_trainer_id' => $trainer->id,
+        ])->assertStatus(201);
+
+        $response->assertJsonPath('seller_trainer.first_name', 'rap')
+            ->assertJsonPath('seller_trainer.last_name', 'poo')
+            ->assertJsonPath('seller_user_id', null);
+
+        // La facture auto ne lie pas un user, mais mentionne le formateur.
+        $invoiceId = $response->json('invoice_id');
+        $this->assertNotNull($invoiceId);
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoiceId,
+            'seller_user_id' => null,
+            'comment' => "Inscription à la formation Cours de comptabilité — Vendeur : rap poo",
+        ]);
+
+        // Un vendeur utilisateur et un formateur ne peuvent pas être envoyés ensemble.
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $this->createClient()->id,
+            'seller_user_id' => $admin->id,
+            'seller_trainer_id' => $trainer->id,
+        ])->assertStatus(422);
+    }
+
+    public function test_trainer_stats_handle_collection_status_filtering(): void
+    {
+        $this->admin();
+        $course = $this->createCourse(['price' => 50000]);
+        $trainer = $this->createTrainer();
+
+        $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'trainer_id' => $trainer->id,
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertCreated();
+
+        $client = $this->createClient();
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201);
+
+        // Régression : stats() appliquait ->whereNot() sur une Collection.
+        $this->getJson('/api/trainers/'.$trainer->id.'/stats')
+            ->assertOk()
+            ->assertJsonPath('stats.sessions_total', 1)
+            ->assertJsonPath('stats.enrollments_enrolled', 1)
+            ->assertJsonPath('stats.potential_revenue', 50000);
     }
 }

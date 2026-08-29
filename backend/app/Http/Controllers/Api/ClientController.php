@@ -83,12 +83,18 @@ class ClientController extends Controller
     {
         $clients = $this->clientQuery($request)
             ->when($request->search, function ($q, $search) {
-                $q->where(function ($q) use ($search) {
-                    $q->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%")
-                        ->orWhere('client_number', 'like', "%{$search}%");
+                // Recherche multi-termes : « rap bro » doit matcher prénom + nom.
+                $terms = preg_split('/\s+/', trim($search));
+                $q->where(function ($q) use ($terms) {
+                    foreach ($terms as $term) {
+                        $q->where(function ($inner) use ($term) {
+                            $inner->where('first_name', 'like', "%{$term}%")
+                                ->orWhere('last_name', 'like', "%{$term}%")
+                                ->orWhere('email', 'like', "%{$term}%")
+                                ->orWhere('phone', 'like', "%{$term}%")
+                                ->orWhere('client_number', 'like', "%{$term}%");
+                        });
+                    }
                 });
             })
             ->when($request->status, fn ($q, $status) => $q->where('status', $status))

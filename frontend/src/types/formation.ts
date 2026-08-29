@@ -25,6 +25,7 @@ export interface FormationEnrollment {
   learner_user_id: string;
   invoice_id: string | null;
   seller_user_id: string | null;
+  seller_trainer_id: string | null;
   enrolled_at: string;
   status: 'enrolled' | 'completed' | 'cancelled';
   notes: string | null;
@@ -40,6 +41,7 @@ export interface FormationEnrollment {
   };
   learner?: { id: string; first_name: string; last_name: string; email: string; name?: string };
   seller?: { id: string; first_name: string; last_name: string };
+  seller_trainer?: { id: string; first_name: string | null; last_name: string | null; email: string | null } | null;
   created_at: string;
 }
 
@@ -48,6 +50,7 @@ export interface FormationEnrollmentPayload {
   learner_user_id: string;
   invoice_id?: string;
   seller_user_id?: string;
+  seller_trainer_id?: string;
   status?: 'enrolled' | 'completed' | 'cancelled';
   notes?: string;
 }

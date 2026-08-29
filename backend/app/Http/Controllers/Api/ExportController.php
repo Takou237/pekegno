@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Period;
 use App\Models\AccountingTransaction;
 use App\Models\ActivityLog;
 use App\Models\Agency;
@@ -528,8 +529,8 @@ class ExportController extends Controller
     {
         abort_unless($this->canExport($request), 403);
 
-        $from = $request->date('from') ?? Carbon::now()->startOfMonth();
-        $to = $request->date('to') ?? Carbon::now()->endOfDay();
+        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $to = Period::to($request);
 
         $report = $this->commercialReportService->report(
             agencyId: $request->input('agency_id'),
