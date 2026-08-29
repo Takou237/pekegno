@@ -9,6 +9,7 @@ import type {
   TopAgency,
   TopCommercial,
   TopProduct,
+  GroupReportStats,
 } from '@/types/stats';
 
 export const statsApi = {
@@ -61,6 +62,11 @@ export const statsApi = {
 
   async topAgencies(params: { limit?: number; from?: string; to?: string } = {}): Promise<TopAgency[]> {
     const { data } = await client.get<TopAgency[]>('/stats/top-agencies', { params });
+    return data;
+  },
+
+  async trainingGroup(): Promise<GroupReportStats> {
+    const { data } = await client.get<GroupReportStats>('/stats/training-group');
     return data;
   },
 };

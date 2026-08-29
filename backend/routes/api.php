@@ -263,6 +263,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/stats/overview', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
     Route::get('/stats/dashboard', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
     Route::get('/stats/group', [StatsController::class, 'group'])->middleware('permission:stats.consulter');
+    Route::get('/stats/training-group', [StatsController::class, 'trainingGroup'])->middleware('permission:stats.consulter');
     Route::get('/stats/country/{country}', [StatsController::class, 'country'])->middleware('permission:stats.consulter');
     Route::get('/dashboard', [DashboardController::class, '__invoke'])->middleware('permission:stats.consulter');
     Route::get('/stats/agency/{agency}', [StatsController::class, 'agency'])->middleware('permission:stats.consulter');

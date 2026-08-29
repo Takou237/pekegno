@@ -97,6 +97,8 @@ export interface GroupStats {
   period: { from: string; to: string };
   revenue: number;
   payments_total: number;
+  expenses_total: number;
+  net_cash: number;
   outstanding: number;
   invoices_total: number;
   invoices_paid: number;
@@ -109,4 +111,101 @@ export interface GroupStats {
   departments_total: number;
   users_total: number;
   countries: CountryStat[];
+}
+
+export interface TrainingGroupSummary {
+  courses: number;
+  sessions: number;
+  enrollments: number;
+  potential_revenue: number;
+}
+
+export interface TrainingMonthPoint {
+  month: string;
+  inscriptions: number;
+}
+
+export interface TrainingModeStat {
+  mode: 'in_person' | 'online' | 'mixed';
+  value: number;
+}
+
+export interface TrainingStatusStat {
+  status: string;
+  value: number;
+}
+
+export interface TrainingCourseStat {
+  name: string;
+  inscriptions: number;
+  revenu?: number;
+}
+
+export interface TrainingAttendanceStat {
+  name: string;
+  rate: number;
+  enrolled: number;
+}
+
+export interface TrainingUpcomingSession {
+  id: string;
+  course: string | null;
+  trainer: string | null;
+  start_at: string;
+  enrollments_count: number;
+  max_capacity: number | null;
+}
+
+export interface TrainingGroupStats {
+  summary: TrainingGroupSummary;
+  received: number;
+  outstanding: number;
+  trainers: number;
+  avg_attendance: number;
+  avg_fill_rate: number;
+  monthly_trend: TrainingMonthPoint[];
+  mode_breakdown: TrainingModeStat[];
+  top_courses: TrainingCourseStat[];
+  sessions_by_status: TrainingStatusStat[];
+  revenue_by_course: TrainingCourseStat[];
+  attendance_by_course: TrainingAttendanceStat[];
+  upcoming: TrainingUpcomingSession[];
+}
+
+export interface ServiceGroupSummary {
+  total: number;
+  sold: number;
+  seminars: number;
+  invoices: number;
+  revenue: number;
+}
+
+export interface ServiceMonthlyRevenue {
+  month: string;
+  revenue: number;
+}
+
+export interface ServiceTopStat {
+  name: string;
+  quantity: number;
+  revenue: number;
+  invoices: number;
+}
+
+export interface ServiceCategoryStat {
+  category: string;
+  revenue: number;
+  count: number;
+}
+
+export interface ServiceGroupStats {
+  summary: ServiceGroupSummary;
+  monthly_revenue: ServiceMonthlyRevenue[];
+  top_services: ServiceTopStat[];
+  by_category: ServiceCategoryStat[];
+}
+
+export interface GroupReportStats {
+  training: TrainingGroupStats;
+  services: ServiceGroupStats;
 }

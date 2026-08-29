@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountingTransaction;
 use App\Models\Agency;
 use App\Models\Commercial;
 use App\Models\Country;
@@ -68,9 +69,10 @@ class StatsController extends Controller
                 'invoices as sales_count' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at'),
                 'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->where('status', 'paid'),
             ])
-            ->orderByDesc('revenue')
             ->limit(5)
             ->get()
+            ->sortByDesc('revenue')
+            ->values()
             ->map(fn (Commercial $c) => [
                 'id' => $c->id,
                 'first_name' => $c->first_name,
@@ -398,9 +400,10 @@ class StatsController extends Controller
                 'invoices as invoices_count' => fn ($q) => $q->whereNull('cancelled_at')
                     ->whereBetween('invoice_date', [$from, $to]),
             ])
-            ->orderByDesc('revenue')
-            ->limit($limit)
             ->get()
+            ->sortByDesc('revenue')
+            ->values()
+            ->take($limit)
             ->map(fn (Agency $a) => [
                 'id' => $a->id,
                 'name' => $a->name,
@@ -440,6 +443,11 @@ class StatsController extends Controller
 
         $payments = InvoicePayment::whereBetween('paid_at', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
+            ->sum('amount');
+
+        $expenses = AccountingTransaction::where('type', 'expense')
+            ->whereBetween('transacted_at', [$from, $to])
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
             ->sum('amount');
 
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
@@ -499,6 +507,8 @@ class StatsController extends Controller
             ],
             'revenue' => (float) $revenue,
             'payments_total' => (float) $payments,
+            'expenses_total' => (float) $expenses,
+            'net_cash' => round((float) $payments - (float) $expenses, 2),
             'outstanding' => (float) $outstanding,
             'invoices_total' => $invoiceCount,
             'invoices_paid' => $paidCount,
@@ -580,9 +590,10 @@ class StatsController extends Controller
                 'invoices as sales_count' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at'),
                 'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->where('status', 'paid'),
             ])
-            ->orderByDesc('revenue')
             ->limit(5)
             ->get()
+            ->sortByDesc('revenue')
+            ->values()
             ->map(fn (Commercial $c) => [
                 'id' => $c->id,
                 'first_name' => $c->first_name,
@@ -615,6 +626,21 @@ class StatsController extends Controller
             'departments_total' => $departmentCount,
             'users_total' => $userCount,
             'top_commercials' => $topCommercials,
+        ]);
+    }
+
+    /**
+     * Statistiques académie agrégées au niveau du groupe (toutes agences autorisées).
+     */
+    public function trainingGroup(Request $request): JsonResponse
+    {
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
+        $service = app(\App\Services\AcademyReportService::class);
+
+        return response()->json([
+            'training' => $service->groupStats($agencyIds),
+            'services' => $service->groupServices($agencyIds),
         ]);
     }
 }
