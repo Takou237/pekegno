@@ -11,13 +11,26 @@ import {
   UserCheck,
   TrendingUp,
   Clock,
+  Trophy,
+  Receipt,
+  ArrowRight,
+  Package,
+  Settings,
+  FileSignature,
+  HandCoins,
+  CalendarClock,
 } from 'lucide-react';
 import { client } from '@/api/client';
-import { invoicesApi } from '@/api/invoices.api';
+import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
+import { statsApi } from '@/api/stats.api';
 import { formatCurrency } from '@/utils/number';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
+import { Badge } from '@/components/ui/Badge';
+import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import { currentLocale } from '@/i18n';
 import type { Department } from '@/types/department';
+import type { Invoice, InvoiceStatus } from '@/types/invoice';
+import type { AgencyStats, MonthlyRevenuePoint } from '@/types/stats';
 
 interface DepartmentLayoutContext {
   department: Department | null;
@@ -48,6 +61,14 @@ interface TrainingReportResponse {
   summary: { courses: number; sessions: number; enrollments: number; potential_revenue: number };
 }
 
+interface BusinessOverview {
+  stats: AgencyStats | null;
+  monthly: MonthlyRevenuePoint[];
+  recentInvoices: Invoice[];
+  clientsCount: number;
+  commercialsCount: number;
+}
+
 interface OverviewCard {
   label: string;
   value: string | number;
@@ -55,6 +76,14 @@ interface OverviewCard {
   to?: string;
   color: string;
   bg: string;
+}
+
+function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
+  const { t } = useTranslation();
+  if (status === 'paid') return <Badge variant="success">{t('invoices.statusPaid')}</Badge>;
+  if (status === 'partial') return <Badge variant="warning">{t('invoices.statusPartial')}</Badge>;
+  if (status === 'cancelled') return <Badge variant="error">{t('invoices.statusCancelled')}</Badge>;
+  return <Badge variant="error">{t('invoices.statusUnpaid')}</Badge>;
 }
 
 export default function DepartmentOverviewPage() {
@@ -71,6 +100,7 @@ export default function DepartmentOverviewPage() {
     upcoming: OverviewSession[];
     isLoading: boolean;
   } | null>(null);
+  const [business, setBusiness] = useState<BusinessOverview | null>(null);
 
   useEffect(() => {
     if (!departmentId) return;
@@ -183,12 +213,48 @@ export default function DepartmentOverviewPage() {
     });
   }, [isAcademy, agencyId]);
 
+  const fetchBusiness = useCallback(async () => {
+    if (isAcademy || !agencyId) return;
+    const [statsRes, monthlyRes, invoicesRes, clientsRes, commercialsRes] = await Promise.allSettled([
+      statsApi.agency(agencyId),
+      statsApi.monthlyRevenue({ months: 12, agencyId }),
+      invoicesApi.list({ agency_id: agencyId, per_page: 5 }),
+      client.get<{ meta?: { total?: number } }>('/clients', {
+        params: { agency_id: agencyId, per_page: 1 },
+      }),
+      client.get<{ meta?: { total?: number } }>('/commercials', {
+        params: { agency_id: agencyId, per_page: 1 },
+      }),
+    ]);
+    setBusiness({
+      stats:
+        statsRes.status === 'fulfilled' ? (statsRes.value as AgencyStats) : null,
+      monthly:
+        monthlyRes.status === 'fulfilled' ? (monthlyRes.value as MonthlyRevenuePoint[]) : [],
+      recentInvoices:
+        invoicesRes.status === 'fulfilled'
+          ? (invoicesRes.value as InvoiceIndexResponse).invoices.data ?? []
+          : [],
+      clientsCount:
+        clientsRes.status === 'fulfilled' ? clientsRes.value.data.meta?.total ?? 0 : 0,
+      commercialsCount:
+        commercialsRes.status === 'fulfilled' ? commercialsRes.value.data.meta?.total ?? 0 : 0,
+    });
+  }, [isAcademy, agencyId]);
+
   useEffect(() => {
     if (isAcademy && agencyId) {
       setAcademy(null);
       fetchAcademy();
     }
   }, [isAcademy, agencyId, fetchAcademy]);
+
+  useEffect(() => {
+    if (!isAcademy && agencyId) {
+      setBusiness(null);
+      fetchBusiness();
+    }
+  }, [isAcademy, agencyId, fetchBusiness]);
 
   const kpis = useMemo<OverviewCard[]>(() => {
     if (!academy || academy.isLoading) return [];
@@ -245,76 +311,366 @@ export default function DepartmentOverviewPage() {
     ];
   }, [academy, t]);
 
+  const agencyCard = useMemo<OverviewCard>(
+    () => ({
+      label: t('departments.agency'),
+      value: department?.agency?.name ?? '—',
+      icon: Building2,
+      to: department?.agency ? `/agencies/${department.agency_id}` : undefined,
+      color: 'text-brand-600 dark:text-brand-400',
+      bg: 'bg-brand-50 dark:bg-brand-500/10',
+    }),
+    [department, t],
+  );
+
+  const chiefCard = useMemo<OverviewCard>(
+    () => ({
+      label: t('departments.chiefOfDepartment'),
+      value: department?.department_chief?.name ?? '—',
+      icon: ShieldCheck,
+      color: 'text-amber-600 dark:text-amber-400',
+      bg: 'bg-amber-50 dark:bg-amber-500/10',
+    }),
+    [department, t],
+  );
+
+  const effectifCard = useMemo<OverviewCard>(
+    () => ({
+      label: t('departments.colCount'),
+      value: usersCount ?? department?.user_count ?? 0,
+      icon: Users,
+      to: departmentId ? `/departments/${departmentId}/team` : undefined,
+      color: 'text-purple-600 dark:text-purple-400',
+      bg: 'bg-purple-50 dark:bg-purple-500/10',
+    }),
+    [usersCount, department, departmentId, t],
+  );
+
+  const businessKpis = useMemo<OverviewCard[]>(() => {
+    if (!business) return [];
+    const stats = business.stats;
+    return [
+      effectifCard,
+      {
+        label: t('dashboard.revenue'),
+        value: formatCurrency(stats?.revenue ?? 0),
+        icon: TrendingUp,
+        to: departmentId ? `/departments/${departmentId}/invoices` : undefined,
+        color: 'text-brand-600 dark:text-brand-400',
+        bg: 'bg-brand-50 dark:bg-brand-500/10',
+      },
+      {
+        label: t('dashboard.outstanding'),
+        value: formatCurrency(stats?.outstanding ?? 0),
+        icon: Clock,
+        to: departmentId ? `/departments/${departmentId}/invoices` : undefined,
+        color: 'text-amber-600 dark:text-amber-400',
+        bg: 'bg-amber-50 dark:bg-amber-500/10',
+      },
+      {
+        label: t('dashboard.sales'),
+        value: stats?.sales_count ?? 0,
+        icon: Receipt,
+        to: departmentId ? `/departments/${departmentId}/invoices` : undefined,
+        color: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-50 dark:bg-emerald-500/10',
+      },
+    ];
+  }, [business, effectifCard, departmentId, t]);
+
+  const businessInfoCards = useMemo<OverviewCard[]>(
+    () => [
+      {
+        label: t('dashboard.clients'),
+        value: business?.clientsCount ?? 0,
+        icon: HandCoins,
+        to: departmentId ? `/departments/${departmentId}/clients` : undefined,
+        color: 'text-sky-600 dark:text-sky-400',
+        bg: 'bg-sky-50 dark:bg-sky-500/10',
+      },
+      {
+        label: t('dashboard.commercials'),
+        value: business?.commercialsCount ?? 0,
+        icon: Trophy,
+        to: '/commercials',
+        color: 'text-fuchsia-600 dark:text-fuchsia-400',
+        bg: 'bg-fuchsia-50 dark:bg-fuchsia-500/10',
+      },
+      agencyCard,
+      chiefCard,
+    ],
+    [business, agencyCard, chiefCard, departmentId, t],
+  );
+
+  const quickActions = useMemo(() => {
+    if (!departmentId) return [];
+    const base = `/departments/${departmentId}`;
+    return [
+      {
+        label: t('nav.teams'),
+        to: `${base}/team`,
+        icon: Users,
+        color: 'text-purple-600 dark:text-purple-400',
+        bg: 'bg-purple-50 dark:bg-purple-500/10',
+      },
+      {
+        label: t('nav.clients'),
+        to: `${base}/clients`,
+        icon: HandCoins,
+        color: 'text-sky-600 dark:text-sky-400',
+        bg: 'bg-sky-50 dark:bg-sky-500/10',
+      },
+      {
+        label: t('contracts.title'),
+        to: `${base}/contracts`,
+        icon: FileSignature,
+        color: 'text-indigo-600 dark:text-indigo-400',
+        bg: 'bg-indigo-50 dark:bg-indigo-500/10',
+      },
+      {
+        label: t('nav.services'),
+        to: `${base}/services`,
+        icon: Package,
+        color: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-50 dark:bg-emerald-500/10',
+      },
+      {
+        label: t('renewals.title'),
+        to: `${base}/renewals`,
+        icon: CalendarClock,
+        color: 'text-amber-600 dark:text-amber-400',
+        bg: 'bg-amber-50 dark:bg-amber-500/10',
+      },
+      {
+        label: t('nav.settings'),
+        to: `${base}/settings`,
+        icon: Settings,
+        color: 'text-gray-600 dark:text-gray-300',
+        bg: 'bg-gray-100 dark:bg-gray-800',
+      },
+    ];
+  }, [departmentId, t]);
+
   if (!department) {
     return <p className="text-sm text-error-500">{t('departments.empty')}</p>;
   }
 
-  const agencyCard: OverviewCard = {
-    label: t('departments.agency'),
-    value: department.agency?.name ?? '—',
-    icon: Building2,
-    to: department.agency ? `/agencies/${department.agency_id}` : undefined,
-    color: 'text-brand-600 dark:text-brand-400',
-    bg: 'bg-brand-50 dark:bg-brand-500/10',
+  const renderCard = ({ label, value, icon: Icon, to, color, bg }: OverviewCard) => {
+    const inner = (
+      <>
+        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${bg} ${color}`}>
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-lg font-semibold text-gray-900 dark:text-white">{value}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
+        </div>
+      </>
+    );
+    const className =
+      'flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900';
+    if (to) {
+      return (
+        <Link key={label} to={to} className={`${className} transition-shadow hover:shadow-md`}>
+          {inner}
+        </Link>
+      );
+    }
+    return (
+      <div key={label} className={className}>
+        {inner}
+      </div>
+    );
   };
 
-  const chiefCard: OverviewCard = {
-    label: t('departments.chiefOfDepartment'),
-    value: department.department_chief?.name ?? '—',
-    icon: ShieldCheck,
-    color: 'text-amber-600 dark:text-amber-400',
-    bg: 'bg-amber-50 dark:bg-amber-500/10',
-  };
-
-  const effectifCard: OverviewCard = {
-    label: t('departments.colCount'),
-    value: usersCount ?? department.user_count ?? 0,
-    icon: Users,
-    color: 'text-purple-600 dark:text-purple-400',
-    bg: 'bg-purple-50 dark:bg-purple-500/10',
-  };
-
-  const cards: OverviewCard[] = isAcademy
-    ? [...kpis, agencyCard, chiefCard]
-    : [effectifCard, agencyCard, chiefCard];
+  const recentInvoices = business?.recentInvoices ?? [];
+  const topCommercials = business?.stats?.top_commercials ?? [];
 
   return (
     <div className="flex flex-col gap-6">
-      {isAcademy && academy?.isLoading ? (
-        <SkeletonDashboard />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {cards.map(({ label, value, icon: Icon, to, color, bg }) =>
-            to ? (
-              <Link
-                key={label}
-                to={to}
-                className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
-              >
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${bg} ${color}`}>
-                  <Icon className="h-5 w-5" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold text-gray-900 dark:text-white">{value}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-                </div>
-              </Link>
-            ) : (
-              <div
-                key={label}
-                className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
-              >
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${bg} ${color}`}>
-                  <Icon className="h-5 w-5" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold text-gray-900 dark:text-white">{value}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
+      {isAcademy ? (
+        academy && !academy.isLoading ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[...kpis, agencyCard, chiefCard].map(renderCard)}
+            </div>
+            {academy.upcoming.length > 0 && (
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  {t('reports.upcomingSessions')}
+                </h2>
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {academy.upcoming.map((s) => {
+                    const start = new Date(s.start_at);
+                    const trainer = s.trainer
+                      ? `${s.trainer.first_name ?? ''} ${s.trainer.last_name ?? ''}`.trim()
+                      : '';
+                    return (
+                      <div
+                        key={s.id}
+                        className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"
+                      >
+                        <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                          {s.course?.name ?? '—'}
+                        </p>
+                        <div className="mt-2 flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5" />
+                            {start.toLocaleString(undefined, {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                          {trainer && <span className="flex items-center gap-1.5">{trainer}</span>}
+                          <span>
+                            {t('academy.enrollmentsCount')} : {s.enrollments_count ?? 0}
+                            {s.max_capacity ? ` / ${s.max_capacity}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            )
+            )}
+          </>
+        ) : (
+          <SkeletonDashboard />
+        )
+      ) : business ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {businessKpis.map(renderCard)}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {businessInfoCards.map(renderCard)}
+          </div>
+
+          <MonthlyRevenueChart data={business.monthly} />
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 xl:col-span-2">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  {t('dashboard.recentInvoices')}
+                </h2>
+                <Link
+                  to={`/departments/${departmentId}/invoices`}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+                >
+                  {t('agencies.overviewViewAll')}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+              {recentInvoices.length === 0 ? (
+                <p className="mt-3 text-sm text-gray-400">{t('invoices.empty')}</p>
+              ) : (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                      <tr>
+                        <th className="pb-2 pr-4 font-medium">{t('invoices.colNumber')}</th>
+                        <th className="pb-2 pr-4 font-medium">{t('invoices.colClient')}</th>
+                        <th className="pb-2 pr-4 font-medium">{t('invoices.colDate')}</th>
+                        <th className="pb-2 pr-4 text-right font-medium">{t('invoices.colTotal')}</th>
+                        <th className="pb-2 text-right font-medium">{t('invoices.colStatus')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {recentInvoices.map((inv) => (
+                        <tr key={inv.id}>
+                          <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
+                            {inv.number}
+                          </td>
+                          <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
+                            {inv.client_label ?? inv.client?.client_number ?? inv.client_name ?? '—'}
+                          </td>
+                          <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
+                            {new Date(inv.invoice_date).toLocaleDateString(currentLocale())}
+                          </td>
+                          <td className="py-2.5 pr-4 text-right font-medium text-gray-800 dark:text-gray-100">
+                            {formatCurrency(inv.total_amount)}
+                          </td>
+                          <td className="py-2.5 text-right">
+                            <InvoiceStatusBadge status={inv.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {t('departments.quickActions')}
+              </h2>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {quickActions.map(({ label, to, icon: Icon, color, bg }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    className="group flex flex-col items-center gap-2 rounded-xl border border-gray-100 p-3 text-center transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:hover:border-brand-500/40"
+                  >
+                    <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${bg} ${color}`}>
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="truncate text-xs font-medium text-gray-700 dark:text-gray-200">
+                      {label}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {topCommercials.length > 0 && (
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  {t('dashboard.topCommercials')}
+                </h2>
+                <Link
+                  to="/commercials"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+                >
+                  {t('agencies.overviewViewAll')}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                    <tr>
+                      <th className="pb-2 pr-4 font-medium">{t('dashboard.commercials')}</th>
+                      <th className="pb-2 pr-4 font-medium">{t('dashboard.salesCount')}</th>
+                      <th className="pb-2 text-right font-medium">{t('dashboard.turnover')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {topCommercials.map((c) => (
+                      <tr key={c.id}>
+                        <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
+                          {c.full_name}
+                        </td>
+                        <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.sales_count}</td>
+                        <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
+                          {formatCurrency(c.turnover)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
-        </div>
+        </>
+      ) : (
+        <SkeletonDashboard />
       )}
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
@@ -349,49 +705,6 @@ export default function DepartmentOverviewPage() {
           </div>
         </dl>
       </div>
-
-      {isAcademy && academy && !academy.isLoading && academy.upcoming.length > 0 && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-            {t('reports.upcomingSessions')}
-          </h2>
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {academy.upcoming.map((s) => {
-              const start = new Date(s.start_at);
-              const trainer = s.trainer
-                ? `${s.trainer.first_name ?? ''} ${s.trainer.last_name ?? ''}`.trim()
-                : '';
-              return (
-                <div
-                  key={s.id}
-                  className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"
-                >
-                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                    {s.course?.name ?? '—'}
-                  </p>
-                  <div className="mt-2 flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5" />
-                      {start.toLocaleString(undefined, {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                    {trainer && <span className="flex items-center gap-1.5">{trainer}</span>}
-                    <span>
-                      {t('academy.enrollmentsCount')} : {s.enrollments_count ?? 0}
-                      {s.max_capacity ? ` / ${s.max_capacity}` : ''}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

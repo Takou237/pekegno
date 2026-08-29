@@ -428,6 +428,7 @@ export default {
     colChief: 'Chef',
     colCount: 'Effectif',
     colAgency: 'Agence',
+    quickActions: 'Actions rapides',
     viewUsers: 'Voir les utilisateurs',
     assignChief: 'Assigner un chef de département',
     loadFailed: 'Impossible de charger les départements.',

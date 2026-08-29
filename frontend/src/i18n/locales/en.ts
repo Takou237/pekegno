@@ -424,6 +424,7 @@ export default {
     colChief: 'Chief',
     colCount: 'Headcount',
     colAgency: 'Agency',
+    quickActions: 'Quick actions',
     viewUsers: 'View users',
     assignChief: 'Assign a department chief',
     loadFailed: 'Unable to load departments.',
