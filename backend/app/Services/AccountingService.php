@@ -46,6 +46,18 @@ class AccountingService
             ->first();
     }
 
+    /**
+     * Catégorie système dédiée aux commissions (créée au besoin pour les
+     * bases existantes qui ne l'ont pas encore).
+     */
+    public function commissionExpenseCategory(): AccountingCategory
+    {
+        return AccountingCategory::firstOrCreate(
+            ['name' => 'Commissions', 'type' => 'expense', 'agency_id' => null, 'is_system' => true],
+            ['name' => 'Commissions', 'type' => 'expense', 'agency_id' => null, 'is_system' => true],
+        );
+    }
+
     public function nextNumber(): int
     {
         return ((int) AccountingTransaction::max('number')) + 1;

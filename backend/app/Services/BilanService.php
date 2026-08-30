@@ -54,6 +54,7 @@ class BilanService
         $agencyBilans = [];
         $totals = [
             'total_ventes' => 0,
+            'total_ventes_amount' => 0,
             'total_encaisse' => 0,
             'total_cash' => 0,
             'total_om' => 0,
@@ -70,6 +71,7 @@ class BilanService
             $agencyBilans[] = $b;
 
             $totals['total_ventes'] += $b['total_ventes'];
+            $totals['total_ventes_amount'] += $b['total_ventes_amount'];
             $totals['total_encaisse'] += $b['total_received'];
             $totals['total_cash'] += $b['cash_total'];
             $totals['total_om'] += $b['om_total'];
@@ -112,6 +114,7 @@ class BilanService
 
         $totalReceived = $cash + $om + $momo + $mobile;
         $totalVentes = (int) collect($servicesByCategory)->sum('count');
+        $totalVentesAmount = round((float) collect($servicesByCategory)->sum('total'), 2);
 
         $expensesByCategory = $this->expensesByCategory($date, $agencyId, $agencyIds);
         $expenseTotal = collect($expensesByCategory)->sum('total');
@@ -140,6 +143,7 @@ class BilanService
             'agency' => $agency,
             'services_by_category' => $servicesByCategory,
             'total_ventes' => $totalVentes,
+            'total_ventes_amount' => $totalVentesAmount,
             'cash_total' => $cash,
             'om_total' => $om,
             'momo_total' => $momo,

@@ -99,9 +99,13 @@ class SellerProfileController extends Controller
     {
         $totalTraining = $sellerProfile->totalByCategory('training');
         $totalService = $sellerProfile->totalByCategory('service');
-        $totalPaid = (float) $sellerProfile->commissionPayments()->sum('amount');
+        $totalPaid = (float) $sellerProfile->commissionPayments()
+            ->where('rule', 'commission_payment')
+            ->sum('amount');
         $totalOwed = $totalTraining + $totalService;
-        $balance = round($totalOwed - $totalPaid, 2);
+        // Solde restant = entrées impayées ; le paiement marque les entrées « paid »
+        // (FIFO), soustraire aussi les versements les compterait deux fois.
+        $balance = round($totalOwed, 2);
 
         $entries = $sellerProfile->commissionEntries()
             ->with('invoice')
@@ -180,11 +184,38 @@ class SellerProfileController extends Controller
                 'created_by' => auth()->id(),
             ]);
 
-            // Marquer l'entrée commission comme payée
+            // Marquer les entrées commission payées (FIFO) sans jamais dépasser le montant.
+            $remaining = $amount;
+
             if (! empty($validated['commission_entry_id'])) {
                 $entry = CommissionEntry::find($validated['commission_entry_id']);
-                if ($entry && $entry->status !== CommissionEntry::STATUS_PAID) {
+
+                if ($entry && $entry->seller_profile_id === $sellerProfile->id
+                    && in_array($entry->status, [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED], true)) {
                     $entry->transitionTo(CommissionEntry::STATUS_PAID, auth()->id());
+                    $remaining = round($remaining - (float) $entry->amount, 2);
+                }
+            }
+
+            if ($remaining > 0.005) {
+                $entries = $sellerProfile->commissionEntries()
+                    ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED])
+                    ->orderBy('created_at')
+                    ->orderBy('id')
+                    ->limit(500)
+                    ->get();
+
+                foreach ($entries as $entry) {
+                    if ($remaining <= 0.005) {
+                        break;
+                    }
+
+                    $entryAmount = (float) $entry->amount;
+
+                    if ($remaining >= $entryAmount - 0.005) {
+                        $entry->transitionTo(CommissionEntry::STATUS_PAID, auth()->id());
+                        $remaining = round($remaining - $entryAmount, 2);
+                    }
                 }
             }
 
@@ -203,13 +234,10 @@ class SellerProfileController extends Controller
                 );
             }
 
-            // Écriture comptable (expense)
-            $category = AccountingCategory::where('type', 'expense')
-                ->where('is_system', true)
-                ->whereNull('agency_id')
-                ->first();
+            // Écriture comptable (expense) — catégorie dédiée « Commissions ».
+            $category = $this->accountingService->commissionExpenseCategory();
 
-            if ($category) {
+            if ($category && $sellerProfile->agency_id) {
                 AccountingTransaction::create([
                     'number' => $this->accountingService->nextNumber(),
                     'agency_id' => $sellerProfile->agency_id,

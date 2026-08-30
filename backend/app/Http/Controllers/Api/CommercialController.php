@@ -9,6 +9,7 @@ use App\Http\Requests\Api\UpdateCommercialRequest;
 use App\Models\Commercial;
 use App\Models\CommercialPoint;
 use App\Models\Invoice;
+use App\Models\Trainer;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use Illuminate\Database\Eloquent\Builder;
@@ -64,7 +65,7 @@ class CommercialController extends Controller
     )]
     public function index(Request $request)
     {
-        $commercials = Commercial::with('agency', 'user:id,email,first_name,last_name,is_active')
+        $commercialsQuery = Commercial::with('agency', 'user:id,email,first_name,last_name,is_active')
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
@@ -78,11 +79,155 @@ class CommercialController extends Controller
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->when($request->linked === 'true', fn ($q) => $q->whereNotNull('user_id'))
             ->when($request->linked === 'false', fn ($q) => $q->whereNull('user_id'))
-            ->when($request->user(), fn ($q) => $this->scopeByRole($q, $request->user()))
-            ->orderBy('last_name')
-            ->paginate(min((int) $request->input('per_page', 15), 100));
+            ->when($request->user(), fn ($q) => $this->scopeByRole($q, $request->user()));
 
-        return response()->json($commercials);
+        $perPage = min((int) $request->input('per_page', 15), 100);
+        $page = max((int) $request->input('page', 1), 1);
+
+        // La liste Employés agrège aussi les formateurs (annuaire RH unifié).
+        if ($request->input('kind', $this->defaultKind($request)) === 'employe' && $request->boolean('include_trainers')) {
+            return response()->json($this->mergeTrainers($request, $commercialsQuery, $perPage, $page));
+        }
+
+        $paginator = $commercialsQuery->orderBy('last_name')->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json($this->paginatorPayload($paginator));
+    }
+
+    /**
+     * Agrège les employés (commerciaux kind=employe) et les formateurs du
+     * périmètre dans une liste unique paginée, triée par nom. Les formateurs
+     * sont mappés dans la forme « commercial » avec le drapeau is_trainer=true.
+     */
+    private function mergeTrainers(Request $request, $commercialsQuery, int $perPage, int $page): array
+    {
+        // Les utilisateurs « formateur » du périmètre obtiennent leur profil à la volée.
+        app(TrainerController::class)->syncUserTrainers($request, $request->agency_id);
+
+        $commercials = $commercialsQuery->orderBy('last_name')->get()
+            ->map(fn (Commercial $commercial) => array_merge($commercial->toArray(), ['is_trainer' => false]));
+
+        $agencyScope = $this->trainerAgencyScope($request);
+
+        $trainers = Trainer::query()
+            ->with('agency:id,name', 'user:id,email,first_name,last_name,is_active')
+            ->withCount('sessions')
+            ->when($request->search, function ($q, $search) {
+                $terms = preg_split('/\s+/', trim($search));
+
+                foreach ($terms as $term) {
+                    $q->where(function ($sq) use ($term) {
+                        $sq->where('first_name', 'ilike', "%{$term}%")
+                            ->orWhere('last_name', 'ilike', "%{$term}%")
+                            ->orWhere('email', 'ilike', "%{$term}%")
+                            ->orWhere('phone', 'ilike', "%{$term}%");
+                    });
+                }
+            })
+            ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
+            ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
+            ->when($request->linked === 'true', fn ($q) => $q->whereNotNull('user_id'))
+            ->when($request->linked === 'false', fn ($q) => $q->whereNull('user_id'))
+            ->when($agencyScope !== null, fn ($q) => $q->whereIn('agency_id', $agencyScope))
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get()
+            ->map(fn (Trainer $trainer) => [
+                'id' => $trainer->id,
+                'user_id' => $trainer->user_id,
+                'agency_id' => $trainer->agency_id,
+                'kind' => 'formateur',
+                'first_name' => $trainer->first_name,
+                'last_name' => $trainer->last_name,
+                'email' => $trainer->email,
+                'phone' => $trainer->phone,
+                'commission_type' => 'none',
+                'commission_value' => null,
+                'points_balance' => 0,
+                'is_active' => (bool) $trainer->is_active,
+                'is_trainer' => true,
+                'sessions_count' => $trainer->sessions_count ?? 0,
+                'agency' => $trainer->agency ? ['id' => $trainer->agency->id, 'name' => $trainer->agency->name] : null,
+                'user' => $trainer->user ? [
+                    'id' => $trainer->user->id,
+                    'email' => $trainer->user->email,
+                    'first_name' => $trainer->user->first_name,
+                    'last_name' => $trainer->user->last_name,
+                    'is_active' => (bool) $trainer->user->is_active,
+                ] : null,
+                'created_at' => $trainer->created_at?->toISOString(),
+                'updated_at' => $trainer->updated_at?->toISOString(),
+            ]);
+
+        $merged = $commercials
+            ->concat($trainers)
+            ->sortBy(fn ($row) => strtolower(trim(($row['last_name'] ?? '').' '.($row['first_name'] ?? ''))))
+            ->values();
+
+        $total = $merged->count();
+        $lastPage = max((int) ceil($total / $perPage), 1);
+
+        return [
+            'data' => $merged->slice(($page - 1) * $perPage, $perPage)->values(),
+            'meta' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+            ],
+            'links' => [
+                'first' => $this->pageUrl($request, 1),
+                'last' => $this->pageUrl($request, $lastPage),
+                'prev' => $page > 1 ? $this->pageUrl($request, $page - 1) : null,
+                'next' => $page < $lastPage ? $this->pageUrl($request, $page + 1) : null,
+            ],
+        ];
+    }
+
+    /**
+     * Périmètre d'agences appliqué aux formateurs pour un rôle donné.
+     * Null signifie « toutes les agences ».
+     */
+    private function trainerAgencyScope(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if (! $user || in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
+            return $user ? null : [];
+        }
+
+        if ($user->role?->name === 'responsable-agence') {
+            return DB::table('user_assignments')
+                ->where('user_id', $user->id)
+                ->pluck('agency_id')
+                ->all();
+        }
+
+        return [];
+    }
+
+    private function paginatorPayload($paginator): array
+    {
+        return [
+            'data' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+        ];
+    }
+
+    private function pageUrl(Request $request, int $page): string
+    {
+        return $request->url().'?'.http_build_query(array_merge($request->query(), ['page' => $page]));
     }
 
     #[OA\Post(
@@ -139,6 +284,7 @@ class CommercialController extends Controller
             'user',
             'points' => fn ($q) => $q->orderByDesc('created_at')->limit(50),
             'prospects' => fn ($q) => $q->orderByDesc('created_at'),
+            'commissionPayments' => fn ($q) => $q->with('invoice')->orderByDesc('created_at'),
         ]);
 
         return response()->json($commercial);
@@ -382,11 +528,18 @@ class CommercialController extends Controller
             ->orderByDesc('total')
             ->get();
 
+        $earnedCommissions = (float) (clone $base)->sum('commission_amount');
+        $paidCommissions = (float) \App\Models\CommissionPayment::query()
+            ->where('commercial_id', $commercial->id)
+            ->where('rule', 'commission_payment')
+            ->sum('amount');
+
         return response()->json([
             'commercial' => $commercial->only(['id', 'first_name', 'last_name', 'email', 'points_balance', 'commission_type', 'commission_value', 'is_active']),
             'turnover' => round((float) (clone $base)->sum('total_amount'), 2),
             'sales_count' => (clone $base)->count(),
-            'commissions' => round((float) (clone $base)->sum('commission_amount'), 2),
+            // Solde restant : commissions gagnées sur factures payées − versements effectués.
+            'commissions' => round(max($earnedCommissions - $paidCommissions, 0), 2),
             'points_balance' => $commercial->points_balance,
             'services_sold' => $servicesSold,
             'monthly' => $monthly,

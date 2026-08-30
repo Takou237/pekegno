@@ -16,6 +16,7 @@ class AccountingCategorySeeder extends Seeder
 
         $expenseCategories = [
             'Admin',
+            'Commissions',
             'Publicité Client',
             'Publicité PC',
             'Publicité PCI',

@@ -320,8 +320,8 @@ class CommissionController extends Controller
                 );
             }
 
-            // 4. Écriture comptable (dépense).
-            $category = $this->accountingService->systemCategory('expense');
+            // 4. Écriture comptable (dépense) — catégorie dédiée « Commissions ».
+            $category = $this->accountingService->commissionExpenseCategory();
             if ($category && $agencyId) {
                 \App\Models\AccountingTransaction::create([
                     'number' => $this->accountingService->nextNumber(),
@@ -353,13 +353,14 @@ class CommissionController extends Controller
 
         if ($sellerProfile) {
             $query->where('seller_profile_id', $sellerProfile->id);
-        } else {
+        } elseif ($commercial) {
             $query->where('beneficiary_commercial_id', $commercial->id);
+        } else {
+            return 0.0;
         }
 
-        // Solde restant = entrées non payées. Les CommissionPayment (total_paid)
-        // sont l'historique des versements : les soustraire recompterait les lignes
-        // déjà marquées « paid » par le paiement FIFO (solde négatif à tort).
+        // Solde disponible = entrées impayées : le paiement FIFO marque les entrées
+        // « paid », les soustraire en plus en compterait deux fois (solde négatif).
         return round((float) $query->sum('amount'), 2);
     }
 
@@ -382,7 +383,7 @@ class CommissionController extends Controller
             ->sum('amount');
 
         $paid = (float) CommissionPayment::query()
-            ->whereNull('payment_id')
+            ->where('rule', 'commission_payment')
             ->where($type === 'seller_profile' ? 'seller_profile_id' : 'commercial_id', $id)
             ->sum('amount');
 
@@ -395,8 +396,8 @@ class CommissionController extends Controller
             'commission_value' => $commissionValue,
             'total_owed' => round($owed, 2),
             'total_paid' => round($paid, 2),
-            // Solde restant = entrées impayées ; ne soustrait pas l'historique des
-            // versements (sinon solde négatif dès qu'on paie une commission).
+            // Solde restant = entrées impayées. Les versements sont marqués FIFO sur
+            // les entrées (paid) : les soustraire en plus les compterait deux fois.
             'balance' => round($owed, 2),
         ];
     }

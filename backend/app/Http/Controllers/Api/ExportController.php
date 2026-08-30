@@ -491,13 +491,13 @@ class ExportController extends Controller
 
         $consolidated = $this->bilanService->consolidated($date, $agencyIds);
         $rows = collect();
-        $header = ['Agence', 'Total Ventes', 'Cash', 'Orange Money', 'MTN Mobile Money', 'Total Encaissé', 'Solde Initial', 'Dépenses', 'Solde Final'];
+        $header = ['Agence', 'Total Ventes (FCFA)', 'Cash', 'Orange Money', 'MTN Mobile Money', 'Total Encaissé', 'Solde Initial', 'Dépenses', 'Solde Final'];
         $totalRow = [0, 0, 0, 0, 0, 0, 0, 0];
 
         foreach ($consolidated['agencies'] as $ab) {
             $rows->push([
                 $ab['agency']['name'] ?? '—',
-                $ab['total_ventes'],
+                $ab['total_ventes_amount'],
                 $ab['cash_total'],
                 $ab['om_total'],
                 $ab['momo_total'],
@@ -506,7 +506,7 @@ class ExportController extends Controller
                 $ab['expense_total'],
                 abs($ab['solde_final']),
             ]);
-            $totalRow[0] += $ab['total_ventes'];
+            $totalRow[0] += $ab['total_ventes_amount'];
             $totalRow[1] += $ab['cash_total'];
             $totalRow[2] += $ab['om_total'];
             $totalRow[3] += $ab['momo_total'];

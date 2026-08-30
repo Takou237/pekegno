@@ -222,9 +222,11 @@ class Phase3AccountingTest extends TestCase
 
         $this->assertDatabaseHas('accounting_categories', ['id' => $created['id'], 'is_system' => false]);
 
+        $this->assertDatabaseHas('accounting_categories', ['name' => 'Commissions', 'type' => 'expense', 'is_system' => true]);
+
         $this->getJson('/api/accounting/categories?type=expense')
             ->assertOk()
-            ->assertJsonCount(8);
+            ->assertJsonCount(9);
     }
 
     public function test_accounting_export_downloads_csv(): void

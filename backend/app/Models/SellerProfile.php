@@ -79,21 +79,20 @@ class SellerProfile extends Model
     }
 
     /**
-     * Solde total des commissions (entries calculées/validées - paiements).
+     * Solde disponible = entrées impayées (calculées/validées). Le paiement marque
+     * les entrées « paid » (FIFO), donc encaisser une commission diminue le solde.
+     * Les CommissionPayment automatiques des factures (règles percent/fixed) ne
+     * sont pas des versements : les soustraire fausserait le solde.
      */
     public function balance(): float
     {
-        $total = $this->commissionEntries()
+        return round((float) $this->commissionEntries()
             ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED])
-            ->sum('amount');
-
-        $paid = $this->commissionPayments()->sum('amount');
-
-        return round((float) $total - (float) $paid, 2);
+            ->sum('amount'), 2);
     }
 
     /**
-     * Total commissions par catégorie (training/service).
+     * Total des commissions dues par catégorie (training/service), lignes payées/annulées exclues.
      */
     public function totalByCategory(string $category): float
     {

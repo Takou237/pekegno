@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreTrainerRequest;
 use App\Http\Requests\Api\UpdateTrainerRequest;
 use App\Models\Attendance;
+use App\Models\CommissionEntry;
+use App\Models\CommissionPayment;
 use App\Models\CourseModule;
 use App\Models\FormationEnrollment;
+use App\Models\SellerProfile;
 use App\Models\Trainer;
 use App\Models\User;
 use App\Services\ScopeService;
@@ -43,8 +46,11 @@ class TrainerController extends Controller
      * Crée automatiquement un profil formateur pour chaque utilisateur ayant
      * le rôle « formateur » affecté aux agences du périmètre : ils apparaissent
      * ainsi dans la liste avec leur compte lié (has_account).
+     *
+     * Public : réutilisé par la liste Employés (CommercialController) pour que
+     * les formateurs liés à un compte ressortent aussi dans l'annuaire RH.
      */
-    private function syncUserTrainers(Request $request, ?string $agencyId): void
+    public function syncUserTrainers(Request $request, ?string $agencyId): void
     {
         $formateurRoleId = DB::table('roles')->where('name', 'formateur')->value('id');
 
@@ -375,6 +381,32 @@ class TrainerController extends Controller
             ->orderBy('order_index')
             ->get();
 
+        // Ventes réalisées par le formateur en qualité de vendeur de formations.
+        $salesEnrollments = FormationEnrollment::query()
+            ->where('seller_trainer_id', $trainer->id)
+            ->whereNot('status', 'cancelled')
+            ->with(['course:id,name,code', 'invoice:id,total_amount,status,cancelled_at', 'learner:id,first_name,last_name,email'])
+            ->get();
+
+        $paidSales = $salesEnrollments->filter(
+            fn ($e) => $e->invoice && $e->invoice->status === 'paid' && $e->invoice->cancelled_at === null
+        );
+
+        // Commissions via les profils vendeur liés au compte du formateur.
+        $profileIds = SellerProfile::query()
+            ->where('user_id', $trainer->user_id)
+            ->pluck('id');
+
+        $commissionsEarned = (float) CommissionEntry::query()
+            ->whereNot('status', CommissionEntry::STATUS_CANCELLED)
+            ->whereIn('seller_profile_id', $profileIds)
+            ->sum('amount');
+
+        $commissionsPaid = (float) CommissionPayment::query()
+            ->where('rule', 'commission_payment')
+            ->whereIn('seller_profile_id', $profileIds)
+            ->sum('amount');
+
         return response()->json([
             'trainer' => [
                 'id' => $trainer->id,
@@ -405,7 +437,28 @@ class TrainerController extends Controller
                     : 0.0,
                 'potential_revenue' => round($revenue, 2),
                 'hours_taught' => round($hoursTaught, 1),
+                'sales_count' => $paidSales->count(),
+                'sales_turnover' => round($paidSales->sum(fn ($e) => (float) ($e->invoice?->total_amount ?? 0)), 2),
+                'commissions_earned' => round($commissionsEarned, 2),
+                'commissions_paid' => round($commissionsPaid, 2),
+                'commissions_balance' => round($commissionsEarned - $commissionsPaid, 2),
             ],
+            'recent_sales' => $salesEnrollments
+                ->sortByDesc('updated_at')
+                ->take(5)
+                ->values()
+                ->map(fn ($e) => [
+                    'id' => $e->id,
+                    'course' => $e->course ? ['id' => $e->course->id, 'name' => $e->course->name, 'code' => $e->course->code] : null,
+                    'learner' => $e->learner ? [
+                        'id' => $e->learner->id,
+                        'first_name' => $e->learner->first_name,
+                        'last_name' => $e->learner->last_name,
+                    ] : null,
+                    'date' => $e->enrolled_at?->toISOString(),
+                    'amount' => (float) ($e->invoice?->total_amount ?? 0),
+                ])
+                ->all(),
             'recent_sessions' => $recentSessions->map(fn ($s) => $this->formatSession($s))->values(),
             'upcoming_sessions' => $upcomingSessions->map(fn ($s) => $this->formatSession($s))->values(),
             'assigned_modules' => $assignedModules->map(fn ($m) => [
