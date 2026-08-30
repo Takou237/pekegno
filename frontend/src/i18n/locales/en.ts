@@ -1790,6 +1790,7 @@ export default {
     statusCompleted: 'Completed',
     statusCancelled: 'Cancelled',
     allStatuses: 'All statuses',
+    activeEnrollments: 'Active enrollments',
     searchLearners: 'Search for a learner…',
     coursesSubtitle: 'Training catalog offered by the agency.',
     newCourse: 'New course',

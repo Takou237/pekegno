@@ -1798,6 +1798,7 @@ export default {
     statusCompleted: 'Terminé',
     statusCancelled: 'Annulé',
     allStatuses: 'Tous les statuts',
+    activeEnrollments: 'Inscriptions actives',
     searchLearners: 'Rechercher un apprenant…',
     coursesSubtitle: 'Catalogue de formations proposées par l\'agence.',
     newCourse: 'Nouvelle formation',

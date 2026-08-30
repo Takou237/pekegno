@@ -465,6 +465,32 @@ class Phase6AcademyTest extends TestCase
             ->assertJsonPath('data.0.learner.id', $client->id);
     }
 
+    public function test_deleted_enrollment_is_hidden_by_default_but_findable_when_cancelled(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201)
+            ->json();
+
+        $this->deleteJson('/api/formation-enrollments/'.$enrollment['id'])->assertStatus(204);
+
+        // Régression : une inscription supprimée ne doit pas « réapparaître »
+        // dans la liste par défaut (seulement via le filtre status=cancelled).
+        $this->getJson('/api/formation-enrollments')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->getJson('/api/formation-enrollments?status=cancelled')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.status', 'cancelled');
+    }
+
     public function test_training_report_aggregates(): void
     {
         $this->admin();

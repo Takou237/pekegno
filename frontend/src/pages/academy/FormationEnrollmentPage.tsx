@@ -343,7 +343,7 @@ export default function FormationEnrollmentPage() {
             }}
             className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
           >
-            <option value="">{t('academy.allStatuses')}</option>
+            <option value="">{t('academy.activeEnrollments')}</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {statusLabel(s, t)}

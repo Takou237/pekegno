@@ -38,6 +38,10 @@ class FormationEnrollmentController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
+        } else {
+            // Par défaut on masque les inscriptions annulées : une inscription
+            // supprimée (annulée) ne « réapparaît » pas dans la liste active.
+            $query->whereNot('status', 'cancelled');
         }
 
         if ($request->filled('agency_id')) {
