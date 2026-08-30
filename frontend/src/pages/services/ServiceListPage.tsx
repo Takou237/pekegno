@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play, Tag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { categoriesApi } from '@/api/categories.api';
@@ -17,6 +17,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ServiceFormModal } from '@/components/services/ServiceFormModal';
 import { ServiceDetailModal } from '@/components/services/ServiceDetailModal';
 import { CategoryFormModal } from '@/components/categories/CategoryFormModal';
+import PromotionFormModal from '@/components/promotions/PromotionFormModal';
 import {
   canCreateService,
   canDeleteService,
@@ -29,6 +30,7 @@ import { currentLocale } from '@/i18n';
 import type { Service } from '@/types/service';
 import type { Category } from '@/types/category';
 import type { Agency, PaginationMeta } from '@/types/agency';
+import type { Promotion } from '@/types/promotion';
 
 interface ServiceListPageProps {
   agencyId?: string;
@@ -74,6 +76,12 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
   const [detailService, setDetailService] = useState<Service | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [promoService, setPromoService] = useState<Service | null>(null);
+  const [promoEditing, setPromoEditing] = useState<Promotion | null>(null);
+  const canPromoteService = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
+    user?.role?.name ?? ''
+  );
 
   const fetchServices = useCallback(async () => {
     setIsLoading(true);
@@ -180,12 +188,43 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     return `${new Intl.NumberFormat(currentLocale()).format(Number(value))} FCFA`;
   }
 
+  function handlePromoSaved(saved: Promotion) {
+    setServices((prev) =>
+      prev.map((service) =>
+        service.id === saved.service_id
+          ? {
+              ...service,
+              effective_price: saved.effective_price ?? service.effective_price,
+              promotions: [saved, ...(service.promotions ?? []).filter((p) => p.id !== saved.id)],
+            }
+          : service
+      )
+    );
+  }
+
   const hasPromo = (service: Service) => Number(service.effective_price) !== Number(service.price);
 
   const activePromotion = (service: Service) =>
     (service.promotions ?? [])
       .filter((promotion) => promotion.is_active)
       .sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
+
+  const toEditablePromotion = (
+    promotion: NonNullable<Service['promotions']>[number] | undefined
+  ): Promotion | null =>
+    promotion
+      ? {
+          id: promotion.id,
+          service_id: promotion.service_id,
+          type: promotion.type ?? 'amount',
+          promo_price: promotion.promo_price,
+          discount_percent: promotion.discount_percent,
+          effective_price: promotion.effective_price ?? null,
+          start_date: promotion.start_date,
+          end_date: promotion.end_date,
+          is_active: promotion.is_active,
+        }
+      : null;
 
   const discountPercent = (service: Service): number | null => {
     const promotion = activePromotion(service);
@@ -365,6 +404,20 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
                       >
                         <Eye className="h-4 w-4" />
                       </button>
+                      {canPromoteService && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPromoEditing(toEditablePromotion(activePromotion(service)));
+                            setPromoService(service);
+                          }}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
+                          title={t('services.promote')}
+                        >
+                          <Tag className="h-4 w-4" />
+                        </button>
+                      )}
                       {canCreateService(user) && (
                         <button
                           type="button"
@@ -506,6 +559,17 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
           setDetailId(null);
           setDetailService(null);
         }}
+      />
+
+      <PromotionFormModal
+        isOpen={Boolean(promoService) || Boolean(promoEditing)}
+        service={promoService}
+        editing={promoEditing}
+        onClose={() => {
+          setPromoService(null);
+          setPromoEditing(null);
+        }}
+        onSaved={handlePromoSaved}
       />
 
       <ConfirmDialog

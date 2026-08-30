@@ -10,6 +10,7 @@ use App\Models\CommissionRule;
 use App\Models\SellerProfile;
 use App\Models\TreasuryAccount;
 use App\Services\AccountingService;
+use App\Services\CommissionService;
 use App\Services\TreasuryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +23,7 @@ class CommissionController extends Controller
     public function __construct(
         private readonly TreasuryService $treasuryService,
         private readonly AccountingService $accountingService,
+        private readonly CommissionService $commissionService,
     ) {}
 
     #[OA\Get(path: '/api/commission-rules', summary: 'Lister les règles (dernières versions)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Règles')])]
@@ -123,6 +125,59 @@ class CommissionController extends Controller
         return response()->json($entries);
     }
 
+    #[OA\Post(path: '/api/commissions/entries', summary: 'Créer une entrée de commission manuelle (validée d\'emblée)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 201, description: 'Entrée créée')])]
+    public function storeEntry(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'seller_profile_id' => ['required', 'uuid', 'exists:seller_profiles,id'],
+            'category' => ['required', 'string', 'in:training,service'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'label' => ['nullable', 'string', 'max:250'],
+            'invoice_id' => ['nullable', 'uuid', 'exists:invoices,id'],
+        ]);
+
+        $entry = CommissionEntry::create([
+            'seller_profile_id' => $validated['seller_profile_id'],
+            'category' => $validated['category'],
+            'base_amount' => $validated['amount'],
+            'amount' => $validated['amount'],
+            'invoice_id' => $validated['invoice_id'] ?? null,
+            'status' => CommissionEntry::STATUS_VALIDATED,
+            'validated_by' => $request->user()->id,
+            'validated_at' => now(),
+            'rule_snapshot' => [
+                'manual' => true,
+                'label' => $validated['label'] ?? 'Commission manuelle',
+            ],
+        ]);
+
+        return response()->json($entry->fresh()->load(['invoice', 'sellerProfile.user', 'rule']), 201);
+    }
+
+    #[OA\Put(path: '/api/commissions/entries/{entry}', summary: 'Surcharger le montant d\'une entrée (calculated/validated)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Montant mis à jour')])]
+    public function updateEntry(Request $request, CommissionEntry $entry): JsonResponse
+    {
+        abort_if(! in_array($entry->status, [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED], true), 422, 'Impossible de modifier une commission payée ou annulée.');
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'label' => ['nullable', 'string', 'max:250'],
+        ]);
+
+        $entry->amount = $validated['amount'];
+
+        if (array_key_exists('label', $validated)) {
+            $snapshot = $entry->rule_snapshot ?? [];
+            $snapshot['manual'] = true;
+            $snapshot['label'] = $validated['label'];
+            $entry->rule_snapshot = $snapshot;
+        }
+
+        $entry->save();
+
+        return response()->json($entry->fresh()->load(['invoice', 'sellerProfile.user', 'rule']));
+    }
+
     #[OA\Post(path: '/api/commissions/entries/{entry}/validate', summary: 'Valider (calculated → validated)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Validée')])]
     public function validateEntry(Request $request, CommissionEntry $entry): JsonResponse
     {
@@ -145,6 +200,18 @@ class CommissionController extends Controller
         abort_if(! $entry->transitionTo(CommissionEntry::STATUS_CANCELLED, $request->user()->id), 422, 'Impossible d\'annuler cette commission (statut actuel : '.$entry->status.').');
 
         return response()->json($entry->fresh());
+    }
+
+    /**
+     * Rejoue la génération des commissions sur chaque versement d'un profil vendeur
+     * (idempotent). Utilisé depuis la fiche formateur après modification du taux ou
+     * ajout d'une règle par service/formation pour prendre en compte les encaissements existants.
+     */
+    public function recalculateSeller(Request $request, SellerProfile $sellerProfile): JsonResponse
+    {
+        $result = $this->commissionService->recalculateForSellerProfile($sellerProfile, $request->user()->id);
+
+        return response()->json(['data' => $result]);
     }
 
     /**

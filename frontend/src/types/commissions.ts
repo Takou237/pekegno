@@ -81,9 +81,9 @@ export interface CommissionPaymentPayload {
 
 export interface CommissionEntry {
   id: string;
-  invoice_id: string;
+  invoice_id: string | null;
   invoice_payment_id: string | null;
-  commission_rule_id: string;
+  commission_rule_id: string | null;
   rule_snapshot: Record<string, unknown>;
   beneficiary_commercial_id: string | null;
   seller_profile_id: string | null;

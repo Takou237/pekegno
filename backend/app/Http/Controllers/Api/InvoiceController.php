@@ -31,6 +31,7 @@ class InvoiceController extends Controller
         private readonly AccountingService $accountingService,
         private readonly PaymentService $paymentService,
         private readonly ActivityLogger $logger,
+        private readonly \App\Services\SellerProfileService $sellerProfiles,
     ) {}
 
     #[OA\Get(
@@ -179,7 +180,7 @@ class InvoiceController extends Controller
                 'client_id' => $data['client_id'] ?? null,
                 'client_name' => $data['client_name'] ?? null,
                 'commercial_id' => $data['commercial_id'] ?? null,
-                'seller_user_id' => $request->user()->id,
+                'seller_user_id' => $data['seller_user_id'] ?? $request->user()->id,
                 'invoice_date' => $data['invoice_date'] ?? now(),
                 'payment_type' => $data['payment_type'] ?? null,
                 'total_amount' => $total,
@@ -189,6 +190,17 @@ class InvoiceController extends Controller
                 'status' => 'unpaid',
                 'comment' => $data['comment'] ?? null,
             ]);
+
+            // Un vendeur formateur (employé de l'agence) obtient son profil vendeur
+            // à la première vente, sans inventer de taux (commission_type=none).
+            if (($data['seller_user_id'] ?? null) && $data['seller_user_id'] !== $request->user()->id) {
+                $seller = \App\Models\User::find($data['seller_user_id']);
+                if ($seller) {
+                    $this->sellerProfiles->ensureForUser($seller, $invoice->agency_id);
+                }
+            } else {
+                $this->sellerProfiles->ensureForUser($request->user(), $invoice->agency_id);
+            }
 
             foreach ($items as $line) {
                 $invoice->items()->create([

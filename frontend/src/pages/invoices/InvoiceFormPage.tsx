@@ -14,7 +14,7 @@ import { formatCurrency } from '@/utils/number';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
-import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
+import { Autocomplete, FREE_TEXT_PREFIX, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem } from '@/types/service';
@@ -46,7 +46,8 @@ export default function InvoiceFormPage() {
   const [lockedAgencyName, setLockedAgencyName] = useState('');
 
   const [clientId, setClientId] = useState('');
-  const [commercialId, setCommercialId] = useState('');
+  const [sellerId, setSellerId] = useState('');
+  const [sellerIsTrainer, setSellerIsTrainer] = useState(false);
   const [agencyId, setAgencyId] = useState(presetAgencyId);
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('');
@@ -148,7 +149,8 @@ export default function InvoiceFormPage() {
       await invoicesApi.create({
         client_id: freeClientName ? undefined : clientId || undefined,
         client_name: freeClientName || undefined,
-        commercial_id: commercialId || undefined,
+        commercial_id: !sellerIsTrainer && sellerId ? sellerId : undefined,
+        seller_user_id: sellerIsTrainer && sellerId ? sellerId : undefined,
         agency_id: agencyId || undefined,
         invoice_date: invoiceDate,
         payment_type: paymentType || undefined,
@@ -212,25 +214,47 @@ export default function InvoiceFormPage() {
               error={errors.client_id}
             />
             <Autocomplete
-              label={t('invoices.headerCommercial')}
+              label={t('invoices.seller')}
               placeholder={t('invoices.headerCommercialPlaceholder')}
-              value={commercialId}
-              onChange={setCommercialId}
+              value={sellerId}
+              onChange={(id) => {
+                setSellerId(id);
+                if (!id) setSellerIsTrainer(false);
+              }}
+              onPick={(option) => {
+                if (option.isTrainer) {
+                  setSellerIsTrainer(true);
+                  setSellerId(option.userId ?? option.id);
+                } else {
+                  setSellerIsTrainer(false);
+                  setSellerId(option.id);
+                }
+              }}
               fetchOptions={async (query) => {
                 const [coms, emps] = await Promise.all([
                   commercialsApi.search(query.trim()).catch(() => []),
                   employeesApi.search(query.trim()).catch(() => []),
                 ]);
                 const seen = new Set<string>();
-                const results: { id: string; label: string; subtitle: string }[] = [];
+                const results: AutocompleteOption[] = [];
                 for (const c of [...coms, ...emps]) {
                   if (seen.has(c.id)) continue;
                   seen.add(c.id);
-                  results.push({
-                    id: c.id,
-                    label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                    subtitle: c.email ?? '',
-                  });
+                  if (c.is_trainer && c.user_id) {
+                    results.push({
+                      id: c.id,
+                      userId: c.user_id,
+                      isTrainer: true,
+                      label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+                      subtitle: c.email ?? '',
+                    });
+                  } else {
+                    results.push({
+                      id: c.id,
+                      label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+                      subtitle: c.email ?? '',
+                    });
+                  }
                 }
                 return results;
               }}

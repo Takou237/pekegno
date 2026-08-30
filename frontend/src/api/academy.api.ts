@@ -82,6 +82,16 @@ export interface CoursePayload {
   is_active?: boolean;
 }
 
+export interface CourseListParams {
+  agency_id?: string;
+  search?: string;
+  per_page?: number;
+  page?: number;
+  mode?: Course['mode'];
+  categories?: string[];
+  promotion?: 'active' | 'none';
+}
+
 export interface Trainer {
   id: string;
   first_name: string | null;
@@ -197,6 +207,15 @@ export interface TrainerStats {
     created_at: string | null;
   };
   stats: {
+    seller_profile_id?: string | null;
+    seller_profile?: {
+      id: string;
+      kind: 'trainer' | 'commercial' | 'employee';
+      commission_type: 'percent' | 'fixed' | 'none';
+      commission_value: number;
+      is_active: boolean;
+      user?: { id: string; first_name: string | null; last_name: string | null; email: string | null } | null;
+    } | null;
     sessions_total: number;
     sessions_by_status: Record<SessionStatus, number>;
     sessions_upcoming: number;
@@ -212,16 +231,40 @@ export interface TrainerStats {
     hours_taught: number;
     sales_count: number;
     sales_turnover: number;
+    formation_sales: {
+      count: number;
+      turnover: number;
+      paid_count: number;
+      paid_turnover: number;
+    };
+    service_sales: {
+      count: number;
+      turnover: number;
+      paid_count: number;
+      paid_turnover: number;
+    };
+    commissions_training: number;
+    commissions_service: number;
     commissions_earned: number;
     commissions_paid: number;
     commissions_balance: number;
   };
-  recent_sales: {
+  recent_formation_sales: {
     id: string;
     course?: { id: string; name: string; code: string } | null;
     learner?: { id: string; first_name: string | null; last_name: string | null } | null;
     date: string | null;
     amount: number;
+    invoice_status: string | null;
+  }[];
+  recent_service_sales: {
+    id: string;
+    number: string;
+    label: string;
+    client?: { first_name: string | null; last_name: string | null } | null;
+    date: string | null;
+    amount: number;
+    status: string;
   }[];
   recent_sessions: TrainerSessionItem[];
   upcoming_sessions: TrainerSessionItem[];
@@ -269,7 +312,7 @@ export interface LearnerStats {
 }
 
 export const academyApi = {
-  async courses(params: { agency_id?: string; search?: string; per_page?: number; page?: number } = {}): Promise<Paginated<Course>> {
+  async courses(params: CourseListParams = {}): Promise<Paginated<Course>> {
     const { data } = await client.get<Paginated<Course>>('/courses', { params });
     return data;
   },

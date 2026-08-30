@@ -341,9 +341,12 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::put('/commission-rules/{rule}', [CommissionController::class, 'updateRule'])->middleware('permission:commissions.modifier');
     Route::delete('/commission-rules/{rule}', [CommissionController::class, 'destroyRule'])->middleware('permission:commissions.supprimer');
     Route::get('/commissions/entries', [CommissionController::class, 'indexEntries'])->middleware('permission:commissions.consulter');
+    Route::post('/commissions/entries', [CommissionController::class, 'storeEntry'])->middleware('permission:commissions.valider');
+    Route::put('/commissions/entries/{entry}', [CommissionController::class, 'updateEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/entries/{entry}/validate', [CommissionController::class, 'validateEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/entries/{entry}/pay', [CommissionController::class, 'payEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/entries/{entry}/cancel', [CommissionController::class, 'cancelEntry'])->middleware('permission:commissions.valider');
+    Route::post('/commissions/seller-profiles/{sellerProfile}/recalculate', [CommissionController::class, 'recalculateSeller'])->middleware('permission:commissions.valider');
 Route::get('/commission-payments/summary', [CommissionController::class, 'summary'])->middleware('permission:commissions.consulter');
 Route::post('/commission-payments', [CommissionController::class, 'storePayment'])->middleware('permission:commissions.valider');
 

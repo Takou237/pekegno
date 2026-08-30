@@ -12,6 +12,7 @@ use App\Models\TrainingSession;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\InvoiceNumberGenerator;
+use App\Services\SellerProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -22,6 +23,7 @@ class FormationEnrollmentController extends Controller
     public function __construct(
         private readonly InvoiceNumberGenerator $invoiceNumber,
         private readonly ActivityLogger $logger,
+        private readonly SellerProfileService $sellerProfiles,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -265,6 +267,16 @@ class FormationEnrollmentController extends Controller
             $sellerTrainerName = $sellerTrainer
                 ? trim(implode(' ', array_filter([$sellerTrainer->first_name, $sellerTrainer->last_name]))) ?: null
                 : null;
+        }
+
+        // Vendeur formateur → son profil vendeur est garanti (taux non inventé).
+        if ($sellerUserId !== null) {
+            $sellerUser = User::find($sellerUserId);
+            if ($sellerUser) {
+                $this->sellerProfiles->ensureForUser($sellerUser, $course->agency_id);
+            }
+        } elseif (! empty($validated['seller_trainer_id']) && isset($sellerTrainer) && $sellerTrainer->user_id) {
+            $this->sellerProfiles->ensureForTrainer($sellerTrainer, $course->agency_id);
         }
 
         $comment = "Inscription à la formation {$course->name}";

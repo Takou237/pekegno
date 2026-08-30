@@ -41,6 +41,9 @@ interface LearnerFormState {
   last_name: string;
   email: string;
   phone: string;
+  city: string;
+  country: string;
+  address: string;
   password: string;
   password_confirmation: string;
 }
@@ -50,6 +53,9 @@ const emptyLearnerForm: LearnerFormState = {
   last_name: '',
   email: '',
   phone: '',
+  city: '',
+  country: '',
+  address: '',
   password: '',
   password_confirmation: '',
 };
@@ -199,6 +205,9 @@ export default function AcademyLearnersPage() {
         last_name: learnerForm.last_name,
         email: learnerForm.email,
         phone: learnerForm.phone || null,
+        city: learnerForm.city || null,
+        country: learnerForm.country || null,
+        address: learnerForm.address || null,
         password: learnerForm.password,
         password_confirmation: learnerForm.password_confirmation,
         registered_agency_id: agencyId,
@@ -437,6 +446,29 @@ export default function AcademyLearnersPage() {
             value={learnerForm.phone}
             onChange={(e) => setLearnerForm((prev) => ({ ...prev, phone: e.target.value }))}
             error={learnerFieldErrors.phone}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label={t('clients.city')}
+              value={learnerForm.city}
+              onChange={(e) => setLearnerForm((prev) => ({ ...prev, city: e.target.value }))}
+              error={learnerFieldErrors.city}
+            />
+            <Input
+              label={t('clients.country')}
+              value={learnerForm.country}
+              onChange={(e) => setLearnerForm((prev) => ({ ...prev, country: e.target.value }))}
+              error={learnerFieldErrors.country}
+            />
+          </div>
+
+          <Input
+            label={t('clients.address')}
+            value={learnerForm.address}
+            onChange={(e) => setLearnerForm((prev) => ({ ...prev, address: e.target.value }))}
+            error={learnerFieldErrors.address}
+            placeholder={t('clients.addressPlaceholder')}
           />
 
           <div className="grid grid-cols-2 gap-4">

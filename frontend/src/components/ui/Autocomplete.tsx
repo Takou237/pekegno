@@ -6,6 +6,10 @@ export interface AutocompleteOption {
   id: string;
   label: string;
   subtitle?: string;
+  /** true si la ligne est un formateur (vente attribuée via son compte). */
+  isTrainer?: boolean;
+  /** identifiant du compte utilisateur (formateurs uniquement). */
+  userId?: string;
 }
 
 interface AutocompleteProps {
@@ -17,6 +21,8 @@ interface AutocompleteProps {
   error?: string;
   disabled?: boolean;
   freeText?: boolean;
+  /** Rappel optionnel à la sélection d'une option (avant onChange). */
+  onPick?: (option: AutocompleteOption) => void;
 }
 
 export const FREE_TEXT_PREFIX = '__free__:';
@@ -34,6 +40,7 @@ export function Autocomplete({
   error,
   disabled = false,
   freeText = false,
+  onPick,
 }: AutocompleteProps) {
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder || t('common.search');  const generatedId = useId();
@@ -114,6 +121,7 @@ export function Autocomplete({
   function handleSelect(option: AutocompleteOption) {
     setInputValue(option.label);
     setSelectedLabel(option.label);
+    onPick?.(option);
     onChange(option.id);
     setIsOpen(false);
     inputRef.current?.blur();

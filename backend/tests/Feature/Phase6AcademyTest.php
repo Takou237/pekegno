@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Agency;
 use App\Models\Course;
+use App\Models\CourseCategory;
+use App\Models\Promotion;
 use App\Models\Role;
 use App\Models\SellerProfile;
 use App\Models\TrainingSession;
@@ -813,6 +815,123 @@ class Phase6AcademyTest extends TestCase
         $this->assertEquals(0, $after['balance']);
     }
 
+    public function test_invoice_sold_by_trainer_account_creates_employee_seller_profile_and_service_sales(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+        $trainer = $this->createTrainer();
+        $trainer->update(['agency_id' => $agency->id]);
+        $client = $this->createClient();
+
+        // Aucun profil vendeur avant la première vente.
+        $this->assertDatabaseCount('seller_profiles', 0);
+
+        $invoice = $this->postJson('/api/invoices', [
+            'agency_id' => $agency->id,
+            'client_id' => $client->id,
+            'seller_user_id' => $trainer->user_id,
+            'items' => [
+                ['label' => 'Conseil en gestion', 'unit_price' => 10000, 'quantity' => 1],
+            ],
+        ])->assertStatus(201)->json();
+
+        $this->assertSame($trainer->user_id, $invoice['seller_user_id']);
+
+        // Profil vendeur auto-créé pour le formateur (employé, sans taux inventé).
+        $this->assertDatabaseHas('seller_profiles', [
+            'user_id' => $trainer->user_id,
+            'agency_id' => $agency->id,
+            'kind' => 'employee',
+            'commission_type' => 'none',
+            'commission_value' => 0,
+            'is_active' => true,
+        ]);
+
+        // La fiche formateur ventile la vente côté « services ».
+        $this->getJson('/api/trainers/'.$trainer->id.'/stats')
+            ->assertOk()
+            ->assertJsonPath('stats.service_sales.count', 1)
+            ->assertJsonPath('stats.service_sales.turnover', 10000)
+            ->assertJsonPath('stats.service_sales.paid_count', 0)
+            ->assertJsonPath('stats.formation_sales.count', 0)
+            ->assertJsonPath('recent_service_sales.0.number', $invoice['number']);
+    }
+
+    public function test_trainer_stats_split_training_and_service_sales_and_manual_commission_entries(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+        $course = $this->createCourse(['price' => 50000, 'agency_id' => $agency->id]);
+        $trainer = $this->createTrainer();
+        $trainer->update(['agency_id' => $agency->id]);
+        $client = $this->createClient();
+
+        // Vente de formation attribuée au formateur via son compte utilisateur.
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'seller_user_id' => $trainer->user_id,
+        ])->assertStatus(201)->json();
+
+        $this->assertSame($trainer->user_id, $enrollment['seller_user_id']);
+        $this->assertDatabaseHas('seller_profiles', [
+            'user_id' => $trainer->user_id,
+            'kind' => 'employee',
+            'commission_type' => 'none',
+        ]);
+
+        // Encaissement : aucune commission automatique (profil sans taux).
+        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
+            'amount' => 50000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $this->assertDatabaseMissing('commission_entries', ['invoice_id' => $enrollment['invoice_id']]);
+
+        $profile = SellerProfile::where('user_id', $trainer->user_id)->firstOrFail();
+
+        // Pilotage manuel : ajout + surcharge de montant, par catégorie.
+        $trainingEntry = $this->postJson('/api/commissions/entries', [
+            'seller_profile_id' => $profile->id,
+            'category' => 'training',
+            'amount' => 2000,
+            'label' => 'Cours AV',
+        ])->assertStatus(201)->json();
+
+        $serviceEntry = $this->postJson('/api/commissions/entries', [
+            'seller_profile_id' => $profile->id,
+            'category' => 'service',
+            'amount' => 1500,
+            'label' => 'Conseil',
+        ])->assertStatus(201)->json();
+
+        $this->assertSame('validated', $trainingEntry['status']);
+
+        $this->putJson('/api/commissions/entries/'.$trainingEntry['id'], [
+            'amount' => 2500,
+            'label' => 'Cours AV (réévalué)',
+        ])->assertOk();
+
+        // Une entrée payée ne se modifie plus.
+        $this->postJson('/api/commissions/entries/'.$trainingEntry['id'].'/pay')->assertOk();
+
+        $this->putJson('/api/commissions/entries/'.$trainingEntry['id'], ['amount' => 100])
+            ->assertStatus(422);
+
+        // Fiche formateur : 2 sections ventes + commissions par catégorie.
+        $this->getJson('/api/trainers/'.$trainer->id.'/stats')
+            ->assertOk()
+            ->assertJsonPath('stats.formation_sales.count', 1)
+            ->assertJsonPath('stats.formation_sales.turnover', 50000)
+            ->assertJsonPath('stats.service_sales.count', 0)
+            ->assertJsonPath('stats.commissions_training', 2500)
+            ->assertJsonPath('stats.commissions_service', 1500)
+            ->assertJsonPath('stats.commissions_earned', 4000)
+            ->assertJsonPath('stats.commissions_paid', 2500)
+            ->assertJsonPath('stats.commissions_balance', 1500)
+            ->assertJsonPath('recent_formation_sales.0.amount', 50000);
+    }
+
     public function test_trainer_stats_handle_collection_status_filtering(): void
     {
         $this->admin();
@@ -857,5 +976,152 @@ class Phase6AcademyTest extends TestCase
             ->assertJsonPath('training.mode_breakdown.1.value', 2)
             ->assertJsonPath('training.mode_breakdown.2.mode', 'mixed')
             ->assertJsonPath('training.mode_breakdown.2.value', 0);
+    }
+
+    public function test_courses_index_filters_by_mode(): void
+    {
+        $this->admin();
+        $this->createCourse(['name' => 'Formation en ligne', 'mode' => 'online']);
+        $this->createCourse(['name' => 'Formation présentiel', 'mode' => 'in_person']);
+
+        $this->getJson('/api/courses?mode=online')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Formation en ligne');
+    }
+
+    public function test_courses_index_filters_by_category(): void
+    {
+        $this->admin();
+        $category = CourseCategory::create(['name' => 'Finance']);
+        $course = $this->createCourse(['name' => 'Comptabilité']);
+        Course::find($course['id'])->categories()->sync([$category->id]);
+
+        $this->getJson('/api/courses?categories[]='.$category->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Comptabilité');
+    }
+
+    public function test_courses_index_filters_by_promotion_status(): void
+    {
+        $this->admin();
+        $withActive = $this->createCourse(['name' => 'Promo active']);
+        $withExpired = $this->createCourse(['name' => 'Promo expirée']);
+        $without = $this->createCourse(['name' => 'Sans promo']);
+
+        Promotion::create([
+            'formation_id' => $withActive['id'],
+            'type' => 'amount',
+            'promo_price' => 30000,
+            'start_date' => now()->subDay(),
+            'end_date' => now()->addDays(5),
+        ]);
+
+        Promotion::create([
+            'formation_id' => $withExpired['id'],
+            'type' => 'amount',
+            'promo_price' => 30000,
+            'start_date' => now()->subDays(10),
+            'end_date' => now()->subDay(),
+        ]);
+
+        $this->getJson('/api/courses?promotion=active')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Promo active');
+
+        $this->getJson('/api/courses?promotion=none')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.name', 'Promo expirée')
+            ->assertJsonPath('data.1.name', 'Sans promo');
+    }
+
+    public function test_trainer_stats_reflect_collected_revenue_on_partial_payments(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+        $course = $this->createCourse(['price' => 7000, 'agency_id' => $agency->id]);
+        $trainer = $this->createTrainer();
+        $trainer->update(['agency_id' => $agency->id]);
+        $client = $this->createClient();
+
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'seller_user_id' => $trainer->user_id,
+        ])->assertStatus(201)->json();
+
+        // Encaissement partiel : 4000 sur 7000.
+        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
+            'amount' => 4000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        // Le CA encaissé reflète la somme des versements, pas les seules factures payées.
+        $this->getJson('/api/trainers/'.$trainer->id.'/stats')
+            ->assertOk()
+            ->assertJsonPath('stats.formation_sales.count', 1)
+            ->assertJsonPath('stats.formation_sales.turnover', 7000)
+            ->assertJsonPath('stats.formation_sales.paid_count', 1)
+            ->assertJsonPath('stats.formation_sales.paid_turnover', 4000);
+    }
+
+    public function test_recalculate_seller_profile_commissions_is_idempotent_per_payment(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+        $course = $this->createCourse(['price' => 10000, 'agency_id' => $agency->id]);
+        $trainer = $this->createTrainer();
+        $trainer->update(['agency_id' => $agency->id]);
+        $client = $this->createClient();
+
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'seller_user_id' => $trainer->user_id,
+        ])->assertStatus(201)->json();
+
+        // Encaissement intégral : aucun profil avec taux → aucune commission automatique.
+        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
+            'amount' => 10000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $profile = SellerProfile::where('user_id', $trainer->user_id)->firstOrFail();
+        $this->assertDatabaseMissing('commission_entries', ['invoice_id' => $enrollment['invoice_id']]);
+
+        // Le responsable fixe un taux de 10 % depuis la fiche (l'envoi réinitialise tous les champs).
+        $this->putJson('/api/seller-profiles/'.$profile->id, [
+            'commission_type' => 'percent',
+            'commission_value' => 10,
+        ])->assertOk();
+
+        // Le versement existant n'a pas encore de commission tant que l'on ne recalcule pas.
+        $this->getJson('/api/trainers/'.$trainer->id.'/stats')
+            ->assertJsonPath('stats.commissions_training', 0);
+
+        // Recalcul : le versement déjà encaissé est commissionné.
+        $this->postJson('/api/commissions/seller-profiles/'.$profile->id.'/recalculate')
+            ->assertOk()
+            ->assertJsonPath('data.created', 1)
+            ->assertJsonPath('data.payments', 1);
+
+        $this->assertDatabaseHas('commission_entries', [
+            'invoice_id' => $enrollment['invoice_id'],
+            'seller_profile_id' => $profile->id,
+            'status' => 'calculated',
+        ]);
+
+        $this->getJson('/api/trainers/'.$trainer->id.'/stats')
+            ->assertJsonPath('stats.commissions_training', 1000);
+
+        // Idempotence : un second recalcul ne recrée aucune entrée (même versement).
+        $this->postJson('/api/commissions/seller-profiles/'.$profile->id.'/recalculate')
+            ->assertOk()
+            ->assertJsonPath('data.created', 0);
+
+        $this->assertDatabaseCount('commission_entries', 1);
     }
 }

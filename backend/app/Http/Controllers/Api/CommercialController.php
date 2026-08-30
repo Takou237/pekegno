@@ -564,12 +564,48 @@ class CommercialController extends Controller
 
         $commercials = $this->scopeByRole(Commercial::query(), $request->user())
             ->kind($request->input('kind', $this->defaultKind($request)))
+            ->when($request->agency_id, fn ($query, $agencyId) => $query->where('agency_id', $agencyId))
             ->where(fn ($query) => $query->where('first_name', 'like', "%{$q}%")
                 ->orWhere('last_name', 'like', "%{$q}%")
                 ->orWhere('email', 'like', "%{$q}%"))
             ->limit(10)
-            ->get(['id', 'first_name', 'last_name', 'email', 'agency_id']);
+            ->get(['id', 'user_id', 'first_name', 'last_name', 'email', 'agency_id'])
+            ->map(fn (Commercial $commercial) => $commercial->toArray());
 
-        return response()->json($commercials);
+        // Les formateurs de l'agence (avec compte utilisateur) figurent aussi dans
+        // l'autocomplete « vendeur » : ce sont des employés qui peuvent vendre.
+        $formateurRoleId = DB::table('roles')->where('name', 'formateur')->value('id');
+
+        $trainersQuery = Trainer::query()
+            ->whereNotNull('user_id')
+            ->when($request->agency_id, fn ($query, $agencyId) => $query->where('agency_id', $agencyId))
+            ->when(
+                $formateurRoleId,
+                fn ($query) => $query->whereHas('user', fn ($uq) => $uq->where('role_id', $formateurRoleId))
+            );
+
+        $agencyScope = $this->trainerAgencyScope($request);
+
+        if ($agencyScope !== null) {
+            $trainersQuery->whereIn('agency_id', $agencyScope);
+        }
+
+        $trainers = $trainersQuery
+            ->where(fn ($query) => $query->where('first_name', 'ilike', "%{$q}%")
+                ->orWhere('last_name', 'ilike', "%{$q}%")
+                ->orWhere('email', 'ilike', "%{$q}%")
+                ->orWhere('phone', 'ilike', "%{$q}%"))
+            ->limit(10)
+            ->get(['id', 'user_id', 'first_name', 'last_name', 'email', 'agency_id'])
+            ->map(fn (Trainer $trainer) => array_merge($trainer->only(['id', 'user_id', 'first_name', 'last_name', 'email', 'agency_id']), [
+                'kind' => 'formateur',
+                'is_trainer' => true,
+            ]));
+
+        // Pas de doublon : le même profil ne peut pas cumuler commercial et formateur.
+        $ids = $commercials->pluck('id')->flip();
+        $trainers = $trainers->reject(fn ($t) => $ids->has($t['id']));
+
+        return response()->json($commercials->concat($trainers)->values());
     }
 }

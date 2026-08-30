@@ -45,6 +45,8 @@ class CourseController extends Controller
         parameters: [
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par nom, code ou description', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'mode', in: 'query', schema: new OA\Schema(type: 'string', enum: ['online', 'in_person', 'mixed'])),
+            new OA\Parameter(name: 'categories', in: 'query', description: 'Filtrer par catégories (un ou plusieurs ids)', schema: new OA\Schema(type: 'array', items: new OA\Schema(type: 'string', format: 'uuid'))),
+            new OA\Parameter(name: 'promotion', in: 'query', description: 'Filtre promotion : "active" (promotion en cours) ou "none" (aucune promotion en cours)', schema: new OA\Schema(type: 'string', enum: ['active', 'none'])),
             new OA\Parameter(name: 'agency_id', in: 'query', description: 'Disponibilité : cours de l\'agence + cours globaux', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'sort_by', in: 'query', schema: new OA\Schema(type: 'string', enum: ['name', 'price', 'created_at'])),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
@@ -62,6 +64,14 @@ class CourseController extends Controller
             ->when($request->mode, fn ($q, $v) => $q->where('mode', $v))
             ->when($request->filled('categories'), function ($q) use ($request) {
                 $q->whereHas('categories', fn ($cq) => $cq->whereIn('course_categories.id', (array) $request->input('categories')));
+            })
+            ->when($request->promotion, function ($q, $v) {
+                $now = now();
+                if ($v === 'active') {
+                    $q->whereHas('promotions', fn ($pq) => $pq->where('start_date', '<=', $now)->where('end_date', '>=', $now));
+                } elseif ($v === 'none') {
+                    $q->whereDoesntHave('promotions', fn ($pq) => $pq->where('start_date', '<=', $now)->where('end_date', '>=', $now));
+                }
             })
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->when($request->agency_id, fn ($q, $v) => $q->availableIn($v));

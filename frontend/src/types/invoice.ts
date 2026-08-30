@@ -47,7 +47,7 @@ export interface Invoice {
   client_name: string | null;
   client_label: string | null;
   commercial_id: string | null;
-  seller_user_id: string;
+  seller_user_id: string | null;
   invoice_date: string;
   payment_type: PaymentMethod | null;
   total_amount: string;
@@ -107,6 +107,7 @@ export interface CreateInvoicePayload {
   client_id?: string;
   client_name?: string;
   commercial_id?: string;
+  seller_user_id?: string;
   invoice_date?: string;
   payment_type?: PaymentMethod;
   comment?: string;

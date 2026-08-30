@@ -99,6 +99,9 @@ export default function AcademyCoursesPage() {
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterMode, setFilterMode] = useState('');
+  const [filterPromotion, setFilterPromotion] = useState('');
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -132,6 +135,9 @@ export default function AcademyCoursesPage() {
       const response = await academyApi.courses({
         agency_id: agencyId,
         search: search || undefined,
+        mode: (filterMode || undefined) as Course['mode'] | undefined,
+        categories: filterCategory ? [filterCategory] : undefined,
+        promotion: (filterPromotion || undefined) as 'active' | 'none' | undefined,
         page,
         per_page: 12,
       });
@@ -142,7 +148,7 @@ export default function AcademyCoursesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, search, page, t]);
+  }, [agencyId, search, page, t, filterCategory, filterMode, filterPromotion]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -152,6 +158,13 @@ export default function AcademyCoursesPage() {
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timeout);
+  }, [filterCategory, filterMode, filterPromotion]);
 
   useEffect(() => {
     fetchCourses();
@@ -429,14 +442,51 @@ export default function AcademyCoursesPage() {
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <div className="relative max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('academy.searchCoursePlaceholder')}
-            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-0 flex-1 basis-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('academy.searchCoursePlaceholder')}
+              className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            />
+          </div>
+
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            aria-label={t('academy.filterByCategory')}
+            className="h-11 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+          >
+            <option value="">{t('academy.allCategories')}</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={filterMode}
+            onChange={(e) => setFilterMode(e.target.value)}
+            aria-label={t('academy.filterByMode')}
+            className="h-11 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+          >
+            <option value="">{t('academy.allModes')}</option>
+            <option value="online">{t('academy.modeOnline')}</option>
+            <option value="in_person">{t('academy.modeInPerson')}</option>
+            <option value="mixed">{t('academy.modeMixed')}</option>
+          </select>
+
+          <select
+            value={filterPromotion}
+            onChange={(e) => setFilterPromotion(e.target.value)}
+            aria-label={t('academy.filterByPromotion')}
+            className="h-11 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+          >
+            <option value="">{t('academy.allPromotions')}</option>
+            <option value="active">{t('academy.withPromotion')}</option>
+            <option value="none">{t('academy.withoutPromotion')}</option>
+          </select>
         </div>
       </div>
 

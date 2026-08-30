@@ -1,27 +1,22 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Tag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { promotionsApi } from '@/api/promotions.api';
-import { servicesApi } from '@/api/services.api';
-import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
+import { extractErrorMessage } from '@/api/errors';
 import { currentLocale } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import PromotionFormModal from '@/components/promotions/PromotionFormModal';
 import type { Agency } from '@/types/agency';
-import type { Service } from '@/types/service';
-import type { Promotion, PromotionPayload, PromotionType } from '@/types/promotion';
+import type { Promotion } from '@/types/promotion';
 
 interface AgencyLayoutContext {
-  agency: Agency | null;
+  agency?: Agency | null;
   agencyId?: string;
 }
 
@@ -33,36 +28,18 @@ function formatPrice(value: string): string {
   }).format(Number(value));
 }
 
-function toDateInput(value: string): string {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 export default function AgencyPromotionsPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
-  const { agency, agencyId } = useOutletContext<AgencyLayoutContext>();
+  const { agencyId } = useOutletContext<AgencyLayoutContext>();
 
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Promotion | null>(null);
-  const [form, setForm] = useState<PromotionPayload & { service_id: string }>({
-    service_id: '',
-    type: 'amount',
-    promo_price: '',
-    discount_percent: '',
-    start_date: '',
-    end_date: '',
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Promotion | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -89,62 +66,14 @@ export default function AgencyPromotionsPage() {
     fetchPromotions();
   }, [fetchPromotions]);
 
-  useEffect(() => {
-    if (!agencyId) return;
-    servicesApi.list({ agency_id: agencyId, per_page: 100 }).then((r) => setServices(r.data)).catch(() => {});
-  }, [agencyId]);
-
   function openCreate() {
     setEditing(null);
-    setForm({ service_id: '', type: 'amount', promo_price: '', discount_percent: '', start_date: '', end_date: '' });
-    setFormErrors({});
     setFormOpen(true);
   }
 
   function openEdit(promotion: Promotion) {
     setEditing(promotion);
-    setForm({
-      service_id: promotion.service_id,
-      type: promotion.type,
-      promo_price: promotion.promo_price ?? '',
-      discount_percent: promotion.discount_percent ?? '',
-      start_date: toDateInput(promotion.start_date),
-      end_date: toDateInput(promotion.end_date),
-    });
-    setFormErrors({});
     setFormOpen(true);
-  }
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setFormErrors({});
-    setIsSubmitting(true);
-    try {
-      const payload: PromotionPayload = {
-        type: form.type,
-        promo_price: form.type === 'amount' ? form.promo_price : null,
-        discount_percent: form.type === 'percent' ? form.discount_percent : null,
-        start_date: form.start_date,
-        end_date: form.end_date,
-      };
-      if (editing) {
-        await promotionsApi.update(editing.id, payload);
-        showToast(t('promotions.updated'), 'success');
-      } else {
-        await promotionsApi.create(form.service_id, payload);
-        showToast(t('promotions.created'), 'success');
-      }
-      setFormOpen(false);
-      fetchPromotions();
-    } catch (error) {
-      const fieldErrors = extractFieldErrors(error) as Record<string, string>;
-      setFormErrors(fieldErrors);
-      if (Object.keys(fieldErrors).length === 0) {
-        showToast(extractErrorMessage(error, t('promotions.saveFailed')), 'error');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
   }
 
   async function handleDelete() {
@@ -267,115 +196,13 @@ export default function AgencyPromotionsPage() {
         )}
       </div>
 
-      <Modal
+      <PromotionFormModal
         isOpen={formOpen}
+        editing={editing}
+        agencyId={agencyId}
         onClose={() => setFormOpen(false)}
-        title={editing ? t('promotions.editTitle') : t('promotions.createTitle')}
-        maxWidth="max-w-md"
-      >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {Object.keys(formErrors).length > 0 && (
-            <Alert variant="error">{Object.values(formErrors).join(' ')}</Alert>
-          )}
-
-          {!editing && (
-            <Select
-              label={t('promotions.service')}
-              required
-              value={form.service_id}
-              onChange={(e) => setForm((p) => ({ ...p, service_id: e.target.value }))}
-              error={formErrors.service_id}
-            >
-              <option value="">{t('promotions.selectService')}</option>
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name}
-                </option>
-              ))}
-            </Select>
-          )}
-
-          {editing && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t('promotions.service')}
-              </label>
-              <input
-                type="text"
-                value={editing.service?.name ?? '—'}
-                disabled
-                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-              />
-            </div>
-          )}
-
-          <Select
-            label={t('promotions.type')}
-            required
-            value={form.type}
-            onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as PromotionType }))}
-            error={formErrors.type}
-          >
-            <option value="amount">{t('promotions.typeAmount')}</option>
-            <option value="percent">{t('promotions.typePercent')}</option>
-          </Select>
-
-          {form.type === 'amount' ? (
-            <Input
-              label={t('promotions.price')}
-              required
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.promo_price ?? ''}
-              onChange={(e) => setForm((p) => ({ ...p, promo_price: e.target.value }))}
-              error={formErrors.promo_price}
-              placeholder="0.00"
-            />
-          ) : (
-            <Input
-              label={t('promotions.discountPercent')}
-              required
-              type="number"
-              step="0.01"
-              min="0.01"
-              max="100"
-              value={form.discount_percent ?? ''}
-              onChange={(e) => setForm((p) => ({ ...p, discount_percent: e.target.value }))}
-              error={formErrors.discount_percent}
-              placeholder="20"
-            />
-          )}
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input
-              label={t('promotions.start')}
-              required
-              type="date"
-              value={form.start_date}
-              onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))}
-              error={formErrors.start_date}
-            />
-            <Input
-              label={t('promotions.end')}
-              required
-              type="date"
-              value={form.end_date}
-              onChange={(e) => setForm((p) => ({ ...p, end_date: e.target.value }))}
-              error={formErrors.end_date}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="flex-1">
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" isLoading={isSubmitting} className="flex-1">
-              {editing ? t('common.save') : t('common.create')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSaved={fetchPromotions}
+      />
 
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
@@ -387,8 +214,6 @@ export default function AgencyPromotionsPage() {
         variant="danger"
         isLoading={isDeleting}
       />
-
-      {!agency && <span className="hidden" />}
     </div>
   );
 }

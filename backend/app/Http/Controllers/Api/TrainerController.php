@@ -10,6 +10,7 @@ use App\Models\CommissionEntry;
 use App\Models\CommissionPayment;
 use App\Models\CourseModule;
 use App\Models\FormationEnrollment;
+use App\Models\Invoice;
 use App\Models\SellerProfile;
 use App\Models\Trainer;
 use App\Models\User;
@@ -381,29 +382,89 @@ class TrainerController extends Controller
             ->orderBy('order_index')
             ->get();
 
-        // Ventes réalisées par le formateur en qualité de vendeur de formations.
+        // Ventes de formations réalisées par le formateur (identifié par son compte
+        // utilisateur OU par son profil formateur pour ceux sans compte).
         $salesEnrollments = FormationEnrollment::query()
-            ->where('seller_trainer_id', $trainer->id)
-            ->whereNot('status', 'cancelled')
-            ->with(['course:id,name,code', 'invoice:id,total_amount,status,cancelled_at', 'learner:id,first_name,last_name,email'])
+            ->where('status', '!=', 'cancelled')
+            ->where(function ($q) use ($trainer) {
+                $q->where('seller_trainer_id', $trainer->id);
+
+                if ($trainer->user_id) {
+                    $q->orWhere('seller_user_id', $trainer->user_id);
+                }
+            })
+            ->with(['course:id,name,code', 'invoice:id,total_amount,amount_paid,status,cancelled_at', 'learner:id,first_name,last_name,email'])
             ->get();
 
-        $paidSales = $salesEnrollments->filter(
-            fn ($e) => $e->invoice && $e->invoice->status === 'paid' && $e->invoice->cancelled_at === null
+        $formationAmount = fn ($e) => (float) ($e->invoice?->total_amount ?? 0);
+
+        // CA réellement encaissé : toute vente ayant reçu au moins un versement
+        // (partiel compris), évaluée sur la somme des versements (amount_paid).
+        $formationCollected = $salesEnrollments->filter(
+            fn ($e) => $e->invoice && $e->invoice->cancelled_at === null && (float) $e->invoice->amount_paid > 0
         );
 
-        // Commissions via les profils vendeur liés au compte du formateur.
+        // Ventes de services : factures émises dont le vendeur est le compte du
+        // formateur, hors inscriptions à une formation.
+        $serviceSales = collect();
+
+        if ($trainer->user_id) {
+            $serviceSalesQuery = Invoice::query()
+                ->where('seller_user_id', $trainer->user_id)
+                ->whereNull('cancelled_at')
+                ->where('status', '!=', 'cancelled')
+                ->whereNotExists(function ($q) {
+                    $q->selectRaw('1')
+                        ->from('formation_enrollments')
+                        ->whereColumn('formation_enrollments.invoice_id', 'invoices.id');
+                })
+                ->with(['agency:id,name', 'client:id,first_name,last_name,email'])
+                ->withCount('items');
+
+            $invoiceAgencyScope = $this->scopeService->agencyIds($request->user());
+
+            if ($invoiceAgencyScope !== null) {
+                $serviceSalesQuery->whereIn('agency_id', $invoiceAgencyScope);
+            } elseif ($trainer->agency_id) {
+                $serviceSalesQuery->where('agency_id', $trainer->agency_id);
+            }
+
+            $serviceSales = $serviceSalesQuery
+                ->with(['items' => fn ($q) => $q->orderBy('id')->limit(1)])
+                ->orderByDesc('invoice_date')
+                ->get();
+        }
+
+        $serviceCollected = $serviceSales->filter(fn ($i) => (float) $i->amount_paid > 0);
+
+        // Commissions via les profils vendeur liés au compte du formateur,
+        // ventilées par catégorie (formations / services).
         $profileIds = SellerProfile::query()
             ->where('user_id', $trainer->user_id)
             ->pluck('id');
 
-        $commissionsEarned = (float) CommissionEntry::query()
+        $sellerProfile = $profileIds->isNotEmpty()
+            ? SellerProfile::with('user:id,first_name,last_name,email')->find($profileIds->first())
+            : null;
+
+        $commissionsEarnedTraining = (float) CommissionEntry::query()
             ->whereNot('status', CommissionEntry::STATUS_CANCELLED)
+            ->where('category', 'training')
             ->whereIn('seller_profile_id', $profileIds)
             ->sum('amount');
 
-        $commissionsPaid = (float) CommissionPayment::query()
-            ->where('rule', 'commission_payment')
+        $commissionsEarnedService = (float) CommissionEntry::query()
+            ->whereNot('status', CommissionEntry::STATUS_CANCELLED)
+            ->where('category', 'service')
+            ->whereIn('seller_profile_id', $profileIds)
+            ->sum('amount');
+
+        $commissionsEarned = $commissionsEarnedTraining + $commissionsEarnedService;
+
+        // « Perçu » = montant des entrées marquées payées (que le paiement passe par
+        // le flux résumé avec CommissionPayment ou par le payement direct d'une entrée).
+        $commissionsPaid = (float) CommissionEntry::query()
+            ->where('status', CommissionEntry::STATUS_PAID)
             ->whereIn('seller_profile_id', $profileIds)
             ->sum('amount');
 
@@ -420,6 +481,17 @@ class TrainerController extends Controller
                 'created_at' => $trainer->created_at?->toISOString(),
             ],
             'stats' => [
+                'seller_profile_id' => $profileIds->first(),
+                'seller_profile' => $sellerProfile ? [
+                    'id' => $sellerProfile->id,
+                    'kind' => $sellerProfile->kind,
+                    'commission_type' => $sellerProfile->commission_type,
+                    'commission_value' => (float) $sellerProfile->commission_value,
+                    'is_active' => $sellerProfile->is_active,
+                    'user' => $sellerProfile->user
+                        ? ['id' => $sellerProfile->user->id, 'first_name' => $sellerProfile->user->first_name, 'last_name' => $sellerProfile->user->last_name, 'email' => $sellerProfile->user->email]
+                        : null,
+                ] : null,
                 'sessions_total' => $sessions->count(),
                 'sessions_by_status' => $byStatus,
                 'sessions_upcoming' => $upcomingSessions->count(),
@@ -437,13 +509,29 @@ class TrainerController extends Controller
                     : 0.0,
                 'potential_revenue' => round($revenue, 2),
                 'hours_taught' => round($hoursTaught, 1),
-                'sales_count' => $paidSales->count(),
-                'sales_turnover' => round($paidSales->sum(fn ($e) => (float) ($e->invoice?->total_amount ?? 0)), 2),
+                // Ventes de formations (facturées, impayées comprises).
+                'sales_count' => $salesEnrollments->count(),
+                'sales_turnover' => round($salesEnrollments->sum($formationAmount), 2),
+                'formation_sales' => [
+                    'count' => $salesEnrollments->count(),
+                    'turnover' => round($salesEnrollments->sum($formationAmount), 2),
+                    'paid_count' => $formationCollected->count(),
+                    'paid_turnover' => round($formationCollected->sum(fn ($e) => (float) ($e->invoice?->amount_paid ?? 0)), 2),
+                ],
+                // Ventes de services (facturées, impayées comprises).
+                'service_sales' => [
+                    'count' => $serviceSales->count(),
+                    'turnover' => round($serviceSales->sum(fn ($i) => (float) $i->total_amount), 2),
+                    'paid_count' => $serviceCollected->count(),
+                    'paid_turnover' => round($serviceCollected->sum(fn ($i) => (float) $i->amount_paid), 2),
+                ],
+                'commissions_training' => round($commissionsEarnedTraining, 2),
+                'commissions_service' => round($commissionsEarnedService, 2),
                 'commissions_earned' => round($commissionsEarned, 2),
                 'commissions_paid' => round($commissionsPaid, 2),
                 'commissions_balance' => round($commissionsEarned - $commissionsPaid, 2),
             ],
-            'recent_sales' => $salesEnrollments
+            'recent_formation_sales' => $salesEnrollments
                 ->sortByDesc('updated_at')
                 ->take(5)
                 ->values()
@@ -456,7 +544,24 @@ class TrainerController extends Controller
                         'last_name' => $e->learner->last_name,
                     ] : null,
                     'date' => $e->enrolled_at?->toISOString(),
-                    'amount' => (float) ($e->invoice?->total_amount ?? 0),
+                    'amount' => round($formationAmount($e), 2),
+                    'invoice_status' => $e->invoice?->status ?? null,
+                ])
+                ->all(),
+            'recent_service_sales' => $serviceSales
+                ->take(5)
+                ->values()
+                ->map(fn (Invoice $invoice) => [
+                    'id' => $invoice->id,
+                    'number' => $invoice->number,
+                    'label' => $invoice->items->first()?->label ?? ($invoice->items_count > 0 ? $invoice->items_count.' '.__('lignes') : ''),
+                    'client' => $invoice->client ? [
+                        'first_name' => $invoice->client->first_name,
+                        'last_name' => $invoice->client->last_name,
+                    ] : ['first_name' => $invoice->client_name, 'last_name' => null],
+                    'date' => $invoice->invoice_date?->toISOString(),
+                    'amount' => round((float) $invoice->total_amount, 2),
+                    'status' => $invoice->status,
                 ])
                 ->all(),
             'recent_sessions' => $recentSessions->map(fn ($s) => $this->formatSession($s))->values(),

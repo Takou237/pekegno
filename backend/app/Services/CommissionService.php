@@ -442,6 +442,69 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
             ->all();
     }
 
+    /**
+     * Rejoue la génération des commissions sur chaque versement d'un profil vendeur.
+     *
+     * Idempotent : chaque entrée est rattachée à un paiement (invoice_payment_id) avec
+     * une règle dédiée (ou une seule entrée « vendeur » par paiement), ce qui évite les
+     * doublons si les versements sont rejoués après modification du taux ou des règles.
+     *
+     * @return array{created: int, payments: int, invoices: int}
+     */
+    public function recalculateForSellerProfile(SellerProfile $profile, ?string $actorUserId = null): array
+    {
+        $invoiceIds = Invoice::query()
+            ->where('seller_user_id', $profile->user_id)
+            ->whereNull('cancelled_at')
+            ->pluck('id');
+
+        // Ventes de formations réalisées via un profil formateur sans compte utilisateur.
+        $fromTrainers = Invoice::query()
+            ->whereNull('cancelled_at')
+            ->whereIn('id', function ($q) use ($profile) {
+                $q->select('formation_enrollments.invoice_id')
+                    ->from('formation_enrollments')
+                    ->whereNotNull('formation_enrollments.seller_trainer_id')
+                    ->whereIn('formation_enrollments.seller_trainer_id', function ($sq) use ($profile) {
+                        $sq->select('trainers.id')->from('trainers')->where('user_id', $profile->user_id);
+                    });
+            })
+            ->pluck('id');
+
+        $invoiceIds = $invoiceIds->merge($fromTrainers)->unique()->values();
+
+        $invoices = Invoice::query()
+            ->whereIn('id', $invoiceIds)
+            ->orderBy('invoice_date')
+            ->get();
+
+        $paymentCount = 0;
+        $created = 0;
+
+        foreach ($invoices as $invoice) {
+            $payments = $invoice->payments()
+                ->orderBy('paid_at')
+                ->orderBy('created_at')
+                ->get();
+
+            $paymentCount += $payments->count();
+
+            foreach ($payments as $payment) {
+                $before = CommissionEntry::query()->where('invoice_payment_id', $payment->id)->count();
+
+                $this->recordForPayment($invoice, $payment, $actorUserId);
+
+                $created += CommissionEntry::query()->where('invoice_payment_id', $payment->id)->count() - $before;
+            }
+        }
+
+        return [
+            'created' => $created,
+            'payments' => $paymentCount,
+            'invoices' => $invoices->count(),
+        ];
+    }
+
     private function recordFallback(Invoice $invoice, InvoicePayment $payment, ?string $actorUserId = null): void
     {
         $rows = $this->calculateForPayment($invoice, (float) $payment->amount);

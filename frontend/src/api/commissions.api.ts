@@ -35,6 +35,20 @@ export const commissionsApi = {
     return client.get('/commissions/entries', { params }).then((r) => r.data);
   },
 
+  createEntry(payload: {
+    seller_profile_id: string;
+    category: 'training' | 'service';
+    amount: number;
+    label?: string;
+    invoice_id?: string;
+  }): Promise<CommissionEntry> {
+    return client.post('/commissions/entries', payload).then((r) => r.data);
+  },
+
+  updateEntryAmount(id: string, payload: { amount: number; label?: string }): Promise<CommissionEntry> {
+    return client.put(`/commissions/entries/${id}`, payload).then((r) => r.data);
+  },
+
   validateEntry(id: string): Promise<CommissionEntry> {
     return client.post(`/commissions/entries/${id}/validate`).then((r) => r.data);
   },
@@ -45,6 +59,10 @@ export const commissionsApi = {
 
   cancelEntry(id: string): Promise<CommissionEntry> {
     return client.post(`/commissions/entries/${id}/cancel`).then((r) => r.data);
+  },
+
+  recalculateSeller(profileId: string): Promise<{ created: number; payments: number; invoices: number }> {
+    return client.post(`/commissions/seller-profiles/${profileId}/recalculate`).then((r) => r.data.data);
   },
 
   summaryBeneficiaries(params?: { agency_id?: string; search?: string }): Promise<CommissionBeneficiarySummary> {
