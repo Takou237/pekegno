@@ -43,10 +43,15 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
 
   const commercialApi = overrideApi ?? commercialsApi;
 
+  const isEmployee = mode === 'employee';
+
   const commercialPath = (cId: string) =>
     detailBasePath
       ? `${detailBasePath}/${cId}`
       : fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials/${cId}` : `/commercials/${cId}`;
+
+  const detailPathFor = (commercial: Commercial) =>
+    commercial.is_trainer ? `/trainers/${commercial.id}` : commercialPath(commercial.id);
 
   const [commercials, setCommercials] = useState<Commercial[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -87,9 +92,10 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
       search: search || undefined,
       is_active: statusFilter === 'all' ? undefined : statusFilter === 'active',
       agency_id: fixedAgencyId || undefined,
+      include_trainers: isEmployee ? true : undefined,
       page,
     }),
-    [search, statusFilter, page, fixedAgencyId]
+    [search, statusFilter, page, fixedAgencyId, isEmployee]
   );
 
   async function fetchCommercials() {
@@ -237,7 +243,6 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
     }
   }
 
-  const isEmployee = mode === 'employee';
   const ns = isEmployee ? 'employees' : 'commercials';
 
   return (
@@ -326,11 +331,16 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
                     <td className="px-5 py-3">
                       <button
                         type="button"
-                        onClick={() => navigate(commercialPath(c.id))}
+                        onClick={() => navigate(detailPathFor(c))}
                         className="font-medium text-gray-800 hover:text-brand-600 dark:text-gray-100"
                       >
                         {[c.first_name, c.last_name].filter(Boolean).join(' ')}
                       </button>
+                      {c.is_trainer && (
+                        <span className="ml-1.5 inline-flex">
+                          <Badge variant="brand">{t('employees.trainerBadge')}</Badge>
+                        </span>
+                      )}
                       {c.user && (
                         <span className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-brand-600 dark:text-brand-400" title={`${c.user.first_name ?? ''} ${c.user.last_name ?? ''} (${c.user.email})`.trim()}>
                           <BadgeCheck className="h-3 w-3" />
@@ -362,13 +372,13 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
                       <div className="flex justify-end gap-1.5">
                         <button
                           type="button"
-                          onClick={() => navigate(commercialPath(c.id))}
+                          onClick={() => navigate(detailPathFor(c))}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
                           title={t(`${ns}.viewDetail`)}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
-                        {canAdjustPoints && (
+                        {!c.is_trainer && canAdjustPoints && (
                           <button
                             type="button"
                             onClick={() => openAdjust(c)}
@@ -378,7 +388,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
                             <Star className="h-4 w-4" />
                           </button>
                         )}
-                        {canManage && (
+                        {!c.is_trainer && canManage && (
                           <>
                             <button
                               type="button"

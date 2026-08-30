@@ -13,6 +13,9 @@ import {
   Mail,
   Phone,
   Layers,
+  ShoppingBag,
+  Coins,
+  TrendingUp,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type TrainerSessionItem, type TrainerStats } from '@/api/academy.api';
@@ -270,6 +273,82 @@ export default function AcademyTrainerDetailPage() {
           icon={<Wallet className="h-5 w-5" />}
           tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
         />
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <ShoppingBag className="h-4 w-4" />
+          {t('academy.salesTitle')}
+        </h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <StatCard
+            label={t('academy.salesCount')}
+            value={stats.sales_count}
+            icon={<ShoppingBag className="h-5 w-5" />}
+            tone="bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
+          />
+          <StatCard
+            label={t('academy.salesTurnover')}
+            value={formatCurrency(stats.sales_turnover)}
+            icon={<TrendingUp className="h-5 w-5" />}
+            tone="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"
+          />
+          <StatCard
+            label={t('academy.commissionsEarned')}
+            value={formatCurrency(stats.commissions_earned)}
+            icon={<Coins className="h-5 w-5" />}
+            tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+          />
+          <StatCard
+            label={t('academy.commissionsPaid')}
+            value={formatCurrency(stats.commissions_paid)}
+            icon={<Wallet className="h-5 w-5" />}
+            tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+          />
+          <StatCard
+            label={t('academy.commissionsBalance')}
+            value={formatCurrency(stats.commissions_balance)}
+            icon={<Coins className="h-5 w-5" />}
+            tone="bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400"
+          />
+        </div>
+
+        <div className="mt-5 overflow-x-auto">
+          {data.recent_sales.length === 0 ? (
+            <p className="text-sm text-gray-400">{t('academy.noSales')}</p>
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="pb-2 pr-4 font-medium">{t('nav.courses')}</th>
+                  <th className="pb-2 pr-4 font-medium">{t('academy.learner')}</th>
+                  <th className="pb-2 pr-4 font-medium">{t('academy.sessionDate')}</th>
+                  <th className="pb-2 text-right font-medium">{t('employees.statsTurnover')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {data.recent_sales.map((sale) => (
+                  <tr key={sale.id}>
+                    <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
+                      {sale.course?.name ?? '—'}
+                    </td>
+                    <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
+                      {[sale.learner?.first_name, sale.learner?.last_name].filter(Boolean).join(' ') || '—'}
+                    </td>
+                    <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
+                      {sale.date
+                        ? new Date(sale.date).toLocaleDateString(currentLocale(), { dateStyle: 'short' })
+                        : '—'}
+                    </td>
+                    <td className="py-2.5 text-right text-gray-800 dark:text-gray-100">
+                      {formatCurrency(sale.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">

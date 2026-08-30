@@ -57,6 +57,10 @@ export interface Commercial {
   points?: CommercialPoint[];
   prospects?: Prospect[];
   commission_payments?: CommissionPayment[];
+  /** true si la ligne provient de l'annuaire des formateurs (liste Employés). */
+  is_trainer?: boolean;
+  /** Nombre de sessions animées (formateurs uniquement). */
+  sessions_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -82,6 +86,8 @@ export interface CommercialListParams {
   linked?: 'true' | 'false';
   per_page?: number;
   page?: number;
+  /** Liste Employés : agrège aussi les formateurs de l'annuaire. */
+  include_trainers?: boolean;
 }
 
 export interface CommercialStats {

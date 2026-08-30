@@ -35,7 +35,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
   const [agencyBilan, setAgencyBilan] = useState<BilanAgency | null>(null);
   const [consolidated, setConsolidated] = useState<{
     agencies: BilanAgency[];
-    totals: { total_ventes: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
+    totals: { total_ventes: number; total_ventes_amount: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
     expenses_by_category: { name: string; total: number }[];
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -242,7 +242,7 @@ function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) =>
 function ConsolidatedView({ consolidated, t }: {
   consolidated: {
     agencies: BilanAgency[];
-    totals: { total_ventes: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
+    totals: { total_ventes: number; total_ventes_amount: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
     expenses_by_category: { name: string; total: number }[];
   };
   t: (key: string) => string;
@@ -271,7 +271,7 @@ function ConsolidatedView({ consolidated, t }: {
               {agencies.map((ab) => (
                 <tr key={ab.agency_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{ab.agency?.name ?? '—'}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.total_ventes)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.total_ventes_amount)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.cash_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.om_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.momo_total)}</td>
@@ -283,7 +283,7 @@ function ConsolidatedView({ consolidated, t }: {
               ))}
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
                 <td className="px-5 py-3 text-gray-800 dark:text-gray-100">{t('bilans.totalGeneral')}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_ventes)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_ventes_amount)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_cash)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_om)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_momo)}</td>

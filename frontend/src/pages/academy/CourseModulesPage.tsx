@@ -24,14 +24,12 @@ interface DepartmentLayoutContext {
 interface FormState {
   name: string;
   description: string;
-  duration_hours: string;
   trainer_id: string;
 }
 
 const emptyForm: FormState = {
   name: '',
   description: '',
-  duration_hours: '',
   trainer_id: '',
 };
 
@@ -100,7 +98,6 @@ export default function CourseModulesPage() {
     setForm({
       name: mod.name,
       description: mod.description ?? '',
-      duration_hours: mod.duration_hours != null ? String(mod.duration_hours) : '',
       trainer_id: mod.trainer_id ?? '',
     });
     setFormError(null);
@@ -118,7 +115,6 @@ export default function CourseModulesPage() {
     const payload: CourseModulePayload = {
       name: form.name,
       description: form.description || undefined,
-      duration_hours: form.duration_hours ? Number(form.duration_hours) : undefined,
       trainer_id: form.trainer_id || undefined,
     };
 
@@ -324,16 +320,6 @@ export default function CourseModulesPage() {
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
-
-          <Input
-            label={t('academy.duration')}
-            type="number"
-            min="0"
-            step="0.5"
-            value={form.duration_hours}
-            onChange={(e) => setForm((prev) => ({ ...prev, duration_hours: e.target.value }))}
-            error={fieldErrors.duration_hours}
-          />
 
           <Autocomplete
             label={t('nav.trainers')}

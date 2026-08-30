@@ -663,7 +663,7 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{formatCurrency(cp.base_amount)}</td>
                     <td className="px-5 py-3">
                       <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                        {cp.rule === 'percent' ? `${cp.rate}%` : cp.rule === 'fixed' ? t('commercials.commissionFixed') : t('services.bonusFixed')}
+                        {cp.rule === 'percent' ? `${cp.rate}%` : cp.rule === 'fixed' ? t('commercials.commissionFixed') : cp.rule === 'commission_payment' ? t('commercials.commissionPayment') : t('services.bonusFixed')}
                       </span>
                     </td>
                     <td className="px-5 py-3 font-semibold text-success-600">{formatCurrency(cp.amount)}</td>

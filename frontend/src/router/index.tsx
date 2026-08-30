@@ -170,6 +170,7 @@ export const router = createBrowserRouter([
           { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },
           { path: '/employees', element: page(<EmployeeListPage />, table) },
           { path: '/employees/:id', element: page(<EmployeeDetailPage />, detail) },
+          { path: '/trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
           { path: '/accounting', element: page(<AccountingPage />, table) },
           { path: '/treasury', element: page(<TreasuryPage />, table) },
           { path: '/expenses', element: page(<ExpenseListPage />, table) },

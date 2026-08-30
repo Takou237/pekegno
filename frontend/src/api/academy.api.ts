@@ -229,7 +229,19 @@ export interface TrainerStats {
     completion_rate: number;
     potential_revenue: number;
     hours_taught: number;
+    sales_count: number;
+    sales_turnover: number;
+    commissions_earned: number;
+    commissions_paid: number;
+    commissions_balance: number;
   };
+  recent_sales: {
+    id: string;
+    course?: { id: string; name: string; code: string } | null;
+    learner?: { id: string; first_name: string | null; last_name: string | null } | null;
+    date: string | null;
+    amount: number;
+  }[];
   recent_sessions: TrainerSessionItem[];
   upcoming_sessions: TrainerSessionItem[];
   assigned_modules: {

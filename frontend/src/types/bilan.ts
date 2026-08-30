@@ -16,6 +16,7 @@ export interface BilanAgency {
   agency: { id: string; name: string } | null;
   services_by_category: BilanServiceLine[];
   total_ventes: number;
+  total_ventes_amount: number;
   cash_total: number;
   om_total: number;
   momo_total: number;
@@ -30,6 +31,7 @@ export interface DailyBilan extends BilanAgency {
   agencies?: BilanAgency[];
   totals?: {
     total_ventes: number;
+    total_ventes_amount: number;
     total_encaisse: number;
     total_cash: number;
     total_om: number;
