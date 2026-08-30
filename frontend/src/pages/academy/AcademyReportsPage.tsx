@@ -305,19 +305,18 @@ export default function AcademyReportsPage() {
 
   const modeBreakdown = useMemo(() => {
     const counts: Record<string, number> = { in_person: 0, online: 0, mixed: 0 };
-    // Répartition par mode : comptée sur les formations (inscriptions non annulées),
-    // pas sur les sessions — c'est le mix de formations vendues qui est attendu.
-    for (const e of formationEnrollments) {
-      if (e.status === 'cancelled') continue;
-      const mode = e.course?.mode;
-      if (mode) counts[mode] += 1;
+    // Répartition par mode : comptée sur le catalogue de formations actives (une
+    // ligne par formation), pas sur les sessions ni les inscriptions.
+    for (const r of reportRows) {
+      const mode = r.mode;
+      if (mode && counts[mode] !== undefined) counts[mode] += 1;
     }
     return Object.entries(counts).map(([key, value]) => ({
       name: t(`academy.mode${key === 'in_person' ? 'InPerson' : key === 'online' ? 'Online' : 'Mixed'}`),
       value,
       color: MODE_COLORS[key],
     }));
-  }, [formationEnrollments, t]);
+  }, [reportRows, t]);
 
   const topCourses = useMemo(() => {
     const counts = new Map<string, number>();

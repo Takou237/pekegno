@@ -57,7 +57,7 @@ class CourseController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Course::with(['agency', 'categories', 'promotions'])
-            ->withCount('sessions', 'modules', 'formationEnrollments')
+            ->withCount(['sessions', 'modules', 'formationEnrollments' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->search($request->input('search'))
             ->when($request->mode, fn ($q, $v) => $q->where('mode', $v))
             ->when($request->filled('categories'), function ($q) use ($request) {
