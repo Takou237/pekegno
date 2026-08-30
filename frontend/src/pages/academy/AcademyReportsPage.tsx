@@ -108,7 +108,7 @@ export default function AcademyReportsPage() {
   const [reportRows, setReportRows] = useState<TrainingReportRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [formationEnrollments, setFormationEnrollments] = useState<
-    { enrolled_at?: string | null; status?: string | null; course?: { name?: string; price?: number | null } | null }[]
+    { enrolled_at?: string | null; status?: string | null; course?: { name?: string; price?: number | null; mode?: 'online' | 'in_person' | 'mixed' | null } | null }[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -178,7 +178,7 @@ export default function AcademyReportsPage() {
         const all: {
           enrolled_at?: string | null;
           status?: string | null;
-          course?: { name?: string; price?: number | null } | null;
+          course?: { name?: string; price?: number | null; mode?: 'online' | 'in_person' | 'mixed' | null } | null;
         }[] = [];
         const first = await client.get<{
           total?: number;
@@ -305,8 +305,11 @@ export default function AcademyReportsPage() {
 
   const modeBreakdown = useMemo(() => {
     const counts: Record<string, number> = { in_person: 0, online: 0, mixed: 0 };
-    for (const s of sessions) {
-      const mode = s.course?.mode;
+    // Répartition par mode : comptée sur les formations (inscriptions non annulées),
+    // pas sur les sessions — c'est le mix de formations vendues qui est attendu.
+    for (const e of formationEnrollments) {
+      if (e.status === 'cancelled') continue;
+      const mode = e.course?.mode;
       if (mode) counts[mode] += 1;
     }
     return Object.entries(counts).map(([key, value]) => ({
@@ -314,7 +317,7 @@ export default function AcademyReportsPage() {
       value,
       color: MODE_COLORS[key],
     }));
-  }, [sessions, t]);
+  }, [formationEnrollments, t]);
 
   const topCourses = useMemo(() => {
     const counts = new Map<string, number>();

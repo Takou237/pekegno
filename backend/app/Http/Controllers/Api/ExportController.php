@@ -491,13 +491,12 @@ class ExportController extends Controller
 
         $consolidated = $this->bilanService->consolidated($date, $agencyIds);
         $rows = collect();
-        $header = ['Agence', 'Total Ventes (FCFA)', 'Cash', 'Orange Money', 'MTN Mobile Money', 'Total Encaissé', 'Solde Initial', 'Dépenses', 'Solde Final'];
-        $totalRow = [0, 0, 0, 0, 0, 0, 0, 0];
+        $header = ['Agence', 'Cash', 'Orange Money', 'MTN Mobile Money', 'Total Encaissé', 'Solde Initial', 'Dépenses', 'Solde Final'];
+        $totalRow = [0, 0, 0, 0, 0, 0, 0];
 
         foreach ($consolidated['agencies'] as $ab) {
             $rows->push([
                 $ab['agency']['name'] ?? '—',
-                $ab['total_ventes_amount'],
                 $ab['cash_total'],
                 $ab['om_total'],
                 $ab['momo_total'],
@@ -506,21 +505,20 @@ class ExportController extends Controller
                 $ab['expense_total'],
                 abs($ab['solde_final']),
             ]);
-            $totalRow[0] += $ab['total_ventes_amount'];
-            $totalRow[1] += $ab['cash_total'];
-            $totalRow[2] += $ab['om_total'];
-            $totalRow[3] += $ab['momo_total'];
-            $totalRow[4] += $ab['total_received'];
-            $totalRow[5] += abs($ab['solde_initial']);
-            $totalRow[6] += $ab['expense_total'];
-            $totalRow[7] += abs($ab['solde_final']);
+            $totalRow[0] += $ab['cash_total'];
+            $totalRow[1] += $ab['om_total'];
+            $totalRow[2] += $ab['momo_total'];
+            $totalRow[3] += $ab['total_received'];
+            $totalRow[4] += abs($ab['solde_initial']);
+            $totalRow[5] += $ab['expense_total'];
+            $totalRow[6] += abs($ab['solde_final']);
         }
 
-        $rows->push(['TOTAL GÉNÉRAL', $totalRow[0], $totalRow[1], $totalRow[2], $totalRow[3], $totalRow[4], $totalRow[5], $totalRow[6], $totalRow[7]]);
+        $rows->push(['TOTAL GÉNÉRAL', $totalRow[0], $totalRow[1], $totalRow[2], $totalRow[3], $totalRow[4], $totalRow[5], $totalRow[6]]);
         $rows->push(['']);
         $rows->push(['DÉPENSES PAR CATÉGORIE (toutes agences)']);
         foreach ($consolidated['expenses_by_category'] as $e) {
-            $rows->push([$e['name'], '', '', '', '', '', '', (float) $e['total'], '']);
+            $rows->push([$e['name'], '', '', '', '', '', (float) $e['total'], '']);
         }
 
         return $this->stream(

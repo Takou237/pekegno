@@ -257,7 +257,6 @@ function ConsolidatedView({ consolidated, t }: {
             <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
               <tr>
                 <th className="px-5 py-3 font-medium">{t('bilans.agency')}</th>
-                <th className="px-5 py-3 text-right font-medium">{t('bilans.serviceTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.cashTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.omTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.momoTotal')}</th>
@@ -271,7 +270,6 @@ function ConsolidatedView({ consolidated, t }: {
               {agencies.map((ab) => (
                 <tr key={ab.agency_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{ab.agency?.name ?? '—'}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.total_ventes_amount)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.cash_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.om_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.momo_total)}</td>
@@ -283,7 +281,6 @@ function ConsolidatedView({ consolidated, t }: {
               ))}
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
                 <td className="px-5 py-3 text-gray-800 dark:text-gray-100">{t('bilans.totalGeneral')}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_ventes_amount)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_cash)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_om)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_momo)}</td>

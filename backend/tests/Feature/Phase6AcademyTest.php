@@ -688,4 +688,31 @@ class Phase6AcademyTest extends TestCase
             ->assertJsonPath('stats.enrollments_enrolled', 1)
             ->assertJsonPath('stats.potential_revenue', 50000);
     }
+
+    public function test_training_group_mode_breakdown_counts_enrollments_not_sessions(): void
+    {
+        $this->admin();
+        $course = $this->createCourse(['mode' => 'online']);
+
+        // 2 sessions pour la même formation…
+        TrainingSession::factory()->create(['course_id' => $course['id'], 'status' => 'completed']);
+        TrainingSession::factory()->create(['course_id' => $course['id'], 'status' => 'completed']);
+
+        // …mais 3 inscriptions : la répartition par mode se compte sur les formations.
+        foreach ([$this->createClient(), $this->createClient(), $this->createClient()] as $client) {
+            $this->postJson('/api/formation-enrollments', [
+                'course_id' => $course['id'],
+                'learner_user_id' => $client->id,
+            ])->assertStatus(201);
+        }
+
+        $this->getJson('/api/stats/training-group')
+            ->assertOk()
+            ->assertJsonPath('training.mode_breakdown.0.mode', 'in_person')
+            ->assertJsonPath('training.mode_breakdown.0.value', 0)
+            ->assertJsonPath('training.mode_breakdown.1.mode', 'online')
+            ->assertJsonPath('training.mode_breakdown.1.value', 3)
+            ->assertJsonPath('training.mode_breakdown.2.mode', 'mixed')
+            ->assertJsonPath('training.mode_breakdown.2.value', 0);
+    }
 }

@@ -35,7 +35,7 @@ class AcademyReportService
             })
             ->get();
 
-        $enrollments = FormationEnrollment::with('course:id,name,price,agency_id')
+        $enrollments = FormationEnrollment::with('course:id,name,price,agency_id,mode')
             ->when($agencyIds !== null, fn ($q) => $q->whereHas('course', fn ($c) => $c->whereIn('agency_id', $agencyIds)->orWhereNull('agency_id')))
             ->get();
 
@@ -99,9 +99,14 @@ class AcademyReportService
 
         $avgAttendance = $attendanceTotal > 0 ? round($attendancePresent / $attendanceTotal * 100) : 0;
 
+        // Répartition par mode : comptée sur les formations (inscriptions non annulées),
+        // pas sur les sessions — c'est le mix de formations vendues qui est attendu.
         $modeCounts = ['in_person' => 0, 'online' => 0, 'mixed' => 0];
-        foreach ($sessions as $s) {
-            $mode = $s->course?->mode;
+        foreach ($enrollments as $e) {
+            if ($e->status === 'cancelled') {
+                continue;
+            }
+            $mode = $e->course?->mode;
             if ($mode && isset($modeCounts[$mode])) {
                 $modeCounts[$mode]++;
             }
