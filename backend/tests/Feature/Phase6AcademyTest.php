@@ -513,6 +513,108 @@ class Phase6AcademyTest extends TestCase
             ->assertJsonPath('data.0.status', 'cancelled');
     }
 
+    public function test_reenrollment_reactivates_participant_on_started_session(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $session = TrainingSession::factory()->create([
+            'course_id' => $course['id'],
+            'start_at' => now()->subHour(),
+            'end_at' => now()->addHours(3),
+            'status' => 'planned',
+        ]);
+
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertCreated()
+            ->json();
+
+        $this->assertDatabaseHas('session_participants', [
+            'training_session_id' => $session->id,
+            'formation_enrollment_id' => $enrollment['id'],
+            'status' => 'enrolled',
+        ]);
+
+        $this->deleteJson('/api/formation-enrollments/'.$enrollment['id'])->assertNoContent();
+
+        $this->assertDatabaseHas('session_participants', [
+            'training_session_id' => $session->id,
+            'formation_enrollment_id' => $enrollment['id'],
+            'status' => 'cancelled',
+        ]);
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('session_participants', [
+            'training_session_id' => $session->id,
+            'formation_enrollment_id' => $enrollment['id'],
+            'status' => 'enrolled',
+        ]);
+
+        $this->getJson('/api/training-sessions')
+            ->assertOk()
+            ->assertJsonPath('data.0.enrollments_count', 1);
+    }
+
+    public function test_enrollment_never_attaches_to_ended_sessions(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $ended = TrainingSession::factory()->create([
+            'course_id' => $course['id'],
+            'start_at' => now()->subWeek(),
+            'end_at' => now()->subWeek()->addHours(2),
+            'status' => 'completed',
+        ]);
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertCreated();
+
+        $this->assertDatabaseMissing('session_participants', [
+            'training_session_id' => $ended->id,
+        ]);
+    }
+
+    public function test_session_creation_respects_capacity_when_assigning_existing_enrollments(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $first = $this->createClient();
+        $second = $this->createClient();
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $first->id,
+        ])->assertCreated();
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $second->id,
+        ])->assertCreated();
+
+        $session = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+            'end_at' => now()->addDays(7)->addHours(4)->toISOString(),
+            'max_capacity' => 1,
+        ])->assertCreated()
+            ->json();
+
+        $this->assertSame(
+            1,
+            \Illuminate\Support\Facades\DB::table('session_participants')->where('training_session_id', $session['id'])->count()
+        );
+    }
+
     public function test_training_report_aggregates(): void
     {
         $this->admin();

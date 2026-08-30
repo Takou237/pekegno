@@ -107,6 +107,16 @@ class TrainingSessionController extends Controller
                 ->pluck('id');
 
             foreach ($enrollments as $enrollmentId) {
+                if ($session->max_capacity !== null) {
+                    $count = SessionParticipant::where('training_session_id', $session->id)
+                        ->where('status', 'enrolled')
+                        ->count();
+
+                    if ($count >= $session->max_capacity) {
+                        break;
+                    }
+                }
+
                 SessionParticipant::updateOrCreate(
                     [
                         'training_session_id' => $session->id,

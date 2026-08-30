@@ -142,9 +142,8 @@ class FormationEnrollmentController extends Controller
                     ->whereHas('session', fn ($q) => $q->where(fn ($w) => $w->where('end_at', '>', now())->orWhereNull('end_at')))
                     ->update(['status' => 'cancelled']);
             } else {
-                SessionParticipant::where('formation_enrollment_id', $formationEnrollment->id)
-                    ->whereHas('session', fn ($q) => $q->where(fn ($w) => $w->where('end_at', '>', now())->orWhereNull('end_at')))
-                    ->update(['status' => 'enrolled']);
+                // Réactivation : on resynchronise aussi les sessions créées pendant l'annulation.
+                $this->assignToAvailableSessions($formationEnrollment);
             }
         }
 
@@ -169,13 +168,16 @@ class FormationEnrollmentController extends Controller
     }
 
     /**
-     * Affecte l'inscription aux sessions à venir (jamais rétroactivement),
-     * en respectant la capacité de chaque session.
+     * Affecte l'inscription aux sessions de la formation encore « vivantes »
+     * (non terminées tête connue : end_at absent ou futur), jamais rétroactivement
+     * sur les sessions déjà terminées, en respectant la capacité de chaque session.
+     * Le statut du participant est réactivé (upd/repère), ce qui resynchronise une
+     * réinscription après annulation.
      */
     private function assignToAvailableSessions(FormationEnrollment $enrollment): void
     {
         $sessions = TrainingSession::where('course_id', $enrollment->course_id)
-            ->where('start_at', '>=', $enrollment->enrolled_at)
+            ->where(fn ($q) => $q->whereNull('end_at')->orWhere('end_at', '>=', now()))
             ->get(['id', 'max_capacity']);
 
         foreach ($sessions as $session) {
