@@ -5,8 +5,6 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { useTranslation } from 'react-i18next';
 import { sellerProfilesApi, type CommissionEntry, type CommissionPayment } from '@/api/sellerProfiles.api';
 import { usersApi } from '@/api/users.api';
-import { treasuryApi } from '@/api/treasury.api';
-import type { TreasuryAccount } from '@/types/treasury';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -75,14 +73,12 @@ const emptyForm: FormState = {
 interface PayFormState {
   amount: string;
   commission_entry_id: string;
-  treasury_account_id: string;
   note: string;
 }
 
 const emptyPayForm: PayFormState = {
   amount: '',
   commission_entry_id: '',
-  treasury_account_id: '',
   note: '',
 };
 
@@ -150,7 +146,6 @@ export default function SellerProfilesPage() {
   const [payModal, setPayModal] = useState<SellerProfile | null>(null);
   const [payForm, setPayForm] = useState<PayFormState>(emptyPayForm);
   const [isPaying, setIsPaying] = useState(false);
-  const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
 
   const fetchProfiles = useCallback(async () => {
     if (!agencyId) return;
@@ -286,12 +281,6 @@ export default function SellerProfilesPage() {
   async function openPayModal(profile: SellerProfile) {
     setPayModal(profile);
     setPayForm(emptyPayForm);
-    try {
-      const accounts = await treasuryApi.listAccounts({ agency_id: agencyId });
-      setTreasuryAccounts(accounts ?? []);
-    } catch {
-      setTreasuryAccounts([]);
-    }
   }
 
   async function handlePayCommission(event: FormEvent) {
@@ -301,7 +290,6 @@ export default function SellerProfilesPage() {
     try {
       await sellerProfilesApi.payCommission(payModal.id, {
         amount: Number(payForm.amount),
-        treasury_account_id: payForm.treasury_account_id,
         commission_entry_id: payForm.commission_entry_id || undefined,
         note: payForm.note || undefined,
       });
@@ -675,25 +663,6 @@ export default function SellerProfilesPage() {
             value={payForm.amount}
             onChange={(e) => setPayForm((prev) => ({ ...prev, amount: e.target.value }))}
           />
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('treasury.account')} *
-            </label>
-            <select
-              required
-              value={payForm.treasury_account_id}
-              onChange={(e) => setPayForm((prev) => ({ ...prev, treasury_account_id: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-            >
-              <option value="">{t('common.selectAccount') || 'Sélectionner…'}</option>
-              {treasuryAccounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name} ({formatCurrency(acc.balance)})
-                </option>
-              ))}
-            </select>
-          </div>
 
           <Input
             label={t('academy.commissionEntryId')}

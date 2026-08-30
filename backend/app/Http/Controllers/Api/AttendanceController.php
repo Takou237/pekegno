@@ -58,23 +58,24 @@ class AttendanceController extends Controller
     {
         $session->loadMissing('course');
 
-        $enrollments = FormationEnrollment::where('course_id', $session->course_id)
+        $participants = \App\Models\SessionParticipant::where('training_session_id', $session->id)
             ->whereNot('status', 'cancelled')
-            ->with('learner:id,first_name,last_name,email')
-            ->orderBy('enrolled_at')
+            ->with(['formationEnrollment.learner:id,first_name,last_name,email'])
             ->get();
 
         $byUser = Attendance::where('training_session_id', $session->id)
             ->get()
             ->keyBy('learner_user_id');
 
-        return $enrollments->map(function (FormationEnrollment $enrollment) use ($byUser) {
-            $attendance = $byUser->get($enrollment->learner_user_id);
-            $learner = $enrollment->learner;
+        return $participants->map(function (\App\Models\SessionParticipant $participant) use ($byUser) {
+            $enrollment = $participant->formationEnrollment;
+            $learner = $enrollment?->learner;
+            $attendance = $learner ? $byUser->get($learner->id) : null;
 
             return [
-                'formation_enrollment_id' => $enrollment->id,
-                'learner_user_id' => $enrollment->learner_user_id,
+                'formation_enrollment_id' => $enrollment?->id,
+                'session_participant_id' => $participant->id,
+                'learner_user_id' => $learner?->id,
                 'learner' => [
                     'id' => $learner?->id,
                     'first_name' => $learner?->first_name,

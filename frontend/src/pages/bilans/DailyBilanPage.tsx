@@ -25,7 +25,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { agencyId: routeAgencyId } = useParams<{ agencyId?: string }>();
+  const { agencyId: routeAgencyId, countryId: routeCountryId } = useParams<{ agencyId?: string; countryId?: string }>();
 
   const lockedAgency = fixedAgencyId ?? routeAgencyId ?? null;
 
@@ -43,8 +43,8 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    agenciesApi.list({ per_page: 200 }).then((r) => setAgencies(r.data)).catch(() => {});
-  }, []);
+    agenciesApi.list({ country_id: routeCountryId, per_page: 200 }).then((r) => setAgencies(r.data)).catch(() => {});
+  }, [routeCountryId]);
 
   useEffect(() => {
     let active = true;
@@ -54,7 +54,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
     setConsolidated(null);
 
     bilansApi
-      .daily({ date, agency_id: agencyId || undefined })
+      .daily({ date, agency_id: agencyId || undefined, country_id: routeCountryId })
       .then((data) => {
         if (!active) return;
         if (data.agencies) {
@@ -71,12 +71,12 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
       });
 
     return () => { active = false; };
-  }, [date, agencyId, t]);
+  }, [date, agencyId, routeCountryId, t]);
 
   async function handleExport() {
     setIsExporting(true);
     try {
-      await downloadExport('bilans', { date, agency_id: agencyId || undefined });
+      await downloadExport('bilans', { date, agency_id: agencyId || undefined, country_id: routeCountryId });
     } catch (error) {
       showToast(extractErrorMessage(error, t('common.exportFailed')), 'error');
     } finally {

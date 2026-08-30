@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { AxiosError } from 'axios';
 import {
   LayoutDashboard,
   FolderTree,
@@ -48,6 +49,7 @@ function getAgencyItems(t: ReturnType<typeof useTranslation>['t']): MenuItem[] {
 export function AgencyLayout() {
   const { t } = useTranslation();
   const { agencyId, countryId } = useParams<{ agencyId: string; countryId?: string }>();
+  const navigate = useNavigate();
   const [agency, setAgency] = useState<Agency | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -60,9 +62,20 @@ export function AgencyLayout() {
     agenciesApi
       .get(agencyId)
       .then(setAgency)
-      .catch((error) => setLoadError(extractErrorMessage(error, t('agencies.loadFailed'))))
+      .catch((error) => {
+        // Agence introuvable (id obsolète après reset de la base, etc.) :
+        // on revient à la liste plutôt que d'afficher l'erreur brute du backend.
+        if (error instanceof AxiosError && error.response?.status === 404) {
+          navigate(
+            countryId ? `/countries/${countryId}/agencies` : '/agencies',
+            { replace: true },
+          );
+          return;
+        }
+        setLoadError(extractErrorMessage(error, t('agencies.loadFailed')));
+      })
       .finally(() => setIsLoading(false));
-  }, [agencyId, t]);
+  }, [agencyId, countryId, t, navigate]);
 
   useEffect(() => {
     loadAgency();

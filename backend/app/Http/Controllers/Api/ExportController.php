@@ -427,6 +427,7 @@ class ExportController extends Controller
         security: [['sanctum' => []]],
         parameters: [
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'country_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'date', in: 'query', schema: new OA\Schema(type: 'string', format: 'date')),
         ],
         responses: [
@@ -438,8 +439,29 @@ class ExportController extends Controller
     {
         $date = $request->date('date') ?? Carbon::today();
         $agencyId = $request->input('agency_id');
+        $countryId = $request->input('country_id');
+
+        $scope = app(\App\Services\ScopeService::class);
+        $agencyIds = $scope->agencyIds($request->user());
+
+        if ($countryId) {
+            $countryAgencyIds = Agency::query()
+                ->where('country_id', $countryId)
+                ->whereNull('deleted_at')
+                ->pluck('id');
+
+            if ($agencyIds !== null) {
+                $countryAgencyIds = $countryAgencyIds->intersect($agencyIds)->values();
+            }
+
+            $agencyIds = $countryAgencyIds->isEmpty() ? [] : $countryAgencyIds->all();
+        }
 
         if ($agencyId) {
+            if ($agencyIds !== null && ! in_array($agencyId, $agencyIds, true)) {
+                abort(403, 'Cette agence est hors de votre périmètre.');
+            }
+
             $bilan = $this->bilanService->daily($date, $agencyId);
             $rows = collect();
 
@@ -467,7 +489,7 @@ class ExportController extends Controller
             );
         }
 
-        $consolidated = $this->bilanService->consolidated($date);
+        $consolidated = $this->bilanService->consolidated($date, $agencyIds);
         $rows = collect();
         $header = ['Agence', 'Total Ventes', 'Cash', 'Orange Money', 'MTN Mobile Money', 'Total Encaissé', 'Solde Initial', 'Dépenses', 'Solde Final'];
         $totalRow = [0, 0, 0, 0, 0, 0, 0, 0];

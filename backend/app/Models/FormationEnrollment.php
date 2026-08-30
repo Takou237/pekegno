@@ -55,4 +55,9 @@ class FormationEnrollment extends Model
     {
         return $this->belongsTo(Trainer::class, 'seller_trainer_id');
     }
+
+    public function sessionParticipants(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SessionParticipant::class, 'formation_enrollment_id');
+    }
 }

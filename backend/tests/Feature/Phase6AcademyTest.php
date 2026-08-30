@@ -4,10 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Agency;
 use App\Models\Course;
-use App\Models\Enrollment;
 use App\Models\Role;
+use App\Models\SellerProfile;
 use App\Models\TrainingSession;
 use App\Models\Trainer;
+use App\Models\TreasuryAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -326,8 +327,8 @@ class Phase6AcademyTest extends TestCase
         ])->assertStatus(201)
             ->json();
 
-        $enrollment = $this->postJson('/api/enrollments', [
-            'session_id' => $session['id'],
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201)
             ->assertJsonPath('status', 'enrolled')
@@ -335,12 +336,22 @@ class Phase6AcademyTest extends TestCase
 
         $this->assertNotNull($enrollment['id']);
 
-        $this->putJson("/api/enrollments/{$enrollment['id']}", [
-            'attendance' => true,
-        ])->assertOk()
-            ->assertJsonPath('attendance', true);
+        $this->assertDatabaseHas('session_participants', [
+            'training_session_id' => $session['id'],
+            'formation_enrollment_id' => $enrollment['id'],
+            'status' => 'enrolled',
+        ]);
 
-        $this->assertNotNull(Enrollment::find($enrollment['id'])->attended_at);
+        $this->putJson("/api/training-sessions/{$session['id']}/attendances", [
+            'attendances' => [['learner_user_id' => $client->id, 'status' => 'present']],
+        ])->assertOk()
+            ->assertJsonPath('attendances.0.status', 'present');
+
+        $this->assertDatabaseHas('attendances', [
+            'training_session_id' => $session['id'],
+            'learner_user_id' => $client->id,
+            'status' => 'present',
+        ]);
     }
 
     public function test_attendance_sheet_has_no_default_status_until_marked(): void
@@ -355,7 +366,7 @@ class Phase6AcademyTest extends TestCase
         ])->assertCreated()
             ->json();
 
-$this->postJson('/api/formation-enrollments', [
+        $this->postJson('/api/formation-enrollments', [
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
@@ -382,14 +393,8 @@ $this->postJson('/api/formation-enrollments', [
             'role_id' => Role::where('name', 'commercial')->value('id'),
         ]);
 
-        $session = $this->postJson('/api/training-sessions', [
+        $this->postJson('/api/formation-enrollments', [
             'course_id' => $course['id'],
-            'start_at' => now()->addDays(7)->toISOString(),
-        ])->assertCreated()
-            ->json();
-
-        $this->postJson('/api/enrollments', [
-            'session_id' => $session['id'],
             'learner_user_id' => $commercial->id,
         ])->assertStatus(422);
     }
@@ -400,24 +405,18 @@ $this->postJson('/api/formation-enrollments', [
         $course = $this->createCourse();
         $client = $this->createClient();
 
-        $session = $this->postJson('/api/training-sessions', [
+        $this->postJson('/api/formation-enrollments', [
             'course_id' => $course['id'],
-            'start_at' => now()->addDays(7)->toISOString(),
-        ])->assertCreated()
-            ->json();
-
-        $this->postJson('/api/enrollments', [
-            'session_id' => $session['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
 
-        $this->postJson('/api/enrollments', [
-            'session_id' => $session['id'],
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(409);
     }
 
-    public function test_full_session_rejects_enrollment(): void
+    public function test_full_session_keeps_enrollment_without_slot(): void
     {
         $this->admin();
         $course = $this->createCourse();
@@ -430,37 +429,37 @@ $this->postJson('/api/formation-enrollments', [
         ])->assertCreated()
             ->json();
 
-        $this->postJson('/api/enrollments', [
-            'session_id' => $session['id'],
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
 
         $other = $this->createClient();
 
-        $this->postJson('/api/enrollments', [
-            'session_id' => $session['id'],
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
             'learner_user_id' => $other->id,
-        ])->assertStatus(409);
+        ])->assertStatus(201);
+
+        // L'inscription reste valide, mais n'occupe pas la session au complet.
+        $this->assertSame(
+            1,
+            \Illuminate\Support\Facades\DB::table('session_participants')->where('training_session_id', $session['id'])->count()
+        );
     }
 
-    public function test_enrollments_index_filters_by_session(): void
+    public function test_enrollments_index_filters_by_learner(): void
     {
         $this->admin();
         $course = $this->createCourse();
         $client = $this->createClient();
 
-        $session = $this->postJson('/api/training-sessions', [
+        $this->postJson('/api/formation-enrollments', [
             'course_id' => $course['id'],
-            'start_at' => now()->addDays(7)->toISOString(),
-        ])->assertCreated()
-            ->json();
-
-        $this->postJson('/api/enrollments', [
-            'session_id' => $session['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
 
-        $this->getJson('/api/enrollments?session_id='.$session['id'])
+        $this->getJson('/api/formation-enrollments?learner_user_id='.$client->id)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.learner.id', $client->id);
@@ -588,6 +587,80 @@ $this->postJson('/api/formation-enrollments', [
             'seller_user_id' => $admin->id,
             'seller_trainer_id' => $trainer->id,
         ])->assertStatus(422);
+    }
+
+    public function test_trainer_seller_commission_via_profile_and_balance_not_negative(): void
+    {
+        $this->admin();
+
+        $agency = $this->agencyIn('CMR');
+        $course = $this->createCourse(['price' => 50000, 'agency_id' => $agency->id]);
+        $trainer = $this->createTrainer();
+        $client = $this->createClient();
+
+        $profile = SellerProfile::create([
+            'user_id' => $trainer->user_id,
+            'agency_id' => $agency->id,
+            'kind' => SellerProfile::KIND_TRAINER,
+            'commission_type' => 'percent',
+            'commission_value' => 10,
+            'is_active' => true,
+        ]);
+
+        // Inscription vendue par le formateur (identifié par seller_trainer_id).
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'seller_trainer_id' => $trainer->id,
+        ])->assertStatus(201)->json();
+
+        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
+            'amount' => 50000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        // Le vendeur formateur touche sa commission via son profil vendeur.
+        $this->assertDatabaseHas('commission_entries', [
+            'invoice_id' => $enrollment['invoice_id'],
+            'seller_profile_id' => $profile->id,
+            'commission_rule_id' => null,
+            'amount' => 5000.00,
+            'status' => 'calculated',
+        ]);
+        $this->assertDatabaseHas('invoices', ['id' => $enrollment['invoice_id'], 'commission_amount' => 5000]);
+
+        // Solde affiché = entrées impayées.
+        $data = $this->getJson('/api/commission-payments/summary?agency_id='.$agency->id)->assertOk()->json('data');
+        $before = collect($data)->firstWhere('id', $profile->id);
+        $this->assertNotNull($before, 'Le profil vendeur doit apparaître dans le résumé.');
+        $this->assertEquals(5000, $before['total_owed']);
+        $this->assertEquals(0, $before['total_paid']);
+        $this->assertEquals(5000, $before['balance']);
+
+        // Règlement de la commission : le solde passe à 0, jamais négatif.
+        $account = TreasuryAccount::create([
+            'agency_id' => $agency->id,
+            'name' => 'Caisse Test',
+            'type' => 'cash',
+            'opening_balance' => 0,
+            'currency_code' => 'XAF',
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/commission-payments', [
+            'beneficiary_type' => 'seller_profile',
+            'beneficiary_id' => $profile->id,
+            'amount' => 5000,
+            'treasury_account_id' => $account->id,
+            'note' => 'Règlement test',
+        ])->assertStatus(201);
+
+        $data = $this->getJson('/api/commission-payments/summary?agency_id='.$agency->id)->assertOk()->json('data');
+        $after = collect($data)->firstWhere('id', $profile->id);
+        $this->assertEquals(0, $after['total_owed']);
+        $this->assertEquals(5000, $after['total_paid']);
+        // Régression : l'ancien calcul (entrées − versements) donnait -5000.00.
+        $this->assertEquals(0, $after['balance']);
     }
 
     public function test_trainer_stats_handle_collection_status_filtering(): void

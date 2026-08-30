@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { AxiosError } from 'axios';
 import { departmentsApi } from '@/api/departments.api';
 import { extractErrorMessage } from '@/api/errors';
 import { Spinner } from '@/components/ui/Spinner';
@@ -14,6 +15,7 @@ export function DepartmentLayout() {
   const { t } = useTranslation();
   const { departmentId } = useParams<{ departmentId: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const [backTo] = useState(
     () => (location.state as { from?: string } | null)?.from ?? '/departments'
   );
@@ -29,9 +31,17 @@ export function DepartmentLayout() {
     departmentsApi
       .get(departmentId)
       .then(setDepartment)
-      .catch((error) => setLoadError(extractErrorMessage(error, t('departments.loadFailed'))))
+      .catch((error) => {
+        // Département introuvable (id obsolète après reset de la base, etc.) :
+        // on revient à la liste plutôt que d'afficher l'erreur brute du backend.
+        if (error instanceof AxiosError && error.response?.status === 404) {
+          navigate('/departments', { replace: true });
+          return;
+        }
+        setLoadError(extractErrorMessage(error, t('departments.loadFailed')));
+      })
       .finally(() => setIsLoading(false));
-  }, [departmentId, t]);
+  }, [departmentId, t, navigate]);
 
   useEffect(() => {
     loadDepartment();

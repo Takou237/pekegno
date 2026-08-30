@@ -6,7 +6,9 @@ use App\Models\Commercial;
 use App\Models\Course;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Models\SessionParticipant;
 use App\Models\Trainer;
+use App\Models\TrainingSession;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\InvoiceNumberGenerator;
@@ -59,18 +61,25 @@ class FormationEnrollmentController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        if (! User::whereKey($validated['learner_user_id'])->whereHas('role', fn ($q) => $q->where('name', 'client'))->exists()) {
+            return response()->json([
+                'message' => "Le bénéficiaire doit être un apprenant (client).",
+                'errors' => ['learner_user_id' => ['Sélectionnez un apprenant valide.']],
+            ], 422);
+        }
+
         $existing = FormationEnrollment::where('course_id', $validated['course_id'])
             ->where('learner_user_id', $validated['learner_user_id'])
             ->first();
 
-        if ($existing) {
+        if ($existing && $existing->status !== 'cancelled') {
             return response()->json(['message' => 'L\'apprenant est déjà inscrit à cette formation.'], 409);
         }
 
         $validated['enrolled_at'] = now();
         $validated['status'] = 'enrolled';
 
-        $enrollment = DB::transaction(function () use ($validated, $request) {
+        $enrollment = DB::transaction(function () use ($validated, $request, $existing) {
             $invoiceId = $validated['invoice_id'] ?? null;
 
             if (! $invoiceId) {
@@ -78,7 +87,21 @@ class FormationEnrollmentController extends Controller
                 $validated['invoice_id'] = $invoiceId;
             }
 
-            $enrollment = FormationEnrollment::create($validated);
+            if ($existing) {
+                $existing->update([
+                    'status' => 'enrolled',
+                    'enrolled_at' => $validated['enrolled_at'],
+                    'invoice_id' => $invoiceId ?? $existing->invoice_id,
+                    'notes' => $validated['notes'] ?? $existing->notes,
+                ]);
+
+                $enrollment = $existing;
+            } else {
+                $enrollment = FormationEnrollment::create($validated);
+            }
+
+            $this->assignToAvailableSessions($enrollment);
+
             $enrollment->load(['course', 'learner', 'invoice', 'seller', 'sellerTrainer']);
 
             return $enrollment;
@@ -104,17 +127,70 @@ class FormationEnrollmentController extends Controller
             'seller_trainer_id' => 'nullable|exists:trainers,id|prohibits:seller_user_id',
         ]);
 
+        $previousStatus = $formationEnrollment->status;
+
         $formationEnrollment->update($validated);
+
+        if (array_key_exists('status', $validated) && $validated['status'] !== $previousStatus) {
+            if ($validated['status'] === 'cancelled') {
+                // On annule les participations pas encore terminées : le passé reste historisé.
+                SessionParticipant::where('formation_enrollment_id', $formationEnrollment->id)
+                    ->whereHas('session', fn ($q) => $q->where(fn ($w) => $w->where('end_at', '>', now())->orWhereNull('end_at')))
+                    ->update(['status' => 'cancelled']);
+            } else {
+                SessionParticipant::where('formation_enrollment_id', $formationEnrollment->id)
+                    ->whereHas('session', fn ($q) => $q->where(fn ($w) => $w->where('end_at', '>', now())->orWhereNull('end_at')))
+                    ->update(['status' => 'enrolled']);
+            }
+        }
+
         $formationEnrollment->load(['course', 'learner', 'seller', 'sellerTrainer']);
 
         return response()->json($formationEnrollment);
     }
 
+    /**
+     * « Supprimer » = annuler (jamais de suppression physique) pour préserver l'historique.
+     */
     public function destroy(FormationEnrollment $formationEnrollment): JsonResponse
     {
-        $formationEnrollment->delete();
+        DB::transaction(function () use ($formationEnrollment) {
+            $formationEnrollment->update(['status' => 'cancelled']);
+            SessionParticipant::where('formation_enrollment_id', $formationEnrollment->id)
+                ->whereHas('session', fn ($q) => $q->where(fn ($w) => $w->where('end_at', '>', now())->orWhereNull('end_at')))
+                ->update(['status' => 'cancelled']);
+        });
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Affecte l'inscription aux sessions à venir (jamais rétroactivement),
+     * en respectant la capacité de chaque session.
+     */
+    private function assignToAvailableSessions(FormationEnrollment $enrollment): void
+    {
+        $sessions = TrainingSession::where('course_id', $enrollment->course_id)
+            ->where('start_at', '>=', $enrollment->enrolled_at)
+            ->get(['id', 'max_capacity']);
+
+        foreach ($sessions as $session) {
+            $count = SessionParticipant::where('training_session_id', $session->id)
+                ->where('status', 'enrolled')
+                ->count();
+
+            if ($session->max_capacity !== null && $count >= $session->max_capacity) {
+                continue;
+            }
+
+            SessionParticipant::updateOrCreate(
+                [
+                    'training_session_id' => $session->id,
+                    'formation_enrollment_id' => $enrollment->id,
+                ],
+                ['status' => 'enrolled']
+            );
+        }
     }
 
     /**

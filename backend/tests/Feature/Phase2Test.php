@@ -62,21 +62,23 @@ class Phase2Test extends TestCase
         ]);
     }
 
-    public function test_invoice_payment_limited_to_three_instalments(): void
+    public function test_invoice_accepts_more_than_three_instalments(): void
     {
         $this->actingAsAdmin();
 
         $invoice = $this->createInvoice();
 
         $this->pay($invoice['id'], 5000)->assertOk();
-        $this->pay($invoice['id'], 5000)->assertOk();
-        $this->pay($invoice['id'], 5000)->assertOk()->assertJsonPath('status', 'paid');
+        $this->pay($invoice['id'], 3000)->assertOk();
+        $this->pay($invoice['id'], 3000)->assertOk();
+        $this->pay($invoice['id'], 3000)->assertOk(); // plus de limite de 3 versements
+        $this->pay($invoice['id'], 1000)->assertOk()->assertJsonPath('status', 'paid');
+
+        $this->assertDatabaseCount('invoice_payments', 5);
 
         $this->pay($invoice['id'], 100)
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Paiement en tranches limité à 3 (3 versements maximum).');
-
-        $this->assertDatabaseCount('invoice_payments', 3);
+            ->assertJsonPath('message', 'Cette facture est déjà soldée.');
     }
 
     public function test_advance_counts_as_first_instalment(): void
@@ -93,7 +95,7 @@ class Phase2Test extends TestCase
 
         $this->pay($invoice['id'], 100)
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Paiement en tranches limité à 3 (3 versements maximum).');
+            ->assertJsonPath('message', 'Cette facture est déjà soldée.');
 
         $this->assertDatabaseCount('invoice_payments', 3);
     }

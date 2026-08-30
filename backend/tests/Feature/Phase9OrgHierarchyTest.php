@@ -151,11 +151,12 @@ class Phase9OrgHierarchyTest extends TestCase
 
         $agencies = Agency::with('geoCountry', 'geoCity')->get();
 
-        $this->assertCount(2, $agencies);
+        $this->assertCount(3, $agencies);
+        $expectedByCode = ['AG001' => 'CMR', 'AG002' => 'CMR', 'AG003' => 'CIV'];
         foreach ($agencies as $agency) {
             $this->assertNotNull($agency->geoCountry);
             $this->assertNotNull($agency->geoCity);
-            $this->assertSame('CMR', $agency->geoCountry->code);
+            $this->assertSame($expectedByCode[$agency->code], $agency->geoCountry->code);
         }
     }
 }

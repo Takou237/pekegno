@@ -75,7 +75,7 @@ export interface CommissionPaymentPayload {
   beneficiary_type: 'seller_profile' | 'commercial';
   beneficiary_id: string;
   amount: number;
-  treasury_account_id: string;
+  treasury_account_id?: string;
   note?: string;
 }
 

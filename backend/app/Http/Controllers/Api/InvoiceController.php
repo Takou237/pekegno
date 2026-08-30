@@ -302,6 +302,7 @@ class InvoiceController extends Controller
             isAdvance: $request->boolean('is_advance', false),
             userId: $request->user()->id,
             treasuryAccountId: $request->input('treasury_account_id'),
+            paidAt: $request->input('paid_at'),
         );
 
         $this->logger->log(

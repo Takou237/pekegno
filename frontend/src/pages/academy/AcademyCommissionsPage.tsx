@@ -3,10 +3,9 @@ import { useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Banknote, RefreshCw, History } from 'lucide-react';
 import { commissionsApi } from '@/api/commissions.api';
-import { academyApi, type Course } from '@/api/academy.api';
+import { academyApi } from '@/api/academy.api';
 import { sellerProfilesApi } from '@/api/sellerProfiles.api';
 import { commercialsApi } from '@/api/commercials.api';
-import { treasuryApi } from '@/api/treasury.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
@@ -16,9 +15,9 @@ import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
+import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { CommissionBeneficiary, CommissionRule, CommissionPaymentPayload } from '@/types/commissions';
 import type { SellerProfile } from '@/types/formation';
-import type { TreasuryAccount } from '@/types/treasury';
 import type { Commercial } from '@/types/commercial';
 
 interface DepartmentLayoutContext {
@@ -32,11 +31,10 @@ type Tab = (typeof TABS)[number];
 
 interface PayFormState {
   amount: string;
-  treasury_account_id: string;
   note: string;
 }
 
-const emptyPayForm: PayFormState = { amount: '', treasury_account_id: '', note: '' };
+const emptyPayForm: PayFormState = { amount: '', note: '' };
 const TRIGGERS = ['on_sale', 'on_payment', 'on_full_payment'] as const;
 
 export default function AcademyCommissionsPage() {
@@ -48,10 +46,8 @@ export default function AcademyCommissionsPage() {
 
   const [rules, setRules] = useState<CommissionRule[]>([]);
   const [rulesLoading, setRulesLoading] = useState(true);
-  const [courses, setCourses] = useState<Course[]>([]);
   const [sellers, setSellers] = useState<SellerProfile[]>([]);
   const [commercials, setCommercials] = useState<Commercial[]>([]);
-  const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<CommissionBeneficiary[]>([]);
   const [balancesLoading, setBalancesLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -66,18 +62,13 @@ export default function AcademyCommissionsPage() {
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versions, setVersions] = useState<CommissionRule[]>([]);
   const [payModal, setPayModal] = useState<CommissionBeneficiary | null>(null);
-  const [payForm, setPayForm] = useState({ amount: '', treasury_account_id: '', note: '' });
+  const [payForm, setPayForm] = useState({ amount: '', note: '' });
   const [isPaying, setIsPaying] = useState(false);
 
   const loadRules = useCallback(() => {
     setRulesLoading(true);
     commissionsApi.listRules().then(setRules).catch(() => {}).finally(() => setRulesLoading(false));
   }, []);
-
-  const loadCourses = useCallback(() => {
-    if (!agencyId) return;
-    academyApi.courses({ agency_id: agencyId, per_page: 100 }).then((res) => setCourses(res.data)).catch(() => {});
-  }, [agencyId]);
 
   const loadSellers = useCallback(() => {
     if (!agencyId) return;
@@ -89,10 +80,6 @@ export default function AcademyCommissionsPage() {
     commercialsApi.list({ agency_id: agencyId, per_page: 100 }).then((res) => setCommercials(res.data)).catch(() => {});
   }, [agencyId]);
 
-  const loadTreasury = useCallback(() => {
-    treasuryApi.listAccounts({ agency_id: agencyId ?? undefined }).then(setTreasuryAccounts).catch(() => {});
-  }, [agencyId]);
-
   const loadBalances = useCallback(() => {
     setBalancesLoading(true);
     commissionsApi.summaryBeneficiaries({ agency_id: agencyId ?? undefined })
@@ -102,10 +89,8 @@ export default function AcademyCommissionsPage() {
   }, [agencyId]);
 
   useEffect(() => { loadRules(); }, [loadRules]);
-  useEffect(() => { loadCourses(); }, [loadCourses]);
   useEffect(() => { loadSellers(); }, [loadSellers]);
   useEffect(() => { loadCommercials(); }, [loadCommercials]);
-  useEffect(() => { loadTreasury(); }, [loadTreasury]);
   useEffect(() => { if (tab === 'balances') loadBalances(); }, [tab, loadBalances]);
   function openCreate() {
     setEditRule(null);
@@ -216,7 +201,6 @@ export default function AcademyCommissionsPage() {
         beneficiary_type: payModal.type,
         beneficiary_id: payModal.id,
         amount: Number(payForm.amount),
-        treasury_account_id: payForm.treasury_account_id,
         note: payForm.note || undefined,
       };
       await commissionsApi.payCommission(payload);
@@ -245,6 +229,35 @@ export default function AcademyCommissionsPage() {
   function selectedBalance(b: CommissionBeneficiary): number {
     return Number(b.balance ?? 0);
   }
+
+  const fetchCourses = useCallback(async (query: string) => {
+    if (!agencyId) return [];
+    const trimmed = query.trim();
+    const res = await academyApi.courses({ agency_id: agencyId, search: trimmed || undefined, per_page: 100 });
+    return res.data.map((c) => ({ id: c.id, label: `${c.name} (${c.code})` }));
+  }, [agencyId]);
+
+  const fetchSellerOptions = useCallback(async (query: string) => {
+    const q = query.trim().toLowerCase();
+    const active = sellers.filter((s) => s.is_active);
+    const match = q
+      ? active.filter((s) => `${sellerLabel(s)} ${s.user?.email ?? ''}`.toLowerCase().includes(q))
+      : active;
+    return match.map((s) => ({
+      id: s.id,
+      label: sellerLabel(s),
+      subtitle: t(`sellerProfiles.kind${s.kind.charAt(0).toUpperCase()}${s.kind.slice(1)}`),
+    }));
+  }, [sellers]);
+
+  const fetchCommercialOptions = useCallback(async (query: string) => {
+    const q = query.trim().toLowerCase();
+    const active = commercials.filter((c) => c.is_active);
+    const match = q
+      ? active.filter((c) => `${commercialLabel(c)} ${c.email ?? ''}`.toLowerCase().includes(q))
+      : active;
+    return match.map((c) => ({ id: c.id, label: commercialLabel(c), subtitle: c.kind }));
+  }, [commercials]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -486,28 +499,27 @@ export default function AcademyCommissionsPage() {
             error={formErrors.name}
           />
 
-          <Select label={`${t('academy.courseLabel')} *`} required value={form.course_id} onChange={(e) => setForm((p) => ({ ...p, course_id: e.target.value }))} error={formErrors.course_id}>
-            <option value=""></option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-            ))}
-          </Select>
+          <Autocomplete
+            label={`${t('academy.courseLabel')} *`}
+            value={form.course_id}
+            onChange={(id) => setForm((p) => ({ ...p, course_id: id }))}
+            fetchOptions={fetchCourses}
+            error={formErrors.course_id}
+          />
 
           <Select label={t('commissions.beneficiary')} value={form.beneficiary_type} onChange={(e) => setForm((p) => ({ ...p, beneficiary_type: e.target.value as 'seller_profile' | 'commercial', beneficiary_id: '' }))}>
             <option value="seller_profile">{t('academy.sellerProfile')}</option>
             <option value="commercial">{t('commissions.beneficiaryCommercial')}</option>
           </Select>
 
-          <Select label={`${t('commissions.beneficiary')} *`} required value={form.beneficiary_id} onChange={(e) => setForm((p) => ({ ...p, beneficiary_id: e.target.value }))} error={formErrors.beneficiary_commercial_id || formErrors.beneficiary_seller_profile_id}>
-            <option value=""></option>
-            {form.beneficiary_type === 'seller_profile'
-              ? sellers.filter((s) => s.is_active).map((s) => (
-                  <option key={s.id} value={s.id}>{sellerLabel(s)}</option>
-                ))
-              : commercials.filter((c) => c.is_active).map((c) => (
-                  <option key={c.id} value={c.id}>{commercialLabel(c)}</option>
-                ))}
-          </Select>
+          <Autocomplete
+            key={`beneficiary-${form.beneficiary_type}`}
+            label={`${t('commissions.beneficiary')} *`}
+            value={form.beneficiary_id}
+            onChange={(id) => setForm((p) => ({ ...p, beneficiary_id: id }))}
+            fetchOptions={form.beneficiary_type === 'seller_profile' ? fetchSellerOptions : fetchCommercialOptions}
+            error={formErrors.beneficiary_commercial_id || formErrors.beneficiary_seller_profile_id}
+          />
 
           <Select label={t('commissions.formula')} required value={form.formula_type} onChange={(e) => setForm((p) => ({ ...p, formula_type: e.target.value as 'percent' | 'fixed' }))}>
             <option value="percent">{t('commissions.formulaPercent')}</option>
@@ -595,13 +607,6 @@ export default function AcademyCommissionsPage() {
             value={payForm.amount}
             onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
           />
-
-          <Select label={`${t('treasury.account')} *`} required value={payForm.treasury_account_id} onChange={(e) => setPayForm((p) => ({ ...p, treasury_account_id: e.target.value }))}>
-            <option value=""></option>
-            {treasuryAccounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>{acc.name} ({formatCurrency(acc.balance)})</option>
-            ))}
-          </Select>
 
           <Input label={t('common.notes')} value={payForm.note} onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))} />
 

@@ -50,6 +50,7 @@ export interface BilanPeriod {
 export type BilanParams = {
   date?: string;
   agency_id?: string;
+  country_id?: string;
 };
 
 export type BilanPeriodParams = {

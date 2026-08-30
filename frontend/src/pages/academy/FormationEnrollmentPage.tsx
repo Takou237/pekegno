@@ -85,6 +85,9 @@ export default function FormationEnrollmentPage() {
   const [statusModal, setStatusModal] = useState<FormationEnrollment | null>(null);
   const [newStatus, setNewStatus] = useState<EnrollmentStatus>('enrolled');
 
+  const [deleteTarget, setDeleteTarget] = useState<FormationEnrollment | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const fetchEnrollments = useCallback(async () => {
     if (!agencyId) return;
     setIsLoading(true);
@@ -267,14 +270,18 @@ export default function FormationEnrollmentPage() {
     }
   }
 
-  async function handleDelete(enrollment: FormationEnrollment) {
-    if (!window.confirm(t('academy.deleteEnrollmentConfirm'))) return;
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      await academyApi.removeFormationEnrollment(enrollment.id);
-      setEnrollments((prev) => prev.filter((e) => e.id !== enrollment.id));
+      await academyApi.removeFormationEnrollment(deleteTarget.id);
+      setEnrollments((prev) => prev.filter((e) => e.id !== deleteTarget.id));
       showToast(t('academy.enrollmentDeleted'), 'success');
+      setDeleteTarget(null);
     } catch (error) {
       showToast(extractErrorMessage(error, t('academy.deleteFailed')), 'error');
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -393,14 +400,21 @@ export default function FormationEnrollmentPage() {
                       {enrollment.course?.sessions_count != null ? enrollment.course.sessions_count : '—'}
                     </td>
                     <td className="px-5 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openStatusModal(enrollment)}
-                        className="cursor-pointer hover:opacity-80"
-                        title={t('academy.changeStatus')}
-                      >
-                        {statusBadge(enrollment.status, t)}
-                      </button>
+                      <div className="flex flex-col items-start gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openStatusModal(enrollment)}
+                          className="cursor-pointer hover:opacity-80"
+                          title={t('academy.changeStatus')}
+                        >
+                          {statusBadge(enrollment.status, t)}
+                        </button>
+                        {enrollment.status === 'cancelled' && (
+                          <span className="text-xs text-brand-600 dark:text-brand-400">
+                            {t('academy.reinscriptionPossible')}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {new Date(enrollment.enrolled_at).toLocaleDateString(currentLocale(), {
@@ -426,7 +440,7 @@ export default function FormationEnrollmentPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDelete(enrollment)}
+                          onClick={() => setDeleteTarget(enrollment)}
                           className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
                           title={t('common.delete')}
                         >
@@ -553,6 +567,36 @@ export default function FormationEnrollmentPage() {
             </Button>
             <Button onClick={handleStatusUpdate}>
               {t('common.save')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title={t('academy.deleteEnrollmentTitle')}
+        maxWidth="max-w-sm"
+      >
+        <div className="flex flex-col gap-4">
+          {deleteTarget && (
+            <Alert variant="error">
+              {t('academy.deleteEnrollmentConfirm', {
+                name: deleteTarget.learner
+                  ? [deleteTarget.learner.first_name, deleteTarget.learner.last_name].filter(Boolean).join(' ') || deleteTarget.learner.email
+                  : '—',
+              })}
+            </Alert>
+          )}
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t('academy.deleteEnrollmentWarning')}
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="danger" isLoading={isDeleting} onClick={handleDelete}>
+              {t('common.delete')}
             </Button>
           </div>
         </div>

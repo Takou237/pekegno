@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { AxiosError } from 'axios';
 import {
   LayoutDashboard,
   FolderTree,
@@ -41,6 +42,7 @@ function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
 export function CountryLayout() {
   const { t } = useTranslation();
   const { countryId } = useParams<{ countryId: string }>();
+  const navigate = useNavigate();
   const [country, setCountry] = useState<CountryStat | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -53,9 +55,17 @@ export function CountryLayout() {
     countriesApi
       .get(countryId)
       .then(setCountry)
-      .catch((error) => setLoadError(extractErrorMessage(error, t('countries.empty'))))
+      .catch((error) => {
+        // Pays introuvable (id obsolète après reset de la base, etc.) :
+        // on revient à la liste plutôt que d'afficher l'erreur brute du backend.
+        if (error instanceof AxiosError && error.response?.status === 404) {
+          navigate('/countries', { replace: true });
+          return;
+        }
+        setLoadError(extractErrorMessage(error, t('countries.empty')));
+      })
       .finally(() => setIsLoading(false));
-  }, [countryId, t]);
+  }, [countryId, t, navigate]);
 
   useEffect(() => {
     loadCountry();

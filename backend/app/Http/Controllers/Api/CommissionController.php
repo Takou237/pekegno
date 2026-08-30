@@ -215,7 +215,7 @@ class CommissionController extends Controller
             'beneficiary_type' => ['required', 'string', 'in:seller_profile,commercial'],
             'beneficiary_id' => ['required', 'uuid'],
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'treasury_account_id' => ['required', 'uuid', 'exists:treasury_accounts,id'],
+            'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
             'note' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -242,8 +242,20 @@ class CommissionController extends Controller
 
         abort_if($amount > $balance + 0.005, 422, 'Impossible de payer : le montant excède le solde disponible ('.number_format(max($balance, 0), 2).' FCFA).');
 
-        $account = TreasuryAccount::where('id', $validated['treasury_account_id'])->where('is_active', true)->first();
-        abort_if(! $account, 422, 'Compte de trésorerie inexistant ou inactif.');
+        $account = null;
+
+        if ($validated['treasury_account_id'] ?? null) {
+            $account = TreasuryAccount::where('id', $validated['treasury_account_id'])->where('is_active', true)->first();
+            abort_if(! $account, 422, 'Compte de trésorerie inexistant ou inactif.');
+        } elseif ($agencyId) {
+            // Aucun compte fourni : on débite la caisse par défaut de l'agence du bénéficiaire.
+            $account = TreasuryAccount::query()
+                ->where('agency_id', $agencyId)
+                ->where('type', 'cash')
+                ->where('is_active', true)
+                ->orderBy('created_at')
+                ->first();
+        }
 
         $payment = DB::transaction(function () use ($sellerProfile, $commercial, $amount, $account, $validated, $actorId, $agencyId, $beneficiaryName) {
             // 1. Marquage FIFO des entrées couvertes par ce paiement (paiement partiel possible).
@@ -285,7 +297,7 @@ class CommissionController extends Controller
                 'commercial_id' => $commercial?->id,
                 'seller_profile_id' => $sellerProfile?->id,
                 'commission_entry_id' => $coveredEntry,
-                'treasury_account_id' => $account->id,
+                'treasury_account_id' => $account?->id,
                 'amount' => $amount,
                 'base_amount' => $amount,
                 'rule' => 'commission_payment',
@@ -293,18 +305,20 @@ class CommissionController extends Controller
                 'created_by' => $actorId,
             ]);
 
-            // 3. Sortie de trésorerie.
-            $this->treasuryService->recordMovement(
-                account: $account,
-                direction: 'out',
-                amount: $amount,
-                label: "Commission — {$beneficiaryName}",
-                sourceType: 'commission_payment',
-                sourceId: $commissionPayment->id,
-                category: 'commission',
-                reference: $reference,
-                createdBy: $actorId,
-            );
+            // 3. Sortie de trésorerie (si un compte a été résolu).
+            if ($account) {
+                $this->treasuryService->recordMovement(
+                    account: $account,
+                    direction: 'out',
+                    amount: $amount,
+                    label: "Commission — {$beneficiaryName}",
+                    sourceType: 'commission_payment',
+                    sourceId: $commissionPayment->id,
+                    category: 'commission',
+                    reference: $reference,
+                    createdBy: $actorId,
+                );
+            }
 
             // 4. Écriture comptable (dépense).
             $category = $this->accountingService->systemCategory('expense');
@@ -343,17 +357,10 @@ class CommissionController extends Controller
             $query->where('beneficiary_commercial_id', $commercial->id);
         }
 
-        $owed = (float) $query->sum('amount');
-
-        $paidQuery = CommissionPayment::query();
-        if ($sellerProfile) {
-            $paidQuery->where('seller_profile_id', $sellerProfile->id);
-        } else {
-            $paidQuery->where('commercial_id', $commercial->id);
-        }
-        $paid = (float) $paidQuery->sum('amount');
-
-        return round($owed - $paid, 2);
+        // Solde restant = entrées non payées. Les CommissionPayment (total_paid)
+        // sont l'historique des versements : les soustraire recompterait les lignes
+        // déjà marquées « paid » par le paiement FIFO (solde négatif à tort).
+        return round((float) $query->sum('amount'), 2);
     }
 
     private function summaryBeneficiary(
@@ -375,6 +382,7 @@ class CommissionController extends Controller
             ->sum('amount');
 
         $paid = (float) CommissionPayment::query()
+            ->whereNull('payment_id')
             ->where($type === 'seller_profile' ? 'seller_profile_id' : 'commercial_id', $id)
             ->sum('amount');
 
@@ -387,7 +395,9 @@ class CommissionController extends Controller
             'commission_value' => $commissionValue,
             'total_owed' => round($owed, 2),
             'total_paid' => round($paid, 2),
-            'balance' => round($owed - $paid, 2),
+            // Solde restant = entrées impayées ; ne soustrait pas l'historique des
+            // versements (sinon solde négatif dès qu'on paie une commission).
+            'balance' => round($owed, 2),
         ];
     }
 

@@ -13,20 +13,27 @@ return new class extends Migration
             $table->foreignUuid('treasury_account_id')->nullable()->after('invoice_id')->constrained('treasury_accounts')->nullOnDelete();
         });
 
-        // Backfill: assign each payment to the cash account of its agency
-        DB::statement('
-            UPDATE invoice_payments ip
-            SET treasury_account_id = (
-                SELECT ta.id
-                FROM treasury_accounts ta
-                JOIN invoices i ON i.id = ip.invoice_id
-                WHERE ta.agency_id = i.agency_id
-                  AND ta.type = \'cash\'
-                  AND ta.deleted_at IS NULL
-                LIMIT 1
-            )
-            WHERE ip.treasury_account_id IS NULL
-        ');
+        // Backfill portable (PostgreSQL ET SQLite) : chaque paiement hérite du
+        // compte caisse (cash) de l'agence de sa facture.
+        $payments = DB::table('invoice_payments')
+            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
+            ->whereNull('invoice_payments.treasury_account_id')
+            ->select('invoice_payments.id', 'invoices.agency_id')
+            ->get();
+
+        foreach ($payments as $payment) {
+            $accountId = DB::table('treasury_accounts')
+                ->where('agency_id', $payment->agency_id)
+                ->where('type', 'cash')
+                ->whereNull('deleted_at')
+                ->value('id');
+
+            if ($accountId !== null) {
+                DB::table('invoice_payments')
+                    ->where('id', $payment->id)
+                    ->update(['treasury_account_id' => $accountId]);
+            }
+        }
     }
 
     public function down(): void

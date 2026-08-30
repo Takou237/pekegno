@@ -335,27 +335,20 @@ class Phase3OrganizationTest extends TestCase
 
         $global = $this->getJson('/api/scope/context')->assertOk()->json();
 
-        $this->assertSame('global', $global['scope']['type']);
+        $this->assertTrue($global['user']['is_global']);
         $this->assertCount(2, $global['countries']);
-        $this->assertCount(5, $global['cities']);
-        $this->assertCount(2, $global['agencies']);
+        $this->assertSame(5, collect($global['countries'])->sum('cities_count'));
+        $this->assertSame(2, collect($global['countries'])->sum(fn ($c) => count($c['agencies'])));
 
         $this->chief('responsable-agence', $douala);
 
         $restricted = $this->getJson('/api/scope/context')->assertOk()->json();
 
-        $this->assertSame('restricted', $restricted['scope']['type']);
+        $this->assertFalse($restricted['user']['is_global']);
         $this->assertCount(1, $restricted['countries']);
         $this->assertSame('Cameroun', $restricted['countries'][0]['name']);
-        $this->assertCount(1, $restricted['cities']);
-        $this->assertCount(1, $restricted['agencies']);
-
-        $cmr = Country::where('code', 'CMR')->firstOrFail();
-        $doualaCity = City::where('name', 'Douala')->firstOrFail();
-
-        $this->getJson('/api/scope/context?country_id='.$cmr->id)->assertOk();
-        $this->getJson('/api/scope/context?city_id='.$doualaCity->id)->assertOk();
-        $this->getJson('/api/scope/context?country_id='.Country::where('code', 'CIV')->value('id'))->assertForbidden();
+        $this->assertSame(1, collect($restricted['countries'])->sum(fn ($c) => count($c['agencies'])));
+        $this->assertSame('Agence Douala', $restricted['countries'][0]['agencies'][0]['name']);
     }
 
     public function test_agencies_index_and_stats_are_scoped(): void

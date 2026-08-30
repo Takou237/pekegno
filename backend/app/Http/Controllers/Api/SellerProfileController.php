@@ -135,7 +135,7 @@ class SellerProfileController extends Controller
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'commission_entry_id' => 'nullable|exists:commission_entries,id',
-            'treasury_account_id' => 'required|exists:treasury_accounts,id',
+            'treasury_account_id' => 'nullable|exists:treasury_accounts,id',
             'note' => 'nullable|string',
         ]);
 
@@ -148,19 +148,31 @@ class SellerProfileController extends Controller
             ], 422);
         }
 
-        $account = TreasuryAccount::where('id', $validated['treasury_account_id'])
-            ->where('is_active', true)
-            ->first();
+        $account = null;
 
-        if (! $account) {
-            return response()->json(['message' => 'Compte de trésorerie inexistant ou inactif.'], 422);
+        if ($validated['treasury_account_id'] ?? null) {
+            $account = TreasuryAccount::where('id', $validated['treasury_account_id'])
+                ->where('is_active', true)
+                ->first();
+
+            if (! $account) {
+                return response()->json(['message' => 'Compte de trésorerie inexistant ou inactif.'], 422);
+            }
+        } elseif ($sellerProfile->agency_id) {
+            // Aucun compte fourni : on débite la caisse par défaut de l'agence du vendeur.
+            $account = TreasuryAccount::query()
+                ->where('agency_id', $sellerProfile->agency_id)
+                ->where('type', 'cash')
+                ->where('is_active', true)
+                ->orderBy('created_at')
+                ->first();
         }
 
         $payment = DB::transaction(function () use ($sellerProfile, $validated, $amount, $account) {
             $commissionPayment = CommissionPayment::create([
                 'seller_profile_id' => $sellerProfile->id,
                 'commission_entry_id' => $validated['commission_entry_id'] ?? null,
-                'treasury_account_id' => $account->id,
+                'treasury_account_id' => $account?->id,
                 'amount' => $amount,
                 'base_amount' => $amount,
                 'rule' => 'commission_payment',
@@ -176,18 +188,20 @@ class SellerProfileController extends Controller
                 }
             }
 
-            // Sortie de trésorerie
-            $this->treasuryService->recordMovement(
-                account: $account,
-                direction: 'out',
-                amount: $amount,
-                label: "Commission vendeur — {$sellerProfile->full_name}",
-                sourceType: 'commission_payment',
-                sourceId: $commissionPayment->id,
-                category: 'commission',
-                reference: "COMM-{$sellerProfile->id}-" . now()->format('YmdHis'),
-                createdBy: auth()->id(),
-            );
+            // Sortie de trésorerie (si un compte a été résolu)
+            if ($account) {
+                $this->treasuryService->recordMovement(
+                    account: $account,
+                    direction: 'out',
+                    amount: $amount,
+                    label: "Commission vendeur — {$sellerProfile->full_name}",
+                    sourceType: 'commission_payment',
+                    sourceId: $commissionPayment->id,
+                    category: 'commission',
+                    reference: "COMM-{$sellerProfile->id}-" . now()->format('YmdHis'),
+                    createdBy: auth()->id(),
+                );
+            }
 
             // Écriture comptable (expense)
             $category = AccountingCategory::where('type', 'expense')

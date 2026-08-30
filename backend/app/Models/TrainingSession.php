@@ -63,22 +63,20 @@ class TrainingSession extends Model
         return $this->belongsTo(Agency::class);
     }
 
-    public function enrollments(): HasMany
+    /**
+     * Les assignations explicites d'apprenants à cette session spécifique.
+     */
+    public function participants(): HasMany
     {
-        return $this->hasMany(Enrollment::class, 'session_id');
+        return $this->hasMany(SessionParticipant::class, 'training_session_id');
     }
 
     /**
-     * Inscrits à la formation (cours) à laquelle appartient la session.
+     * Les inscriptions à la formation (cours) à laquelle appartient la session.
      */
     public function formationEnrollments(): HasMany
     {
         return $this->hasMany(FormationEnrollment::class, 'course_id', 'course_id');
-    }
-
-    public function scopedFormationEnrollments(): HasMany
-    {
-        return $this->formationEnrollments()->whereNot('status', 'cancelled');
     }
 
     /**
@@ -92,6 +90,6 @@ class TrainingSession extends Model
     public function isFull(): bool
     {
         return $this->max_capacity !== null
-            && $this->enrollments()->where('status', 'enrolled')->count() >= $this->max_capacity;
+            && $this->participants()->where('status', 'enrolled')->count() >= $this->max_capacity;
     }
 }

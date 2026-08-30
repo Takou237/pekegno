@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignUuid('agency_id')->constrained()->cascadeOnDelete();
             $table->foreignUuid('department_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignUuid('commercial_id')->constrained()->cascadeOnDelete();
-            $table->string('stage', 20)->default('new');
+            $table->string('stage', 20)->default('new')->checkIn(['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost']);
             $table->decimal('expected_amount', 15, 2)->nullable();
             $table->date('expected_close_date')->nullable();
             $table->timestamp('won_at')->nullable();
@@ -29,8 +29,6 @@ return new class extends Migration
             $table->index('commercial_id');
             $table->index('agency_id');
         });
-
-        DB::statement("ALTER TABLE opportunities ADD CONSTRAINT opportunities_stage_check CHECK (stage IN ('new','contacted','qualified','proposal','negotiation','won','lost'))");
     }
 
     public function down(): void

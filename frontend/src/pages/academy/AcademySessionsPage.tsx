@@ -100,6 +100,9 @@ export default function AcademySessionsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  const [deleteTarget, setDeleteTarget] = useState<TrainingSession | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const fetchSessions = useCallback(async () => {
     if (!agencyId) return;
     setIsLoading(true);
@@ -238,15 +241,28 @@ export default function AcademySessionsPage() {
     }
   }
 
-  async function handleDelete(session: TrainingSession) {
-    if (!window.confirm(t('academy.deleteSessionConfirm'))) return;
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      await academyApi.removeSession(session.id);
-      setSessions((prev) => prev.filter((s) => s.id !== session.id));
+      await academyApi.removeSession(deleteTarget.id);
+      setSessions((prev) => prev.filter((s) => s.id !== deleteTarget.id));
       showToast(t('academy.sessionDeleted'), 'success');
+      setDeleteTarget(null);
     } catch (error) {
       showToast(extractErrorMessage(error, t('academy.deleteFailed')), 'error');
+    } finally {
+      setIsDeleting(false);
     }
+  }
+
+  function sessionLabel(session: TrainingSession): string {
+    const course = session.course?.name ?? '';
+    const date = new Date(session.start_at).toLocaleString(currentLocale(), {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+    return [course, date].filter(Boolean).join(' · ');
   }
 
   function trainerName(trainer: TrainingSession['trainer']): string {
@@ -399,7 +415,7 @@ export default function AcademySessionsPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDelete(session)}
+                          onClick={() => setDeleteTarget(session)}
                           className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
                           title={t('common.delete')}
                         >
@@ -519,6 +535,32 @@ export default function AcademySessionsPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title={t('academy.deleteSessionTitle')}
+        maxWidth="max-w-sm"
+      >
+        <div className="flex flex-col gap-4">
+          {deleteTarget && (
+            <Alert variant="error">
+              {t('academy.deleteSessionConfirm', { label: sessionLabel(deleteTarget) })}
+            </Alert>
+          )}
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t('academy.deleteSessionWarning')}
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="danger" isLoading={isDeleting} onClick={handleDelete}>
+              {t('common.delete')}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

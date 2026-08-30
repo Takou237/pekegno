@@ -28,7 +28,7 @@ class AcademyReportService
 
         $sessions = TrainingSession::query()
             ->with(['course:id,name,mode,price,agency_id', 'trainer:id,first_name,last_name'])
-            ->withCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
+            ->withCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->when($agencyIds !== null, function ($q) use ($agencyIds) {
                 return $q->where(fn ($qq) => $qq->whereIn('agency_id', $agencyIds)
                     ->orWhereHas('course', fn ($c) => $c->whereIn('agency_id', $agencyIds)->orWhereNull('agency_id')));

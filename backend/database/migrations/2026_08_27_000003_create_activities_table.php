@@ -14,7 +14,7 @@ return new class extends Migration
             $table->uuid('subject_id');
             $table->foreignUuid('assigned_to')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('type', 20);
+            $table->string('type', 20)->checkIn(['call', 'meeting', 'email', 'whatsapp', 'note', 'followup']);
             $table->string('title', 200);
             $table->text('notes')->nullable();
             $table->timestamp('due_at')->nullable();
@@ -24,8 +24,6 @@ return new class extends Migration
             $table->index(['subject_type', 'subject_id']);
             $table->index(['assigned_to', 'due_at']);
         });
-
-        DB::statement("ALTER TABLE activities ADD CONSTRAINT activities_type_check CHECK (type IN ('call','meeting','email','whatsapp','note','followup'))");
     }
 
     public function down(): void

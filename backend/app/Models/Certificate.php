@@ -13,6 +13,8 @@ class Certificate extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
 
+    protected $table = 'certificates';
+
     public const STATUS_ISSUED = 'issued';
     public const STATUS_REVOKED = 'revoked';
 
@@ -41,7 +43,7 @@ class Certificate extends Model
 
     public function enrollment(): BelongsTo
     {
-        return $this->belongsTo(Enrollment::class);
+        return $this->belongsTo(FormationEnrollment::class, 'enrollment_id');
     }
 
     public function creator(): BelongsTo

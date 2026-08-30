@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::table('attendances', function (Blueprint $table) {
             $table->dropForeign(['enrollment_id']);
             $table->dropUnique('attendances_training_session_id_enrollment_id_unique');
+            $table->dropIndex(['enrollment_id']);
             $table->dropColumn('enrollment_id');
 
             // La présence est rattachée à l'apprenant (inscrit à la formation),

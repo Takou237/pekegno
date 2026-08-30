@@ -42,19 +42,32 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       const res = await scopeApi.getContext();
       setCountries(res.countries);
 
-      // Auto-select first available if nothing selected
+      // Répare la sélection persistée contre le référentiel frais : tout id de
+      // pays/agence/département qui n'existe plus (ex. après une réinitialisation
+      // de la base) est retiré et remplacé par la première option disponible.
+      // La barre d'accès rapide ne pointe donc plus vers des entités disparues.
       setSelectionState((prev) => {
         let next = { ...prev };
+
         const firstCountry = res.countries[0];
-        if (!next.countryId && firstCountry) next.countryId = firstCountry.id;
-
         const country = res.countries.find((c) => c.id === next.countryId);
-        const firstAgency = country?.agencies[0];
-        if (!next.agencyId && firstAgency) next.agencyId = firstAgency.id;
+        if (!country) {
+          next.countryId = firstCountry?.id ?? null;
+        }
+        const sourceCountry = country ?? firstCountry;
 
-        const agency = country?.agencies.find((a) => a.id === next.agencyId);
-        const firstDept = agency?.departments[0];
-        if (!next.departmentId && firstDept) next.departmentId = firstDept.id;
+        const agencies = sourceCountry?.agencies ?? [];
+        const agency = agencies.find((a) => a.id === next.agencyId);
+        if (!agency) {
+          next.agencyId = agencies[0]?.id ?? null;
+        }
+        const sourceAgency = agency ?? agencies[0];
+
+        const departments = sourceAgency?.departments ?? [];
+        const department = departments.find((d) => d.id === next.departmentId);
+        if (!department) {
+          next.departmentId = departments[0]?.id ?? null;
+        }
 
         persistSelection(next);
         return next;

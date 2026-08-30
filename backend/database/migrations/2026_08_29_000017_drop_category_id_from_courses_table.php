@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::table('courses', function (Blueprint $table) {
             $table->dropForeign(['category_id']);
+            $table->dropIndex(['category_id']);
             $table->dropColumn('category_id');
         });
     }

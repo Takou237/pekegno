@@ -21,9 +21,8 @@ class PaymentService
         bool $isAdvance,
         string $userId,
         ?string $treasuryAccountId = null,
+        ?string $paidAt = null,
     ): void {
-        abort_if($invoice->payments()->count() >= 3, 422, 'Paiement en tranches limité à 3 (3 versements maximum).');
-
         // Déterminer le compte de trésorerie
         $account = $this->resolveAccount($treasuryAccountId, $invoice);
 
@@ -31,7 +30,7 @@ class PaymentService
             'amount' => $amount,
             'payment_method' => $method,
             'is_advance' => $isAdvance,
-            'paid_at' => now(),
+            'paid_at' => $paidAt ?? now(),
             'received_by' => $userId,
             'treasury_account_id' => $account?->id,
         ]);

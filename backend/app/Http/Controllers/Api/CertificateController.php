@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Certificate;
-use App\Models\Enrollment;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +18,7 @@ class CertificateController extends Controller
     {
         $query = Certificate::with([
             'enrollment' => fn ($q) => $q->with([
-                'session' => fn ($sq) => $sq->with('course:id,name'),
+                'course:id,name',
                 'learner:id,first_name,last_name,email',
             ]),
             'creator:id,first_name,last_name',
@@ -30,11 +29,11 @@ class CertificateController extends Controller
         }
 
         if ($request->filled('agency_id')) {
-            $query->whereHas('enrollment.session', fn ($q) => $q->where('agency_id', $request->input('agency_id')));
+            $query->whereHas('enrollment.course', fn ($q) => $q->where('agency_id', $request->input('agency_id')));
         }
 
         if ($request->filled('course_id')) {
-            $query->whereHas('enrollment.session.course', fn ($q) => $q->where('id', $request->input('course_id')));
+            $query->whereHas('enrollment.course', fn ($q) => $q->where('id', $request->input('course_id')));
         }
 
         if ($request->filled('search')) {
@@ -59,7 +58,7 @@ class CertificateController extends Controller
     {
         $certificate->load([
             'enrollment' => fn ($q) => $q->with([
-                'session' => fn ($sq) => $sq->with('course:id,name'),
+                'course:id,name',
                 'learner:id,first_name,last_name,email',
             ]),
             'creator:id,first_name,last_name',
@@ -71,7 +70,7 @@ class CertificateController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'enrollment_id' => ['required', 'uuid', 'exists:enrollments,id'],
+            'enrollment_id' => ['required', 'uuid', 'exists:formation_enrollments,id'],
             'mention' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -92,7 +91,7 @@ class CertificateController extends Controller
         return response()->json(
             $certificate->fresh()->load([
                 'enrollment' => fn ($q) => $q->with([
-                    'session' => fn ($sq) => $sq->with('course:id,name'),
+                    'course:id,name',
                     'learner:id,first_name,last_name,email',
                 ]),
                 'creator:id,first_name,last_name',
@@ -115,7 +114,7 @@ class CertificateController extends Controller
         return response()->json(
             $certificate->fresh()->load([
                 'enrollment' => fn ($q) => $q->with([
-                    'session' => fn ($sq) => $sq->with('course:id,name'),
+                    'course:id,name',
                     'learner:id,first_name,last_name,email',
                 ]),
                 'creator:id,first_name,last_name',

@@ -28,7 +28,7 @@ use App\Http\Controllers\Api\CourseModuleController;
 use App\Http\Controllers\Api\CountryController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
-use App\Http\Controllers\Api\EnrollmentController;
+
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\PermissionController;
@@ -160,11 +160,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::delete('/training-sessions/{trainingSession}/force-delete', [TrainingSessionController::class, 'forceDelete'])->middleware('permission:sessions.supprimer');
     Route::get('/training-sessions', [TrainingSessionController::class, 'index'])->middleware('permission:sessions.consulter');
 
-    Route::post('/enrollments', [EnrollmentController::class, 'store'])->middleware('permission:enrollments.creer');
-    Route::get('/enrollments/{enrollment}', [EnrollmentController::class, 'show'])->middleware('permission:enrollments.consulter');
-    Route::put('/enrollments/{enrollment}', [EnrollmentController::class, 'update'])->middleware('permission:enrollments.modifier');
-    Route::delete('/enrollments/{enrollment}', [EnrollmentController::class, 'destroy'])->middleware('permission:enrollments.supprimer');
-    Route::get('/enrollments', [EnrollmentController::class, 'index'])->middleware('permission:enrollments.consulter');
+
 
     Route::get('/services/trash', [ServiceController::class, 'trash']);
     Route::get('/services/search', [ServiceController::class, 'search'])->middleware('permission:services.consulter');

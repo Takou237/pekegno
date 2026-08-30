@@ -9,11 +9,13 @@ use App\Http\Resources\TrainingSessionResource;
 use App\Models\Attendance;
 use App\Models\Course;
 use App\Models\FormationEnrollment;
+use App\Models\SessionParticipant;
 use App\Models\TrainingSession;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 class TrainingSessionController extends Controller
@@ -61,7 +63,7 @@ class TrainingSessionController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = TrainingSession::with(['course', 'module', 'trainer', 'agency'])
-            ->withCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
+            ->withCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->when($request->course_id, fn ($q, $v) => $q->where('course_id', $v))
             ->when($request->module_id, fn ($q, $v) => $q->where('module_id', $v))
             ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
@@ -96,7 +98,26 @@ class TrainingSessionController extends Controller
             $data['agency_id'] = Course::find($data['course_id'])?->agency_id;
         }
 
-        $session = TrainingSession::create($data);
+        $session = DB::transaction(function () use ($data) {
+            $session = TrainingSession::create($data);
+
+            $enrollments = FormationEnrollment::where('course_id', $session->course_id)
+                ->whereNot('status', 'cancelled')
+                ->where('enrolled_at', '<=', $session->start_at)
+                ->pluck('id');
+
+            foreach ($enrollments as $enrollmentId) {
+                SessionParticipant::updateOrCreate(
+                    [
+                        'training_session_id' => $session->id,
+                        'formation_enrollment_id' => $enrollmentId,
+                    ],
+                    ['status' => 'enrolled']
+                );
+            }
+
+            return $session;
+        });
 
         return (new TrainingSessionResource($session->load(['course', 'trainer', 'agency']) ))
             ->response()
@@ -121,7 +142,7 @@ class TrainingSessionController extends Controller
         return new TrainingSessionResource(
             $trainingSession
                 ->load(['course', 'module', 'trainer', 'agency'])
-                ->loadCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
+                ->loadCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
         );
     }
 
@@ -252,7 +273,7 @@ class TrainingSessionController extends Controller
     {
         $query = TrainingSession::onlyTrashed()
             ->with(['course', 'trainer', 'agency'])
-            ->withCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')]);
+            ->withCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')]);
 
         $this->scopeQuery($request, $query);
 
