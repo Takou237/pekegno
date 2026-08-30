@@ -109,26 +109,7 @@ export interface TrainerPayload {
   is_active?: boolean;
 }
 
-export interface Enrollment {
-  id: string;
-  session?: {
-    id: string;
-    start_at: string | null;
-    status: string | null;
-    course?: { id: string; code: string; name: string } | null;
-  } | null;
-  learner?: {
-    id: string;
-    client_number: string | null;
-    first_name: string | null;
-    last_name: string | null;
-    email: string;
-  } | null;
-  status: 'enrolled' | 'completed' | 'cancelled';
-  attendance: string | null;
-  notes: string | null;
-  created_at: string;
-}
+export type EnrollmentStatus = 'enrolled' | 'completed' | 'cancelled';
 
 export interface Learner {
   id: string;
@@ -141,14 +122,14 @@ export interface Learner {
     phone: string | null;
     is_active: boolean;
   };
-  status: Enrollment['status'] | null;
+  status: EnrollmentStatus | null;
   enrollments_count: number;
   primary: {
     source: 'formation' | 'session';
     course_id: string | null;
     course_name: string | null;
     course_code: string | null;
-    status: Enrollment['status'] | null;
+    status: EnrollmentStatus | null;
     date: string | null;
   } | null;
   session: {
@@ -257,7 +238,7 @@ export interface LearnerEnrollmentItem {
   course?: { id: string; name: string; code: string } | null;
   trainer?: string | null;
   start_at: string | null;
-  status: Enrollment['status'];
+  status: EnrollmentStatus;
   attendance: boolean;
 }
 
@@ -274,7 +255,7 @@ export interface LearnerStats {
   };
   stats: {
     enrollments_total: number;
-    enrollments_by_status: Record<Enrollment['status'], number>;
+    enrollments_by_status: Record<EnrollmentStatus, number>;
     courses_unique: number;
     trainers_unique: number;
     sessions_upcoming: number;
@@ -342,28 +323,9 @@ export const academyApi = {
     return data.data ?? (data as unknown as Trainer);
   },
 
-  async enrollments(params: { agency_id?: string; status?: string; per_page?: number; page?: number } = {}): Promise<Paginated<Enrollment>> {
-    const { data } = await client.get<Paginated<Enrollment>>('/enrollments', { params });
-    return data;
-  },
-
   async learners(params: { agency_id?: string; status?: string; search?: string; per_page?: number; page?: number } = {}): Promise<Paginated<Learner>> {
     const { data } = await client.get<Paginated<Learner>>('/learners', { params });
     return data;
-  },
-
-  async createEnrollment(payload: { session_id: string; learner_user_id: string; notes?: string | null }): Promise<Enrollment> {
-    const { data } = await client.post<{ data: Enrollment }>('/enrollments', payload);
-    return data.data ?? (data as unknown as Enrollment);
-  },
-
-  async updateEnrollment(id: string, payload: { status?: Enrollment['status']; notes?: string | null }): Promise<Enrollment> {
-    const { data } = await client.put<{ data: Enrollment }>(`/enrollments/${id}`, payload);
-    return data.data ?? (data as unknown as Enrollment);
-  },
-
-  async removeEnrollment(id: string): Promise<void> {
-    await client.delete(`/enrollments/${id}`);
   },
 
   async sessions(

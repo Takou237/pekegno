@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, CalendarPlus } from 'lucide-react';
-import { academyApi, type Learner, type TrainingSession } from '@/api/academy.api';
+import { academyApi, type Course, type Learner } from '@/api/academy.api';
 import { clientsApi } from '@/api/clients.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -25,13 +25,13 @@ interface DepartmentLayoutContext {
 const STATUSES = ['enrolled', 'completed', 'cancelled'] as const;
 
 interface EnrollmentFormState {
-  session_id: string;
+  course_id: string;
   learner_user_id: string;
   notes: string;
 }
 
 const emptyEnrollmentForm: EnrollmentFormState = {
-  session_id: '',
+  course_id: '',
   learner_user_id: '',
   notes: '',
 };
@@ -68,10 +68,9 @@ export default function AcademyLearnersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Modal inscription : sessions planifiées/en cours (cache local) et
+  // Modal inscription : formations recherchées côté serveur et
   // apprenants recherchés côté serveur.
   const [enrollmentOpen, setEnrollmentOpen] = useState(false);
-  const [openSessions, setOpenSessions] = useState<TrainingSession[] | null>(null);
   const [enrollmentForm, setEnrollmentForm] = useState<EnrollmentFormState>(emptyEnrollmentForm);
   const [isSubmittingEnrollment, setIsSubmittingEnrollment] = useState(false);
   const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
@@ -109,36 +108,22 @@ export default function AcademyLearnersPage() {
     fetchLearners();
   }, [fetchLearners]);
 
-  // Sessions ouvertes (planifiées / en cours) chargées une fois par ouverture
-  // du modal, puis filtrées localement (pas de recherche serveur sur ce endpoint).
-  const fetchOpenSessions = useCallback(async (): Promise<TrainingSession[]> => {
-    if (!agencyId) return [];
-    if (openSessions) return openSessions;
-    const response = await academyApi.sessions({ agency_id: agencyId, per_page: 100 });
-    const list = response.data.filter((s) => s.status === 'planned' || s.status === 'ongoing');
-    setOpenSessions(list);
-    return list;
-  }, [agencyId, openSessions]);
-
-  const sessionOptions = useCallback(
+  const courseOptions = useCallback(
     async (query: string) => {
-      const list = await fetchOpenSessions();
-      const q = query.trim().toLowerCase();
-      const filtered = q
-        ? list.filter((s) =>
-            `${s.course?.name ?? ''} ${s.course?.code ?? ''}`.toLowerCase().includes(q),
-          )
-        : list;
-      return filtered.map((session) => ({
-        id: session.id,
-        label: session.course?.name ?? t('nav.courses'),
-        subtitle: new Date(session.start_at).toLocaleString(currentLocale(), {
-          dateStyle: 'short',
-          timeStyle: 'short',
-        }),
+      if (!agencyId) return [];
+      const q = query.trim();
+      const response = await academyApi.courses({
+        agency_id: agencyId,
+        search: q || undefined,
+        per_page: q ? 20 : 100,
+      });
+      return response.data.map((course: Course) => ({
+        id: course.id,
+        label: course.name,
+        subtitle: course.code,
       }));
     },
-    [fetchOpenSessions, t],
+    [agencyId],
   );
 
   const learnerOptions = useCallback(
@@ -168,7 +153,6 @@ export default function AcademyLearnersPage() {
     setEnrollmentForm(emptyEnrollmentForm);
     setEnrollmentError(null);
     setEnrollmentFieldErrors({});
-    setOpenSessions(null);
     setEnrollmentOpen(true);
   }
 
@@ -186,10 +170,10 @@ export default function AcademyLearnersPage() {
     setEnrollmentFieldErrors({});
     setIsSubmittingEnrollment(true);
     try {
-      await academyApi.createEnrollment({
-        session_id: enrollmentForm.session_id,
+      await academyApi.createFormationEnrollment({
+        course_id: enrollmentForm.course_id,
         learner_user_id: enrollmentForm.learner_user_id,
-        notes: enrollmentForm.notes || null,
+        notes: enrollmentForm.notes || undefined,
       });
       showToast(t('academy.enrollmentCreated'), 'success');
       setEnrollmentOpen(false);
@@ -373,12 +357,12 @@ export default function AcademyLearnersPage() {
           {enrollmentError && <Alert variant="error">{enrollmentError}</Alert>}
 
           <Autocomplete
-            label={`${t('nav.sessions')} *`}
-            placeholder={t('academy.searchSessionPlaceholder')}
-            value={enrollmentForm.session_id}
-            onChange={(sessionId) => setEnrollmentForm((prev) => ({ ...prev, session_id: sessionId }))}
-            fetchOptions={sessionOptions}
-            error={enrollmentFieldErrors.session_id}
+            label={`${t('nav.courses')} *`}
+            placeholder={t('academy.searchCoursePlaceholder')}
+            value={enrollmentForm.course_id}
+            onChange={(courseId) => setEnrollmentForm((prev) => ({ ...prev, course_id: courseId }))}
+            fetchOptions={courseOptions}
+            error={enrollmentFieldErrors.course_id}
           />
 
           <Autocomplete
