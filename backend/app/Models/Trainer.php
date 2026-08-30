@@ -25,6 +25,7 @@ class Trainer extends Model
         'email',
         'phone',
         'bio',
+        'points_balance',
         'is_active',
     ];
 
@@ -32,6 +33,7 @@ class Trainer extends Model
     {
         return [
             'is_active' => 'boolean',
+            'points_balance' => 'integer',
         ];
     }
 
@@ -49,6 +51,11 @@ class Trainer extends Model
     public function sessions(): HasMany
     {
         return $this->hasMany(TrainingSession::class);
+    }
+
+    public function points(): HasMany
+    {
+        return $this->hasMany(TrainerPoint::class);
     }
 
     public function displayName(): string

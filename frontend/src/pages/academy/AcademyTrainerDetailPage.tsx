@@ -336,6 +336,7 @@ export default function AcademyTrainerDetailPage() {
       else if (action === 'pay') await commissionsApi.payEntry(entryId);
       else await commissionsApi.cancelEntry(entryId);
       await reloadEntries();
+      if (action !== 'validate') await refreshStats();
     } catch (error) {
       const msg = extractErrorMessage(error, t('academy.saveFailed'));
       if (msg) showToast(msg, 'error');

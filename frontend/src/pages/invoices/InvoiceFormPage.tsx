@@ -34,14 +34,18 @@ function newLine(): InvoiceLineDraft {
   return { key: `line-${lineCounter}`, service_id: '', label: '', unit_price: '', quantity: '1', pass_tier: '' };
 }
 
-export default function InvoiceFormPage() {
+export default function InvoiceFormPage({
+  lockedAgencyId,
+  backPath,
+  successPath,
+}: { lockedAgencyId?: string; backPath?: string; successPath?: string } = {}) {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { agencyId: routeAgencyId } = useParams<{ agencyId?: string }>();
   const [searchParams] = useSearchParams();
 
-  const presetAgencyId = routeAgencyId ?? searchParams.get('agency_id') ?? '';
+  const presetAgencyId = lockedAgencyId ?? routeAgencyId ?? searchParams.get('agency_id') ?? '';
   const [agencyLocked] = useState(Boolean(presetAgencyId));
   const [lockedAgencyName, setLockedAgencyName] = useState('');
 
@@ -167,7 +171,7 @@ export default function InvoiceFormPage() {
         })),
       });
       showToast(t('invoices.created'), 'success');
-      navigate(agencyLocked ? `/agencies/${presetAgencyId}/invoices` : '/invoices');
+      navigate(successPath ?? (agencyLocked ? `/agencies/${presetAgencyId}/invoices` : '/invoices'));
     } catch (error) {
       setErrors(extractFieldErrors(error));
       const msg = extractErrorMessage(error, t('invoices.saveFailed'));
@@ -181,7 +185,7 @@ export default function InvoiceFormPage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to={agencyLocked ? `/agencies/${presetAgencyId}/invoices` : '/invoices'}
+          to={backPath ?? (agencyLocked ? `/agencies/${presetAgencyId}/invoices` : '/invoices')}
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />

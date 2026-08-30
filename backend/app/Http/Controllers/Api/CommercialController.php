@@ -8,6 +8,7 @@ use App\Http\Requests\Api\StoreCommercialRequest;
 use App\Http\Requests\Api\UpdateCommercialRequest;
 use App\Models\Commercial;
 use App\Models\CommercialPoint;
+use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\Trainer;
 use App\Models\User;
@@ -143,7 +144,7 @@ class CommercialController extends Controller
                 'phone' => $trainer->phone,
                 'commission_type' => 'none',
                 'commission_value' => null,
-                'points_balance' => 0,
+                'points_balance' => (int) $trainer->points_balance,
                 'is_active' => (bool) $trainer->is_active,
                 'is_trainer' => true,
                 'sessions_count' => $trainer->sessions_count ?? 0,
@@ -468,13 +469,103 @@ class CommercialController extends Controller
                     ->whereColumn('commercial_id', 'commercials.id')
                     ->tap($paidFilter),
             ])
-            ->orderByDesc('points_balance')
-            ->orderByDesc('turnover')
-            ->orderByDesc('sales_count')
-            ->limit(min((int) $request->input('limit', 50), 100))
-            ->get(['id', 'first_name', 'last_name', 'email', 'agency_id', 'points_balance', 'is_active']);
+            ->get(['id', 'first_name', 'last_name', 'email', 'agency_id', 'points_balance', 'is_active'])
+            ->map(function (Commercial $commercial) {
+                return [
+                    'id' => $commercial->id,
+                    'first_name' => $commercial->first_name,
+                    'last_name' => $commercial->last_name,
+                    'email' => $commercial->email,
+                    'agency_id' => $commercial->agency_id,
+                    'points_balance' => (int) $commercial->points_balance,
+                    'is_active' => (bool) $commercial->is_active,
+                    'is_trainer' => false,
+                    'sales_count' => (int) $commercial->sales_count,
+                    'turnover' => round((float) $commercial->turnover, 2),
+                ];
+            });
 
-        return response()->json($commercials);
+        // Le classement Employés agrège aussi les formateurs (ventes + points PEKEGNO).
+        if ($request->input('kind', $this->defaultKind($request)) === 'employe') {
+            // Les utilisateurs « formateur » du périmètre obtiennent leur profil à la volée.
+            app(TrainerController::class)->syncUserTrainers($request, $request->agency_id);
+
+            $agencyScope = $this->trainerAgencyScope($request);
+
+            $trainers = Trainer::query()
+                ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
+                ->when($agencyScope !== null, fn ($q) => $q->whereIn('agency_id', $agencyScope))
+                ->get();
+
+            $commercials = $commercials->concat(
+                $trainers->map(fn (Trainer $trainer) => $this->rankRowForTrainer($trainer, $from, $to)),
+            );
+        }
+
+        $rows = $commercials
+            ->sortByDesc('sales_count')
+            ->sortByDesc('turnover')
+            ->sortByDesc('points_balance')
+            ->values()
+            ->take(min((int) $request->input('limit', 50), 100));
+
+        return response()->json($rows);
+    }
+
+    /**
+     * Rang d'un formateur : points gagnés + ventes payées (formations vendues par
+     * son profil ou son compte, et factures de services liées à son compte).
+     */
+    private function rankRowForTrainer(Trainer $trainer, ?string $from, ?string $to): array
+    {
+        $paidFilter = fn ($q) => $q->where('status', 'paid')
+            ->whereNull('cancelled_at')
+            ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
+
+        $invoiceIds = FormationEnrollment::query()
+            ->where('status', '!=', 'cancelled')
+            ->whereNotNull('invoice_id')
+            ->where(function ($q) use ($trainer) {
+                $q->where('seller_trainer_id', $trainer->id);
+
+                if ($trainer->user_id) {
+                    $q->orWhere('seller_user_id', $trainer->user_id);
+                }
+            })
+            ->pluck('invoice_id');
+
+        if ($trainer->user_id) {
+            $serviceIds = Invoice::query()
+                ->tap($paidFilter)
+                ->where('seller_user_id', $trainer->user_id)
+                ->whereNotExists(function ($q) {
+                    $q->selectRaw('1')
+                        ->from('formation_enrollments')
+                        ->whereColumn('formation_enrollments.invoice_id', 'invoices.id');
+                })
+                ->pluck('id');
+
+            $invoiceIds = $invoiceIds->merge($serviceIds);
+        }
+
+        $invoices = Invoice::query()
+            ->whereIn('id', $invoiceIds->unique()->flatten())
+            ->tap($paidFilter)
+            ->get(['id', 'total_amount']);
+
+        return [
+            'id' => $trainer->id,
+            'first_name' => $trainer->first_name,
+            'last_name' => $trainer->last_name,
+            'email' => $trainer->email,
+            'agency_id' => $trainer->agency_id,
+            'points_balance' => (int) $trainer->points_balance,
+            'is_active' => (bool) $trainer->is_active,
+            'is_trainer' => true,
+            'sales_count' => $invoices->count(),
+            'turnover' => round((float) $invoices->sum('total_amount'), 2),
+        ];
     }
 
     #[OA\Get(

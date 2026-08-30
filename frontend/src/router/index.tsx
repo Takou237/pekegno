@@ -99,6 +99,7 @@ const AcademyReceivablesPage = lazy(() => import('@/pages/academy/AcademyReceiva
 const AcademyReportsPage = lazy(() => import('@/pages/academy/AcademyReportsPage'));
 const AcademyPlanningPage = lazy(() => import('@/pages/academy/AcademyPlanningPage'));
 const AcademyInvoicesPage = lazy(() => import('@/pages/academy/AcademyInvoicesPage'));
+const AcademyInvoiceFormPage = lazy(() => import('@/pages/academy/AcademyInvoiceFormPage'));
 const AcademyCommissionsPage = lazy(() => import('@/pages/academy/AcademyCommissionsPage'));
 const ContractListPage = lazy(() => import('@/pages/agency/ContractListPage'));
 const ContractDetailPage = lazy(() => import('@/pages/agency/ContractDetailPage'));
@@ -125,6 +126,7 @@ const agencyChildren = [
   { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />, detail) },
   { path: 'employees', element: page(<AgencyEmployeeListPage />, table) },
   { path: 'employees/:id', element: page(<AgencyEmployeeDetailPage />, detail) },
+  { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
   { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
   { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
   { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },
@@ -253,6 +255,7 @@ export const router = createBrowserRouter([
           { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
           { path: 'presences', element: page(<AcademySessionsPage />, table) },
           { path: 'invoices', element: page(<AcademyInvoicesPage />, table) },
+          { path: 'invoices/new', element: page(<AcademyInvoiceFormPage />, form) },
           { path: 'payments', element: page(<SellerProfilesPage />, table) },
           { path: 'commissions', element: page(<AcademyCommissionsPage />, table) },
           { path: 'receivables', element: page(<AcademyReceivablesPage />, table) },

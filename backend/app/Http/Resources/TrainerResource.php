@@ -16,6 +16,7 @@ class TrainerResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'bio' => $this->bio,
+            'points_balance' => (int) $this->points_balance,
             'is_active' => $this->is_active,
             /** Compte utilisateur lié : null si le formateur n'utilise pas la plateforme. */
             'user_id' => $this->user_id,

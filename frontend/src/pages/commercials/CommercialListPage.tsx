@@ -51,7 +51,11 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
       : fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials/${cId}` : `/commercials/${cId}`;
 
   const detailPathFor = (commercial: Commercial) =>
-    commercial.is_trainer ? `/trainers/${commercial.id}` : commercialPath(commercial.id);
+    commercial.is_trainer
+      ? fixedAgencyId
+        ? `/agencies/${fixedAgencyId}/trainers/${commercial.id}`
+        : `/trainers/${commercial.id}`
+      : commercialPath(commercial.id);
 
   const [commercials, setCommercials] = useState<Commercial[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);

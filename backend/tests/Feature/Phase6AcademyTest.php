@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\Course;
 use App\Models\CourseCategory;
+use App\Models\Invoice;
 use App\Models\Promotion;
 use App\Models\Role;
 use App\Models\SellerProfile;
@@ -12,6 +13,7 @@ use App\Models\TrainingSession;
 use App\Models\Trainer;
 use App\Models\TreasuryAccount;
 use App\Models\User;
+use App\Services\PointsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -815,6 +817,75 @@ class Phase6AcademyTest extends TestCase
         $this->assertEquals(0, $after['balance']);
     }
 
+    public function test_paying_commission_entry_records_treasury_outflow_and_accounting(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+        $trainer = $this->createTrainer();
+
+        $profile = SellerProfile::create([
+            'user_id' => $trainer->user_id,
+            'agency_id' => $agency->id,
+            'kind' => SellerProfile::KIND_TRAINER,
+            'commission_type' => 'percent',
+            'commission_value' => 10,
+            'is_active' => true,
+        ]);
+
+        $account = TreasuryAccount::create([
+            'agency_id' => $agency->id,
+            'name' => 'Caisse Test',
+            'type' => 'cash',
+            'opening_balance' => 0,
+            'currency_code' => 'XAF',
+            'is_active' => true,
+        ]);
+
+        $entry = $this->postJson('/api/commissions/entries', [
+            'seller_profile_id' => $profile->id,
+            'category' => 'training',
+            'amount' => 2000,
+            'label' => 'Cours AV',
+        ])->assertStatus(201)->json();
+
+        $this->postJson('/api/commissions/entries/'.$entry['id'].'/pay')->assertOk();
+
+        // L'entrée est payée.
+        $this->assertDatabaseHas('commission_entries', ['id' => $entry['id'], 'status' => 'paid']);
+        $this->assertDatabaseHas('commission_payments', [
+            'commission_entry_id' => $entry['id'],
+            'seller_profile_id' => $profile->id,
+            'treasury_account_id' => $account->id,
+            'rule' => 'commission_payment',
+            'amount' => 2000.00,
+        ]);
+
+        $payment = \App\Models\CommissionPayment::where('commission_entry_id', $entry['id'])->firstOrFail();
+
+        // Sortie de trésorerie enregistrée (source = paiement de commission).
+        $this->assertDatabaseHas('treasury_transactions', [
+            'treasury_account_id' => $account->id,
+            'direction' => 'out',
+            'amount' => 2000.00,
+            'category' => 'commission',
+            'source_type' => 'commission_payment',
+            'source_id' => $payment->id,
+        ]);
+
+        // Écriture comptable (dépense) partageant la même référence que la sortie.
+        $movement = \App\Models\TreasuryTransaction::where('source_type', 'commission_payment')
+            ->where('source_id', $payment->id)
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('accounting_transactions', [
+            'agency_id' => $agency->id,
+            'type' => 'expense',
+            'amount' => 2000.00,
+            'beneficiary' => $profile->full_name,
+            'reference' => $movement->reference,
+        ]);
+    }
+
     public function test_invoice_sold_by_trainer_account_creates_employee_seller_profile_and_service_sales(): void
     {
         $this->admin();
@@ -930,6 +1001,129 @@ class Phase6AcademyTest extends TestCase
             ->assertJsonPath('stats.commissions_paid', 2500)
             ->assertJsonPath('stats.commissions_balance', 1500)
             ->assertJsonPath('recent_formation_sales.0.amount', 50000);
+    }
+
+    public function test_trainer_earns_sales_points_when_invoice_is_paid(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+        $course = $this->createCourse(['price' => 50000, 'agency_id' => $agency->id]);
+        $trainer = $this->createTrainer();
+        $trainer->update(['agency_id' => $agency->id]);
+        $client = $this->createClient();
+
+        // Vente de formation attribuée au formateur via son compte utilisateur.
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'seller_user_id' => $trainer->user_id,
+        ])->assertStatus(201)->json();
+
+        $invoiceId = $enrollment['invoice_id'];
+
+        // Règlement partiel : pas encore « sold out », aucun point attribué.
+        $this->postJson("/api/invoices/{$invoiceId}/payments", [
+            'amount' => 25000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('invoices', ['id' => $invoiceId, 'points_awarded' => 0]);
+        $this->assertDatabaseMissing('trainer_points', ['trainer_id' => $trainer->id]);
+
+        // Règlement du solde : la facture est soldée, le formateur gagne les points de vente (3 par défaut).
+        $this->postJson("/api/invoices/{$invoiceId}/payments", [
+            'amount' => 25000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('trainer_points', [
+            'trainer_id' => $trainer->id,
+            'points' => 3,
+            'reason' => 'sale',
+            'invoice_id' => $invoiceId,
+        ]);
+        $this->assertDatabaseHas('trainers', ['id' => $trainer->id, 'points_balance' => 3]);
+        $this->assertDatabaseHas('invoices', ['id' => $invoiceId, 'points_awarded' => 3]);
+
+        // Idempotence : une nouvelle tentative d'attribution ne duplique pas les points.
+        app(PointsService::class)->awardForSale(Invoice::findOrFail($invoiceId));
+
+        $this->assertDatabaseCount('trainer_points', 1);
+        $this->assertDatabaseHas('trainers', ['id' => $trainer->id, 'points_balance' => 3]);
+    }
+
+    public function test_employees_list_shows_trainer_points_balance(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+        $course = $this->createCourse(['price' => 50000, 'agency_id' => $agency->id]);
+        $trainer = $this->createTrainer();
+        $trainer->update(['agency_id' => $agency->id]);
+        $client = $this->createClient();
+
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'seller_user_id' => $trainer->user_id,
+        ])->assertStatus(201)->json();
+
+        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
+            'amount' => 50000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        // Annuaire RH unifié : le formateur affiche ses points gagnés.
+        $this->getJson('/api/employees?agency_id='.$agency->id.'&include_trainers=1&per_page=100')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $trainer->id,
+                'is_trainer' => true,
+                'points_balance' => 3,
+            ]);
+    }
+
+    public function test_employees_ranking_includes_trainers_with_points_and_sales(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+        $course = $this->createCourse(['price' => 50000, 'agency_id' => $agency->id]);
+        $trainer = $this->createTrainer();
+        $trainer->update(['agency_id' => $agency->id]);
+        $client = $this->createClient();
+
+        // Employé (commercial kind=employe) sans ventes ni points.
+        $this->postJson('/api/commercials', [
+            'first_name' => 'Employé',
+            'last_name' => 'Test',
+            'email' => fake()->unique()->safeEmail(),
+            'kind' => 'employe',
+            'commission_type' => 'none',
+            'commission_value' => 0,
+        ])->assertStatus(201);
+
+        // Vente de formation attribuée au formateur, soldée → 3 points + 1 vente.
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'seller_user_id' => $trainer->user_id,
+        ])->assertStatus(201)->json();
+
+        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
+            'amount' => 50000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $ranking = $this->getJson('/api/employees/ranking?limit=50')->assertOk()->json();
+
+        $trainerRow = collect($ranking)->firstWhere('id', $trainer->id);
+        $this->assertNotNull($trainerRow, 'Le formateur doit apparaître dans le classement employés.');
+        $this->assertEquals(3, $trainerRow['points_balance']);
+        $this->assertEquals(1, $trainerRow['sales_count']);
+        $this->assertEquals(50000, $trainerRow['turnover']);
+        $this->assertTrue($trainerRow['is_trainer']);
+
+        // Le formateur (3 points) domine le classement au détriment des employés à 0.
+        $this->assertEquals($trainer->id, $ranking[0]['id']);
     }
 
     public function test_trainer_stats_handle_collection_status_filtering(): void

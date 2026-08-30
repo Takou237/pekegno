@@ -61,12 +61,18 @@ class TrainerController extends Controller
 
         // Complète l'agence des profils liés à un compte mais sans agence
         // (ex : profils créés par le backfill de migration).
-        DB::statement(<<<'SQL'
-            UPDATE trainers t
-            SET agency_id = ua.agency_id
-            FROM user_assignments ua
-            WHERE t.user_id = ua.user_id AND t.agency_id IS NULL
-        SQL);
+        $orphanIds = DB::table('user_assignments')
+            ->join('trainers', 'trainers.user_id', '=', 'user_assignments.user_id')
+            ->whereNull('trainers.agency_id')
+            ->pluck('trainers.id');
+
+        if ($orphanIds->isNotEmpty()) {
+            DB::table('trainers')
+                ->whereIn('id', $orphanIds)
+                ->update([
+                    'agency_id' => DB::raw('(SELECT user_assignments.agency_id FROM user_assignments WHERE user_assignments.user_id = trainers.user_id LIMIT 1)'),
+                ]);
+        }
 
         $usersQuery = DB::table('users')
             ->join('user_assignments', 'user_assignments.user_id', '=', 'users.id')

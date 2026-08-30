@@ -186,10 +186,86 @@ class CommissionController extends Controller
         return response()->json($entry->fresh()->load(['invoice', 'beneficiary', 'sellerProfile', 'rule', 'validator']));
     }
 
-    #[OA\Post(path: '/api/commissions/entries/{entry}/pay', summary: 'Payer (validated → paid)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Payée')])]
+    #[OA\Post(path: '/api/commissions/entries/{entry}/pay', summary: 'Payer (validated → paid) avec sortie de trésorerie', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Payée')])]
     public function payEntry(Request $request, CommissionEntry $entry): JsonResponse
     {
-        abort_if(! $entry->transitionTo(CommissionEntry::STATUS_PAID, $request->user()->id), 422, 'Impossible de payer cette commission (statut actuel : '.$entry->status.').');
+        abort_if($entry->status !== CommissionEntry::STATUS_VALIDATED, 422, 'Impossible de payer cette commission (statut actuel : '.$entry->status.').');
+
+        $amount = (float) $entry->amount;
+        $actorId = $request->user()->id;
+
+        $sellerProfile = $entry->sellerProfile;
+        $commercial = $entry->beneficiary;
+
+        $agencyId = $sellerProfile?->agency_id ?? $commercial?->agency_id;
+        $beneficiaryName = $sellerProfile?->full_name
+            ?? trim("{$commercial?->first_name} {$commercial?->last_name}")
+            ?? 'Bénéficiaire';
+
+        // Aucun compte fourni : on débite la caisse par défaut de l'agence du bénéficiaire.
+        $account = null;
+
+        if ($agencyId) {
+            $account = TreasuryAccount::query()
+                ->where('agency_id', $agencyId)
+                ->where('type', 'cash')
+                ->where('is_active', true)
+                ->orderBy('created_at')
+                ->first();
+        }
+
+        DB::transaction(function () use ($entry, $amount, $actorId, $sellerProfile, $commercial, $agencyId, $beneficiaryName, $account) {
+            // 1. Marquer l'entrée payée.
+            $entry->transitionTo(CommissionEntry::STATUS_PAID, $actorId);
+
+            $reference = 'COMM-'.strtoupper(substr((string) ($sellerProfile?->id ?? $commercial->id), 0, 8)).'-'.now()->format('YmdHis');
+
+            // 2. Paiement enregistré (traçabilité vers la sortie).
+            $commissionPayment = CommissionPayment::create([
+                'commercial_id' => $commercial?->id,
+                'seller_profile_id' => $sellerProfile?->id,
+                'commission_entry_id' => $entry->id,
+                'treasury_account_id' => $account?->id,
+                'amount' => $amount,
+                'base_amount' => (float) $entry->base_amount,
+                'rule' => 'commission_payment',
+                'invoice_total' => 0,
+                'created_by' => $actorId,
+            ]);
+
+            // 3. Sortie de trésorerie (si un compte a été résolu).
+            if ($account) {
+                $this->treasuryService->recordMovement(
+                    account: $account,
+                    direction: 'out',
+                    amount: $amount,
+                    label: "Commission — {$beneficiaryName}",
+                    sourceType: 'commission_payment',
+                    sourceId: $commissionPayment->id,
+                    category: 'commission',
+                    reference: $reference,
+                    createdBy: $actorId,
+                );
+            }
+
+            // 4. Écriture comptable (dépense) — catégorie dédiée « Commissions ».
+            $category = $this->accountingService->commissionExpenseCategory();
+
+            if ($category && $agencyId) {
+                \App\Models\AccountingTransaction::create([
+                    'number' => $this->accountingService->nextNumber(),
+                    'agency_id' => $agencyId,
+                    'category_id' => $category->id,
+                    'type' => 'expense',
+                    'label' => "Commission — {$beneficiaryName}",
+                    'reference' => $reference,
+                    'amount' => $amount,
+                    'transacted_at' => now(),
+                    'operator_id' => $actorId,
+                    'beneficiary' => $beneficiaryName,
+                ]);
+            }
+        });
 
         return response()->json($entry->fresh()->load(['invoice', 'beneficiary', 'sellerProfile', 'rule', 'payer']));
     }

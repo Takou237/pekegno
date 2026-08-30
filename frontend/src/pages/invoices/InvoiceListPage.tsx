@@ -40,7 +40,7 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   }
 }
 
-export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly }: { fixedAgencyId?: string; enrollmentOnly?: boolean }) {
+export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvoicePath }: { fixedAgencyId?: string; enrollmentOnly?: boolean; newInvoicePath?: string }) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
@@ -134,7 +134,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly }: { fix
               {t('invoices.export')}
             </Button>
           )}
-          <Button onClick={() => navigate(fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/new` : '/invoices/new')}>
+          <Button onClick={() => navigate(newInvoicePath ?? (fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/new` : '/invoices/new'))}>
             <Plus className="h-4 w-4" />
             {t('invoices.newInvoice')}
           </Button>
