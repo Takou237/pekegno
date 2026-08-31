@@ -21,14 +21,10 @@ services:
         generateValue: true
       - key: DB_CONNECTION
         value: pgsql
-      - key: SUPABASE_HOST
-        value: aws-0-eu-west-2.pooler.supabase.com
-      - key: SUPABASE_PORT
-        value: "5432"
       - key: DB_HOST
-        value: 127.0.0.1
+        value: aws-0-eu-west-2.pooler.supabase.com
       - key: DB_PORT
-        value: "6432"
+        value: "5432"
       - key: DB_DATABASE
         value: postgres
       - key: DB_USERNAME
@@ -36,7 +32,7 @@ services:
       - key: DB_PASSWORD
         sync: false
       - key: DB_SSLMODE
-        value: disable
+        value: require
       - key: SESSION_DRIVER
         value: file
       - key: SESSION_LIFETIME

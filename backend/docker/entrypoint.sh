@@ -1,10 +1,6 @@
 #!/bin/sh
 set -e
 
-envsubst < /etc/pgbouncer/pgbouncer.ini.template > /etc/pgbouncer/pgbouncer.ini
-
-pgbouncer -d /etc/pgbouncer/pgbouncer.ini
-
 php artisan storage:link || true
 php artisan migrate --force
 php artisan config:cache
