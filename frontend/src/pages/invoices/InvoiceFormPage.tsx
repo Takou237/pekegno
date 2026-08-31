@@ -222,8 +222,10 @@ export default function InvoiceFormPage({
               placeholder={t('invoices.headerCommercialPlaceholder')}
               value={sellerId}
               onChange={(id) => {
-                setSellerId(id);
-                if (!id) setSellerIsTrainer(false);
+                if (!id) {
+                  setSellerId('');
+                  setSellerIsTrainer(false);
+                }
               }}
               onPick={(option) => {
                 if (option.isTrainer) {

@@ -389,14 +389,19 @@ class TrainerController extends Controller
             ->get();
 
         // Ventes de formations réalisées par le formateur (identifié par son compte
-        // utilisateur OU par son profil formateur pour ceux sans compte).
+        // utilisateur OU par son profil formateur pour ceux sans compte). Une vente
+        // est attribuée via le vendeur de l'inscription OU via la facture (le vendeur
+        // réel est toujours porté par la facture). Seule la facture détermine si la
+        // vente compte : une facture payée reste une vente même si l'inscription a
+        // ensuite été annulée.
         $salesEnrollments = FormationEnrollment::query()
-            ->where('status', '!=', 'cancelled')
+            ->whereHas('invoice', fn ($q) => $q->whereNull('cancelled_at')->where('status', '!=', 'cancelled'))
             ->where(function ($q) use ($trainer) {
                 $q->where('seller_trainer_id', $trainer->id);
 
                 if ($trainer->user_id) {
-                    $q->orWhere('seller_user_id', $trainer->user_id);
+                    $q->orWhere('seller_user_id', $trainer->user_id)
+                        ->orWhereHas('invoice', fn ($iq) => $iq->where('seller_user_id', $trainer->user_id));
                 }
             })
             ->with(['course:id,name,code', 'invoice:id,total_amount,amount_paid,status,cancelled_at', 'learner:id,first_name,last_name,email'])
