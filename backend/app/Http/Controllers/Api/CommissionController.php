@@ -191,7 +191,11 @@ class CommissionController extends Controller
     {
         abort_if($entry->status !== CommissionEntry::STATUS_VALIDATED, 422, 'Impossible de payer cette commission (statut actuel : '.$entry->status.').');
 
-        $amount = (float) $entry->amount;
+        $entryAmount = (float) $entry->amount;
+        $amount = $request->filled('amount') ? (float) $request->input('amount') : $entryAmount;
+
+        abort_if($amount <= 0 || $amount > $entryAmount + 0.005, 422, 'Le montant à payer doit être supérieur à 0 et ne peut excéder le montant de la commission ('.number_format($entryAmount, 2).' FCFA).');
+
         $actorId = $request->user()->id;
 
         $sellerProfile = $entry->sellerProfile;
@@ -214,20 +218,28 @@ class CommissionController extends Controller
                 ->first();
         }
 
-        DB::transaction(function () use ($entry, $amount, $actorId, $sellerProfile, $commercial, $agencyId, $beneficiaryName, $account) {
-            // 1. Marquer l'entrée payée.
-            $entry->transitionTo(CommissionEntry::STATUS_PAID, $actorId);
+        DB::transaction(function () use ($entry, $entryAmount, $amount, $actorId, $sellerProfile, $commercial, $agencyId, $beneficiaryName, $account) {
+            $paidEntryId = $entry->id;
 
-            $reference = 'COMM-'.strtoupper(substr((string) ($sellerProfile?->id ?? $commercial->id), 0, 8)).'-'.now()->format('YmdHis');
+            if ($amount >= $entryAmount - 0.005) {
+                // 1. Marquer l'entrée payée.
+                $entry->transitionTo(CommissionEntry::STATUS_PAID, $actorId);
+            } else {
+                // Paiement partiel de l'entrée : scission.
+                $paidEntry = $this->splitAndPayEntry($entry, $amount, $actorId);
+                $paidEntryId = $paidEntry->id;
+            }
+
+            $reference = 'COMM-'.strtoupper(substr((string) ($sellerProfile?->id ?? $commercial?->id), 0, 8)).'-'.now()->format('YmdHis');
 
             // 2. Paiement enregistré (traçabilité vers la sortie).
             $commissionPayment = CommissionPayment::create([
                 'commercial_id' => $commercial?->id,
                 'seller_profile_id' => $sellerProfile?->id,
-                'commission_entry_id' => $entry->id,
+                'commission_entry_id' => $paidEntryId,
                 'treasury_account_id' => $account?->id,
                 'amount' => $amount,
-                'base_amount' => (float) $entry->base_amount,
+                'base_amount' => $amount,
                 'rule' => 'commission_payment',
                 'invoice_total' => 0,
                 'created_by' => $actorId,
@@ -430,6 +442,11 @@ class CommissionController extends Controller
                     $entry->transitionTo(CommissionEntry::STATUS_PAID, $actorId);
                     $coveredEntry ??= $entry->id;
                     $remaining = round($remaining - $entryAmount, 2);
+                } else {
+                    $paidEntry = $this->splitAndPayEntry($entry, $remaining, $actorId);
+                    $coveredEntry ??= $paidEntry->id;
+                    $remaining = 0.0;
+                    break;
                 }
             }
 
@@ -543,6 +560,38 @@ class CommissionController extends Controller
             // les entrées (paid) : les soustraire en plus les compterait deux fois.
             'balance' => round($owed, 2),
         ];
+    }
+
+    private function splitAndPayEntry(CommissionEntry $entry, float $paidAmount, string $actorId): CommissionEntry
+    {
+        $paidAmount = round($paidAmount, 2);
+        $entryAmount = (float) $entry->amount;
+        $remainingAmount = round($entryAmount - $paidAmount, 2);
+
+        $paidEntry = CommissionEntry::create([
+            'invoice_id' => $entry->invoice_id,
+            'invoice_payment_id' => $entry->invoice_payment_id,
+            'commission_rule_id' => $entry->commission_rule_id,
+            'rule_snapshot' => $entry->rule_snapshot,
+            'seller_profile_id' => $entry->seller_profile_id,
+            'beneficiary_commercial_id' => $entry->beneficiary_commercial_id,
+            'category' => $entry->category,
+            'product_id' => $entry->product_id,
+            'product_type' => $entry->product_type,
+            'base_amount' => $paidAmount,
+            'amount' => $paidAmount,
+            'status' => CommissionEntry::STATUS_PAID,
+            'validated_by' => $actorId,
+            'validated_at' => $entry->validated_at ?? now(),
+            'paid_by' => $actorId,
+            'paid_at' => now(),
+        ]);
+
+        $entry->amount = $remainingAmount;
+        $entry->base_amount = max(0, round((float) $entry->base_amount - $paidAmount, 2));
+        $entry->save();
+
+        return $paidEntry;
     }
 
     private function validateRulePayload(Request $request): array

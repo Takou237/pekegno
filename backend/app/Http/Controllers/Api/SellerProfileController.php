@@ -186,14 +186,21 @@ class SellerProfileController extends Controller
 
             // Marquer les entrées commission payées (FIFO) sans jamais dépasser le montant.
             $remaining = $amount;
+            $actorId = auth()->id();
 
             if (! empty($validated['commission_entry_id'])) {
                 $entry = CommissionEntry::find($validated['commission_entry_id']);
 
                 if ($entry && $entry->seller_profile_id === $sellerProfile->id
                     && in_array($entry->status, [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED], true)) {
-                    $entry->transitionTo(CommissionEntry::STATUS_PAID, auth()->id());
-                    $remaining = round($remaining - (float) $entry->amount, 2);
+                    $entryAmount = (float) $entry->amount;
+                    if ($remaining >= $entryAmount - 0.005) {
+                        $entry->transitionTo(CommissionEntry::STATUS_PAID, $actorId);
+                        $remaining = round($remaining - $entryAmount, 2);
+                    } else {
+                        $this->splitAndPayEntry($entry, $remaining, $actorId);
+                        $remaining = 0.0;
+                    }
                 }
             }
 
@@ -213,8 +220,15 @@ class SellerProfileController extends Controller
                     $entryAmount = (float) $entry->amount;
 
                     if ($remaining >= $entryAmount - 0.005) {
-                        $entry->transitionTo(CommissionEntry::STATUS_PAID, auth()->id());
+                        if ($entry->status === CommissionEntry::STATUS_CALCULATED) {
+                            $entry->transitionTo(CommissionEntry::STATUS_VALIDATED, $actorId);
+                        }
+                        $entry->transitionTo(CommissionEntry::STATUS_PAID, $actorId);
                         $remaining = round($remaining - $entryAmount, 2);
+                    } else {
+                        $this->splitAndPayEntry($entry, $remaining, $actorId);
+                        $remaining = 0.0;
+                        break;
                     }
                 }
             }
@@ -259,5 +273,37 @@ class SellerProfileController extends Controller
         $payment->load('commissionEntry', 'treasuryAccount');
 
         return response()->json($payment, 201);
+    }
+
+    private function splitAndPayEntry(CommissionEntry $entry, float $paidAmount, string $actorId): CommissionEntry
+    {
+        $paidAmount = round($paidAmount, 2);
+        $entryAmount = (float) $entry->amount;
+        $remainingAmount = round($entryAmount - $paidAmount, 2);
+
+        $paidEntry = CommissionEntry::create([
+            'invoice_id' => $entry->invoice_id,
+            'invoice_payment_id' => $entry->invoice_payment_id,
+            'commission_rule_id' => $entry->commission_rule_id,
+            'rule_snapshot' => $entry->rule_snapshot,
+            'seller_profile_id' => $entry->seller_profile_id,
+            'beneficiary_commercial_id' => $entry->beneficiary_commercial_id,
+            'category' => $entry->category,
+            'product_id' => $entry->product_id,
+            'product_type' => $entry->product_type,
+            'base_amount' => $paidAmount,
+            'amount' => $paidAmount,
+            'status' => CommissionEntry::STATUS_PAID,
+            'validated_by' => $actorId,
+            'validated_at' => $entry->validated_at ?? now(),
+            'paid_by' => $actorId,
+            'paid_at' => now(),
+        ]);
+
+        $entry->amount = $remainingAmount;
+        $entry->base_amount = max(0, round((float) $entry->base_amount - $paidAmount, 2));
+        $entry->save();
+
+        return $paidEntry;
     }
 }
