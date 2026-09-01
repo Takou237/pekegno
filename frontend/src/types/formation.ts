@@ -29,6 +29,7 @@ export interface FormationEnrollment {
   enrolled_at: string;
   status: 'enrolled' | 'completed' | 'cancelled';
   notes: string | null;
+  amount_paid: number | string | null;
   course?: {
     id: string;
     name: string;
@@ -53,6 +54,7 @@ export interface FormationEnrollmentPayload {
   seller_trainer_id?: string;
   status?: 'enrolled' | 'completed' | 'cancelled';
   notes?: string;
+  amount_paid?: number;
 }
 
 export interface LearnerObservation {
@@ -63,6 +65,7 @@ export interface LearnerObservation {
   content: string;
   course?: { id: string; name: string } | null;
   session?: { id: string; start_at: string } | null;
+  learner?: { id: string; first_name: string | null; last_name: string | null; email?: string } | null;
   created_at: string;
 }
 

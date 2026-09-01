@@ -211,6 +211,100 @@ class AcademyReportService
     }
 
     /**
+     * Statistiques académie par agence (cours, sessions, apprenants, taux de
+     * présence, encaissé, créances) pour la page « Académies Group ».
+     * Optionnellement filtrées par pays et par agence.
+     */
+    public function academyStatsByAgency(?array $agencyIds, ?array $countryIds = null, ?string $agencyId = null): array
+    {
+        $agencies = \App\Models\Agency::query()
+            ->whereNull('deleted_at')
+            ->when($agencyId, fn ($q, $id) => $q->where('id', $id))
+            ->when($countryIds !== null, fn ($q) => $q->whereIn('country_id', $countryIds))
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('id', $agencyIds))
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'country', 'country_id', 'city']);
+
+        $rows = [];
+
+        foreach ($agencies as $agency) {
+            $courseIds = Course::where('agency_id', $agency->id)->pluck('id');
+            $globalCourseIds = Course::whereNull('agency_id')->pluck('id');
+
+            $coursesCount = Course::where(fn ($q) => $q->where('agency_id', $agency->id)->orWhereNull('agency_id'))->count();
+
+            $sessionIds = TrainingSession::where('agency_id', $agency->id)->pluck('id');
+            $courseSessionIds = TrainingSession::whereIn('course_id', $courseIds)->pluck('id');
+            $globalCourseSessionIds = TrainingSession::whereIn('course_id', $globalCourseIds)->whereNull('agency_id')->pluck('id');
+            $allSessionIds = $sessionIds->merge($courseSessionIds)->merge($globalCourseSessionIds)->unique()->values();
+
+            $sessionsCount = (clone $allSessionIds)->filter(fn ($id) => $id !== null)->count();
+
+            // Inscriptions liées aux cours de l'agence (+ cours globaux disponibles).
+            $enrollments = FormationEnrollment::with('course:id,agency_id')
+                ->whereNot('status', 'cancelled')
+                ->where(function ($q) use ($agency) {
+                    $q->whereHas('course', fn ($c) => $c->where('agency_id', $agency->id)->orWhereNull('agency_id'));
+                })
+                ->get();
+
+            $learnersCount = $enrollments->pluck('learner_user_id')->unique()->count();
+
+            $present = 0;
+            $expected = 0;
+            foreach ($enrollments as $e) {
+                $eSessionIds = TrainingSession::where('course_id', $e->course_id)->pluck('id');
+                $present += Attendance::whereIn('training_session_id', $eSessionIds)
+                    ->where('status', Attendance::STATUS_PRESENT)
+                    ->where('learner_user_id', $e->learner_user_id)
+                    ->count();
+                $expected += $eSessionIds->count();
+            }
+            $attendanceRate = $expected > 0 ? round($present / $expected * 100, 1) : 0;
+
+            // Factures d'inscriptions liées aux cours de l'agence (y compris cours globaux).
+            $invoiceIds = FormationEnrollment::with('course:id,agency_id')
+                ->whereNotNull('invoice_id')
+                ->where(fn ($q) => $q->whereHas('course', fn ($c) => $c->where('agency_id', $agency->id)->orWhereNull('agency_id')))
+                ->pluck('invoice_id');
+
+            $received = (float) Invoice::whereIn('id', $invoiceIds)
+                ->whereNull('cancelled_at')
+                ->sum('amount_paid');
+            $outstanding = (float) Invoice::whereIn('id', $invoiceIds)
+                ->whereNull('cancelled_at')
+                ->whereIn('status', ['unpaid', 'partial'])
+                ->get(['total_amount', 'amount_paid'])
+                ->sum(fn ($invoice) => $invoice->balance_due);
+
+            $rows[] = [
+                'id' => $agency->id,
+                'name' => $agency->name,
+                'code' => $agency->code,
+                'country' => $agency->country,
+                'country_id' => $agency->country_id,
+                'city' => $agency->city,
+                'courses' => (int) $coursesCount,
+                'sessions' => (int) $sessionsCount,
+                'learners' => (int) $learnersCount,
+                'attendance_rate' => $attendanceRate,
+                'received' => $received,
+                'outstanding' => $outstanding,
+            ];
+        }
+
+        // Classement composite : encaissé, puis créances, puis apprenants.
+        $ranking = collect($rows)->sort(function ($a, $b) {
+            return [$b['received'], $b['outstanding'], $b['learners']] <=> [$a['received'], $a['outstanding'], $a['learners']];
+        })->values()->all();
+
+        return [
+            'agencies' => $rows,
+            'ranking' => $ranking,
+        ];
+    }
+
+    /**
      * Statistiques services agrégées au niveau du groupe (toutes agences autorisées).
      */
     public function groupServices(?array $agencyIds): array

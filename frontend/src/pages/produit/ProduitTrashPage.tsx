@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
@@ -10,14 +10,14 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { CategoryIcon } from '@/utils/categoryIcons';
-import type { Service } from '@/types/service';
+import type { Produit } from '@/types/produit';
 import type { PaginationMeta } from '@/types/agency';
 
-interface ServiceTrashPageProps {
+interface ProduitTrashPageProps {
   agencyId?: string;
 }
 
-export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
+export default function ProduitTrashPage({ agencyId }: ProduitTrashPageProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { countryId } = useParams<{ countryId?: string }>();
@@ -30,19 +30,19 @@ export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
       ? `/countries/${countryId}/catalog/services`
       : '/catalog/services';
 
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<Produit[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [forceDeleteTarget, setForceDeleteTarget] = useState<Service | null>(null);
+  const [forceDeleteTarget, setForceDeleteTarget] = useState<Produit | null>(null);
   const [isForceDeleting, setIsForceDeleting] = useState(false);
 
   const fetchTrash = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await servicesApi.trash({
+      const response = await produitsApi.trash({
         page,
         per_page: 15,
         agency_id: agencyId ?? undefined,
@@ -60,9 +60,9 @@ export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
     fetchTrash();
   }, [fetchTrash]);
 
-  async function handleRestore(service: Service) {
+  async function handleRestore(service: Produit) {
     try {
-      await servicesApi.restore(service.id);
+      await produitsApi.restore(service.id);
       showToast(t('services.restored', { name: service.name }), 'success');
       setServices((prev) => prev.filter((item) => item.id !== service.id));
     } catch (error) {
@@ -74,7 +74,7 @@ export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
     if (!forceDeleteTarget) return;
     setIsForceDeleting(true);
     try {
-      await servicesApi.forceDelete(forceDeleteTarget.id);
+      await produitsApi.forceDelete(forceDeleteTarget.id);
       showToast(t('services.forceDeleted'), 'success');
       setServices((prev) => prev.filter((item) => item.id !== forceDeleteTarget.id));
       setForceDeleteTarget(null);
@@ -86,7 +86,7 @@ export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
   }
 
   function formatDate(value: string | null): string {
-    if (!value) return '—';
+    if (!value) return 'â€”';
     return new Date(value).toLocaleDateString(currentLocale());
   }
 
@@ -160,7 +160,7 @@ export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
                 </div>
 
                 <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                  {service.agency?.name ?? '—'}
+                  {service.agency?.name ?? 'â€”'}
                 </p>
 
                 <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">

@@ -347,6 +347,23 @@ export default function AcademyLearnerDetailPage() {
         </div>
 
         <div className="mt-5 flex flex-col gap-2.5">
+          <div className="flex items-center gap-3">
+            <span className="w-24 shrink-0 text-xs text-gray-500 dark:text-gray-400">
+              {t('academy.progressRate')}
+            </span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-brand-500 to-success-500"
+                style={{ width: `${Math.max(0, Math.min(100, stats.progress_rate))}%` }}
+              />
+            </div>
+            <span className="w-8 shrink-0 text-right text-xs font-medium text-gray-700 dark:text-gray-200">
+              {stats.progress_rate}%
+            </span>
+          </div>
+          <p className="text-xs text-gray-400">
+            {t('academy.sessionsAttendedOf', { attended: stats.sessions_attended, total: stats.sessions_total })}
+          </p>
           {statusBars.map(({ key, label, color }) => {
             const count = stats.enrollments_by_status[key] ?? 0;
             const percent =

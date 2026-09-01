@@ -380,6 +380,41 @@ class Phase6AcademyTest extends TestCase
         ]);
     }
 
+    public function test_learner_progress_rate_counts_attended_sessions_only(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $first = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(1)->toISOString(),
+        ])->assertCreated()->json();
+
+        $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(8)->toISOString(),
+        ])->assertCreated()->json();
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201);
+
+        // 1 session assistée sur 2.
+        $this->putJson("/api/training-sessions/{$first['id']}/attendances", [
+            'attendances' => [['learner_user_id' => $client->id, 'status' => 'present']],
+        ])->assertOk();
+
+        $stats = $this->getJson("/api/learners/{$client->id}/stats")
+            ->assertOk()
+            ->json('stats');
+
+        $this->assertSame(2, $stats['sessions_total']);
+        $this->assertSame(1, $stats['sessions_attended']);
+        $this->assertSame(50, $stats['progress_rate']);
+    }
+
     public function test_attendance_sheet_has_no_default_status_until_marked(): void
     {
         $this->admin();

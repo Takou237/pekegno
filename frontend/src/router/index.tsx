@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+﻿import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '@/router/ProtectedRoute';
 import { GuestRoute } from '@/router/GuestRoute';
@@ -28,11 +28,11 @@ const AgencyListPage = lazy(() => import('@/pages/agencies/AgencyListPage'));
 const AgencyTrashPage = lazy(() => import('@/pages/agencies/AgencyTrashPage'));
 const AgencyOverviewPage = lazy(() => import('@/pages/agencies/AgencyOverviewPage'));
 const AgencyDepartmentsPage = lazy(() => import('@/pages/agencies/AgencyDepartmentsPage'));
-const AgencyServicesPage = lazy(() => import('@/pages/agencies/AgencyServicesPage'));
+const AgencyProduitsPage = lazy(() => import('@/pages/agencies/AgencyProduitsPage'));
 const AgencyTeamsPage = lazy(() => import('@/pages/agencies/AgencyTeamsPage'));
 const AgencySettingsPage = lazy(() => import('@/pages/agencies/AgencySettingsPage'));
 const AgencyPromotionsPage = lazy(() => import('@/pages/agencies/AgencyPromotionsPage'));
-const AgencyServiceTrashPage = lazy(() => import('@/pages/agencies/AgencyServiceTrashPage'));
+const AgencyProduitTrashPage = lazy(() => import('@/pages/agencies/AgencyProduitTrashPage'));
 const AgencyDepartmentTrashPage = lazy(() => import('@/pages/agencies/AgencyDepartmentTrashPage'));
 const UserListPage = lazy(() => import('@/pages/users/UserListPage'));
 const DepartmentListPage = lazy(() => import('@/pages/departments/DepartmentListPage'));
@@ -43,8 +43,8 @@ const DepartmentSettingsPage = lazy(() => import('@/pages/departments/Department
 const RolesPrivilegesPage = lazy(() => import('@/pages/RolesPrivilegesPage'));
 const CategoryListPage = lazy(() => import('@/pages/categories/CategoryListPage'));
 const CategoryTrashPage = lazy(() => import('@/pages/categories/CategoryTrashPage'));
-const ServiceListPage = lazy(() => import('@/pages/services/ServiceListPage'));
-const ServiceTrashPage = lazy(() => import('@/pages/services/ServiceTrashPage'));
+const ProduitListPage = lazy(() => import('@/pages/produit/ProduitListPage'));
+const ProduitTrashPage = lazy(() => import('@/pages/produit/ProduitTrashPage'));
 const ClientListPage = lazy(() => import('@/pages/clients/ClientListPage'));
 const ClientDetailPage = lazy(() => import('@/pages/clients/ClientDetailPage'));
 const CommercialListPage = lazy(() => import('@/pages/commercials/CommercialListPage'));
@@ -76,6 +76,7 @@ const ActivityLogPage = lazy(() => import('@/pages/audit/ActivityLogPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const CountryListPage = lazy(() => import('@/pages/CountryListPage'));
 const AcademyCoursesPage = lazy(() => import('@/pages/academy/AcademyCoursesPage'));
+const AcademyFormationsOverviewPage = lazy(() => import('@/pages/academy/AcademyFormationsOverviewPage'));
 const AcademySessionsPage = lazy(() => import('@/pages/academy/AcademySessionsPage'));
 const AcademyTrainersPage = lazy(() => import('@/pages/academy/AcademyTrainersPage'));
 const AcademyTrainerDetailPage = lazy(() => import('@/pages/academy/AcademyTrainerDetailPage'));
@@ -104,6 +105,9 @@ const AcademyCommissionsPage = lazy(() => import('@/pages/academy/AcademyCommiss
 const ContractListPage = lazy(() => import('@/pages/agency/ContractListPage'));
 const ContractDetailPage = lazy(() => import('@/pages/agency/ContractDetailPage'));
 const RenewalsPage = lazy(() => import('@/pages/agency/RenewalsPage'));
+const SalesPage = lazy(() => import('@/pages/orders/SalesPage'));
+const OrderDetailPage = lazy(() => import('@/pages/orders/OrderDetailPage'));
+const OrderValidationPage = lazy(() => import('@/pages/orders/OrderValidationPage'));
 
 function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
   return <Suspense fallback={fallback}>{node}</Suspense>;
@@ -119,8 +123,8 @@ const agencyChildren = [
   { index: true, element: page(<AgencyOverviewPage />, dashboard) },
   { path: 'departments', element: page(<AgencyDepartmentsPage />, cards) },
   { path: 'departments/trash', element: page(<AgencyDepartmentTrashPage />, table) },
-  { path: 'services', element: page(<AgencyServicesPage />, cards) },
-  { path: 'services/trash', element: page(<AgencyServiceTrashPage />, table) },
+  { path: 'services', element: page(<AgencyProduitsPage />, cards) },
+  { path: 'services/trash', element: page(<AgencyProduitTrashPage />, table) },
   { path: 'commercials', element: page(<AgencyCommercialsPage />, table) },
   { path: 'commercials/report', element: page(<AgencyCommercialReportPage />, table) },
   { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />, detail) },
@@ -192,8 +196,12 @@ export const router = createBrowserRouter([
           { path: '/catalog', element: <Navigate to="/catalog/services" replace /> },
           { path: '/catalog/categories', element: page(<CategoryListPage />, table) },
           { path: '/catalog/categories/trash', element: page(<CategoryTrashPage />, table) },
-          { path: '/catalog/services', element: page(<ServiceListPage />, cards) },
-          { path: '/catalog/services/trash', element: page(<ServiceTrashPage />, table) },
+          { path: '/catalog/services', element: page(<ProduitListPage />, cards) },
+          { path: '/catalog/services/trash', element: page(<ProduitTrashPage />, table) },
+          { path: '/orders', element: page(<SalesPage />, table) },
+          { path: '/orders/new', element: page(<SalesPage />, table) },
+          { path: '/orders/validation', element: page(<OrderValidationPage />, table) },
+          { path: '/orders/:id', element: page(<OrderDetailPage />, detail) },
         ],
       },
       {
@@ -222,7 +230,7 @@ export const router = createBrowserRouter([
           { path: 'settings', element: page(<SettingsPage />, detail) },
           { path: 'catalog', element: <Navigate to="services" replace /> },
           { path: 'catalog/categories', element: page(<CategoryListPage />, table) },
-          { path: 'catalog/services', element: page(<ServiceListPage />, cards) },
+          { path: 'catalog/services', element: page(<ProduitListPage />, cards) },
         ],
       },
       {
@@ -246,7 +254,8 @@ export const router = createBrowserRouter([
           { path: 'learners', element: page(<AcademyLearnersPage />, table) },
           { path: 'learners/:learnerId', element: page(<AcademyLearnerDetailPage />, detail) },
           { path: 'enrollments', element: page(<FormationEnrollmentPage />, table) },
-          { path: 'courses', element: page(<AcademyCoursesPage />, cards) },
+          { path: 'courses', element: page(<AcademyFormationsOverviewPage />, dashboard) },
+          { path: 'courses/list', element: page(<AcademyCoursesPage />, cards) },
           { path: 'courses/:courseId/modules', element: page(<CourseModulesPage />, table) },
           { path: 'sessions', element: page(<AcademySessionsPage />, table) },
           { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
@@ -267,7 +276,7 @@ export const router = createBrowserRouter([
           { path: 'packages', element: page(<ComingSoonPage />, cards) },
           { path: 'contracts', element: page(<ContractListPage />, table) },
           { path: 'contracts/:contractId', element: page(<ContractDetailPage />, detail) },
-          { path: 'services', element: page(<ServiceListPage />, cards) },
+          { path: 'services', element: page(<ProduitListPage />, cards) },
           { path: 'community', element: page(<ComingSoonPage />, table) },
           { path: 'advertising', element: page(<ComingSoonPage />, table) },
           { path: 'renewals', element: page(<RenewalsPage />, table) },

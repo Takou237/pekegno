@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+﻿import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { categoriesApi } from '@/api/categories.api';
 import { agenciesApi } from '@/api/agencies.api';
+import { academyApi, type Course } from '@/api/academy.api';
 import { uploadsApi } from '@/api/uploads.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -13,22 +14,24 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import type { Category } from '@/types/category';
 import type { Agency } from '@/types/agency';
-import type { Service, ServicePayload } from '@/types/service';
+import type { Produit, ProduitPayload, ProduitType } from '@/types/produit';
 
-interface ServiceFormState {
+interface ProduitFormState {
   name: string;
   category_id: string;
   agency_id: string;
   price: string;
   bonus_fixed: string;
   is_seminar: boolean;
+  type: ProduitType;
+  course_id: string;
   description: string;
   cover_image: string | null;
   presentation_video: string;
   tiers: { tier: string; label: string; price: string; description: string }[];
 }
 
-function emptyForm(categoryId: string, agencyId = ''): ServiceFormState {
+function emptyForm(categoryId: string, agencyId = ''): ProduitFormState {
   return {
     name: '',
     category_id: categoryId,
@@ -36,6 +39,8 @@ function emptyForm(categoryId: string, agencyId = ''): ServiceFormState {
     price: '',
     bonus_fixed: '',
     is_seminar: false,
+    type: 'service',
+    course_id: '',
     description: '',
     cover_image: null,
     presentation_video: '',
@@ -43,31 +48,32 @@ function emptyForm(categoryId: string, agencyId = ''): ServiceFormState {
   };
 }
 
-interface ServiceFormModalProps {
+interface ProduitFormModalProps {
   isOpen: boolean;
-  service: Service | null; // null = création
-  duplicateSource?: Service | null; // pré-remplit le formulaire en mode création
+  service: Produit | null; // null = crÃ©ation
+  duplicateSource?: Produit | null; // prÃ©-remplit le formulaire en mode crÃ©ation
   agencyId?: string;
   onClose: () => void;
-  onSaved: (service: Service) => void;
+  onSaved: (service: Produit) => void;
 }
 
-export function ServiceFormModal({
+export function ProduitFormModal({
   isOpen,
   service,
   duplicateSource,
   agencyId,
   onClose,
   onSaved,
-}: ServiceFormModalProps) {
+}: ProduitFormModalProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const isEditing = service !== null;
   const isDuplicating = duplicateSource !== null && duplicateSource !== undefined;
 
-  const [form, setForm] = useState<ServiceFormState>(emptyForm('', agencyId));
+  const [form, setForm] = useState<ProduitFormState>(emptyForm('', agencyId));
   const [categories, setCategories] = useState<Category[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -77,6 +83,7 @@ export function ServiceFormModal({
     if (isOpen) {
       categoriesApi.list({ per_page: 100 }).then((r) => setCategories(r.data)).catch(() => {});
       agenciesApi.list({ per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
+      academyApi.courses({ per_page: 100 }).then((r) => setCourses(r.data)).catch(() => {});
       const source = duplicateSource ?? service;
       setForm(
         source
@@ -87,6 +94,8 @@ export function ServiceFormModal({
               price: source.price,
               bonus_fixed: source.bonus_fixed ?? '',
               is_seminar: source.is_seminar ?? false,
+              type: source.type ?? 'service',
+              course_id: source.course_id ?? '',
               description: source.description ?? '',
               cover_image: source.cover_image,
               presentation_video: source.presentation_video ?? '',
@@ -105,7 +114,7 @@ export function ServiceFormModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, service, duplicateSource, agencyId]);
 
-  function update<K extends keyof ServiceFormState>(field: K, value: ServiceFormState[K]) {
+  function update<K extends keyof ProduitFormState>(field: K, value: ProduitFormState[K]) {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
       return next;
@@ -125,7 +134,7 @@ export function ServiceFormModal({
     }
   }
 
-  function buildPayload(): ServicePayload {
+  function buildPayload(): ProduitPayload {
     return {
       name: form.name.trim(),
       category_id: form.category_id,
@@ -144,6 +153,8 @@ export function ServiceFormModal({
       description: form.description.trim() || null,
       cover_image: form.cover_image,
       presentation_video: form.presentation_video.trim() || null,
+      type: form.type,
+      course_id: form.type === 'formation' ? form.course_id || null : null,
     };
   }
 
@@ -156,8 +167,8 @@ export function ServiceFormModal({
     try {
       const payload = buildPayload();
       const saved = isEditing
-        ? await servicesApi.update(service.id, payload)
-        : await servicesApi.create(payload);
+        ? await produitsApi.update(service.id, payload)
+        : await produitsApi.create(payload);
 
       showToast(isEditing ? t('services.updated') : t('services.saved'), 'success');
       onSaved(saved);
@@ -204,6 +215,34 @@ export function ServiceFormModal({
             ))}
           </Select>
         </div>
+
+        <Select
+          label={t('services.type')}
+          value={form.type}
+          onChange={(e) => update('type', e.target.value as ProduitType)}
+          error={fieldErrors.type}
+        >
+          <option value="physical">{t('services.typePhysical')}</option>
+          <option value="service">{t('services.typeService')}</option>
+          <option value="formation">{t('services.typeFormation')}</option>
+        </Select>
+
+        {form.type === 'formation' && (
+          <Select
+            label={t('services.selectCourse')}
+            required
+            value={form.course_id}
+            onChange={(e) => update('course_id', e.target.value)}
+            error={fieldErrors.course_id}
+          >
+            <option value="">{t('services.selectCoursePlaceholder')}</option>
+            {courses.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.name}
+              </option>
+            ))}
+          </Select>
+        )}
 
         <Select
           label={t('services.agency')}

@@ -303,6 +303,9 @@ export interface LearnerStats {
     trainers_unique: number;
     sessions_upcoming: number;
     attendance_count: number;
+    sessions_total: number;
+    sessions_attended: number;
+    progress_rate: number;
     completion_rate: number;
     total_invested: number;
     hours_completed: number;
@@ -459,7 +462,7 @@ export const academyApi = {
   },
 
   // === Learner Observations ===
-  async learnerObservations(params: { learner_user_id?: string; course_id?: string; per_page?: number; page?: number } = {}): Promise<Paginated<LearnerObservationItem>> {
+  async learnerObservations(params: { learner_user_id?: string; course_id?: string; agency_id?: string; per_page?: number; page?: number } = {}): Promise<Paginated<LearnerObservationItem>> {
     const { data } = await client.get<Paginated<LearnerObservationItem>>('/learner-observations', { params });
     return data;
   },

@@ -256,6 +256,21 @@ class LearnerController extends Controller
             ->where('status', 'present')
             ->count();
 
+        // Progression : % de sessions assistées (non annulées).
+        $sessionsTotal = $participants->reject(fn ($p) => $p->status === 'cancelled')->count();
+        $sessionIds = $participants
+            ->reject(fn ($p) => $p->status === 'cancelled' || $p->formationEnrollment === null)
+            ->map(fn ($p) => $p->session?->id)
+            ->filter()
+            ->values();
+        $presentSessionIds = \App\Models\Attendance::where('learner_user_id', $learner->id)
+            ->where('status', 'present')
+            ->whereIn('training_session_id', $sessionIds)
+            ->pluck('training_session_id')
+            ->unique()
+            ->values();
+        $sessionsAttended = $presentSessionIds->count();
+
         // Total investi : prix effectif des sessions non annulées.
         $sessions = $participants->reject(fn ($p) => $p->status === 'cancelled')
             ->pluck('session')
@@ -312,6 +327,11 @@ class LearnerController extends Controller
                 'trainers_unique' => $sessions->pluck('trainer_id')->filter()->unique()->count(),
                 'sessions_upcoming' => $upcoming->count(),
                 'attendance_count' => $attended,
+                'sessions_total' => $sessionsTotal,
+                'sessions_attended' => $sessionsAttended,
+                'progress_rate' => $sessionsTotal > 0
+                    ? round($sessionsAttended / $sessionsTotal * 100, 1)
+                    : 0.0,
                 'completion_rate' => $participants->count() > 0
                     ? round($completed / $participants->count() * 100, 1)
                     : 0.0,

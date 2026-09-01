@@ -140,6 +140,7 @@ class SellerProfileController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'commission_entry_id' => 'nullable|exists:commission_entries,id',
             'treasury_account_id' => 'nullable|exists:treasury_accounts,id',
+            'payment_method' => 'nullable|string|in:cash,om,momo,mobile',
             'note' => 'nullable|string',
         ]);
 
@@ -177,6 +178,7 @@ class SellerProfileController extends Controller
                 'seller_profile_id' => $sellerProfile->id,
                 'commission_entry_id' => $validated['commission_entry_id'] ?? null,
                 'treasury_account_id' => $account?->id,
+                'payment_method' => $validated['payment_method'] ?? 'cash',
                 'amount' => $amount,
                 'base_amount' => $amount,
                 'rule' => 'commission_payment',

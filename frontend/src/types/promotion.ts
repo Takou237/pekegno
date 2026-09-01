@@ -1,4 +1,4 @@
-import type { Service } from './service';
+import type { Produit } from './produit';
 
 export type PromotionType = 'amount' | 'percent';
 
@@ -12,7 +12,7 @@ export interface Promotion {
   start_date: string;
   end_date: string;
   is_active: boolean;
-  service?: Service | null;
+  service?: Produit | null;
   created_at?: string;
 }
 

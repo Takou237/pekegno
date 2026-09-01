@@ -25,6 +25,12 @@ class Order extends Model
         'vat_rate',
         'total_amount',
         'notes',
+        'proof_path',
+        'proof_url',
+        'submitted_at',
+        'validated_by',
+        'validation_note',
+        'validated_at',
     ];
 
     protected function casts(): array
@@ -35,6 +41,8 @@ class Order extends Model
             'discount' => 'decimal:2',
             'vat_rate' => 'decimal:2',
             'total_amount' => 'decimal:2',
+            'submitted_at' => 'datetime',
+            'validated_at' => 'datetime',
         ];
     }
 
@@ -61,5 +69,10 @@ class Order extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(OrderLine::class);
+    }
+
+    public function validatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'validated_by');
     }
 }

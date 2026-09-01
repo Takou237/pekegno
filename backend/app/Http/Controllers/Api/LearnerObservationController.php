@@ -11,7 +11,7 @@ class LearnerObservationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = LearnerObservation::with(['course', 'session']);
+        $query = LearnerObservation::with(['course', 'session', 'learner']);
 
         if ($request->filled('learner_user_id')) {
             $query->where('learner_user_id', $request->input('learner_user_id'));
@@ -23,6 +23,10 @@ class LearnerObservationController extends Controller
 
         if ($request->filled('session_id')) {
             $query->where('session_id', $request->input('session_id'));
+        }
+
+        if ($request->filled('agency_id')) {
+            $query->whereHas('course', fn ($q) => $q->where('agency_id', $request->input('agency_id')));
         }
 
         $observations = $query->orderByDesc('created_at')

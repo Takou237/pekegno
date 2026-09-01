@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play, Tag } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play, Tag, RefreshCw, GraduationCap, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { categoriesApi } from '@/api/categories.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -14,8 +14,8 @@ import { Button } from '@/components/ui/Button';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { ServiceFormModal } from '@/components/services/ServiceFormModal';
-import { ServiceDetailModal } from '@/components/services/ServiceDetailModal';
+import { ProduitFormModal } from '@/components/produit/ProduitFormModal';
+import { ProduitDetailModal } from '@/components/produit/ProduitDetailModal';
 import { CategoryFormModal } from '@/components/categories/CategoryFormModal';
 import PromotionFormModal from '@/components/promotions/PromotionFormModal';
 import {
@@ -27,16 +27,16 @@ import {
 } from '@/utils/catalogPermissions';
 import { canExportData } from '@/utils/exportPermissions';
 import { currentLocale } from '@/i18n';
-import type { Service } from '@/types/service';
+import type { Produit, ProduitType } from '@/types/produit';
 import type { Category } from '@/types/category';
 import type { Agency, PaginationMeta } from '@/types/agency';
 import type { Promotion } from '@/types/promotion';
 
-interface ServiceListPageProps {
+interface ProduitListPageProps {
   agencyId?: string;
 }
 
-export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
+export default function ProduitListPage({ agencyId }: ProduitListPageProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -51,33 +51,35 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
       ? `/countries/${countryId}/catalog/services`
       : '/catalog/services';
 
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<Produit[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category_id') ?? '');
   const [agencyFilter, setAgencyFilter] = useState(agencyId ?? '');
+  const [typeFilter, setTypeFilter] = useState<ProduitType | ''>('');
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'created_at'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
 
-  const [formModalState, setFormModalState] = useState<{ open: boolean; service: Service | null }>({
+  const [formModalState, setFormModalState] = useState<{ open: boolean; service: Produit | null }>({
     open: false,
     service: null,
   });
-  const [duplicateSource, setDuplicateSource] = useState<Service | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<Produit | null>(null);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [detailService, setDetailService] = useState<Service | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
+  const [detailService, setDetailService] = useState<Produit | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Produit | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [promoService, setPromoService] = useState<Service | null>(null);
+  const [promoService, setPromoService] = useState<Produit | null>(null);
   const [promoEditing, setPromoEditing] = useState<Promotion | null>(null);
   const canPromoteService = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     user?.role?.name ?? ''
@@ -87,10 +89,11 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await servicesApi.list({
+      const response = await produitsApi.list({
         search: search || undefined,
         category_id: categoryFilter || undefined,
         agency_id: agencyFilter || undefined,
+        type: typeFilter || undefined,
         sort_by: sortBy,
         sort_order: sortOrder,
         page,
@@ -103,7 +106,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [search, categoryFilter, agencyFilter, sortBy, sortOrder, page]);
+  }, [search, categoryFilter, agencyFilter, typeFilter, sortBy, sortOrder, page]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -112,7 +115,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     }, 350);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, categoryFilter, agencyFilter, sortBy, sortOrder]);
+  }, [search, categoryFilter, agencyFilter, typeFilter, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchServices();
@@ -146,6 +149,27 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     }
   }
 
+  const canSyncFormations = canCreateService(user);
+
+  async function handleSyncFormations() {
+    setIsSyncing(true);
+    try {
+      const result = await produitsApi.synchronizeFormations();
+      showToast(
+        t('services.syncFormationsSuccess', {
+          created: result.created,
+          updated: result.updated,
+        }),
+        'success'
+      );
+      fetchServices();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('services.syncFormationsFailed')), 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
   function handleCategorySaved(saved: Category) {
     setCategoryFilter(saved.id);
     fetchCategories();
@@ -159,7 +183,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      await servicesApi.remove(deleteTarget.id);
+      await produitsApi.remove(deleteTarget.id);
       showToast(t('services.archived'), 'success');
       setDeleteTarget(null);
       fetchServices();
@@ -170,7 +194,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     }
   }
 
-  function handleSaved(saved: Service) {
+  function handleSaved(saved: Produit) {
     setServices((prev) => {
       const exists = prev.some((service) => service.id === saved.id);
       return exists
@@ -179,7 +203,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     });
   }
 
-  function openDetail(service: Service) {
+  function openDetail(service: Produit) {
     setDetailService(service);
     setDetailId(service.id);
   }
@@ -202,15 +226,15 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     );
   }
 
-  const hasPromo = (service: Service) => Number(service.effective_price) !== Number(service.price);
+  const hasPromo = (service: Produit) => Number(service.effective_price) !== Number(service.price);
 
-  const activePromotion = (service: Service) =>
+  const activePromotion = (service: Produit) =>
     (service.promotions ?? [])
       .filter((promotion) => promotion.is_active)
       .sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
 
   const toEditablePromotion = (
-    promotion: NonNullable<Service['promotions']>[number] | undefined
+    promotion: NonNullable<Produit['promotions']>[number] | undefined
   ): Promotion | null =>
     promotion
       ? {
@@ -226,7 +250,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
         }
       : null;
 
-  const discountPercent = (service: Service): number | null => {
+  const discountPercent = (service: Produit): number | null => {
     const promotion = activePromotion(service);
     if (!promotion) return null;
     if (promotion.type === 'percent' && promotion.discount_percent != null) {
@@ -256,6 +280,12 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
               {t('services.export')}
             </Button>
           )}
+          {canSyncFormations && (
+            <Button variant="outline" onClick={handleSyncFormations} isLoading={isSyncing}>
+              <RefreshCw className="h-4 w-4" />
+              {t('services.syncFormations')}
+            </Button>
+          )}
           {canManageCatalogTrash(user) && (
             <Link to={`${servicesBase}/trash`}>
               <Button variant="outline">
@@ -277,6 +307,31 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {([
+          { value: '', label: t('services.allTypes') },
+          { value: 'physical', label: t('services.typePhysical') },
+          { value: 'service', label: t('services.typeService') },
+          { value: 'formation', label: t('services.typeFormation') },
+        ] as { value: ProduitType | ''; label: string }[]).map((tab) => (
+          <button
+            key={tab.value || 'all'}
+            type="button"
+            onClick={() => {
+              setTypeFilter(tab.value);
+              setPage(1);
+            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              typeFilter === tab.value
+                ? 'bg-brand-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 lg:flex-row lg:items-end">
@@ -502,6 +557,18 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
                         {t('services.isSeminar')}
                       </span>
                     )}
+                    {service.type === 'formation' && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
+                        <GraduationCap className="h-3 w-3" />
+                        {t('services.typeFormation')}
+                      </span>
+                    )}
+                    {service.type === 'physical' && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-700 dark:bg-stone-900/30 dark:text-stone-400">
+                        <Package className="h-3 w-3" />
+                        {t('services.typePhysical')}
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
@@ -533,7 +600,8 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
         )}
       </div>
 
-      <ServiceFormModal
+      <ProduitFormModal
+
         isOpen={formModalState.open || Boolean(duplicateSource)}
         service={formModalState.service}
         duplicateSource={duplicateSource}
@@ -552,7 +620,7 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
         onSaved={handleCategorySaved}
       />
 
-      <ServiceDetailModal
+      <ProduitDetailModal
         serviceId={detailId}
         initial={detailService}
         onClose={() => {

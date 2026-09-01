@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreServiceRequest;
 use App\Http\Requests\Api\UpdateServiceRequest;
 use App\Http\Resources\ServiceResource;
+use App\Models\Course;
 use App\Models\PriceHistory;
 use App\Models\SeminarTier;
 use App\Models\Service;
@@ -17,7 +18,7 @@ use OpenApi\Attributes as OA;
 
 class ServiceController extends Controller
 {
-    private const ALLOWED_WITH = ['category', 'agency', 'promotions', 'priceHistory', 'seminarTiers'];
+    private const ALLOWED_WITH = ['category', 'agency', 'promotions', 'priceHistory', 'seminarTiers', 'course'];
 
     public function __construct()
     {
@@ -44,6 +45,7 @@ class ServiceController extends Controller
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par nom ou description', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'category_id', in: 'query', description: 'Filtrer par catégorie', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'agency_id', in: 'query', description: 'Filtrer par agence', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'type', in: 'query', description: 'Filtrer par nature de produit (physical|service|formation)', schema: new OA\Schema(type: 'string', enum: ['physical', 'service', 'formation'])),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
             new OA\Parameter(name: 'sort_by', in: 'query', schema: new OA\Schema(type: 'string', enum: ['name', 'price', 'created_at'], default: 'name')),
             new OA\Parameter(name: 'sort_order', in: 'query', schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], default: 'asc')),
@@ -59,6 +61,7 @@ class ServiceController extends Controller
 
         $query = Service::with(array_merge($defaultWith, $this->parseWith($request)))
             ->search($request->input('search'))
+            ->ofType($request->input('type'))
             ->when($request->category_id, fn ($q, $v) => $q->where('category_id', $v))
             ->when($request->agency_id, fn ($q, $v) => $q->availableIn($v));
 
@@ -122,6 +125,72 @@ class ServiceController extends Controller
         return (new ServiceResource($service->load(['category', 'agency', 'promotions', 'seminarTiers'])))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * Importe (ou met à jour) automatiquement les formations de l'académie
+     * dans le catalogue produits, sous forme de produits de type « formation ».
+     *
+     * Chaque cours (Course) sans produit lié génère un Service de type formation
+     * (avec course_id, prix et image repris du cours). Les produits déjà liés
+     * voient leur nom/image/prix resynchronisés.
+     */
+    public function synchronizeFormations(Request $request): JsonResponse
+    {
+        $this->authorize('create', Service::class);
+
+        $courses = Course::withTrashed()->get();
+
+        // Alimente une catégorie dédiée « Formations » (obligatoire : services.category_id NOT NULL).
+        $category = \App\Models\Category::where('name', 'like', '%Formation%')->first();
+        if (! $category) {
+            $category = \App\Models\Category::create([
+                'name' => 'Formations',
+                'description' => 'Produits du type formation issus de l\'académie.',
+                'color' => '#7C3AED',
+                'icon' => 'graduation',
+            ]);
+        }
+
+        $created = 0;
+        $updated = 0;
+
+        foreach ($courses as $course) {
+            $service = Service::withTrashed()->where('course_id', $course->id)->first();
+
+            $payload = [
+                'name' => $course->name,
+                'description' => $course->description,
+                'price' => (float) $course->price,
+                'cover_image' => $course->cover_image,
+                'presentation_video' => $course->presentation_video,
+                'type' => 'formation',
+                'course_id' => $course->id,
+                'agency_id' => $course->agency_id,
+                'category_id' => $category->id,
+            ];
+
+            if ($service) {
+                $service->restore();
+                $service->update($payload);
+                $updated++;
+            } else {
+                $data = $payload + ['code' => Service::generateCode()];
+                $service = Service::create($data);
+                PriceHistory::create([
+                    'service_id' => $service->id,
+                    'price' => $service->price,
+                    'changed_at' => now(),
+                ]);
+                $created++;
+            }
+        }
+
+        return response()->json([
+            'created' => $created,
+            'updated' => $updated,
+            'total_formations' => $courses->count(),
+        ]);
     }
 
     #[OA\Get(
@@ -297,6 +366,8 @@ class ServiceController extends Controller
                 'effective_price' => $service->effective_price,
                 'has_promotion' => $service->activePromotion() !== null,
                 'category' => $service->category?->name,
+                'type' => $service->type,
+                'course_id' => $service->course_id,
                 'is_seminar' => $service->is_seminar,
                 'seminar_tiers' => $service->seminarTiers->map(fn ($tier) => [
                     'tier' => $tier->tier,

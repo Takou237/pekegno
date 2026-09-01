@@ -19,6 +19,7 @@ import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { CommissionBeneficiary, CommissionRule, CommissionPaymentPayload } from '@/types/commissions';
 import type { SellerProfile } from '@/types/formation';
 import type { Commercial } from '@/types/commercial';
+import type { PaymentMethod } from '@/types/invoice';
 
 interface DepartmentLayoutContext {
   department?: { id: string; type: string; agency_id?: string | null } | null;
@@ -32,9 +33,10 @@ type Tab = (typeof TABS)[number];
 interface PayFormState {
   amount: string;
   note: string;
+  payment_method: PaymentMethod;
 }
 
-const emptyPayForm: PayFormState = { amount: '', note: '' };
+const emptyPayForm: PayFormState = { amount: '', note: '', payment_method: 'cash' };
 const TRIGGERS = ['on_sale', 'on_payment', 'on_full_payment'] as const;
 
 export default function AcademyCommissionsPage() {
@@ -62,7 +64,7 @@ export default function AcademyCommissionsPage() {
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versions, setVersions] = useState<CommissionRule[]>([]);
   const [payModal, setPayModal] = useState<CommissionBeneficiary | null>(null);
-  const [payForm, setPayForm] = useState({ amount: '', note: '' });
+  const [payForm, setPayForm] = useState<PayFormState>(emptyPayForm);
   const [isPaying, setIsPaying] = useState(false);
 
   const loadRules = useCallback(() => {
@@ -201,6 +203,7 @@ export default function AcademyCommissionsPage() {
         beneficiary_type: payModal.type,
         beneficiary_id: payModal.id,
         amount: Number(payForm.amount),
+        payment_method: payForm.payment_method,
         note: payForm.note || undefined,
       };
       await commissionsApi.payCommission(payload);
@@ -607,6 +610,15 @@ export default function AcademyCommissionsPage() {
             value={payForm.amount}
             onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
           />
+<Select
+            label={t('invoices.headerPaymentType')}
+            value={payForm.payment_method}
+            onChange={(e) => setPayForm((p) => ({ ...p, payment_method: e.target.value as PaymentMethod }))}
+          >
+            <option value="cash">{t('invoices.paymentCash')}</option>
+            <option value="om">{t('invoices.paymentOm')}</option>
+            <option value="momo">{t('invoices.paymentMomo')}</option>
+          </Select>
 
           <Input label={t('common.notes')} value={payForm.note} onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))} />
 

@@ -644,4 +644,26 @@ class StatsController extends Controller
             'services' => $service->groupServices($agencyIds),
         ]);
     }
+
+    /**
+     * Statistiques académie par agence (cartes + classement) pour la page « Académies Group ».
+     * Filtres optionnels : pays (country_id) et agence (agency_id).
+     */
+    public function trainingGroupByAgency(Request $request): JsonResponse
+    {
+        $scope = app(\App\Services\ScopeService::class);
+        $agencyIds = $scope->agencyIds($request->user());
+
+        $countryIds = null;
+        if ($request->filled('country_id')) {
+            $countryIds = [$request->input('country_id')];
+        }
+        $agencyId = $request->input('agency_id') ?: null;
+
+        $service = app(\App\Services\AcademyReportService::class);
+
+        return response()->json([
+            'academies' => $service->academyStatsByAgency($agencyIds, $countryIds, $agencyId),
+        ]);
+    }
 }

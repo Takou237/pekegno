@@ -27,7 +27,9 @@ export interface SeminarTier {
   description: string | null;
 }
 
-export interface Service {
+export type ProduitType = 'physical' | 'service' | 'formation';
+
+export interface Produit {
   id: string;
   agency_id: string;
   category_id: string;
@@ -40,6 +42,9 @@ export interface Service {
   seminar_tiers: SeminarTier[];
   cover_image: string | null;
   presentation_video: string | null;
+  type: ProduitType;
+  course_id: string | null;
+  course?: { id: string; code: string; name: string } | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -49,7 +54,7 @@ export interface Service {
   price_history?: PriceHistoryEntry[];
 }
 
-export interface ServiceSearchItem {
+export interface ProduitSearchItem {
   id: string;
   name: string;
   price: string;
@@ -58,9 +63,11 @@ export interface ServiceSearchItem {
   category: string | null;
   is_seminar?: boolean;
   seminar_tiers?: SeminarTier[];
+  type?: ProduitType;
+  course_id?: string | null;
 }
 
-export interface ServicePayload {
+export interface ProduitPayload {
   name: string;
   category_id: string;
   agency_id: string;
@@ -71,10 +78,13 @@ export interface ServicePayload {
   description?: string | null;
   cover_image?: string | null;
   presentation_video?: string | null;
+  type?: ProduitType;
+  course_id?: string | null;
 }
 
-export interface ServiceListParams {
+export interface ProduitListParams {
   search?: string;
+  type?: ProduitType;
   category_id?: string;
   agency_id?: string;
   per_page?: number;

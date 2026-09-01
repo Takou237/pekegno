@@ -1,6 +1,7 @@
 import { RouterProvider } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import { OrgProvider } from '@/context/OrgContext';
+import { FavoritesProvider } from '@/context/FavoritesContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { ToastContainer } from '@/components/common/ToastContainer';
 import { router } from '@/router';
@@ -10,8 +11,10 @@ export default function App() {
     <ToastProvider>
       <AuthProvider>
         <OrgProvider>
-          <ToastContainer />
-          <RouterProvider router={router} />
+          <FavoritesProvider>
+            <ToastContainer />
+            <RouterProvider router={router} />
+          </FavoritesProvider>
         </OrgProvider>
       </AuthProvider>
     </ToastProvider>

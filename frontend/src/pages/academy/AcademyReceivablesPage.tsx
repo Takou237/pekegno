@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Search, DollarSign } from 'lucide-react';
+import { Search, DollarSign, Filter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { academyApi } from '@/api/academy.api';
+import type { Course, TrainingSession } from '@/api/academy.api';
 import { invoicesApi } from '@/api/invoices.api';
 import type { Invoice } from '@/types/invoice';
 import { extractErrorMessage } from '@/api/errors';
@@ -25,9 +27,53 @@ export default function AcademyReceivablesPage() {
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [totalReceivable, setTotalReceivable] = useState(0);
   const [search, setSearch] = useState('');
+  const [courseId, setCourseId] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [sessions, setSessions] = useState<TrainingSession[]>([]);
+  const coursesLoaded = useRef(false);
+
+  const fetchCourses = useCallback(async () => {
+    try {
+      const response = await academyApi.courses({ agency_id: agencyId || undefined, per_page: 100 });
+      setCourses(response.data);
+      coursesLoaded.current = true;
+    } catch {
+      setCourses([]);
+      coursesLoaded.current = true;
+    }
+  }, [agencyId]);
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      const params: { agency_id?: string; course_id?: string; per_page: number; status?: string } = {
+        agency_id: agencyId || undefined,
+        per_page: 100,
+      };
+      if (courseId) params.course_id = courseId;
+      const response = await academyApi.sessions(params);
+      setSessions(response.data);
+      if (courseId !== '' && sessionId) {
+        const stillExists = response.data.some((s) => s.id === sessionId);
+        if (!stillExists) setSessionId('');
+      }
+    } catch {
+      setSessions([]);
+      if (courseId !== '' && sessionId) setSessionId('');
+    }
+  }, [agencyId, courseId, sessionId]);
+
+  useEffect(() => { fetchCourses(); }, [fetchCourses]);
+
+  useEffect(() => {
+    if (coursesLoaded.current) fetchSessions();
+  }, [fetchSessions]);
 
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
@@ -38,6 +84,10 @@ export default function AcademyReceivablesPage() {
         from_enrollments: true,
         status: 'unpaid,partial',
         search: search || undefined,
+        course_id: courseId || undefined,
+        session_id: sessionId || undefined,
+        from: from || undefined,
+        to: to || undefined,
         page,
         per_page: 15,
       });
@@ -49,9 +99,11 @@ export default function AcademyReceivablesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, search, page, t]);
+  }, [agencyId, search, courseId, sessionId, from, to, page, t]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+
+  function resetPage() { setPage(1); }
 
   function balance(inv: Invoice): number {
     return parseFloat(inv.total_amount) - parseFloat(inv.amount_paid);
@@ -91,6 +143,68 @@ export default function AcademyReceivablesPage() {
           placeholder={t('common.search')}
           className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm dark:border-gray-700 dark:bg-gray-900"
         />
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex items-center gap-1.5 pr-1 text-sm font-medium text-gray-500 dark:text-gray-400">
+          <Filter className="h-4 w-4" />
+          <span>{t('academy.filters')}</span>
+        </div>
+        <label className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('academy.formation')}</span>
+          <select
+            value={courseId}
+            onChange={(e) => { setCourseId(e.target.value); setSessionId(''); resetPage(); }}
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          >
+            <option value="">{t('academy.allFormations')}</option>
+            {courses.map((course) => (
+              <option key={course.id} value={course.id}>{course.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('nav.sessions')}</span>
+          <select
+            value={sessionId}
+            onChange={(e) => { setSessionId(e.target.value); resetPage(); }}
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          >
+            <option value="">{t('academy.allSessions')}</option>
+            {sessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.course?.name ?? ''} — {new Date(session.start_at).toLocaleDateString()}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('academy.fromDate')}</span>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => { setFrom(e.target.value); resetPage(); }}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('academy.toDate')}</span>
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => { setTo(e.target.value); resetPage(); }}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          />
+        </label>
+        {(courseId || sessionId || from || to) && (
+          <button
+            type="button"
+            onClick={() => { setCourseId(''); setSessionId(''); setFrom(''); setTo(''); resetPage(); }}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            {t('academy.resetFilters')}
+          </button>
+        )}
       </div>
 
       {loadError && <Alert variant="error">{loadError}</Alert>}

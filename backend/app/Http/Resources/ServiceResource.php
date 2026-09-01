@@ -20,6 +20,9 @@ class ServiceResource extends JsonResource
             'effective_price' => (string) $this->effective_price,
             'bonus_fixed' => $this->bonus_fixed !== null ? (string) $this->bonus_fixed : null,
             'is_seminar' => (bool) $this->is_seminar,
+            'type' => $this->type ?? 'service',
+            'course_id' => $this->course_id,
+            'course' => new CourseResource($this->whenLoaded('course')),
             'seminar_tiers' => $this->whenLoaded('seminarTiers', fn () => $this->seminarTiers->map(fn ($t) => [
                 'tier' => $t->tier,
                 'label' => $t->label,

@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UserRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { FavoriteStar } from '@/components/common/FavoriteStar';
 import { getMainItems, navLinkClass, INVOICES_ROLES } from '@/components/layout/navItems';
 import { invoicesApi } from '@/api/invoices.api';
 
@@ -33,18 +34,21 @@ export function Sidebar() {
       </div>
       <nav className="flex flex-1 flex-col gap-1">
         {mainItems.map(({ to, label, icon: Icon, end, badge }) => (
-          <NavLink key={to} to={to} end={end} className={navLinkClass}>
-            <Icon className="h-5 w-5" />
-            {label}
-            {badge != null && badge > 0 && (
-              <span
-                className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
-                aria-label={t('nav.unpaidBadge', { count: badge })}
-              >
-                {badge > 99 ? '99+' : badge}
-              </span>
-            )}
-          </NavLink>
+          <div key={to} className="group flex items-center rounded-lg">
+            <NavLink to={to} end={end} className={`${navLinkClass} flex-1`}>
+              <Icon className="h-5 w-5" />
+              {label}
+              {badge != null && badge > 0 && (
+                <span
+                  className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                  aria-label={t('nav.unpaidBadge', { count: badge })}
+                >
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
+            </NavLink>
+            <FavoriteStar to={to} label={label} />
+          </div>
         ))}
       </nav>
       <nav className="border-t border-gray-100 pt-4 dark:border-gray-800">

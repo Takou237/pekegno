@@ -3,14 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\Service;
 use App\Models\User;
+
 use App\Services\ActivityLogger;
 use App\Services\InvoiceNumberGenerator;
+use App\Services\NotificationService;
 use App\Services\OrderNumberGenerator;
+use App\Services\PaymentService;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +29,8 @@ class OrderController extends Controller
         private readonly OrderNumberGenerator $orderNumber,
         private readonly InvoiceNumberGenerator $invoiceNumber,
         private readonly ActivityLogger $logger,
+        private readonly PaymentService $paymentService,
+        private readonly NotificationService $notifications,
     ) {}
 
     private function scopeQuery(Request $request, $query)
@@ -385,6 +391,217 @@ class OrderController extends Controller
         return response()->json($order->fresh()->load(['client', 'agency', 'lines']));
     }
 
+    #[OA\Post(
+        path: '/api/orders/{order}/submit',
+        summary: 'Soumettre une commande en attente de validation (avec preuve de paiement)',
+        tags: ['Commandes'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Commande soumise'),
+            new OA\Response(response: 422, description: 'Commande non soumettable'),
+        ]
+    )]
+    public function submit(Request $request, Order $order): JsonResponse
+    {
+        if (! in_array($order->status, ['draft', 'confirmed'], true)) {
+            return response()->json(['message' => "Une commande {$order->status} ne peut pas être soumise."], 422);
+        }
+
+        $data = $request->validate([
+            'proof_path' => ['nullable', 'string', 'max:255'],
+            'proof_url' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $order->update([
+            'status' => 'pending_validation',
+            'proof_path' => $data['proof_path'] ?? $order->proof_path,
+            'proof_url' => $data['proof_url'] ?? $order->proof_url,
+            'submitted_at' => now(),
+        ]);
+
+        $this->logger->log(
+            'submitted',
+            'order',
+            $order->id,
+            "Commande {$order->number} soumise pour validation",
+            newValues: $order->only(['number', 'status']),
+        );
+
+        // Notifier les validateurs (caissières / responsables) en attente.
+        $this->notifications->notifyByPermission(
+            permissions: ['orders.valider'],
+            title: 'Commande à valider',
+            message: "La commande {$order->number} de {$order->total_amount} FCFA est en attente de validation.",
+            link: "/orders/{$order->id}",
+            type: 'order_due',
+        );
+
+        return response()->json($order->fresh()->load(['client', 'agency', 'lines']));
+    }
+
+    #[OA\Post(
+        path: '/api/orders/{order}/validate',
+        summary: 'Valider une commande soumise : génère la facture, encaisse le paiement et inscrit aux formations',
+        tags: ['Commandes'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Commande validée et facturée'),
+            new OA\Response(response: 422, description: 'Commande non validable'),
+        ]
+    )]
+    public function validateSubmission(Request $request, Order $order): JsonResponse
+    {
+        if ($order->status !== 'pending_validation') {
+            return response()->json(['message' => "Seule une commande en attente de validation peut être validée (statut actuel : {$order->status})."], 422);
+        }
+
+        if ($order->invoice_id) {
+            return response()->json(['message' => 'Une facture existe déjà pour cette commande.'], 422);
+        }
+
+        $data = $request->validate([
+            'payment_method' => ['nullable', 'string', 'max:50'],
+            'treasury_account_id' => ['nullable', 'uuid'],
+            'paid_at' => ['nullable', 'date'],
+            'note' => ['nullable', 'string'],
+        ]);
+
+        $invoice = DB::transaction(function () use ($order, $request, $data) {
+            $client = $order->client;
+
+            $invoice = Invoice::create([
+                'number' => $this->invoiceNumber->next(),
+                'agency_id' => $order->agency_id,
+                'client_id' => $order->client_id,
+                'client_name' => $client ? trim("{$client->first_name} {$client->last_name}") : null,
+                'commercial_id' => $order->commercial_id,
+                'seller_user_id' => $request->user()->id,
+                'invoice_date' => now(),
+                'payment_type' => $data['payment_method'] ?? null,
+                'total_amount' => $order->total_amount,
+                'amount_paid' => 0,
+                'discount' => $order->discount,
+                'vat_rate' => $order->vat_rate,
+                'status' => 'unpaid',
+                'comment' => "Commande {$order->number}",
+            ]);
+
+            foreach ($order->lines as $line) {
+                $invoice->items()->create([
+                    'service_id' => $line->service_id,
+                    'label' => $line->label,
+                    'unit_price' => $line->unit_price,
+                    'quantity' => $line->quantity,
+                    'line_total' => $line->line_total,
+                ]);
+            }
+
+            // Inscriptions aux formations contenues dans la commande.
+            $this->registerFormationEnrollmentsFromOrder($order, $invoice, $request);
+
+            // Encaissement intégral (paiement validé par preuve).
+            if ($order->total_amount > 0) {
+                $this->paymentService->applyPayment(
+                    invoice: $invoice,
+                    amount: (float) $order->total_amount,
+                    method: $data['payment_method'] ?? 'cash',
+                    isAdvance: false,
+                    userId: $request->user()->id,
+                    treasuryAccountId: $data['treasury_account_id'] ?? null,
+                    paidAt: $data['paid_at'] ?? null,
+                );
+            }
+
+            $order->update([
+                'status' => 'completed',
+                'invoice_id' => $invoice->id,
+                'validated_by' => $request->user()->id,
+                'validated_at' => now(),
+                'validation_note' => $data['note'] ?? null,
+            ]);
+
+            $this->logger->log(
+                'validated',
+                'order',
+                $order->id,
+                "Commande {$order->number} validée et facture {$invoice->number} encaissée",
+                newValues: ['invoice' => $invoice->number],
+            );
+
+            return $invoice;
+        });
+
+        // Notifier le commercial vendeur que sa commande est validée.
+        if ($order->commercial_id) {
+            $commercial = $order->commercial;
+            if ($commercial && $commercial->user_id) {
+                $this->notifications->notifyUserIds(
+                    userIds: [$commercial->user_id],
+                    title: 'Commande validée',
+                    message: "Votre commande {$order->number} a été validée. Facture {$invoice->number} encaissée.",
+                    link: "/orders/{$order->id}",
+                    type: 'order_validated',
+                );
+            }
+        }
+
+        return response()->json(
+            $invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']),
+            201
+        );
+    }
+
+    #[OA\Post(
+        path: '/api/orders/{order}/decline',
+        summary: 'Refuser une commande soumise (retour en brouillon avec motif)',
+        tags: ['Commandes'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Commande refusée'),
+            new OA\Response(response: 422, description: 'Commande non réfusable'),
+        ]
+    )]
+    public function decline(Request $request, Order $order): JsonResponse
+    {
+        if ($order->status !== 'pending_validation') {
+            return response()->json(['message' => "Seule une commande en attente de validation peut être refusée (statut actuel : {$order->status})."], 422);
+        }
+
+        $data = $request->validate([
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $order->update([
+            'status' => 'draft',
+            'validated_by' => $request->user()->id,
+            'validated_at' => now(),
+            'validation_note' => $data['note'] ?? null,
+        ]);
+
+        $this->logger->log(
+            'declined',
+            'order',
+            $order->id,
+            "Commande {$order->number} refusée : " . ($data['note'] ?? 'aucun motif'),
+            request: $request,
+        );
+
+        if ($order->commercial_id) {
+            $commercial = $order->commercial;
+            if ($commercial && $commercial->user_id) {
+                $this->notifications->notifyUserIds(
+                    userIds: [$commercial->user_id],
+                    title: 'Commande refusée',
+                    message: "Votre commande {$order->number} a été refusée : " . ($data['note'] ?? 'aucun motif précisé.'),
+                    link: "/orders/{$order->id}",
+                    type: 'order_declined',
+                );
+            }
+        }
+
+        return response()->json($order->fresh()->load(['client', 'agency', 'lines']));
+    }
+
     private function validateOrder(Request $request, bool $update = false): array
     {
         return $request->validate([
@@ -449,5 +666,52 @@ class OrderController extends Controller
         }
 
         return $result;
+    }
+
+    private function registerFormationEnrollmentsFromOrder(Order $order, Invoice $invoice, Request $request): void
+    {
+        $clientId = $order->client_id;
+
+        if (! $clientId) {
+            return;
+        }
+
+        foreach ($order->lines as $line) {
+            if (! $line->service_id) {
+                continue;
+            }
+
+            $service = Service::find($line->service_id);
+
+            if (! $service || $service->type !== 'formation' || ! $service->course_id) {
+                continue;
+            }
+
+            $courseId = $service->course_id;
+
+            $existing = FormationEnrollment::where('course_id', $courseId)
+                ->where('learner_user_id', $clientId)
+                ->first();
+
+            if ($existing && $existing->status !== 'cancelled') {
+                $existing->update([
+                    'invoice_id' => $invoice->id,
+                    'status' => 'enrolled',
+                    'enrolled_at' => now(),
+                    'amount_paid' => (float) $line->unit_price * (int) $line->quantity,
+                ]);
+            } else {
+                FormationEnrollment::create([
+                    'course_id' => $courseId,
+                    'learner_user_id' => $clientId,
+                    'invoice_id' => $invoice->id,
+                    'seller_user_id' => $order->commercial_id ? $order->commercial->user_id : $request->user()->id,
+                    'enrolled_at' => now(),
+                    'status' => 'enrolled',
+                    'amount_paid' => (float) $line->unit_price * (int) $line->quantity,
+                    'notes' => "Validée depuis la commande {$order->number}",
+                ]);
+            }
+        }
     }
 }

@@ -1,6 +1,7 @@
 import { client } from './client';
 import type {
   AgencyStats,
+  AcademyAgencyGroupResponse,
   CategorySales,
   DashboardStats,
   GroupStats,
@@ -67,6 +68,11 @@ export const statsApi = {
 
   async trainingGroup(): Promise<GroupReportStats> {
     const { data } = await client.get<GroupReportStats>('/stats/training-group');
+    return data;
+  },
+
+  async trainingAgency(params: { country_id?: string; agency_id?: string } = {}): Promise<AcademyAgencyGroupResponse> {
+    const { data } = await client.get<AcademyAgencyGroupResponse>('/stats/training-agency', { params });
     return data;
   },
 };

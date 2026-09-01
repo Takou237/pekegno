@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Pagination } from '@/components/ui/Pagination';
@@ -23,6 +24,7 @@ import type {
   CommissionSummary,
 } from '@/types/formation';
 import type { Department } from '@/types/department';
+import type { PaymentMethod } from '@/types/invoice';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -74,12 +76,14 @@ interface PayFormState {
   amount: string;
   commission_entry_id: string;
   note: string;
+  payment_method: PaymentMethod;
 }
 
 const emptyPayForm: PayFormState = {
   amount: '',
   commission_entry_id: '',
   note: '',
+  payment_method: 'cash',
 };
 
 function CommissionTrendChart({ entries }: { entries: CommissionEntry[] }) {
@@ -290,6 +294,7 @@ export default function SellerProfilesPage() {
     try {
       await sellerProfilesApi.payCommission(payModal.id, {
         amount: Number(payForm.amount),
+        payment_method: payForm.payment_method,
         commission_entry_id: payForm.commission_entry_id || undefined,
         note: payForm.note || undefined,
       });
@@ -664,6 +669,15 @@ export default function SellerProfilesPage() {
             onChange={(e) => setPayForm((prev) => ({ ...prev, amount: e.target.value }))}
           />
 
+          <Select
+            label={t('invoices.headerPaymentType')}
+            value={payForm.payment_method}
+            onChange={(e) => setPayForm((prev) => ({ ...prev, payment_method: e.target.value as PaymentMethod }))}
+          >
+            <option value="cash">{t('invoices.paymentCash')}</option>
+            <option value="om">{t('invoices.paymentOm')}</option>
+            <option value="momo">{t('invoices.paymentMomo')}</option>
+          </Select>
           <Input
             label={t('academy.commissionEntryId')}
             value={payForm.commission_entry_id}

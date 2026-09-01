@@ -1,6 +1,7 @@
 import { client } from './client';
 import type { Paginated } from './academy.api';
 import type { SellerProfile, SellerProfilePayload, CommissionSummary } from '@/types/formation';
+import type { PaymentMethod } from '@/types/invoice';
 
 export interface CommissionEntry {
   id: string;
@@ -57,7 +58,7 @@ export const sellerProfilesApi = {
     return data;
   },
 
-  async payCommission(id: string, payload: { amount: number; treasury_account_id?: string; commission_entry_id?: string; note?: string }): Promise<CommissionPayment> {
+  async payCommission(id: string, payload: { amount: number; payment_method?: PaymentMethod; treasury_account_id?: string; commission_entry_id?: string; note?: string }): Promise<CommissionPayment> {
     const { data } = await client.post<CommissionPayment>(`/seller-profiles/${id}/pay`, payload);
     return data;
   },

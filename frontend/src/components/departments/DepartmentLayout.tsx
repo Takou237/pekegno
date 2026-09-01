@@ -7,6 +7,7 @@ import { extractErrorMessage } from '@/api/errors';
 import { Spinner } from '@/components/ui/Spinner';
 import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
+import { FavoriteStar } from '@/components/common/FavoriteStar';
 import { DepartmentSwitcher } from '@/components/departments/DepartmentSwitcher';
 import { getDepartmentItems, navLinkClass } from '@/components/layout/navItems';
 import type { Department } from '@/types/department';
@@ -84,12 +85,21 @@ export function DepartmentLayout() {
 
           {!isLoading && !loadError && department && subItems.length > 0 && (
             <nav className="hidden flex-col gap-1 rounded-2xl border border-gray-100 bg-white p-3 lg:flex dark:border-gray-800 dark:bg-gray-900">
-              {subItems.map(({ to, label, icon: Icon, end }) => (
-                <NavLink key={to || '/'} to={to} end={end} className={navLinkClass}>
-                  <Icon className="h-5 w-5" />
-                  {label}
-                </NavLink>
-              ))}
+              {subItems.map(({ to, label, icon: Icon, end }) => {
+                const absoluteTo =
+                  to === '' || to === '/'
+                    ? `/departments/${departmentId}`
+                    : `/departments/${departmentId}/${to}`;
+                return (
+                  <div key={to || '/'} className="group flex items-center rounded-lg">
+                    <NavLink to={to} end={end} className={`${navLinkClass} flex-1`}>
+                      <Icon className="h-5 w-5" />
+                      {label}
+                    </NavLink>
+                    <FavoriteStar to={absoluteTo} label={label} />
+                  </div>
+                );
+              })}
             </nav>
           )}
         </div>

@@ -209,3 +209,25 @@ export interface GroupReportStats {
   training: TrainingGroupStats;
   services: ServiceGroupStats;
 }
+
+export interface AcademyAgencyStat {
+  id: string;
+  name: string;
+  code: string;
+  country: string;
+  country_id: string | null;
+  city: string | null;
+  courses: number;
+  sessions: number;
+  learners: number;
+  attendance_rate: number;
+  received: number;
+  outstanding: number;
+}
+
+export interface AcademyAgencyGroupResponse {
+  academies: {
+    agencies: AcademyAgencyStat[];
+    ranking: AcademyAgencyStat[];
+  };
+}

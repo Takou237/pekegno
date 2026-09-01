@@ -18,3 +18,7 @@ yarn-error.log*
 # TypeScript build info
 *.tsbuildinfo
 .vercel
+
+vite.log
+vite.err.log
+

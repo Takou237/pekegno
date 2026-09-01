@@ -37,7 +37,7 @@ class PermissionSeeder extends Seeder
         'courses' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'sessions' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'enrollments' => ['consulter', 'creer', 'modifier', 'supprimer'],
-        'orders' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'orders' => ['consulter', 'creer', 'modifier', 'supprimer', 'soumettre', 'valider', 'refuser'],
         'reports' => ['consulter', 'exporter'],
         'depenses' => ['consulter', 'creer', 'modifier', 'supprimer', 'valider', 'encaisser', 'exporter'],
         'commissions' => ['consulter', 'creer', 'modifier', 'supprimer', 'valider', 'encaisser', 'exporter'],
@@ -63,6 +63,8 @@ class PermissionSeeder extends Seeder
         'renouveler' => 'Renouveler',
         'reporting' => 'Reporting',
         'valider' => 'Valider',
+        'soumettre' => 'Soumettre',
+        'refuser' => 'Refuser',
     ];
 
     private const ENTITY_LABELS = [

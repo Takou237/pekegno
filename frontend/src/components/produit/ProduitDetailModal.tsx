@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { extractErrorMessage } from '@/api/errors';
 import { currentLocale } from '@/i18n';
 import { Modal } from '@/components/ui/Modal';
@@ -8,17 +8,17 @@ import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { CategoryIcon } from '@/utils/categoryIcons';
 import { getYouTubeEmbedUrl, isYouTubeUrl } from '@/utils/video';
-import type { Service } from '@/types/service';
+import type { Produit } from '@/types/produit';
 
-interface ServiceDetailModalProps {
+interface ProduitDetailModalProps {
   serviceId: string | null;
-  initial?: Service | null;
+  initial?: Produit | null;
   onClose: () => void;
 }
 
-export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetailModalProps) {
+export function ProduitDetailModal({ serviceId, initial, onClose }: ProduitDetailModalProps) {
   const { t } = useTranslation();
-  const [service, setService] = useState<Service | null>(initial ?? null);
+  const [service, setService] = useState<Produit | null>(initial ?? null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -26,7 +26,7 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
     if (!serviceId) return;
     setIsLoading(true);
     setLoadError(null);
-    servicesApi
+    produitsApi
       .get(serviceId)
       .then(setService)
       .catch((error) => setLoadError(extractErrorMessage(error, t('services.loadFailed'))))
@@ -35,12 +35,12 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
   }, [serviceId]);
 
   function formatDate(value: string | null | undefined): string {
-    if (!value) return '—';
+    if (!value) return 'â€”';
     return new Date(value).toLocaleDateString(currentLocale());
   }
 
   function formatPrice(value: string | null | undefined): string {
-    if (!value) return '—';
+    if (!value) return 'â€”';
     return new Intl.NumberFormat(currentLocale(), {
       style: 'currency',
       currency: 'XAF',
@@ -48,7 +48,7 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
     }).format(Number(value));
   }
 
-  function discountPercent(service: Service): number | null {
+  function discountPercent(service: Produit): number | null {
     const promotion = (service.promotions ?? [])
       .filter((p) => p.is_active)
       .sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
@@ -134,7 +134,7 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
           <div>
             <dt className="text-xs uppercase text-gray-400">{t('services.attachedTo')}</dt>
             <dd className="mt-1 text-sm text-gray-700 dark:text-gray-200">
-              {service.agency ? `${service.agency.name} (${t('services.anAgency')})` : '—'}
+              {service.agency ? `${service.agency.name} (${t('services.anAgency')})` : 'â€”'}
             </dd>
           </div>
 

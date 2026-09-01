@@ -38,13 +38,16 @@ import {
 import { useTranslation } from 'react-i18next';
 import { statsApi } from '@/api/stats.api';
 import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
+import { countriesApi } from '@/api/countries.api';
+import { agenciesApi } from '@/api/agencies.api';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import { PeriodPicker, defaultPeriod, type Period } from '@/components/ui/PeriodPicker';
 import { formatCurrency, formatNumber } from '@/utils/number';
-import type { GroupStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, TopCommercial, TopProduct, TopAgency, TrainingGroupStats, ServiceGroupStats, GroupReportStats } from '@/types/stats';
+import type { GroupStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, TopCommercial, TopProduct, TopAgency, TrainingGroupStats, ServiceGroupStats, GroupReportStats, AcademyAgencyStat, CountryStat } from '@/types/stats';
 import type { Invoice } from '@/types/invoice';
+import type { Agency } from '@/types/agency';
 import type { ReactNode } from 'react';
 
 const MODE_COLORS: Record<string, string> = {
@@ -101,6 +104,12 @@ export default function PEKEGNOGroupDashboard() {
   const [topAgencies, setTopAgencies] = useState<TopAgency[]>([]);
   const [training, setTraining] = useState<TrainingGroupStats | null>(null);
   const [services, setServices] = useState<ServiceGroupStats | null>(null);
+  const [academyAgencies, setAcademyAgencies] = useState<AcademyAgencyStat[]>([]);
+  const [academyRanking, setAcademyRanking] = useState<AcademyAgencyStat[]>([]);
+  const [countries, setCountries] = useState<CountryStat[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [academyCountry, setAcademyCountry] = useState('');
+  const [academyAgencyId, setAcademyAgencyId] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [period, setPeriod] = useState<Period>(defaultPeriod());
@@ -178,6 +187,43 @@ export default function PEKEGNOGroupDashboard() {
       active = false;
     };
   }, [period]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([
+      countriesApi.list({ per_page: 100 }).then((r) => r.data),
+      agenciesApi.list({ per_page: 100 }).then((r) => r.data),
+    ]).then((settled) => {
+      if (!active) return;
+      if (settled[0].status === 'fulfilled') setCountries(settled[0].value as CountryStat[]);
+      if (settled[1].status === 'fulfilled') setAgencies(settled[1].value as Agency[]);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    statsApi
+      .trainingAgency({
+        country_id: academyCountry || undefined,
+        agency_id: academyAgencyId || undefined,
+      })
+      .then((res) => {
+        if (!active) return;
+        setAcademyAgencies(res.academies.agencies ?? []);
+        setAcademyRanking(res.academies.ranking ?? []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setAcademyAgencies([]);
+        setAcademyRanking([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [academyCountry, academyAgencyId]);
 
   if (loading) return <SkeletonDashboard />;
 
@@ -1033,6 +1079,142 @@ export default function PEKEGNOGroupDashboard() {
           <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
             <p className="text-sm text-gray-400">{t('dashboard.noData')}</p>
           </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 pt-2">
+            <Building2 className="h-5 w-5 text-brand-500" />
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+              {t('dashboard.academyAgencies')}
+            </h2>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('dashboard.byCountry')}</span>
+              <select
+                value={academyCountry}
+                onChange={(e) => { setAcademyCountry(e.target.value); setAcademyAgencyId(''); }}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+              >
+                <option value="">{t('dashboard.allCountries')}</option>
+                {countries.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('dashboard.agencies')}</span>
+              <select
+                value={academyAgencyId}
+                onChange={(e) => setAcademyAgencyId(e.target.value)}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+              >
+                <option value="">{t('dashboard.allAgencies')}</option>
+                {agencies
+                  .filter((a) => !academyCountry || a.country_id === academyCountry)
+                  .map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        {academyAgencies.length === 0 ? (
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+            <p className="text-sm text-gray-400">{t('dashboard.noData')}</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                label={t('reports.totalFormations')}
+                value={String(academyAgencies.reduce((s, a) => s + a.courses, 0))}
+                icon={<BookOpen className="h-5 w-5" />}
+                tone="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
+              />
+              <StatCard
+                label={t('reports.totalSessions')}
+                value={String(academyAgencies.reduce((s, a) => s + a.sessions, 0))}
+                icon={<CalendarDays className="h-5 w-5" />}
+                tone="bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400"
+              />
+              <StatCard
+                label={t('dashboard.learners')}
+                value={String(academyAgencies.reduce((s, a) => s + a.learners, 0))}
+                icon={<Users className="h-5 w-5" />}
+                tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
+              />
+              <StatCard
+                label={t('reports.receivedRevenue')}
+                value={formatCurrency(academyAgencies.reduce((s, a) => s + a.received, 0))}
+                icon={<DollarSign className="h-5 w-5" />}
+                tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                  <Trophy className="h-4 w-4 text-amber-500" />
+                  {t('dashboard.academyRanking')}
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {academyRanking.map((a, idx) => (
+                    <div key={a.id} className="flex items-center gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{a.name}</p>
+                        <p className="truncate text-xs text-gray-400">
+                          {a.courses} {t('dashboard.formations').toLowerCase()} · {a.sessions} {t('dashboard.sessions')} ·{' '}
+                          {a.learners} {t('dashboard.learners').toLowerCase()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(a.received)}</p>
+                        <p className="text-xs text-gray-400">{t('reports.attendanceRate')} {a.attendance_rate}%</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                  <Building2 className="h-4 w-4 text-brand-500" />
+                  {t('dashboard.academyCards')}
+                </h2>
+                {academyAgencies.length === 0 ? (
+                  <p className="text-sm text-gray-400">{t('dashboard.noData')}</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {academyAgencies.map((a) => {
+                      const max = Math.max(1, ...academyAgencies.map((x) => x.received));
+                      return (
+                        <div key={a.id} className="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{a.name}</p>
+                            <p className="shrink-0 text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(a.received)}</p>
+                          </div>
+                          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                            <div className="h-full rounded-full bg-brand-500/80" style={{ width: `${Math.min(100, (a.received / max) * 100)}%` }} />
+                          </div>
+                          <p className="mt-1.5 text-xs text-gray-400">
+                            {a.country} · {a.learners} {t('dashboard.learners').toLowerCase()} ·{' '}
+                            {t('reports.outstanding')}: {formatCurrency(a.outstanding)}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

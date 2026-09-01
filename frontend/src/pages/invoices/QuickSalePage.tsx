@@ -1,10 +1,10 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+﻿import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
@@ -14,7 +14,7 @@ import { Select } from '@/components/ui/Select';
 import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
-import type { ServiceSearchItem, SeminarTier } from '@/types/service';
+import type { ProduitSearchItem, SeminarTier } from '@/types/produit';
 
 export default function QuickSalePage() {
   const { t } = useTranslation();
@@ -40,7 +40,7 @@ export default function QuickSalePage() {
   // Form state
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const serviceResultsRef = useRef<ServiceSearchItem[]>([]);
+  const serviceResultsRef = useRef<ProduitSearchItem[]>([]);
 
   const total = useMemo(
     () => (Number(unitPrice) || 0) * (Number(quantity) || 0),
@@ -159,14 +159,14 @@ export default function QuickSalePage() {
                 value={serviceId}
                 onChange={handleServiceSelect}
                 fetchOptions={async (query) => {
-                  const res = await servicesApi.search(query.trim());
+                  const res = await produitsApi.search(query.trim());
                   serviceResultsRef.current = res;
                   return res.map((s) => ({
                     id: s.id,
                     label: s.name,
                     subtitle: `${formatCurrency(Number(s.effective_price ?? s.price))}${
-                      s.has_promotion ? ' · promo' : ''
-                    }${s.category ? ` · ${s.category}` : ''}`,
+                      s.has_promotion ? ' Â· promo' : ''
+                    }${s.category ? ` Â· ${s.category}` : ''}`,
                   }));
                 }}
                 error={errors.service_id}
@@ -184,7 +184,7 @@ export default function QuickSalePage() {
                   }}
                 >
                   {seminarTiers.map((t) => (
-                    <option key={t.tier} value={t.tier}>{t.label} — {formatCurrency(Number(t.price))}</option>
+                    <option key={t.tier} value={t.tier}>{t.label} â€” {formatCurrency(Number(t.price))}</option>
                   ))}
                 </Select>
               </div>
@@ -272,7 +272,7 @@ export default function QuickSalePage() {
                 return res.map((c) => ({
                   id: c.id,
                   label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                  subtitle: [c.email, c.client_number].filter(Boolean).join(' — '),
+                  subtitle: [c.email, c.client_number].filter(Boolean).join(' â€” '),
                 }));
               }}
               error={errors.client_id}

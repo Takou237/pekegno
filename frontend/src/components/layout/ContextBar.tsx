@@ -1,9 +1,11 @@
 import { type ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Globe, Building2, FolderTree, Bell, Menu } from 'lucide-react';
+import { ChevronDown, Globe, Building2, FolderTree, Menu } from 'lucide-react';
 import { useOrgContext } from '@/context/OrgContext';
 import { UserMenu } from '@/components/common/UserMenu';
+import { NotificationBell } from '@/components/layout/NotificationBell';
+import { FavoritesMenu } from '@/components/layout/FavoritesMenu';
 import { Spinner } from '@/components/ui/Spinner';
 
 interface Option {
@@ -265,13 +267,8 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
 
       <div className="ml-auto flex items-center gap-1">
         {rightSlot}
-        <button
-          type="button"
-          className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-          aria-label={t('contextBar.notifications')}
-        >
-          <Bell className="h-4.5 w-4.5" />
-        </button>
+        <FavoritesMenu />
+        <NotificationBell />
         <UserMenu />
       </div>
     </div>

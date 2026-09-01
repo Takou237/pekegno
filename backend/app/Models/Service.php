@@ -24,6 +24,8 @@ class Service extends Model
         'price',
         'bonus_fixed',
         'is_seminar',
+        'type',
+        'course_id',
         'cover_image',
         'presentation_video',
     ];
@@ -40,6 +42,11 @@ class Service extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     public function agency(): BelongsTo
@@ -88,6 +95,14 @@ class Service extends Model
     public function scopeAvailableIn(Builder $query, string $agencyId): Builder
     {
         return $query->where(fn ($q) => $q->where('agency_id', $agencyId)->orWhereNull('agency_id'));
+    }
+
+    /**
+     * Filtre par nature de produit : physical | service | formation.
+     */
+    public function scopeOfType(Builder $query, ?string $type): Builder
+    {
+        return $type ? $query->where('type', $type) : $query;
     }
 
     public static function generateCode(): string

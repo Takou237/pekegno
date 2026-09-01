@@ -1,3 +1,5 @@
+import type { PaymentMethod } from './invoice';
+
 export type CommissionEntryStatus = 'calculated' | 'validated' | 'paid' | 'cancelled';
 
 export interface CommissionRule {
@@ -75,6 +77,7 @@ export interface CommissionPaymentPayload {
   beneficiary_type: 'seller_profile' | 'commercial';
   beneficiary_id: string;
   amount: number;
+  payment_method?: PaymentMethod;
   treasury_account_id?: string;
   note?: string;
 }
@@ -117,6 +120,7 @@ export interface CommissionPayment {
   seller_profile_id: string | null;
   commission_entry_id: string | null;
   treasury_account_id: string | null;
+  payment_method: PaymentMethod | null;
   amount: number;
   base_amount: number | null;
   rule: string | null;

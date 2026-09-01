@@ -47,6 +47,7 @@ use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\SubscriptionNotificationController;
 use App\Http\Controllers\Api\TrainerController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\TreasuryController;
 use App\Http\Controllers\Api\LearnerController;
 use App\Http\Controllers\Api\ExpenseController;
@@ -164,11 +165,13 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::get('/services/trash', [ServiceController::class, 'trash']);
     Route::get('/services/search', [ServiceController::class, 'search'])->middleware('permission:services.consulter');
+    Route::post('/services/synchronize-formations', [ServiceController::class, 'synchronizeFormations']);
     Route::post('/services/{service}/restore', [ServiceController::class, 'restore']);
     Route::delete('/services/{service}/force-delete', [ServiceController::class, 'forceDelete']);
     Route::apiResource('services', ServiceController::class);
 
     Route::post('/uploads', [UploadController::class, 'store']);
+    Route::post('/uploads/proof', [UploadController::class, 'storeProof']);
 
     Route::get('/clients/search', [ClientController::class, 'search'])->middleware('permission:clients.consulter');
     Route::get('/clients', [ClientController::class, 'index'])->middleware('permission:clients.consulter');
@@ -222,6 +225,9 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/orders/{order}/confirm', [OrderController::class, 'confirm'])->middleware('permission:orders.modifier');
     Route::post('/orders/{order}/invoice', [OrderController::class, 'invoice'])->middleware('permission:orders.modifier');
     Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->middleware('permission:orders.modifier');
+    Route::post('/orders/{order}/submit', [OrderController::class, 'submit'])->middleware('permission:orders.soumettre');
+    Route::post('/orders/{order}/validate', [OrderController::class, 'validateSubmission'])->middleware('permission:orders.valider');
+    Route::post('/orders/{order}/decline', [OrderController::class, 'decline'])->middleware('permission:orders.refuser');
     Route::get('/orders', [OrderController::class, 'index'])->middleware('permission:orders.consulter');
 
     Route::get('/promotions', [PromotionController::class, 'index'])->middleware('permission:promotions.consulter');
@@ -260,6 +266,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/stats/dashboard', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
     Route::get('/stats/group', [StatsController::class, 'group'])->middleware('permission:stats.consulter');
     Route::get('/stats/training-group', [StatsController::class, 'trainingGroup'])->middleware('permission:stats.consulter');
+    Route::get('/stats/training-agency', [StatsController::class, 'trainingGroupByAgency'])->middleware('permission:stats.consulter');
     Route::get('/stats/country/{country}', [StatsController::class, 'country'])->middleware('permission:stats.consulter');
     Route::get('/dashboard', [DashboardController::class, '__invoke'])->middleware('permission:stats.consulter');
     Route::get('/stats/agency/{agency}', [StatsController::class, 'agency'])->middleware('permission:stats.consulter');
@@ -426,4 +433,10 @@ Route::post('/commission-payments', [CommissionController::class, 'storePayment'
     Route::delete('/seller-profiles/{sellerProfile}', [SellerProfileController::class, 'destroy'])->middleware('permission:commissions.supprimer');
     Route::get('/seller-profiles/{sellerProfile}/commissions', [SellerProfileController::class, 'commissions'])->middleware('permission:commissions.consulter');
     Route::post('/seller-profiles/{sellerProfile}/pay', [SellerProfileController::class, 'payCommission'])->middleware('permission:commissions.valider');
+
+    // === Notifications in-app ===
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
 });

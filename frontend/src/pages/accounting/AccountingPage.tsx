@@ -23,6 +23,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import type { AccountingTransaction, AccountingCategory, AccountingType, AccountingTransactionPayload } from '@/types/accounting';
 import type { CommissionBeneficiary } from '@/types/commissions';
 import type { PaginationMeta } from '@/types/agency';
+import type { PaymentMethod } from '@/types/invoice';
 
 export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { agencyId: routeAgencyId } = useParams<{ agencyId?: string }>();
@@ -74,7 +75,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
   const [payOpen, setPayOpen] = useState(false);
   const [payBeneficiaries, setPayBeneficiaries] = useState<CommissionBeneficiary[]>([]);
   const [payLoading, setPayLoading] = useState(false);
-  const [payForm, setPayForm] = useState({ beneficiary_id: '', amount: '', note: '' });
+  const [payForm, setPayForm] = useState({ beneficiary_id: '', amount: '', note: '', payment_method: 'cash' as PaymentMethod });
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
   const [paySubmitting, setPaySubmitting] = useState(false);
 
@@ -267,7 +268,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
   }
 
   function openPayModal() {
-    setPayForm({ beneficiary_id: '', amount: '', note: '' });
+    setPayForm({ beneficiary_id: '', amount: '', note: '', payment_method: 'cash' as PaymentMethod });
     setPayErrors({});
     setPayOpen(true);
     setPayLoading(true);
@@ -296,6 +297,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
         beneficiary_type: beneficiary.type,
         beneficiary_id: beneficiary.id,
         amount: Number(payForm.amount),
+        payment_method: payForm.payment_method,
         note: payForm.note.trim() || undefined,
       });
       showToast(t('accounting.commissionPaid'), 'success');
@@ -526,6 +528,16 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
             onChange={(e) => setPayForm((f) => ({ ...f, amount: e.target.value }))}
             error={payErrors.amount}
           />
+
+          <Select
+            label={t('invoices.headerPaymentType')}
+            value={payForm.payment_method}
+            onChange={(e) => setPayForm((f) => ({ ...f, payment_method: e.target.value as PaymentMethod }))}
+          >
+            <option value="cash">{t('invoices.paymentCash')}</option>
+            <option value="om">{t('invoices.paymentOm')}</option>
+            <option value="momo">{t('invoices.paymentMomo')}</option>
+          </Select>
 
           <Input label={t('accounting.colNote')} value={payForm.note} onChange={(e) => setPayForm((f) => ({ ...f, note: e.target.value }))} />
 

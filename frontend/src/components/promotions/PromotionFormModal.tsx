@@ -1,7 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react';
+﻿import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { promotionsApi } from '@/api/promotions.api';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { Modal } from '@/components/ui/Modal';
@@ -9,12 +9,12 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import type { Service } from '@/types/service';
+import type { Produit } from '@/types/produit';
 import type { Promotion, PromotionPayload, PromotionType } from '@/types/promotion';
 
 interface PromotionFormModalProps {
   isOpen: boolean;
-  service?: Service | null;
+  service?: Produit | null;
   editing?: Promotion | null;
   agencyId?: string;
   onClose: () => void;
@@ -51,7 +51,7 @@ export default function PromotionFormModal({
 }: PromotionFormModalProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<Produit[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,7 +82,7 @@ export default function PromotionFormModal({
     if (!isOpen || service || editing || !agencyId) return;
     let cancelled = false;
     setIsLoadingServices(true);
-    servicesApi
+    produitsApi
       .list({ agency_id: agencyId, per_page: 100 })
       .then((r) => {
         if (!cancelled) setServices(r.data);

@@ -106,6 +106,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t, unpaidBadge),
+      { to: '/orders/validation', label: t('nav.orderValidation'), icon: ClipboardList, end: false },
       { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       catalogItem(t),
     ];
@@ -136,6 +137,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       ...baseItems,
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
       { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
+      { to: '/orders', label: t('nav.orders'), icon: ShoppingCart, end: false },
       invoiceItem(t, unpaidBadge),
       catalogItem(t),
     ];

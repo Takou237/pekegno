@@ -191,6 +191,11 @@ class CommissionController extends Controller
     {
         abort_if($entry->status !== CommissionEntry::STATUS_VALIDATED, 422, 'Impossible de payer cette commission (statut actuel : '.$entry->status.').');
 
+        $request->validate([
+            'amount' => 'nullable|numeric|min:0.01',
+            'payment_method' => 'nullable|string|in:cash,om,momo,mobile',
+        ]);
+
         $entryAmount = (float) $entry->amount;
         $amount = $request->filled('amount') ? (float) $request->input('amount') : $entryAmount;
 
@@ -218,7 +223,7 @@ class CommissionController extends Controller
                 ->first();
         }
 
-        DB::transaction(function () use ($entry, $entryAmount, $amount, $actorId, $sellerProfile, $commercial, $agencyId, $beneficiaryName, $account) {
+        DB::transaction(function () use ($entry, $entryAmount, $amount, $actorId, $sellerProfile, $commercial, $agencyId, $beneficiaryName, $account, $request) {
             $paidEntryId = $entry->id;
 
             if ($amount >= $entryAmount - 0.005) {
@@ -238,6 +243,7 @@ class CommissionController extends Controller
                 'seller_profile_id' => $sellerProfile?->id,
                 'commission_entry_id' => $paidEntryId,
                 'treasury_account_id' => $account?->id,
+                'payment_method' => $request->input('payment_method', 'cash'),
                 'amount' => $amount,
                 'base_amount' => $amount,
                 'rule' => 'commission_payment',
@@ -371,6 +377,7 @@ class CommissionController extends Controller
             'beneficiary_id' => ['required', 'uuid'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
+            'payment_method' => ['nullable', 'string', 'in:cash,om,momo,mobile'],
             'note' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -458,6 +465,7 @@ class CommissionController extends Controller
                 'seller_profile_id' => $sellerProfile?->id,
                 'commission_entry_id' => $coveredEntry,
                 'treasury_account_id' => $account?->id,
+                'payment_method' => $validated['payment_method'] ?? 'cash',
                 'amount' => $amount,
                 'base_amount' => $amount,
                 'rule' => 'commission_payment',

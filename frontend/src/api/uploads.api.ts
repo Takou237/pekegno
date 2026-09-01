@@ -12,4 +12,11 @@ export const uploadsApi = {
     const { data } = await client.post<UploadResponse>('/uploads', formData);
     return data;
   },
+
+  async uploadProof(file: File): Promise<UploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await client.post<UploadResponse>('/uploads/proof', formData);
+    return data;
+  },
 };

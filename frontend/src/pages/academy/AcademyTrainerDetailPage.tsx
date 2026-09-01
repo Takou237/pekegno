@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+﻿import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -26,7 +26,7 @@ import { useTranslation } from 'react-i18next';
 import { academyApi, type TrainerSessionItem, type TrainerStats } from '@/api/academy.api';
 import { commissionsApi } from '@/api/commissions.api';
 import { sellerProfilesApi } from '@/api/sellerProfiles.api';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { extractErrorMessage } from '@/api/errors';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
@@ -114,7 +114,7 @@ function SessionTable({
               {sessions.map((session) => (
                 <tr key={session.id}>
                   <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
-                    {session.course?.name ?? '—'}
+                    {session.course?.name ?? 'â€”'}
                   </td>
                   <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                     {new Date(session.start_at).toLocaleString(currentLocale(), {
@@ -175,7 +175,7 @@ export default function AcademyTrainerDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Pilotage des commissions : entrées du profil vendeur du formateur.
+  // Pilotage des commissions : entrÃ©es du profil vendeur du formateur.
   const [entries, setEntries] = useState<CommissionEntry[]>([]);
   const [addingEntry, setAddingEntry] = useState(false);
   const [addCategory, setAddCategory] = useState<'training' | 'service'>('training');
@@ -190,7 +190,7 @@ export default function AcademyTrainerDetailPage() {
   const [commissionValue, setCommissionValue] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Règles ciblées (service / formation) du profil vendeur.
+  // RÃ¨gles ciblÃ©es (service / formation) du profil vendeur.
   const [rules, setRules] = useState<CommissionRule[]>([]);
   const [addingRule, setAddingRule] = useState(false);
   const [ruleTarget, setRuleTarget] = useState<'course' | 'service'>('course');
@@ -284,7 +284,7 @@ export default function AcademyTrainerDetailPage() {
       const res = await commissionsApi.listEntries({ seller_profile_id: sellerProfileId, per_page: 200 });
       setEntries(res.data ?? []);
     } catch {
-      // silencieux : le tableau reste inchangé
+      // silencieux : le tableau reste inchangÃ©
     }
   }
 
@@ -384,7 +384,7 @@ export default function AcademyTrainerDetailPage() {
   }
 
   function fetchServiceOptions(query: string): Promise<AutocompleteOption[]> {
-    return servicesApi.search(query).then((items) =>
+    return produitsApi.search(query).then((items) =>
       items.map((service) => ({ id: service.id, label: service.name, subtitle: service.category ?? undefined })),
     );
   }
@@ -407,7 +407,7 @@ export default function AcademyTrainerDetailPage() {
     }
     const fullName = [data?.trainer.first_name, data?.trainer.last_name].filter(Boolean).join(' ') || data?.trainer.email;
     const payload: CommissionRulePayload = {
-      name: `${fullName || t('academy.trainer')} — ${targetLabel}`,
+      name: `${fullName || t('academy.trainer')} â€” ${targetLabel}`,
       beneficiary_seller_profile_id: sellerProfileId,
       trigger_event: ruleTrigger,
       formula_type: ruleFormula,
@@ -637,15 +637,15 @@ export default function AcademyTrainerDetailPage() {
                   {data.recent_formation_sales.map((sale) => (
                     <tr key={sale.id}>
                       <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
-                        {sale.course?.name ?? '—'}
+                        {sale.course?.name ?? 'â€”'}
                       </td>
                       <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
-                        {[sale.learner?.first_name, sale.learner?.last_name].filter(Boolean).join(' ') || '—'}
+                        {[sale.learner?.first_name, sale.learner?.last_name].filter(Boolean).join(' ') || 'â€”'}
                       </td>
                       <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                         {sale.date
                           ? new Date(sale.date).toLocaleDateString(currentLocale(), { dateStyle: 'short' })
-                          : '—'}
+                          : 'â€”'}
                       </td>
                       <td className="py-2.5 pr-4 text-right text-gray-800 dark:text-gray-100">
                         {formatCurrency(sale.amount)}
@@ -712,14 +712,14 @@ export default function AcademyTrainerDetailPage() {
                   {data.recent_service_sales.map((sale) => (
                     <tr key={sale.id}>
                       <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{sale.number}</td>
-                      <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{sale.label || '—'}</td>
+                      <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{sale.label || 'â€”'}</td>
                       <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
-                        {[sale.client?.first_name, sale.client?.last_name].filter(Boolean).join(' ') || '—'}
+                        {[sale.client?.first_name, sale.client?.last_name].filter(Boolean).join(' ') || 'â€”'}
                       </td>
                       <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                         {sale.date
                           ? new Date(sale.date).toLocaleDateString(currentLocale(), { dateStyle: 'short' })
-                          : '—'}
+                          : 'â€”'}
                       </td>
                       <td className="py-2.5 pr-4 text-right text-gray-800 dark:text-gray-100">
                         {formatCurrency(sale.amount)}
@@ -943,8 +943,8 @@ export default function AcademyTrainerDetailPage() {
                           </td>
                           <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                             {rule.course_id
-                              ? `${t('academy.categoryTraining')} — ${rule.course?.name ?? ''}`
-                              : `${t('academy.categoryService')} — ${rule.service?.name ?? ''}`}
+                              ? `${t('academy.categoryTraining')} â€” ${rule.course?.name ?? ''}`
+                              : `${t('academy.categoryService')} â€” ${rule.service?.name ?? ''}`}
                           </td>
                           <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                             {t(`commissions.trigger_${rule.trigger_event}`)}
@@ -1044,7 +1044,7 @@ export default function AcademyTrainerDetailPage() {
                         return (
                           <tr key={entry.id}>
                             <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
-                              {manual ?? entry.invoice?.number ?? '—'}
+                              {manual ?? entry.invoice?.number ?? 'â€”'}
                             </td>
                             <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                               {entry.category === 'training'
@@ -1215,7 +1215,7 @@ export default function AcademyTrainerDetailPage() {
                 {module.course && (
                   <span className="text-xs text-gray-400">
                     {module.course.name}
-                    {module.course.code ? ` · ${module.course.code}` : ''}
+                    {module.course.code ? ` Â· ${module.course.code}` : ''}
                   </span>
                 )}
               </span>

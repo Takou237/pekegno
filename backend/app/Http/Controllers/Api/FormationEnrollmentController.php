@@ -12,11 +12,13 @@ use App\Models\TrainingSession;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\InvoiceNumberGenerator;
+use App\Services\PaymentService;
 use App\Services\SellerProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class FormationEnrollmentController extends Controller
 {
@@ -24,6 +26,7 @@ class FormationEnrollmentController extends Controller
         private readonly InvoiceNumberGenerator $invoiceNumber,
         private readonly ActivityLogger $logger,
         private readonly SellerProfileService $sellerProfiles,
+        private readonly PaymentService $payments,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -65,6 +68,7 @@ class FormationEnrollmentController extends Controller
             'seller_user_id' => 'nullable|exists:users,id',
             'seller_trainer_id' => 'nullable|exists:trainers,id|prohibits:seller_user_id',
             'notes' => 'nullable|string',
+            'amount_paid' => 'nullable|numeric|min:0',
         ]);
 
         if (! User::whereKey($validated['learner_user_id'])->whereHas('role', fn ($q) => $q->where('name', 'client'))->exists()) {
@@ -99,6 +103,7 @@ class FormationEnrollmentController extends Controller
                     'enrolled_at' => $validated['enrolled_at'],
                     'invoice_id' => $invoiceId ?? $existing->invoice_id,
                     'notes' => $validated['notes'] ?? $existing->notes,
+                    'amount_paid' => (float) ($validated['amount_paid'] ?? $existing->amount_paid),
                 ]);
 
                 $enrollment = $existing;
@@ -235,9 +240,22 @@ class FormationEnrollmentController extends Controller
         }
 
         $price = (float) $course->effective_price;
+        $amountPaid = round((float) ($validated['amount_paid'] ?? 0), 2);
 
         if ($price <= 0) {
+            if ($amountPaid > 0) {
+                throw ValidationException::withMessages([
+                    'amount_paid' => 'Impossible de payer une formation gratuite.',
+                ]);
+            }
+
             return null;
+        }
+
+        if ($amountPaid > $price) {
+            throw ValidationException::withMessages([
+                'amount_paid' => "Le montant payé ne peut pas dépasser le prix de la formation ({$price} FCFA).",
+            ]);
         }
 
         $learner = User::find($validated['learner_user_id']);
@@ -309,6 +327,10 @@ class FormationEnrollmentController extends Controller
             'quantity' => 1,
             'line_total' => $price,
         ]);
+
+        if ($amountPaid > 0) {
+            $this->payments->applyPayment($invoice, $amountPaid, 'cash', false, $request->user()->id);
+        }
 
         $this->logger->log(
             action: 'created',

@@ -77,6 +77,17 @@ class InvoiceController extends Controller
             ->when($request->commercial_id, fn ($q, $id) => $q->where('commercial_id', $id))
             ->when($request->from, fn ($q, $d) => $q->whereDate('invoice_date', '>=', $d))
             ->when($request->to, fn ($q, $d) => $q->whereDate('invoice_date', '<=', $d))
+            ->when($request->course_id, fn ($q, $id) => $q->whereIn(
+                'invoices.id',
+                FormationEnrollment::query()->where('course_id', $id)->whereNotNull('invoice_id')->pluck('invoice_id')
+            ))
+            ->when($request->session_id, fn ($q, $id) => $q->whereIn(
+                'invoices.id',
+                FormationEnrollment::query()
+                    ->whereHas('sessionParticipants', fn ($p) => $p->where('training_session_id', $id))
+                    ->whereNotNull('invoice_id')
+                    ->pluck('invoice_id')
+            ))
             ->when(! $request->boolean('include_cancelled'), fn ($q) => $q->whereNull('cancelled_at'));
 
         $totals = (clone $base)->selectRaw(
@@ -146,6 +157,7 @@ class InvoiceController extends Controller
 
                 return [
                     'service_id' => $service?->id,
+                    'course_id' => $service?->type === 'formation' ? $service?->course_id : null,
                     'label' => $line['label'] ?? $service?->name,
                     'unit_price' => $pass ? (float) $pass->price : (float) ($line['unit_price'] ?? $service?->effective_price ?? 0),
                     'quantity' => (int) $line['quantity'],
@@ -213,6 +225,8 @@ class InvoiceController extends Controller
                     'pass_label' => $line['pass_label'],
                 ]);
             }
+
+            $this->registerFormationEnrollments($items, $data, $invoice, $request);
 
             if (! empty($data['advance'])) {
                 $this->applyPayment($invoice, (float) $data['advance'], $data['payment_type'] ?? 'cash', true, $request->user()->id);
@@ -355,5 +369,51 @@ class InvoiceController extends Controller
     private function applyPayment(Invoice $invoice, float $amount, string $method, bool $isAdvance, string $userId): void
     {
         $this->paymentService->applyPayment($invoice, $amount, $method, $isAdvance, $userId);
+    }
+
+    /**
+     * Quand une ligne de facture est un produit de type « formation », on inscrit
+     * automatiquement le client à la formation liée (si un client est sélectionné).
+     * La facture devient la facture d'inscription (invoice_id).
+     */
+    private function registerFormationEnrollments(iterable $items, array $data, Invoice $invoice, Request $request): void
+    {
+        $clientId = $data['client_id'] ?? null;
+
+        if (! $clientId) {
+            return;
+        }
+
+        foreach ($items as $line) {
+            $courseId = $line['course_id'] ?? null;
+
+            if (! $courseId) {
+                continue;
+            }
+
+            $existing = FormationEnrollment::where('course_id', $courseId)
+                ->where('learner_user_id', $clientId)
+                ->first();
+
+            $attributes = [
+                'course_id' => $courseId,
+                'learner_user_id' => $clientId,
+                'invoice_id' => $invoice->id,
+                'seller_user_id' => $data['seller_user_id'] ?? $request->user()->id,
+                'enrolled_at' => now(),
+                'status' => 'enrolled',
+                'notes' => $data['comment'] ?? null,
+            ];
+
+            if ($existing && $existing->status !== 'cancelled') {
+                $existing->update([
+                    'invoice_id' => $invoice->id,
+                    'status' => 'enrolled',
+                    'enrolled_at' => now(),
+                ]);
+            } else {
+                FormationEnrollment::create($attributes);
+            }
+        }
     }
 }

@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+﻿import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Plus, Download, Trash2, Pencil, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { subscriptionsApi } from '@/api/subscriptions.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { clientsApi } from '@/api/clients.api';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,7 +30,7 @@ import type {
   SubscriptionPackPayload,
 } from '@/types/subscription';
 import type { Agency, PaginationMeta } from '@/types/agency';
-import type { ServiceSearchItem } from '@/types/service';
+import type { ProduitSearchItem } from '@/types/produit';
 
 export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { t } = useTranslation();
@@ -415,7 +415,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
                         {pack.name}
                       </td>
                       <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                        {pack.description ?? '—'}
+                        {pack.description ?? 'â€”'}
                       </td>
                       <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">
                         {formatCurrency(Number(pack.price_per_month))}/mo
@@ -506,10 +506,10 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
                     <td className="px-5 py-3 text-gray-800 dark:text-gray-100">
                       {sub.client
                         ? [sub.client.first_name, sub.client.last_name].filter(Boolean).join(' ') || sub.client.email
-                        : '—'}
+                        : 'â€”'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {sub.pack?.name ?? '—'}
+                      {sub.pack?.name ?? 'â€”'}
                     </td>
                     <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
                       {sub.months}
@@ -645,7 +645,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
                 <span className="text-gray-600 dark:text-gray-400">{t('subscriptions.totalPrice')} : </span>
                 <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(total)}</span>
                 <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
-                  ({subForm.months} × {formatCurrency(pricePerMonth)})
+                  ({subForm.months} Ã— {formatCurrency(pricePerMonth)})
                 </span>
               </div>
             ) : null;
@@ -730,8 +730,8 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
                       value={ps.service_id}
                       onChange={(id) => updatePackService(index, id)}
                       fetchOptions={async (query) => {
-                        const res = await servicesApi.search(query.trim());
-                        return res.map((s: ServiceSearchItem) => ({
+                        const res = await produitsApi.search(query.trim());
+                        return res.map((s: ProduitSearchItem) => ({
                           id: s.id,
                           label: s.name,
                           subtitle: formatCurrency(Number(s.effective_price)),

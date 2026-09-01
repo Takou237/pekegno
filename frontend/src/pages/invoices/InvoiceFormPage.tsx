@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+﻿import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,7 @@ import { clientsApi } from '@/api/clients.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
 import { agenciesApi } from '@/api/agencies.api';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
@@ -17,7 +17,7 @@ import { Select } from '@/components/ui/Select';
 import { Autocomplete, FREE_TEXT_PREFIX, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
-import type { ServiceSearchItem } from '@/types/service';
+import type { ProduitSearchItem } from '@/types/produit';
 
 interface InvoiceLineDraft {
   key: string;
@@ -62,7 +62,7 @@ export default function InvoiceFormPage({
   const [lines, setLines] = useState<InvoiceLineDraft[]>([newLine()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const serviceResultsRef = useRef<Record<string, ServiceSearchItem[]>>({});
+  const serviceResultsRef = useRef<Record<string, ProduitSearchItem[]>>({});
 
   useEffect(() => {
     if (!agencyLocked || !presetAgencyId) return;
@@ -329,12 +329,14 @@ export default function InvoiceFormPage({
                     value={line.service_id}
                     onChange={(serviceId) => handleServiceSelect(line.key, serviceId)}
                       fetchOptions={async (query) => {
-                        const res = await servicesApi.search(query.trim());
+                        const res = await produitsApi.search(query.trim());
                         serviceResultsRef.current[line.key] = res;
                         return res.map((s) => ({
                           id: s.id,
                           label: s.name,
                           subtitle: `${formatCurrency(Number(s.effective_price ?? s.price))}${
+                            s.type === 'formation' ? ' · Formation' : ''
+                          }${
                             s.has_promotion ? ' · promo' : ''
                           }${s.category ? ` · ${s.category}` : ''}`,
                         }));

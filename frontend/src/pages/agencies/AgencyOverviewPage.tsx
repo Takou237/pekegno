@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,7 +15,7 @@ import {
   Clock,
   Trophy,
 } from 'lucide-react';
-import { servicesApi } from '@/api/services.api';
+import { produitsApi } from '@/api/produits.api';
 import { usersApi } from '@/api/users.api';
 import { promotionsApi } from '@/api/promotions.api';
 import { statsApi } from '@/api/stats.api';
@@ -24,7 +24,7 @@ import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import type { Agency } from '@/types/agency';
-import type { Service } from '@/types/service';
+import type { Produit } from '@/types/produit';
 import type { AgencyStats, MonthlyRevenuePoint } from '@/types/stats';
 
 interface AgencyLayoutContext {
@@ -42,7 +42,7 @@ export default function AgencyOverviewPage() {
   const [servicesCount, setServicesCount] = useState<number | null>(null);
   const [usersCount, setUsersCount] = useState<number | null>(null);
   const [promosCount, setPromosCount] = useState<number | null>(null);
-  const [latestServices, setLatestServices] = useState<Service[]>([]);
+  const [latestServices, setLatestServices] = useState<Produit[]>([]);
   const [agencyStats, setAgencyStats] = useState<AgencyStats | null>(null);
   const [monthly, setMonthly] = useState<MonthlyRevenuePoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +51,7 @@ export default function AgencyOverviewPage() {
     if (!agencyId) return;
     setIsLoading(true);
     Promise.all([
-      servicesApi
+      produitsApi
         .list({ agency_id: agencyId, per_page: 1 })
         .then((r) => setServicesCount(r.meta.total))
         .catch(() => setServicesCount(0)),
@@ -63,7 +63,7 @@ export default function AgencyOverviewPage() {
         .list({ agency_id: agencyId, status: 'active', per_page: 1 })
         .then((r) => setPromosCount(r.meta.total))
         .catch(() => setPromosCount(0)),
-      servicesApi
+      produitsApi
         .list({ agency_id: agencyId, sort_by: 'created_at', sort_order: 'desc', per_page: 4 })
         .then((r) => setLatestServices(r.data))
         .catch(() => setLatestServices([])),
@@ -246,14 +246,14 @@ export default function AgencyOverviewPage() {
             <dt className="text-xs uppercase text-gray-400">{t('agencies.colPhone')}</dt>
             <dd className="mt-1 flex items-center gap-1.5 text-gray-800 dark:text-gray-100">
               <Phone className="h-4 w-4 text-gray-400" />
-              {agency.phone ?? '—'}
+              {agency.phone ?? 'â€”'}
             </dd>
           </div>
           <div>
             <dt className="text-xs uppercase text-gray-400">{t('agencies.colEmail')}</dt>
             <dd className="mt-1 flex items-center gap-1.5 text-gray-800 dark:text-gray-100">
               <Mail className="h-4 w-4 text-gray-400" />
-              {agency.email ?? '—'}
+              {agency.email ?? 'â€”'}
             </dd>
           </div>
         </dl>

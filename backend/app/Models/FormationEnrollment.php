@@ -22,12 +22,14 @@ class FormationEnrollment extends Model
         'enrolled_at',
         'status',
         'notes',
+        'amount_paid',
     ];
 
     protected function casts(): array
     {
         return [
             'enrolled_at' => 'datetime',
+            'amount_paid' => 'decimal:2',
         ];
     }
 

@@ -19,6 +19,7 @@ import type {
   FormationEnrollmentPayload,
 } from '@/types/formation';
 import type { Department } from '@/types/department';
+import { formatCurrency } from '@/utils/number';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -51,6 +52,7 @@ interface FormState {
   seller_user_id: string;
   seller_trainer_id: string;
   notes: string;
+  amount_paid: string;
 }
 
 const SELLER_TRAINER_PREFIX = 'trainer:';
@@ -61,6 +63,7 @@ const emptyForm: FormState = {
   seller_user_id: '',
   seller_trainer_id: '',
   notes: '',
+  amount_paid: '',
 };
 
 export default function FormationEnrollmentPage() {
@@ -78,6 +81,7 @@ export default function FormationEnrollmentPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<FormationEnrollment | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [selectedCoursePrice, setSelectedCoursePrice] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -123,7 +127,9 @@ export default function FormationEnrollmentPage() {
       return response.data.map((course: Course) => ({
         id: course.id,
         label: course.name,
-        subtitle: course.code,
+        subtitle: course.effective_price != null && Number(course.effective_price) > 0
+          ? `${course.code} — ${formatCurrency(course.effective_price)}`
+          : course.code,
       }));
     },
     [agencyId],
@@ -218,6 +224,7 @@ export default function FormationEnrollmentPage() {
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
+    setSelectedCoursePrice(null);
     setFormError(null);
     setFieldErrors({});
     setFormOpen(true);
@@ -231,7 +238,15 @@ export default function FormationEnrollmentPage() {
       seller_user_id: enrollment.seller_user_id ?? '',
       seller_trainer_id: enrollment.seller_trainer_id ?? '',
       notes: enrollment.notes ?? '',
+      amount_paid: enrollment.amount_paid != null ? String(Number(enrollment.amount_paid)) : '',
     });
+    setSelectedCoursePrice(
+      enrollment.course?.effective_price != null && Number(enrollment.course.effective_price) > 0
+        ? Number(enrollment.course.effective_price)
+        : enrollment.course?.price != null && Number(enrollment.course.price) > 0
+          ? Number(enrollment.course.price)
+          : null,
+    );
     setFormError(null);
     setFieldErrors({});
     setFormOpen(true);
@@ -251,6 +266,10 @@ export default function FormationEnrollmentPage() {
       seller_trainer_id: form.seller_trainer_id || undefined,
       notes: form.notes || undefined,
     };
+
+    if (!editing && form.amount_paid) {
+      payload.amount_paid = Number(form.amount_paid);
+    }
 
     try {
       if (editing) {
@@ -368,6 +387,7 @@ export default function FormationEnrollmentPage() {
                   <th className="px-5 py-3 font-medium">{t('academy.learner')}</th>
                   <th className="px-5 py-3 font-medium">{t('nav.courses')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.price')}</th>
+                  <th className="px-5 py-3 font-medium">{t('academy.amountPaid')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.sessionsCount')}</th>
                   <th className="px-5 py-3 font-medium">{t('common.status')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.enrolledAt')}</th>
@@ -394,6 +414,11 @@ export default function FormationEnrollmentPage() {
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {enrollment.course?.price != null
                         ? `${Number(enrollment.course.price).toLocaleString()} FCFA`
+                        : '—'}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {enrollment.amount_paid != null && Number(enrollment.amount_paid) > 0
+                        ? `${Number(enrollment.amount_paid).toLocaleString()} FCFA`
                         : '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
@@ -484,8 +509,40 @@ export default function FormationEnrollmentPage() {
               value={form.course_id}
               onChange={(courseId) => setForm((prev) => ({ ...prev, course_id: courseId }))}
               fetchOptions={courseOptions}
+              onPick={(option) => {
+                const priceMatch = option.subtitle?.match(/([\d\s.,]+)\s*FCFA/);
+                setSelectedCoursePrice(priceMatch ? Number(priceMatch[1].replace(/[\s.,]/g, '')) : null);
+              }}
               error={fieldErrors.course_id}
             />
+          )}
+
+          {!editing && selectedCoursePrice != null && (
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Prix de la formation : <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(selectedCoursePrice)}</span>
+            </p>
+          )}
+
+          {!editing && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('academy.amountPaid')}
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.amount_paid}
+                onChange={(e) => setForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
+                placeholder={t('academy.amountPaidPlaceholder', {
+                  amount: selectedCoursePrice != null ? formatCurrency(selectedCoursePrice) : '',
+                })}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              />
+              {fieldErrors.amount_paid && (
+                <p className="text-sm text-error-500">{fieldErrors.amount_paid}</p>
+              )}
+            </div>
           )}
 
           <Autocomplete

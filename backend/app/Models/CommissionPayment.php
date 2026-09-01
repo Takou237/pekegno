@@ -18,6 +18,7 @@ class CommissionPayment extends Model
         'seller_profile_id',
         'commission_entry_id',
         'treasury_account_id',
+        'payment_method',
         'amount',
         'base_amount',
         'rule',
