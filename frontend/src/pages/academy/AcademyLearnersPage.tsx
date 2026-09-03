@@ -81,6 +81,7 @@ export default function AcademyLearnersPage() {
   const [isSubmittingEnrollment, setIsSubmittingEnrollment] = useState(false);
   const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
   const [enrollmentFieldErrors, setEnrollmentFieldErrors] = useState<Record<string, string>>({});
+  const [enrollmentCourses, setEnrollmentCourses] = useState<Course[]>([]);
 
   // Modal nouvel apprenant : création d'un user rôle « client ».
   const [learnerOpen, setLearnerOpen] = useState(false);
@@ -126,11 +127,30 @@ export default function AcademyLearnersPage() {
       return response.data.map((course: Course) => ({
         id: course.id,
         label: course.name,
-        subtitle: course.code,
+        subtitle: course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : course.code,
       }));
     },
     [agencyId],
   );
+
+  useEffect(() => {
+    if (!enrollmentOpen || !agencyId) return;
+    let active = true;
+    academyApi
+      .courses({ agency_id: agencyId, per_page: 100 })
+      .then((res) => {
+        if (active) setEnrollmentCourses(res.data);
+      })
+      .catch(() => {
+        if (active) setEnrollmentCourses([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [enrollmentOpen, agencyId]);
+
+  const selectedEnrollmentCourse =
+    (courseId: string) => enrollmentCourses.find((c) => c.id === courseId) ?? null;
 
   const learnerOptions = useCallback(
     async (query: string) => {

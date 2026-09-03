@@ -70,6 +70,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     return [
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/countries', label: t('nav.geography'), icon: Globe, end: false },
+      { to: '/academy', label: t('nav.academy'), icon: GraduationCap, end: false },
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
     ];
   }

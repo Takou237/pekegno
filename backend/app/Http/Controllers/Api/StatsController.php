@@ -635,7 +635,23 @@ class StatsController extends Controller
      */
     public function trainingGroup(Request $request): JsonResponse
     {
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $scopeService = app(\App\Services\ScopeService::class);
+        $agencyIds = $scopeService->agencyIds($request->user());
+
+        if ($request->filled('agency_id')) {
+            $agencyId = $request->input('agency_id');
+            $agencyIds = $agencyIds === null
+                ? [$agencyId]
+                : array_values(array_intersect($agencyIds, [$agencyId]));
+        } elseif ($request->filled('country_id')) {
+            $countryAgencyIds = \App\Models\Agency::where('country_id', $request->input('country_id'))
+                ->pluck('id')
+                ->map(fn ($id) => (string) $id)
+                ->all();
+            $agencyIds = $agencyIds === null
+                ? ($countryAgencyIds ?: null)
+                : array_values(array_intersect($agencyIds, $countryAgencyIds));
+        }
 
         $service = app(\App\Services\AcademyReportService::class);
 

@@ -22,6 +22,7 @@ const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
 const RegisterPage = lazy(() => import('@/pages/register/RegisterPage'));
 const PEKEGNOGroupDashboard = lazy(() => import('@/pages/dashboard/PEKEGNOGroupDashboard'));
+const AcademyDashboardPage = lazy(() => import('@/pages/dashboard/AcademyDashboardPage'));
 const CountryDashboardPage = lazy(() => import('@/pages/dashboard/CountryDashboardPage'));
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 const AgencyListPage = lazy(() => import('@/pages/agencies/AgencyListPage'));
@@ -188,6 +189,7 @@ export const router = createBrowserRouter([
           { path: '/invoices/quick', element: page(<QuickSalePage />, form) },
           { path: '/invoices/:id', element: page(<InvoiceDetailPage />, detail) },
           { path: '/audit', element: page(<ActivityLogPage />, table) },
+          { path: '/academy', element: page(<AcademyDashboardPage />, dashboard) },
           { path: '/settings', element: page(<SettingsPage />, detail) },
           { path: '/catalog', element: <Navigate to="/catalog/services" replace /> },
           { path: '/catalog/categories', element: page(<CategoryListPage />, table) },
@@ -219,6 +221,7 @@ export const router = createBrowserRouter([
           { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: 'invoices/:id', element: page(<InvoiceDetailPage />, detail) },
           { path: 'audit', element: page(<ActivityLogPage />, table) },
+          { path: 'academy', element: page(<AcademyDashboardPage />, dashboard) },
           { path: 'settings', element: page(<SettingsPage />, detail) },
           { path: 'catalog', element: <Navigate to="services" replace /> },
           { path: 'catalog/categories', element: page(<CategoryListPage />, table) },

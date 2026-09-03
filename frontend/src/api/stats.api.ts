@@ -65,8 +65,10 @@ export const statsApi = {
     return data;
   },
 
-  async trainingGroup(): Promise<GroupReportStats> {
-    const { data } = await client.get<GroupReportStats>('/stats/training-group');
+  async trainingGroup(params: { countryId?: string; agencyId?: string } = {}): Promise<GroupReportStats> {
+    const { data } = await client.get<GroupReportStats>('/stats/training-group', {
+      params: { country_id: params.countryId, agency_id: params.agencyId },
+    });
     return data;
   },
 };

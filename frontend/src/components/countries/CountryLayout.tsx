@@ -14,6 +14,7 @@ import {
   CalendarCheck,
   BarChart3,
   Contact,
+  GraduationCap,
 } from 'lucide-react';
 import { countriesApi } from '@/api/countries.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -34,6 +35,7 @@ function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
     { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
     { to: 'subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
     { to: 'commercials/report', label: t('nav.commercialReport'), icon: Briefcase, end: false },
+    { to: 'academy', label: t('nav.academy'), icon: GraduationCap, end: false },
     { to: 'audit', label: t('nav.audit'), icon: FileText, end: false },
     { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
   ];

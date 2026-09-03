@@ -82,6 +82,8 @@ export default function FormationEnrollmentPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  const [courses, setCourses] = useState<Course[]>([]);
+
   const [statusModal, setStatusModal] = useState<FormationEnrollment | null>(null);
   const [newStatus, setNewStatus] = useState<EnrollmentStatus>('enrolled');
 
@@ -118,15 +120,36 @@ export default function FormationEnrollmentPage() {
       const response = await academyApi.courses({
         agency_id: agencyId,
         search: query.trim() || undefined,
-        per_page: 20,
+        per_page: 100,
       });
       return response.data.map((course: Course) => ({
         id: course.id,
         label: course.name,
-        subtitle: course.code,
+        subtitle: course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : course.code,
       }));
     },
     [agencyId],
+  );
+
+  useEffect(() => {
+    if (!formOpen || !agencyId) return;
+    let active = true;
+    academyApi
+      .courses({ agency_id: agencyId, per_page: 100 })
+      .then((res) => {
+        if (active) setCourses(res.data);
+      })
+      .catch(() => {
+        if (active) setCourses([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [formOpen, agencyId]);
+
+  const selectedCourse = useCallback(
+    (courseId: string) => courses.find((c) => c.id === courseId) ?? null,
+    [courses],
   );
 
   const learnerOptions = useCallback(
@@ -478,14 +501,33 @@ export default function FormationEnrollmentPage() {
           {formError && <Alert variant="error">{formError}</Alert>}
 
           {!editing && (
-            <Autocomplete
-              label={`${t('nav.courses')} *`}
-              placeholder={t('academy.searchCoursePlaceholder')}
-              value={form.course_id}
-              onChange={(courseId) => setForm((prev) => ({ ...prev, course_id: courseId }))}
-              fetchOptions={courseOptions}
-              error={fieldErrors.course_id}
-            />
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('nav.courses')} *
+              </label>
+              <select
+                value={form.course_id}
+                onChange={(e) => setForm((prev) => ({ ...prev, course_id: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              >
+                <option value="">{t('academy.searchCoursePlaceholder')}</option>
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.name} — {course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : '—'}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.course_id && (
+                <p className="mt-1 text-sm text-error-500">{fieldErrors.course_id}</p>
+              )}
+              {selectedCourse(form.course_id)?.price != null && (
+                <p className="mt-2 rounded-lg bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                  {t('academy.priceToPay', {
+                    amount: Number(selectedCourse(form.course_id)?.price).toLocaleString(),
+                  })}
+                </p>
+              )}
+            </div>
           )}
 
           <Autocomplete
