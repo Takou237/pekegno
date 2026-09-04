@@ -160,13 +160,24 @@ export default function AgencyAcademyFormations({ agencyId }: AgencyAcademyForma
                   )}
 
                   <div className="mt-3 flex items-baseline gap-2">
-                    {course.price != null ? (
+                    {course.effective_price != null ? (
+                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {formatCurrency(course.effective_price)}
+                      </span>
+                    ) : course.price != null ? (
                       <span className="text-lg font-semibold text-gray-900 dark:text-white">
                         {formatCurrency(course.price)}
                       </span>
                     ) : (
                       <span className="text-sm text-gray-400">—</span>
                     )}
+                    {course.effective_price != null &&
+                      course.price != null &&
+                      Number(course.effective_price) < Number(course.price) && (
+                        <span className="text-sm text-gray-400 line-through">
+                          {formatCurrency(course.price)}
+                        </span>
+                      )}
                   </div>
 
                   <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-gray-50 px-3 py-2 text-center dark:bg-gray-800/50">

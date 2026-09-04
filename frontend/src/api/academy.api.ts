@@ -306,9 +306,19 @@ export interface LearnerStats {
     completion_rate: number;
     total_invested: number;
     hours_completed: number;
+    courses_progress: CourseProgressItem[];
   };
   upcoming_sessions: LearnerEnrollmentItem[];
   recent_enrollments: LearnerEnrollmentItem[];
+}
+
+export interface CourseProgressItem {
+  course_id: string;
+  course_name: string;
+  course_code: string;
+  total_sessions: number;
+  completed_sessions: number;
+  progress_percent: number;
 }
 
 export const academyApi = {

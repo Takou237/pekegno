@@ -381,7 +381,7 @@ export default function AcademyLearnersPage() {
               <option value="">{t('academy.selectCourse')}</option>
               {enrollmentCourses.map((course) => (
                 <option key={course.id} value={course.id}>
-                  {`${course.name} — ${course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : course.code}`}
+                  {`${course.name} — ${course.effective_price != null ? `${Number(course.effective_price).toLocaleString()} FCFA` : course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : course.code}`}
                 </option>
               ))}
             </select>
@@ -390,9 +390,9 @@ export default function AcademyLearnersPage() {
             )}
           </div>
 
-          {selectedEnrollmentCourse(enrollmentForm.course_id)?.price != null && (
+          {(selectedEnrollmentCourse(enrollmentForm.course_id)?.effective_price != null || selectedEnrollmentCourse(enrollmentForm.course_id)?.price != null) && (
             <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
-              {t('academy.priceToPay', { amount: Number(selectedEnrollmentCourse(enrollmentForm.course_id)?.price).toLocaleString() })}
+              {t('academy.priceToPay', { amount: Number(selectedEnrollmentCourse(enrollmentForm.course_id)?.effective_price ?? selectedEnrollmentCourse(enrollmentForm.course_id)?.price).toLocaleString() })}
             </div>
           )}
 

@@ -4,6 +4,8 @@ import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, Wallet } from 'lucide-rea
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { sellerProfilesApi, type CommissionEntry, type CommissionPayment } from '@/api/sellerProfiles.api';
+import type { CommissionPaymentMethod } from '@/types/commissions';
+import { COMMISSION_PAYMENT_METHODS } from '@/types/commissions';
 import { usersApi } from '@/api/users.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -73,12 +75,14 @@ const emptyForm: FormState = {
 interface PayFormState {
   amount: string;
   commission_entry_id: string;
+  payment_method: CommissionPaymentMethod;
   note: string;
 }
 
 const emptyPayForm: PayFormState = {
   amount: '',
   commission_entry_id: '',
+  payment_method: 'especes',
   note: '',
 };
 
@@ -291,6 +295,7 @@ export default function SellerProfilesPage() {
       await sellerProfilesApi.payCommission(payModal.id, {
         amount: Number(payForm.amount),
         commission_entry_id: payForm.commission_entry_id || undefined,
+        payment_method: payForm.payment_method,
         note: payForm.note || undefined,
       });
       showToast(t('academy.commissionPaid'), 'success');
@@ -669,6 +674,27 @@ export default function SellerProfilesPage() {
             value={payForm.commission_entry_id}
             onChange={(e) => setPayForm((prev) => ({ ...prev, commission_entry_id: e.target.value }))}
           />
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('payments.paymentMethod')}
+            </label>
+            <select
+              value={payForm.payment_method}
+              onChange={(e) => setPayForm((prev) => ({ ...prev, payment_method: e.target.value as CommissionPaymentMethod }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              {COMMISSION_PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {m === 'especes'
+                    ? t('payments.cash')
+                    : m === 'orange_money'
+                      ? t('payments.orangeMoney')
+                      : t('payments.mobileMoney')}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">

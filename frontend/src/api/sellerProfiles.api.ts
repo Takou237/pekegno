@@ -57,7 +57,7 @@ export const sellerProfilesApi = {
     return data;
   },
 
-  async payCommission(id: string, payload: { amount: number; treasury_account_id?: string; commission_entry_id?: string; note?: string }): Promise<CommissionPayment> {
+  async payCommission(id: string, payload: { amount: number; treasury_account_id?: string; commission_entry_id?: string; payment_method?: string; note?: string }): Promise<CommissionPayment> {
     const { data } = await client.post<CommissionPayment>(`/seller-profiles/${id}/pay`, payload);
     return data;
   },

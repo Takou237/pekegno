@@ -290,6 +290,32 @@ class LearnerController extends Controller
             ->take(5)
             ->values();
 
+        $attendedSessionIds = \App\Models\Attendance::where('learner_user_id', $learner->id)
+            ->where('status', 'present')
+            ->pluck('training_session_id')
+            ->unique()
+            ->flip();
+
+        $coursesProgress = $participants
+            ->reject(fn ($p) => $p->status === 'cancelled' || $p->session === null || $p->session->course === null)
+            ->groupBy(fn ($p) => $p->session->course_id)
+            ->map(function ($group) use ($attendedSessionIds) {
+                $course = $group->first()->session->course;
+                $total = $group->count();
+                $completed = $group->filter(function ($p) use ($attendedSessionIds) {
+                    return isset($attendedSessionIds[$p->training_session_id]);
+                })->count();
+                return [
+                    'course_id' => $course->id,
+                    'course_name' => $course->name,
+                    'course_code' => $course->code,
+                    'total_sessions' => $total,
+                    'completed_sessions' => $completed,
+                    'progress_percent' => $total > 0 ? round($completed / $total * 100, 1) : 0.0,
+                ];
+            })
+            ->values();
+
         return response()->json([
             'learner' => [
                 'id' => $learner->id,
@@ -317,6 +343,7 @@ class LearnerController extends Controller
                     : 0.0,
                 'total_invested' => round($invested, 2),
                 'hours_completed' => round($hoursCompleted, 1),
+                'courses_progress' => $coursesProgress,
             ],
             'upcoming_sessions' => $upcoming->map(fn ($p) => $this->formatSession($p))->values(),
             'recent_enrollments' => $recent->map(fn ($p) => $this->formatSession($p))->values(),

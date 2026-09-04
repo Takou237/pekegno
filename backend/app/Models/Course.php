@@ -15,6 +15,8 @@ class Course extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
 
+    protected $appends = ['effective_price'];
+
     protected $fillable = [
         'code',
         'name',

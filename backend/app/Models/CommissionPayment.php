@@ -21,6 +21,7 @@ class CommissionPayment extends Model
         'amount',
         'base_amount',
         'rule',
+        'payment_method',
         'rate',
         'invoice_total',
         'created_by',

@@ -1343,6 +1343,10 @@ export default {
     searchPlaceholder: 'Search transactions...',
     filterType: 'Type',
     filterCategory: 'Category',
+    filterCountry: 'Country',
+    filterAgency: 'Agency',
+    allCountries: 'All countries',
+    allAgencies: 'All agencies',
     typeIncome: 'Income',
     typeExpense: 'Expense',
     totalIncome: 'Total income',
@@ -1539,6 +1543,13 @@ export default {
     entryValidated: 'Commission validated.',
     entryPaid: 'Commission paid.',
     entryCancelled: 'Commission cancelled.',
+  },
+
+  payments: {
+    paymentMethod: 'Payment method',
+    cash: 'Cash',
+    orangeMoney: 'Orange Money',
+    mobileMoney: 'MTN Mobile Money',
   },
 
   companies: {
@@ -1791,6 +1802,8 @@ export default {
     recentEnrollments: 'Recent enrollments',
     noEnrollments: 'No enrollments.',
     noCertificates: 'No certificates.',
+    progressByCourse: 'Progress by course',
+    noCourseProgress: 'No courses in progress.',
     observations: 'Observations',
     noObservations: 'No observations.',
     addObservationPlaceholder: 'Add an observation…',

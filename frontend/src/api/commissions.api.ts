@@ -53,8 +53,8 @@ export const commissionsApi = {
     return client.post(`/commissions/entries/${id}/validate`).then((r) => r.data);
   },
 
-  payEntry(id: string): Promise<CommissionEntry> {
-    return client.post(`/commissions/entries/${id}/pay`).then((r) => r.data);
+  payEntry(id: string, payload?: { payment_method?: string }): Promise<CommissionEntry> {
+    return client.post(`/commissions/entries/${id}/pay`, payload).then((r) => r.data);
   },
 
   cancelEntry(id: string): Promise<CommissionEntry> {

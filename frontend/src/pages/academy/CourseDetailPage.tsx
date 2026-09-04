@@ -19,6 +19,8 @@ import {
   type SessionStatus,
   type TrainingSession,
 } from '@/api/academy.api';
+import { commercialsApi } from '@/api/commercials.api';
+import { employeesApi } from '@/api/employees.api';
 import type {
   CourseModule as CourseModuleType,
   FormationEnrollment,
@@ -93,8 +95,19 @@ interface SessionFormState {
 
 interface EnrollmentFormState {
   learner_user_id: string;
+  seller_user_id: string;
+  seller_trainer_id: string;
   notes: string;
 }
+
+const SELLER_TRAINER_PREFIX = 'trainer:';
+
+const emptyEnrollForm: EnrollmentFormState = {
+  learner_user_id: '',
+  seller_user_id: '',
+  seller_trainer_id: '',
+  notes: '',
+};
 
 export default function CourseDetailPage() {
   const { t } = useTranslation();
@@ -127,13 +140,23 @@ export default function CourseDetailPage() {
   const [sessionFieldErrors, setSessionFieldErrors] = useState<Record<string, string>>({});
 
   const [enrollOpen, setEnrollOpen] = useState(false);
-  const [enrollForm, setEnrollForm] = useState<EnrollmentFormState>({ learner_user_id: '', notes: '' });
+  const [enrollForm, setEnrollForm] = useState<EnrollmentFormState>(emptyEnrollForm);
   const [enrollSubmitting, setEnrollSubmitting] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [enrollFieldErrors, setEnrollFieldErrors] = useState<Record<string, string>>({});
 
   const [deleteSession, setDeleteSession] = useState<TrainingSession | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [moduleFormOpen, setModuleFormOpen] = useState(false);
+  const [moduleForm, setModuleForm] = useState<{ name: string; description: string; trainer_id: string }>({
+    name: '',
+    description: '',
+    trainer_id: '',
+  });
+  const [moduleSubmitting, setModuleSubmitting] = useState(false);
+  const [moduleError, setModuleError] = useState<string | null>(null);
+  const [moduleFieldErrors, setModuleFieldErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     if (!courseId || !agencyId) return;
@@ -187,6 +210,33 @@ export default function CourseDetailPage() {
     [agencyId],
   );
 
+  async function handleCreateModule(event: FormEvent) {
+    event.preventDefault();
+    if (!courseId) return;
+    setModuleError(null);
+    setModuleFieldErrors({});
+    setModuleSubmitting(true);
+    try {
+      const saved = await academyApi.createModule(courseId, {
+        name: moduleForm.name.trim(),
+        description: moduleForm.description.trim() || undefined,
+        trainer_id: moduleForm.trainer_id || undefined,
+        order_index: modules.length,
+      });
+      setModules((prev) => [...prev, saved]);
+      setModuleFormOpen(false);
+      setModuleForm({ name: '', description: '', trainer_id: '' });
+      showToast(t('academy.saved'), 'success');
+    } catch (error) {
+      const message = extractErrorMessage(error, t('academy.saveFailed'));
+      setModuleError(message);
+      const rest = extractFieldErrors(error);
+      setModuleFieldErrors(rest);
+    } finally {
+      setModuleSubmitting(false);
+    }
+  }
+
   const moduleOptions = useCallback(
     async (query: string) => {
       const q = query.trim().toLowerCase();
@@ -212,6 +262,74 @@ export default function CourseDetailPage() {
       }));
     },
     [agencyId],
+  );
+
+  const sellerOptions = useCallback(
+    async (query: string) => {
+      if (!agencyId) return [];
+      type SellerEntry = {
+        user_id: string;
+        name: string;
+        email: string;
+        kind: 'commercial' | 'employe' | 'trainer';
+      };
+      const [commercials, employees, trainers] = await Promise.all([
+        commercialsApi.list({ agency_id: agencyId, per_page: 100 }),
+        employeesApi.list({ agency_id: agencyId, per_page: 100 }),
+        academyApi.trainers({ agency_id: agencyId, per_page: 100 }),
+      ]);
+      const entries: SellerEntry[] = [
+        ...commercials.data.map((c) => ({
+          user_id: c.user_id,
+          name: `${c.first_name} ${c.last_name}`.trim(),
+          email: c.email ?? '',
+          kind: 'commercial' as const,
+        })),
+        ...employees.data.map((e) => ({
+          user_id: e.user_id,
+          name: `${e.first_name} ${e.last_name}`.trim(),
+          email: e.email ?? '',
+          kind: 'employe' as const,
+        })),
+        ...trainers.data
+          .filter((tr) => tr.user_id)
+          .map((tr) => ({
+            user_id: tr.user_id as string,
+            name: [tr.first_name, tr.last_name].filter(Boolean).join(' ').trim(),
+            email: tr.email ?? '',
+            kind: 'trainer' as const,
+          })),
+        ...trainers.data
+          .filter((tr) => !tr.user_id && tr.id)
+          .map((tr) => ({
+            user_id: SELLER_TRAINER_PREFIX + tr.id,
+            name: [tr.first_name, tr.last_name].filter(Boolean).join(' ').trim(),
+            email: tr.email ?? '',
+            kind: 'trainer' as const,
+          })),
+      ].filter((o): o is SellerEntry => Boolean(o.user_id));
+
+      const all = Array.from(new Map(entries.map((entry) => [entry.user_id, entry])).values());
+
+      const q = query.trim().toLowerCase();
+      const filtered = q
+        ? all.filter((o) => o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q))
+        : all;
+      return filtered.map((o) => {
+        const kindLabel =
+          o.kind === 'trainer'
+            ? t('academy.trainer')
+            : o.kind === 'employe'
+              ? t('academy.employee')
+              : t('academy.commercial');
+        return {
+          id: o.user_id,
+          label: o.name || o.email || o.user_id,
+          subtitle: [o.email, kindLabel].filter(Boolean).join(' · '),
+        };
+      });
+    },
+    [agencyId, t],
   );
 
   function openCreateSession() {
@@ -257,7 +375,7 @@ export default function CourseDetailPage() {
   }
 
   function openEnroll() {
-    setEnrollForm({ learner_user_id: '', notes: '' });
+    setEnrollForm(emptyEnrollForm);
     setEnrollError(null);
     setEnrollFieldErrors({});
     setEnrollOpen(true);
@@ -272,6 +390,9 @@ export default function CourseDetailPage() {
     const payload: FormationEnrollmentPayload = {
       course_id: courseId,
       learner_user_id: enrollForm.learner_user_id,
+      ...(enrollForm.seller_trainer_id
+        ? { seller_trainer_id: enrollForm.seller_trainer_id }
+        : { seller_user_id: enrollForm.seller_user_id || undefined }),
       notes: enrollForm.notes || undefined,
     };
     try {
@@ -547,7 +668,14 @@ export default function CourseDetailPage() {
       )}
 
       {tab === 'modules' && (
-        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-end">
+            <Button onClick={() => setModuleFormOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              {t('academy.newModule')}
+            </Button>
+          </div>
+          <div className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
           {modules.length === 0 ? (
             <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">{t('academy.noModules')}</p>
           ) : (
@@ -576,6 +704,7 @@ export default function CourseDetailPage() {
               ))}
             </ul>
           )}
+          </div>
         </div>
       )}
 
@@ -680,9 +809,9 @@ export default function CourseDetailPage() {
               className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             />
           </div>
-          {course.price != null && (
+          {(course.effective_price != null || course.price != null) && (
             <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
-              {t('academy.priceToPay', { amount: Number(course.price).toLocaleString() })}
+              {t('academy.priceToPay', { amount: Number(course.effective_price ?? course.price).toLocaleString() })}
             </div>
           )}
           <Autocomplete
@@ -692,6 +821,20 @@ export default function CourseDetailPage() {
             onChange={(learnerId) => setEnrollForm((prev) => ({ ...prev, learner_user_id: learnerId }))}
             fetchOptions={learnerOptions}
             error={enrollFieldErrors.learner_user_id}
+          />
+          <Autocomplete
+            label={t('academy.seller')}
+            placeholder={t('academy.searchSellerPlaceholder')}
+            value={enrollForm.seller_trainer_id ? SELLER_TRAINER_PREFIX + enrollForm.seller_trainer_id : enrollForm.seller_user_id}
+            onChange={(id) =>
+              setEnrollForm((prev) =>
+                id.startsWith(SELLER_TRAINER_PREFIX)
+                  ? { ...prev, seller_trainer_id: id.slice(SELLER_TRAINER_PREFIX.length), seller_user_id: '' }
+                  : { ...prev, seller_user_id: id, seller_trainer_id: '' },
+              )
+            }
+            fetchOptions={sellerOptions}
+            error={enrollFieldErrors.seller_user_id || enrollFieldErrors.seller_trainer_id}
           />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -709,6 +852,50 @@ export default function CourseDetailPage() {
               {t('common.cancel')}
             </Button>
             <Button type="submit" isLoading={enrollSubmitting} className="flex-1">
+              {t('common.create')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={moduleFormOpen}
+        onClose={() => setModuleFormOpen(false)}
+        title={t('academy.newModule')}
+        maxWidth="max-w-lg"
+      >
+        <form onSubmit={handleCreateModule} className="flex flex-col gap-4">
+          {moduleError && <Alert variant="error">{moduleError}</Alert>}
+          <Input
+            label={`${t('academy.moduleName')} *`}
+            value={moduleForm.name}
+            onChange={(e) => setModuleForm((prev) => ({ ...prev, name: e.target.value }))}
+            error={moduleFieldErrors.name}
+          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.description')}
+            </label>
+            <textarea
+              value={moduleForm.description}
+              onChange={(e) => setModuleForm((prev) => ({ ...prev, description: e.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            />
+          </div>
+          <Autocomplete
+            label={t('academy.trainer')}
+            placeholder={t('academy.searchTrainerPlaceholder')}
+            value={moduleForm.trainer_id}
+            onChange={(trainerId) => setModuleForm((prev) => ({ ...prev, trainer_id: trainerId }))}
+            fetchOptions={trainerOptions}
+            error={moduleFieldErrors.trainer_id}
+          />
+          <div className="mt-2 flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setModuleFormOpen(false)} disabled={moduleSubmitting} className="flex-1">
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" isLoading={moduleSubmitting} className="flex-1">
               {t('common.create')}
             </Button>
           </div>

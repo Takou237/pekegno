@@ -84,7 +84,9 @@ class TrainingSession extends Model
      */
     public function getEffectivePriceAttribute(): float
     {
-        return $this->price !== null ? (float) $this->price : (float) $this->course?->price;
+        return $this->price !== null
+            ? (float) $this->price
+            : (float) ($this->course?->effective_price ?? $this->course?->price ?? 0);
     }
 
     public function isFull(): bool

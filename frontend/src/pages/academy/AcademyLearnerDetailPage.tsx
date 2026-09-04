@@ -366,6 +366,44 @@ export default function AcademyLearnerDetailPage() {
         </div>
       </div>
 
+      {/* Progression par formation */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <BookOpen className="h-4 w-4" />
+          {t('academy.progressByCourse')}
+        </h2>
+        {stats.courses_progress && stats.courses_progress.length === 0 ? (
+          <p className="text-sm text-gray-400">{t('academy.noCourseProgress')}</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {(stats.courses_progress ?? []).map((course) => (
+              <div key={course.course_id}>
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                    {course.course_name}
+                    <span className="ml-2 font-mono text-xs font-normal text-gray-400">{course.course_code}</span>
+                  </span>
+                  <span className="text-xs font-semibold text-brand-600 dark:text-brand-300">
+                    {course.progress_percent}%
+                    <span className="ml-1 font-normal text-gray-400">
+                      ({course.completed_sessions}/{course.total_sessions})
+                    </span>
+                  </span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      course.progress_percent >= 100 ? 'bg-success-500' : 'bg-brand-500'
+                    }`}
+                    style={{ width: `${Math.min(course.progress_percent, 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Certificats obtenus */}
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">

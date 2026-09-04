@@ -1,5 +1,13 @@
 export type CommissionEntryStatus = 'calculated' | 'validated' | 'paid' | 'cancelled';
 
+export type CommissionPaymentMethod = 'especes' | 'orange_money' | 'mobile_money';
+
+export const COMMISSION_PAYMENT_METHODS: CommissionPaymentMethod[] = [
+  'especes',
+  'orange_money',
+  'mobile_money',
+];
+
 export interface CommissionRule {
   id: string;
   rule_group_id: string;
@@ -76,6 +84,7 @@ export interface CommissionPaymentPayload {
   beneficiary_id: string;
   amount: number;
   treasury_account_id?: string;
+  payment_method?: CommissionPaymentMethod;
   note?: string;
 }
 
@@ -117,6 +126,7 @@ export interface CommissionPayment {
   seller_profile_id: string | null;
   commission_entry_id: string | null;
   treasury_account_id: string | null;
+  payment_method?: CommissionPaymentMethod | null;
   amount: number;
   base_amount: number | null;
   rule: string | null;

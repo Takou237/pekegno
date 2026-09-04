@@ -1351,6 +1351,10 @@ export default {
     searchPlaceholder: 'Rechercher une transaction...',
     filterType: 'Type',
     filterCategory: 'Catégorie',
+    filterCountry: 'Pays',
+    filterAgency: 'Agence',
+    allCountries: 'Tous les pays',
+    allAgencies: 'Toutes les agences',
     typeIncome: 'Entrées',
     typeExpense: 'Sorties',
     totalIncome: 'Total recettes',
@@ -1547,6 +1551,13 @@ export default {
     entryValidated: 'Commission validée.',
     entryPaid: 'Commission payée.',
     entryCancelled: 'Commission annulée.',
+  },
+
+  payments: {
+    paymentMethod: 'Moyen de paiement',
+    cash: 'Espèces',
+    orangeMoney: 'Orange Money',
+    mobileMoney: 'MTN Mobile Money',
   },
 
   companies: {
@@ -1799,6 +1810,8 @@ export default {
     recentEnrollments: 'Inscriptions récentes',
     noEnrollments: 'Aucune inscription.',
     noCertificates: 'Aucun certificat.',
+    progressByCourse: 'Progression par formation',
+    noCourseProgress: 'Aucune formation en cours.',
     observations: 'Observations',
     noObservations: 'Aucune observation.',
     addObservationPlaceholder: 'Ajouter une observation…',

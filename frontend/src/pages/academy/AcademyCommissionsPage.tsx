@@ -16,7 +16,8 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { Autocomplete } from '@/components/ui/Autocomplete';
-import type { CommissionBeneficiary, CommissionRule, CommissionPaymentPayload } from '@/types/commissions';
+import type { CommissionBeneficiary, CommissionRule, CommissionPaymentPayload, CommissionPaymentMethod } from '@/types/commissions';
+import { COMMISSION_PAYMENT_METHODS } from '@/types/commissions';
 import type { SellerProfile } from '@/types/formation';
 import type { Commercial } from '@/types/commercial';
 
@@ -31,10 +32,11 @@ type Tab = (typeof TABS)[number];
 
 interface PayFormState {
   amount: string;
+  payment_method: CommissionPaymentMethod;
   note: string;
 }
 
-const emptyPayForm: PayFormState = { amount: '', note: '' };
+const emptyPayForm: PayFormState = { amount: '', payment_method: 'especes', note: '' };
 const TRIGGERS = ['on_sale', 'on_payment', 'on_full_payment'] as const;
 
 export default function AcademyCommissionsPage() {
@@ -62,7 +64,7 @@ export default function AcademyCommissionsPage() {
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versions, setVersions] = useState<CommissionRule[]>([]);
   const [payModal, setPayModal] = useState<CommissionBeneficiary | null>(null);
-  const [payForm, setPayForm] = useState({ amount: '', note: '' });
+  const [payForm, setPayForm] = useState({ amount: '', payment_method: 'especes' as CommissionPaymentMethod, note: '' });
   const [isPaying, setIsPaying] = useState(false);
 
   const loadRules = useCallback(() => {
@@ -201,6 +203,7 @@ export default function AcademyCommissionsPage() {
         beneficiary_type: payModal.type,
         beneficiary_id: payModal.id,
         amount: Number(payForm.amount),
+        payment_method: payForm.payment_method,
         note: payForm.note || undefined,
       };
       await commissionsApi.payCommission(payload);
@@ -596,6 +599,22 @@ export default function AcademyCommissionsPage() {
               </div>
             </div>
           )}
+
+          <Select
+            label={t('payments.paymentMethod')}
+            value={payForm.payment_method}
+            onChange={(e) => setPayForm((p) => ({ ...p, payment_method: e.target.value as CommissionPaymentMethod }))}
+          >
+            {COMMISSION_PAYMENT_METHODS.map((m) => (
+              <option key={m} value={m}>
+                {m === 'especes'
+                  ? t('payments.cash')
+                  : m === 'orange_money'
+                    ? t('payments.orangeMoney')
+                    : t('payments.mobileMoney')}
+              </option>
+            ))}
+          </Select>
 
           <Input
             label={`${t('common.amount')} *`}

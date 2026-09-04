@@ -4,6 +4,8 @@ import { Plus, Download, Pencil, Trash2, Tag, Banknote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { accountingApi } from '@/api/accounting.api';
 import { commissionsApi } from '@/api/commissions.api';
+import { countriesApi } from '@/api/countries.api';
+import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,6 +24,8 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import type { AccountingTransaction, AccountingCategory, AccountingType, AccountingTransactionPayload } from '@/types/accounting';
 import type { CommissionBeneficiary } from '@/types/commissions';
+import type { CommissionPaymentMethod } from '@/types/commissions';
+import { COMMISSION_PAYMENT_METHODS } from '@/types/commissions';
 import type { PaginationMeta } from '@/types/agency';
 
 export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
@@ -43,6 +47,11 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
   const [categoryFilter, setCategoryFilter] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const isGlobalContext = !agencyId;
+  const [countryFilter, setCountryFilter] = useState('');
+  const [agencyFilter, setAgencyFilter] = useState('');
+  const [countries, setCountries] = useState<{ id: string; name: string }[]>([]);
+  const [agencies, setAgencies] = useState<{ id: string; name: string }[]>([]);
   const [isExporting, setIsExporting] = useState(false);
 
   const [txOpen, setTxOpen] = useState(false);
@@ -74,13 +83,27 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
   const [payOpen, setPayOpen] = useState(false);
   const [payBeneficiaries, setPayBeneficiaries] = useState<CommissionBeneficiary[]>([]);
   const [payLoading, setPayLoading] = useState(false);
-  const [payForm, setPayForm] = useState({ beneficiary_id: '', amount: '', note: '' });
+  const [payForm, setPayForm] = useState<{ beneficiary_id: string; amount: string; note: string; payment_method: CommissionPaymentMethod }>({ beneficiary_id: '', amount: '', note: '', payment_method: 'especes' });
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
   const [paySubmitting, setPaySubmitting] = useState(false);
 
   const canManage = ['super-admin', 'direction-generale', 'responsable-agence', 'comptable'].includes(
     currentUser?.role?.name ?? ''
   );
+
+  useEffect(() => {
+    if (!isGlobalContext) return;
+    countriesApi.list({ per_page: 100 })
+      .then((r) => setCountries(r.data.map((c) => ({ id: c.id, name: c.name }))))
+      .catch(() => {});
+  }, [isGlobalContext]);
+
+  useEffect(() => {
+    if (!isGlobalContext) return;
+    agenciesApi.list({ per_page: 100, country_id: countryFilter || undefined })
+      .then((r) => setAgencies(r.data.map((a) => ({ id: a.id, name: a.name }))))
+      .catch(() => {});
+  }, [isGlobalContext, countryFilter]);
 
   const fetchCategories = useCallback(() => {
     accountingApi.categories().then((d) => setCategories(d ?? [])).catch(() => {});
@@ -97,7 +120,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
       const res = await accountingApi.list({
         search: search || undefined,
         type: (typeFilter as AccountingType) || undefined,
-        agency_id: agencyId || undefined,
+        agency_id: agencyId || agencyFilter || undefined,
         category_id: categoryFilter || undefined,
         from: from || undefined,
         to: to || undefined,
@@ -114,7 +137,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
     } finally {
       setIsLoading(false);
     }
-  }, [search, typeFilter, agencyId, categoryFilter, from, to, page, t]);
+  }, [search, typeFilter, agencyId, agencyFilter, categoryFilter, from, to, page, t]);
 
   useEffect(() => {
     fetchTransactions();
@@ -267,7 +290,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
   }
 
   function openPayModal() {
-    setPayForm({ beneficiary_id: '', amount: '', note: '' });
+    setPayForm({ beneficiary_id: '', amount: '', note: '', payment_method: 'especes' });
     setPayErrors({});
     setPayOpen(true);
     setPayLoading(true);
@@ -296,6 +319,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
         beneficiary_type: beneficiary.type,
         beneficiary_id: beneficiary.id,
         amount: Number(payForm.amount),
+        payment_method: payForm.payment_method,
         note: payForm.note.trim() || undefined,
       });
       showToast(t('accounting.commissionPaid'), 'success');
@@ -359,7 +383,23 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
+          {isGlobalContext && (
+            <>
+              <Select label={t('accounting.filterCountry')} value={countryFilter} onChange={(e) => { setCountryFilter(e.target.value); setAgencyFilter(''); setPage(1); }}>
+                <option value="">{t('accounting.allCountries')}</option>
+                {countries.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </Select>
+              <Select label={t('accounting.filterAgency')} value={agencyFilter} onChange={(e) => { setAgencyFilter(e.target.value); setPage(1); }}>
+                <option value="">{t('accounting.allAgencies')}</option>
+                {agencies.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </Select>
+            </>
+          )}
           <Input
             label={t('common.search')}
             value={search}
@@ -516,6 +556,22 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
               <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(Number(selectedBeneficiary()?.balance ?? 0))}</span>
             </div>
           )}
+
+          <Select
+            label={t('payments.paymentMethod')}
+            value={payForm.payment_method}
+            onChange={(e) => setPayForm((f) => ({ ...f, payment_method: e.target.value as CommissionPaymentMethod }))}
+          >
+            {COMMISSION_PAYMENT_METHODS.map((m) => (
+              <option key={m} value={m}>
+                {m === 'especes'
+                  ? t('payments.cash')
+                  : m === 'orange_money'
+                    ? t('payments.orangeMoney')
+                    : t('payments.mobileMoney')}
+              </option>
+            ))}
+          </Select>
 
           <Input
             label={`${t('common.amount')} *`}

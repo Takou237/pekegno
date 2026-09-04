@@ -14,6 +14,7 @@ import {
   CalendarCheck,
   UserCheck,
   BarChart3,
+  GraduationCap,
 } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -35,6 +36,7 @@ function getAgencyItems(t: ReturnType<typeof useTranslation>['t']): MenuItem[] {
     { to: '', label: t('nav.overview'), icon: LayoutDashboard, end: true },
     { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
     { to: 'services', label: t('nav.services'), icon: Package, end: false },
+    { to: 'academy', label: t('nav.academy'), icon: GraduationCap, end: false },
     { to: 'commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
     { to: 'employees', label: t('nav.employees'), icon: UserCheck, end: false },
     { to: 'invoices', label: t('nav.invoices'), icon: FileText, end: false },

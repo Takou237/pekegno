@@ -71,6 +71,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/countries', label: t('nav.geography'), icon: Globe, end: false },
       { to: '/academy', label: t('nav.academy'), icon: GraduationCap, end: false },
+      { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
     ];
   }
@@ -164,7 +165,6 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: 'sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
         { to: 'planning', label: t('nav.planning'), icon: CalendarCheck, end: false },
         { to: 'trainers', label: t('nav.trainers'), icon: UserCheck, end: false },
-        { to: 'presences', label: t('nav.presences'), icon: ClipboardList, end: false },
         { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
         { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
         { to: 'certificates', label: t('nav.certificates'), icon: FileText, end: false },
@@ -180,6 +180,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: 'packages', label: t('nav.packages'), icon: Package, end: false },
         { to: 'contracts', label: t('nav.contracts'), icon: FileText, end: false },
         { to: 'services', label: t('nav.services'), icon: Briefcase, end: false },
+        { to: 'academy', label: t('nav.academy'), icon: GraduationCap, end: false },
         { to: 'community', label: t('nav.communityManagement'), icon: Users, end: false },
         { to: 'advertising', label: t('nav.advertising'), icon: BarChart3, end: false },
         { to: 'renewals', label: t('nav.renewals'), icon: CalendarCheck, end: false },

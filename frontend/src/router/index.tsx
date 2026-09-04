@@ -30,6 +30,7 @@ const AgencyTrashPage = lazy(() => import('@/pages/agencies/AgencyTrashPage'));
 const AgencyOverviewPage = lazy(() => import('@/pages/agencies/AgencyOverviewPage'));
 const AgencyDepartmentsPage = lazy(() => import('@/pages/agencies/AgencyDepartmentsPage'));
 const AgencyServicesPage = lazy(() => import('@/pages/agencies/AgencyServicesPage'));
+const AgencyAcademyPage = lazy(() => import('@/pages/agencies/AgencyAcademyPage'));
 const AgencyTeamsPage = lazy(() => import('@/pages/agencies/AgencyTeamsPage'));
 const AgencySettingsPage = lazy(() => import('@/pages/agencies/AgencySettingsPage'));
 const AgencyPromotionsPage = lazy(() => import('@/pages/agencies/AgencyPromotionsPage'));
@@ -124,6 +125,7 @@ const agencyChildren = [
   { path: 'departments/trash', element: page(<AgencyDepartmentTrashPage />, table) },
   { path: 'services', element: page(<AgencyServicesPage />, cards) },
   { path: 'services/trash', element: page(<AgencyServiceTrashPage />, table) },
+  { path: 'academy', element: page(<AgencyAcademyPage />, cards) },
   { path: 'commercials', element: page(<AgencyCommercialsPage />, table) },
   { path: 'commercials/report', element: page(<AgencyCommercialReportPage />, table) },
   { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />, detail) },
@@ -274,6 +276,7 @@ export const router = createBrowserRouter([
           { path: 'contracts', element: page(<ContractListPage />, table) },
           { path: 'contracts/:contractId', element: page(<ContractDetailPage />, detail) },
           { path: 'services', element: page(<DepartmentServicesPage />, cards) },
+          { path: 'academy', element: page(<AgencyAcademyPage />, cards) },
           { path: 'community', element: page(<ComingSoonPage />, table) },
           { path: 'advertising', element: page(<ComingSoonPage />, table) },
           { path: 'renewals', element: page(<RenewalsPage />, table) },

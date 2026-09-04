@@ -8,9 +8,20 @@ import { formatCurrency } from '@/utils/number';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { Modal } from '@/components/ui/Modal';
 import { Pagination } from '@/components/ui/Pagination';
-import type { CommissionEntry, CommissionEntryStatus } from '@/types/commissions';
+import type { CommissionEntry, CommissionEntryStatus, CommissionPaymentMethod } from '@/types/commissions';
+import { COMMISSION_PAYMENT_METHODS } from '@/types/commissions';
 import type { PaginationMeta } from '@/types/agency';
+
+function paymentMethodLabel(method: CommissionPaymentMethod, t: ReturnType<typeof useTranslation>['t']): string {
+  switch (method) {
+    case 'especes': return t('payments.cash');
+    case 'orange_money': return t('payments.orangeMoney');
+    case 'mobile_money': return t('payments.mobileMoney');
+    default: return method;
+  }
+}
 
 const STATUS_BADGES: Record<CommissionEntryStatus, string> = {
   calculated: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -28,6 +39,9 @@ export default function CommissionEntriesPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<CommissionEntryStatus | ''>('');
   const [page, setPage] = useState(1);
+  const [payTarget, setPayTarget] = useState<CommissionEntry | null>(null);
+  const [payMethod, setPayMethod] = useState<CommissionPaymentMethod>('especes');
+  const [isPaying, setIsPaying] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -49,12 +63,27 @@ export default function CommissionEntriesPage() {
   async function handleAction(action: 'validate' | 'pay' | 'cancel', id: string) {
     try {
       if (action === 'validate') await commissionsApi.validateEntry(id);
-      if (action === 'pay') await commissionsApi.payEntry(id);
       if (action === 'cancel') await commissionsApi.cancelEntry(id);
       showToast(t(`commissions.entry${action.charAt(0).toUpperCase() + action.slice(1)}d`), 'success');
       load();
     } catch (error) {
       showToast(extractErrorMessage(error, t('common.error')), 'error');
+    }
+  }
+
+  async function handlePay() {
+    if (!payTarget) return;
+    setIsPaying(true);
+    try {
+      await commissionsApi.payEntry(payTarget.id, { payment_method: payMethod });
+      showToast(t('commissions.entryPaid'), 'success');
+      setPayTarget(null);
+      setPayMethod('especes');
+      load();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('common.error')), 'error');
+    } finally {
+      setIsPaying(false);
     }
   }
 
@@ -138,7 +167,7 @@ export default function CommissionEntriesPage() {
                           </>
                         )}
                         {entry.status === 'validated' && (
-                          <button onClick={() => handleAction('pay', entry.id)} className="rounded p-1 text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20" title={t('commissions.pay')}>
+                          <button onClick={() => { setPayTarget(entry); setPayMethod('especes'); }} className="rounded p-1 text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20" title={t('commissions.pay')}>
                             <Banknote className="h-4 w-4" />
                           </button>
                         )}
@@ -157,6 +186,32 @@ export default function CommissionEntriesPage() {
           </div>
         )}
       </div>
+
+      <Modal isOpen={!!payTarget} onClose={() => setPayTarget(null)} title={t('commissions.pay')} maxWidth="max-w-md">
+        <div className="flex flex-col gap-4">
+          {payTarget && (
+            <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{payTarget.invoice?.number ?? '—'}</span>
+                <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(payTarget.amount)}</span>
+              </div>
+            </div>
+          )}
+          <Select
+            label={t('payments.paymentMethod')}
+            value={payMethod}
+            onChange={(e) => setPayMethod(e.target.value as CommissionPaymentMethod)}
+          >
+            {COMMISSION_PAYMENT_METHODS.map((m) => (
+              <option key={m} value={m}>{paymentMethodLabel(m, t)}</option>
+            ))}
+          </Select>
+          <div className="mt-2 flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setPayTarget(null)} disabled={isPaying} className="flex-1">{t('common.cancel')}</Button>
+            <Button onClick={handlePay} isLoading={isPaying} className="flex-1">{t('commissions.pay')}</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

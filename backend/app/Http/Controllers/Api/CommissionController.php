@@ -191,10 +191,17 @@ class CommissionController extends Controller
     {
         abort_if($entry->status !== CommissionEntry::STATUS_VALIDATED, 422, 'Impossible de payer cette commission (statut actuel : '.$entry->status.').');
 
+        $validated = $request->validate([
+            'amount' => ['nullable', 'numeric', 'min:0.01'],
+            'payment_method' => ['nullable', 'string', 'in:especes,orange_money,mobile_money'],
+        ]);
+
         $entryAmount = (float) $entry->amount;
-        $amount = $request->filled('amount') ? (float) $request->input('amount') : $entryAmount;
+        $amount = $request->filled('amount') ? (float) $validated['amount'] : $entryAmount;
 
         abort_if($amount <= 0 || $amount > $entryAmount + 0.005, 422, 'Le montant à payer doit être supérieur à 0 et ne peut excéder le montant de la commission ('.number_format($entryAmount, 2).' FCFA).');
+
+        $paymentMethod = $validated['payment_method'] ?? null;
 
         $actorId = $request->user()->id;
 
@@ -218,7 +225,7 @@ class CommissionController extends Controller
                 ->first();
         }
 
-        DB::transaction(function () use ($entry, $entryAmount, $amount, $actorId, $sellerProfile, $commercial, $agencyId, $beneficiaryName, $account) {
+        DB::transaction(function () use ($entry, $entryAmount, $amount, $paymentMethod, $actorId, $sellerProfile, $commercial, $agencyId, $beneficiaryName, $account) {
             $paidEntryId = $entry->id;
 
             if ($amount >= $entryAmount - 0.005) {
@@ -241,6 +248,7 @@ class CommissionController extends Controller
                 'amount' => $amount,
                 'base_amount' => $amount,
                 'rule' => 'commission_payment',
+                'payment_method' => $paymentMethod,
                 'invoice_total' => 0,
                 'created_by' => $actorId,
             ]);
@@ -371,6 +379,7 @@ class CommissionController extends Controller
             'beneficiary_id' => ['required', 'uuid'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
+            'payment_method' => ['nullable', 'string', 'in:especes,orange_money,mobile_money'],
             'note' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -461,6 +470,7 @@ class CommissionController extends Controller
                 'amount' => $amount,
                 'base_amount' => $amount,
                 'rule' => 'commission_payment',
+                'payment_method' => $validated['payment_method'] ?? null,
                 'invoice_total' => 0,
                 'created_by' => $actorId,
             ]);

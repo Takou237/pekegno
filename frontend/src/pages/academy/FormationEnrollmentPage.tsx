@@ -398,9 +398,11 @@ export default function FormationEnrollmentPage() {
                       )}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {enrollment.course?.price != null
-                        ? `${Number(enrollment.course.price).toLocaleString()} FCFA`
-                        : '—'}
+                      {enrollment.course?.effective_price != null
+                        ? `${Number(enrollment.course.effective_price).toLocaleString()} FCFA`
+                        : enrollment.course?.price != null
+                          ? `${Number(enrollment.course.price).toLocaleString()} FCFA`
+                          : '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {enrollment.course?.sessions_count != null ? enrollment.course.sessions_count : '—'}
@@ -496,17 +498,19 @@ export default function FormationEnrollmentPage() {
                 <option value="">{t('academy.searchCoursePlaceholder')}</option>
                 {courses.map((course) => (
                   <option key={course.id} value={course.id}>
-                    {course.name} — {course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : '—'}
+                    {course.name} — {course.effective_price != null ? `${Number(course.effective_price).toLocaleString()} FCFA` : course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : '—'}
                   </option>
                 ))}
               </select>
               {fieldErrors.course_id && (
                 <p className="mt-1 text-sm text-error-500">{fieldErrors.course_id}</p>
               )}
-              {selectedCourse(form.course_id)?.price != null && (
+              {(selectedCourse(form.course_id)?.effective_price != null || selectedCourse(form.course_id)?.price != null) && (
                 <p className="mt-2 rounded-lg bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
                   {t('academy.priceToPay', {
-                    amount: Number(selectedCourse(form.course_id)?.price).toLocaleString(),
+                    amount: Number(
+                      selectedCourse(form.course_id)?.effective_price ?? selectedCourse(form.course_id)?.price,
+                    ).toLocaleString(),
                   })}
                 </p>
               )}
