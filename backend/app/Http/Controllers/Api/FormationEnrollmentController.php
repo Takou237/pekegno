@@ -156,6 +156,7 @@ class FormationEnrollmentController extends Controller
 
     /**
      * « Supprimer » = annuler (jamais de suppression physique) pour préserver l'historique.
+     * La facture liée à l'inscription est également annulée.
      */
     public function destroy(FormationEnrollment $formationEnrollment): JsonResponse
     {
@@ -164,6 +165,15 @@ class FormationEnrollmentController extends Controller
             SessionParticipant::where('formation_enrollment_id', $formationEnrollment->id)
                 ->whereHas('session', fn ($q) => $q->where(fn ($w) => $w->where('end_at', '>', now())->orWhereNull('end_at')))
                 ->update(['status' => 'cancelled']);
+
+            if ($formationEnrollment->invoice_id) {
+                $invoice = Invoice::find($formationEnrollment->invoice_id);
+                if ($invoice && $invoice->cancelled_at === null) {
+                    $invoice->update(['cancelled_at' => now()]);
+                    $invoice->refreshStatus();
+                    $invoice->save();
+                }
+            }
         });
 
         return response()->json(null, 204);

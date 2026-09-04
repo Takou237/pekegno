@@ -9,6 +9,7 @@ use App\Http\Requests\Api\UpdateInvoiceRequest;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\Service;
+use App\Models\SessionParticipant;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
 use App\Services\CommissionService;
@@ -60,6 +61,17 @@ class InvoiceController extends Controller
             ->when($request->boolean('from_enrollments'), fn ($q) => $q->whereIn(
                 'invoices.id',
                 FormationEnrollment::query()->whereNotNull('invoice_id')->pluck('invoice_id')
+            ))
+            ->when($request->course_id, fn ($q, $courseId) => $q->whereIn(
+                'invoices.id',
+                FormationEnrollment::query()->where('course_id', $courseId)
+                    ->whereNotNull('invoice_id')->pluck('invoice_id')
+            ))
+            ->when($request->session_id, fn ($q, $sessionId) => $q->whereIn(
+                'invoices.id',
+                FormationEnrollment::query()->whereNotNull('invoice_id')
+                    ->whereIn('id', SessionParticipant::query()->where('training_session_id', $sessionId)->pluck('formation_enrollment_id'))
+                    ->pluck('invoice_id')
             ))
             ->when($request->search, fn ($q, $s) => $q->where(function ($q) use ($s) {
                 $q->where('number', 'like', "%{$s}%")

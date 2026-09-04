@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { Search, DollarSign } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
+import { academyApi, type Course, type TrainingSession } from '@/api/academy.api';
 import type { Invoice } from '@/types/invoice';
 import { extractErrorMessage } from '@/api/errors';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -29,6 +30,30 @@ export default function AcademyReceivablesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [filterCourse, setFilterCourse] = useState('');
+  const [sessions, setSessions] = useState<TrainingSession[]>([]);
+  const [filterSession, setFilterSession] = useState('');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
+
+  useEffect(() => {
+    if (!agencyId) return;
+    academyApi.courses({ agency_id: agencyId, per_page: 100 }).then((res) => setCourses(res.data)).catch(() => {});
+  }, [agencyId]);
+
+  useEffect(() => {
+    if (!agencyId || !filterCourse) {
+      setSessions([]);
+      setFilterSession('');
+      return;
+    }
+    academyApi
+      .sessions({ agency_id: agencyId, course_id: filterCourse, per_page: 100 })
+      .then((res) => setSessions(res.data))
+      .catch(() => setSessions([]));
+  }, [agencyId, filterCourse]);
+
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
@@ -38,6 +63,10 @@ export default function AcademyReceivablesPage() {
         from_enrollments: true,
         status: 'unpaid,partial',
         search: search || undefined,
+        course_id: filterCourse || undefined,
+        session_id: filterSession || undefined,
+        from: filterFrom || undefined,
+        to: filterTo || undefined,
         page,
         per_page: 15,
       });
@@ -49,7 +78,7 @@ export default function AcademyReceivablesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, search, page, t]);
+  }, [agencyId, search, page, t, filterCourse, filterSession, filterFrom, filterTo]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
@@ -62,6 +91,12 @@ export default function AcademyReceivablesPage() {
     if (status === 'partial') return <Badge variant="warning">{t('invoices.statusPartial')}</Badge>;
     if (status === 'cancelled') return <Badge variant="error">{t('invoices.statusCancelled')}</Badge>;
     return <Badge variant="error">{t('invoices.statusUnpaid')}</Badge>;
+  }
+
+  function sessionLabel(session: TrainingSession) {
+    const moduleName = (session as unknown as { module?: { name?: string } | null }).module?.name;
+    const date = session.start_at ? new Date(session.start_at).toLocaleDateString() : '';
+    return `${moduleName ?? date} — ${date}`;
   }
 
   return (
@@ -91,6 +126,57 @@ export default function AcademyReceivablesPage() {
           placeholder={t('common.search')}
           className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm dark:border-gray-700 dark:bg-gray-900"
         />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">{t('academy.course')}</span>
+          <select
+            value={filterCourse}
+            onChange={(e) => { setFilterCourse(e.target.value); setPage(1); }}
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          >
+            <option value="">{t('common.all')}</option>
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">{t('academy.session')}</span>
+          <select
+            value={filterSession}
+            onChange={(e) => { setFilterSession(e.target.value); setPage(1); }}
+            disabled={!filterCourse}
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900"
+          >
+            <option value="">{t('common.all')}</option>
+            {sessions.map((s) => (
+              <option key={s.id} value={s.id}>{sessionLabel(s)}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">{t('academy.dateFrom')}</span>
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={(e) => { setFilterFrom(e.target.value); setPage(1); }}
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">{t('academy.dateTo')}</span>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={(e) => { setFilterTo(e.target.value); setPage(1); }}
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          />
+        </label>
       </div>
 
       {loadError && <Alert variant="error">{loadError}</Alert>}

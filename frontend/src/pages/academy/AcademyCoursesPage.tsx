@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { Search, Plus, Pencil, Trash2, Layers, Users, CalendarDays, BookOpenCheck, Globe, Building2, Play, Tag, Eye, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type Course, type CoursePromotion, type CoursePromotionPayload, type CoursePromotionType } from '@/api/academy.api';
@@ -92,8 +92,11 @@ const emptyPromotionForm: PromotionFormState = {
 export default function AcademyCoursesPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
   const { departmentId } = useParams<{ departmentId: string }>();
+  const openCourseDetail = (course: Course) =>
+    navigate(`/departments/${departmentId}/courses/${course.id}`);
   const [courses, setCourses] = useState<Course[]>([]);
   const [categories, setCategories] = useState<CourseCategory[]>([]);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
@@ -502,7 +505,11 @@ export default function AcademyCoursesPage() {
             {courses.map((course) => (
               <div
                 key={course.id}
-                className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+                onClick={() => {
+                  setDetailCourse(null);
+                  openCourseDetail(course);
+                }}
+                className="flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-shadow hover:border-brand-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40"
               >
                 {/* Couverture */}
                 {course.cover_image ? (
@@ -653,7 +660,10 @@ export default function AcademyCoursesPage() {
                   <div className="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
                     <button
                       type="button"
-                      onClick={() => setDetailCourse(course)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailCourse(course);
+                      }}
                       className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-sky-600 dark:hover:bg-gray-800"
                       title={t('common.viewDetails')}
                     >
@@ -662,7 +672,10 @@ export default function AcademyCoursesPage() {
                     {canManagePromos && (
                       <button
                         type="button"
-                        onClick={() => openPromoCreate(course)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPromoCreate(course);
+                        }}
                         className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-amber-600 dark:hover:bg-gray-800"
                         title={t('academy.promotions')}
                       >
@@ -671,6 +684,7 @@ export default function AcademyCoursesPage() {
                     )}
                     <Link
                       to={`/departments/${departmentId}/courses/${course.id}/modules`}
+                      onClick={(e) => e.stopPropagation()}
                       className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
                       title={t('academy.modules')}
                     >
@@ -678,7 +692,10 @@ export default function AcademyCoursesPage() {
                     </Link>
                     <button
                       type="button"
-                      onClick={() => openEdit(course)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEdit(course);
+                      }}
                       className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
                       title={t('common.edit')}
                     >
@@ -686,7 +703,10 @@ export default function AcademyCoursesPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(course)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(course);
+                      }}
                       className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
                       title={t('common.delete')}
                     >

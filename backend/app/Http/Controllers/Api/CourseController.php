@@ -114,6 +114,14 @@ class CourseController extends Controller
             $course->categories()->sync($categoryIds);
         }
 
+        // Une formation crée d'abord une session planifiée par défaut.
+        TrainingSession::create([
+            'course_id' => $course->id,
+            'agency_id' => $course->agency_id,
+            'price' => $course->price,
+            'status' => 'planned',
+        ]);
+
         return (new CourseResource($course->load(['agency', 'categories'])))
             ->response()
             ->setStatusCode(201);

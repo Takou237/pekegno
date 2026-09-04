@@ -115,24 +115,6 @@ export default function AcademyLearnersPage() {
     fetchLearners();
   }, [fetchLearners]);
 
-  const courseOptions = useCallback(
-    async (query: string) => {
-      if (!agencyId) return [];
-      const q = query.trim();
-      const response = await academyApi.courses({
-        agency_id: agencyId,
-        search: q || undefined,
-        per_page: q ? 20 : 100,
-      });
-      return response.data.map((course: Course) => ({
-        id: course.id,
-        label: course.name,
-        subtitle: course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : course.code,
-      }));
-    },
-    [agencyId],
-  );
-
   useEffect(() => {
     if (!enrollmentOpen || !agencyId) return;
     let active = true;
@@ -385,14 +367,34 @@ export default function AcademyLearnersPage() {
         <form onSubmit={handleEnrollmentSubmit} className="flex flex-col gap-4">
           {enrollmentError && <Alert variant="error">{enrollmentError}</Alert>}
 
-          <Autocomplete
-            label={`${t('nav.courses')} *`}
-            placeholder={t('academy.searchCoursePlaceholder')}
-            value={enrollmentForm.course_id}
-            onChange={(courseId) => setEnrollmentForm((prev) => ({ ...prev, course_id: courseId }))}
-            fetchOptions={courseOptions}
-            error={enrollmentFieldErrors.course_id}
-          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {`${t('nav.courses')} *`}
+            </label>
+            <select
+              value={enrollmentForm.course_id || ''}
+              onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, course_id: e.target.value }))}
+              className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 ${
+                enrollmentFieldErrors.course_id ? 'border-red-500' : 'border-gray-300'
+              }`}
+            >
+              <option value="">{t('academy.selectCourse')}</option>
+              {enrollmentCourses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {`${course.name} — ${course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : course.code}`}
+                </option>
+              ))}
+            </select>
+            {enrollmentFieldErrors.course_id && (
+              <p className="mt-1 text-xs text-red-500">{enrollmentFieldErrors.course_id}</p>
+            )}
+          </div>
+
+          {selectedEnrollmentCourse(enrollmentForm.course_id)?.price != null && (
+            <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+              {t('academy.priceToPay', { amount: Number(selectedEnrollmentCourse(enrollmentForm.course_id)?.price).toLocaleString() })}
+            </div>
+          )}
 
           <Autocomplete
             label={`${t('academy.learner')} *`}

@@ -17,6 +17,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ServiceFormModal } from '@/components/services/ServiceFormModal';
 import { ServiceDetailModal } from '@/components/services/ServiceDetailModal';
 import { CategoryFormModal } from '@/components/categories/CategoryFormModal';
+import AgencyAcademyFormations from '@/pages/academy/AgencyAcademyFormations';
 import PromotionFormModal from '@/components/promotions/PromotionFormModal';
 import {
   canCreateService,
@@ -34,14 +35,16 @@ import type { Promotion } from '@/types/promotion';
 
 interface ServiceListPageProps {
   agencyId?: string;
+  showAcademyTabs?: boolean;
 }
 
-export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
+export default function ServiceListPage({ agencyId, showAcademyTabs = false }: ServiceListPageProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
   const { countryId } = useParams<{ countryId?: string }>();
   const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<'services' | 'formations'>('services');
 
   const servicesBase = agencyId
     ? countryId
@@ -242,6 +245,36 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
     return null;
   };
 
+  if (showAcademyTabs && agencyId && tab === 'formations') {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.academy')}</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('academy.title')}</p>
+          </div>
+        </div>
+        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={() => setTab('services')}
+            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            {t('nav.services')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('formations')}
+            className="inline-flex items-center gap-2 border-b-2 border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 transition-colors dark:text-brand-400"
+          >
+            {t('nav.academy')}
+          </button>
+        </div>
+        <AgencyAcademyFormations agencyId={agencyId} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -278,6 +311,33 @@ export default function ServiceListPage({ agencyId }: ServiceListPageProps) {
           )}
         </div>
       </div>
+
+      {showAcademyTabs && agencyId && (
+        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={() => setTab('services')}
+            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              tab === 'services'
+                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            {t('nav.services')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('formations')}
+            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              tab === 'formations'
+                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            {t('nav.academy')}
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 lg:flex-row lg:items-end">
         <div className="flex-1">

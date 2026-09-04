@@ -45,6 +45,7 @@ const RolesPrivilegesPage = lazy(() => import('@/pages/RolesPrivilegesPage'));
 const CategoryListPage = lazy(() => import('@/pages/categories/CategoryListPage'));
 const CategoryTrashPage = lazy(() => import('@/pages/categories/CategoryTrashPage'));
 const ServiceListPage = lazy(() => import('@/pages/services/ServiceListPage'));
+const DepartmentServicesPage = lazy(() => import('@/pages/departments/DepartmentServicesPage'));
 const ServiceTrashPage = lazy(() => import('@/pages/services/ServiceTrashPage'));
 const ClientListPage = lazy(() => import('@/pages/clients/ClientListPage'));
 const ClientDetailPage = lazy(() => import('@/pages/clients/ClientDetailPage'));
@@ -93,6 +94,7 @@ const OpportunityDetailPage = lazy(() => import('@/pages/opportunities/Opportuni
 const AttendanceSheetPage = lazy(() => import('@/pages/academy/AttendanceSheetPage'));
 const CertificateListPage = lazy(() => import('@/pages/academy/CertificateListPage'));
 const CourseModulesPage = lazy(() => import('@/pages/academy/CourseModulesPage'));
+const CourseDetailPage = lazy(() => import('@/pages/academy/CourseDetailPage'));
 const FormationEnrollmentPage = lazy(() => import('@/pages/academy/FormationEnrollmentPage'));
 const SellerProfilesPage = lazy(() => import('@/pages/academy/SellerProfilesPage'));
 const AcademyProspectsPage = lazy(() => import('@/pages/academy/AcademyProspectsPage'));
@@ -250,6 +252,7 @@ export const router = createBrowserRouter([
           { path: 'learners/:learnerId', element: page(<AcademyLearnerDetailPage />, detail) },
           { path: 'enrollments', element: page(<FormationEnrollmentPage />, table) },
           { path: 'courses', element: page(<AcademyCoursesPage />, cards) },
+          { path: 'courses/:courseId', element: page(<CourseDetailPage />, detail) },
           { path: 'courses/:courseId/modules', element: page(<CourseModulesPage />, table) },
           { path: 'sessions', element: page(<AcademySessionsPage />, table) },
           { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
@@ -270,7 +273,7 @@ export const router = createBrowserRouter([
           { path: 'packages', element: page(<ComingSoonPage />, cards) },
           { path: 'contracts', element: page(<ContractListPage />, table) },
           { path: 'contracts/:contractId', element: page(<ContractDetailPage />, detail) },
-          { path: 'services', element: page(<ServiceListPage />, cards) },
+          { path: 'services', element: page(<DepartmentServicesPage />, cards) },
           { path: 'community', element: page(<ComingSoonPage />, table) },
           { path: 'advertising', element: page(<ComingSoonPage />, table) },
           { path: 'renewals', element: page(<RenewalsPage />, table) },

@@ -90,6 +90,8 @@ export interface InvoiceListParams {
   to?: string;
   include_cancelled?: boolean;
   from_enrollments?: boolean;
+  course_id?: string;
+  session_id?: string;
   per_page?: number;
   page?: number;
 }

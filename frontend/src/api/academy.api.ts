@@ -317,6 +317,11 @@ export const academyApi = {
     return data;
   },
 
+  async getCourse(id: string): Promise<Course> {
+    const { data } = await client.get<{ data: Course }>(`/courses/${id}`);
+    return (data as { data?: Course }).data ?? (data as unknown as Course);
+  },
+
   async createCourse(payload: CoursePayload): Promise<Course> {
     const { data } = await client.post<{ data: Course }>('/courses', payload);
     return data.data ?? (data as unknown as Course);

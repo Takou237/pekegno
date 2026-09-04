@@ -114,23 +114,6 @@ export default function FormationEnrollmentPage() {
     fetchEnrollments();
   }, [fetchEnrollments]);
 
-  const courseOptions = useCallback(
-    async (query: string) => {
-      if (!agencyId) return [];
-      const response = await academyApi.courses({
-        agency_id: agencyId,
-        search: query.trim() || undefined,
-        per_page: 100,
-      });
-      return response.data.map((course: Course) => ({
-        id: course.id,
-        label: course.name,
-        subtitle: course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : course.code,
-      }));
-    },
-    [agencyId],
-  );
-
   useEffect(() => {
     if (!formOpen || !agencyId) return;
     let active = true;
