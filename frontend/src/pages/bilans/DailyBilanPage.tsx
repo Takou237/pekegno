@@ -146,7 +146,13 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
   );
 }
 
-function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) => string }) {
+export function formatSignedCurrency(value: number | string): string {
+  const n = Number(value);
+  const prefix = n < 0 ? '−' : '';
+  return `${prefix}${formatCurrency(Math.abs(n))}`;
+}
+
+export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) => string }) {
   return (
     <>
       <div className="flex items-center gap-2">
@@ -215,21 +221,21 @@ function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) =>
                 <tr key={e.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td colSpan={2} className="px-5 py-3 text-red-600 dark:text-red-400">{e.name}</td>
                   <td />
-                  <td className="px-5 py-3 text-right font-medium text-red-600 dark:text-red-400">{formatCurrency(e.total)}</td>
+                  <td className="px-5 py-3 text-right font-medium text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(e.total))}</td>
                 </tr>
               ))}
               {bilan.expense_total > 0 && (
                 <tr className="bg-red-50/50 font-semibold dark:bg-red-500/5">
                   <td colSpan={2} className="px-5 py-3 text-red-600 dark:text-red-400">{t('bilans.expenseTotal')}</td>
                   <td />
-                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(bilan.expense_total)}</td>
+                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(bilan.expense_total))}</td>
                 </tr>
               )}
 
               <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold dark:border-gray-700 dark:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 text-gray-900 dark:text-white">{t('bilans.soldeFinal')}</td>
                 <td />
-                <td className={`px-5 py-3 text-right font-bold ${bilan.solde_final >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(Math.abs(bilan.solde_final))}</td>
+                <td className={`px-5 py-3 text-right font-bold ${bilan.solde_final >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>{formatSignedCurrency(bilan.solde_final)}</td>
               </tr>
             </tbody>
           </table>
@@ -274,9 +280,9 @@ function ConsolidatedView({ consolidated, t }: {
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.om_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.momo_total)}</td>
                   <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(ab.total_received)}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(Math.abs(ab.solde_initial))}</td>
-                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(ab.expense_total)}</td>
-                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(Math.abs(ab.solde_final))}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.solde_initial)}</td>
+                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(ab.expense_total))}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatSignedCurrency(ab.solde_final)}</td>
                 </tr>
               ))}
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
@@ -286,8 +292,8 @@ function ConsolidatedView({ consolidated, t }: {
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_momo)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_encaisse)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">—</td>
-                <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(totals.total_depenses)}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(Math.abs(totals.total_solde_final))}</td>
+                <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(totals.total_depenses))}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatSignedCurrency(totals.total_solde_final)}</td>
               </tr>
             </tbody>
           </table>
@@ -301,7 +307,7 @@ function ConsolidatedView({ consolidated, t }: {
             {expenses_by_category.map((e) => (
               <div key={e.name} className="flex justify-between">
                 <dt className="text-gray-500 dark:text-gray-400">{e.name}</dt>
-                <dd className="font-medium text-red-600 dark:text-red-400">{formatCurrency(e.total)}</dd>
+                <dd className="font-medium text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(e.total))}</dd>
               </div>
             ))}
           </dl>

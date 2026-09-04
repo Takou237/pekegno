@@ -72,6 +72,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/countries', label: t('nav.geography'), icon: Globe, end: false },
       { to: '/academy', label: t('nav.academy'), icon: GraduationCap, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
+      { to: '/bilans', label: t('nav.bilans'), icon: FileText, end: false },
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
     ];
   }
