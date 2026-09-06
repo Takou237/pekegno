@@ -268,10 +268,22 @@ class LearnerController extends Controller
                     : 0.0;
             });
 
-        // Heures de formation acquises : durée des cours des sessions terminées.
-        $hoursCompleted = $sessions
-            ->filter(fn ($session) => $session?->status === 'completed')
-            ->sum(fn ($session) => (float) ($session->course?->duration_hours ?? 0));
+        // Heures de formation acquises : somme des durées des modules suivis avec
+        // présence (les anciennes présences sans module comptent la durée du cours
+        // lorsqu'un créneau horaire équivalent était validé via la session).
+        $hoursCompleted = \App\Models\Attendance::where('learner_user_id', $learner->id)
+            ->where('status', 'present')
+            ->with(['courseModule', 'trainingSession.course'])
+            ->get()
+            ->sum(function ($attendance) {
+                if ($attendance->course_module_id) {
+                    return (float) ($attendance->courseModule?->duration_hours ?? 0);
+                }
+
+                return $attendance->trainingSession?->status === 'completed'
+                    ? (float) ($attendance->trainingSession?->course?->duration_hours ?? 0)
+                    : 0.0;
+            });
 
         $upcoming = $participants
             ->filter(
@@ -290,28 +302,32 @@ class LearnerController extends Controller
             ->take(5)
             ->values();
 
-        $attendedSessionIds = \App\Models\Attendance::where('learner_user_id', $learner->id)
-            ->where('status', 'present')
-            ->pluck('training_session_id')
-            ->unique()
-            ->flip();
-
         $coursesProgress = $participants
             ->reject(fn ($p) => $p->status === 'cancelled' || $p->session === null || $p->session->course === null)
             ->groupBy(fn ($p) => $p->session->course_id)
-            ->map(function ($group) use ($attendedSessionIds) {
+            ->map(function ($group) use ($learner) {
                 $course = $group->first()->session->course;
-                $total = $group->count();
-                $completed = $group->filter(function ($p) use ($attendedSessionIds) {
-                    return isset($attendedSessionIds[$p->training_session_id]);
-                })->count();
+                $sessionIds = $group->pluck('training_session_id');
+
+                // Une session couvre tous les modules de la formation : la progression
+                // par cours se mesure en « créneaux module » (session × module).
+                $modulesCount = \App\Models\CourseModule::where('course_id', $course->id)->count();
+                $totalSlots = $sessionIds->count() * max(1, $modulesCount);
+
+                $completedSlots = \App\Models\Attendance::where('learner_user_id', $learner->id)
+                    ->where('status', 'present')
+                    ->whereIn('training_session_id', $sessionIds)
+                    ->count();
+
                 return [
                     'course_id' => $course->id,
                     'course_name' => $course->name,
                     'course_code' => $course->code,
-                    'total_sessions' => $total,
-                    'completed_sessions' => $completed,
-                    'progress_percent' => $total > 0 ? round($completed / $total * 100, 1) : 0.0,
+                    'total_modules' => $modulesCount,
+                    'total_sessions' => $sessionIds->count(),
+                    'total_slots' => $totalSlots,
+                    'completed_slots' => $completedSlots,
+                    'progress_percent' => $totalSlots > 0 ? round($completedSlots / $totalSlots * 100, 1) : 0.0,
                 ];
             })
             ->values();
@@ -353,11 +369,13 @@ class LearnerController extends Controller
     private function formatSession(\App\Models\SessionParticipant $participant): array
     {
         $session = $participant->session;
-        $attendance = $participant->formationEnrollment
+        $enrollment = $participant->formationEnrollment;
+        $attended = $enrollment
             ? \App\Models\Attendance::where('training_session_id', $session->id)
-                ->where('learner_user_id', $participant->formationEnrollment->learner_user_id)
-                ->first()
-            : null;
+                ->where('learner_user_id', $enrollment->learner_user_id)
+                ->where('status', 'present')
+                ->exists()
+            : false;
 
         return [
             'id' => $participant->id,
@@ -370,8 +388,8 @@ class LearnerController extends Controller
                 ? trim(($session->trainer->first_name ?? '').' '.($session->trainer->last_name ?? ''))
                 : null,
             'start_at' => $session?->start_at?->toISOString(),
-            'status' => $participant->formationEnrollment?->status ?? $participant->status,
-            'attendance' => $attendance?->status === 'present',
+            'status' => $enrollment?->status ?? $participant->status,
+            'attendance' => $attended,
         ];
     }
 }

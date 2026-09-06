@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { academyApi, type Course } from '@/api/academy.api';
+import { academyApi, type Course, type TrainingSession } from '@/api/academy.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -11,6 +11,7 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
+import { Input } from '@/components/ui/Input';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
@@ -50,6 +51,8 @@ interface FormState {
   learner_user_id: string;
   seller_user_id: string;
   seller_trainer_id: string;
+  training_session_id: string;
+  amount_paid: string;
   notes: string;
 }
 
@@ -60,6 +63,8 @@ const emptyForm: FormState = {
   learner_user_id: '',
   seller_user_id: '',
   seller_trainer_id: '',
+  training_session_id: '',
+  amount_paid: '',
   notes: '',
 };
 
@@ -83,6 +88,7 @@ export default function FormationEnrollmentPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [courses, setCourses] = useState<Course[]>([]);
+  const [enrollSessions, setEnrollSessions] = useState<TrainingSession[]>([]);
 
   const [statusModal, setStatusModal] = useState<FormationEnrollment | null>(null);
   const [newStatus, setNewStatus] = useState<EnrollmentStatus>('enrolled');
@@ -129,6 +135,35 @@ export default function FormationEnrollmentPage() {
       active = false;
     };
   }, [formOpen, agencyId]);
+
+  useEffect(() => {
+    if (!form.course_id || !agencyId) {
+      setEnrollSessions([]);
+      return;
+    }
+    setEnrollSessions([]);
+    let active = true;
+    academyApi
+      .sessions({ agency_id: agencyId, course_id: form.course_id, per_page: 100 })
+      .then((res) => {
+        if (active) {
+          setEnrollSessions(
+            res.data.filter(
+              (s) =>
+                s.status !== 'cancelled' &&
+                s.status !== 'completed' &&
+                (s.end_at === null || new Date(s.end_at) >= new Date()),
+            ),
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setEnrollSessions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [form.course_id, agencyId]);
 
   const selectedCourse = useCallback(
     (courseId: string) => courses.find((c) => c.id === courseId) ?? null,
@@ -236,6 +271,8 @@ export default function FormationEnrollmentPage() {
       learner_user_id: enrollment.learner_user_id,
       seller_user_id: enrollment.seller_user_id ?? '',
       seller_trainer_id: enrollment.seller_trainer_id ?? '',
+      training_session_id: '',
+      amount_paid: '',
       notes: enrollment.notes ?? '',
     });
     setFormError(null);
@@ -255,6 +292,8 @@ export default function FormationEnrollmentPage() {
       learner_user_id: form.learner_user_id,
       seller_user_id: form.seller_user_id || undefined,
       seller_trainer_id: form.seller_trainer_id || undefined,
+      ...(form.training_session_id ? { training_session_id: form.training_session_id } : {}),
+      ...(form.amount_paid ? { amount_paid: Number(form.amount_paid) } : {}),
       notes: form.notes || undefined,
     };
 
@@ -492,7 +531,7 @@ export default function FormationEnrollmentPage() {
               </label>
               <select
                 value={form.course_id}
-                onChange={(e) => setForm((prev) => ({ ...prev, course_id: e.target.value }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, course_id: e.target.value, training_session_id: '' }))}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               >
                 <option value="">{t('academy.searchCoursePlaceholder')}</option>
@@ -513,6 +552,37 @@ export default function FormationEnrollmentPage() {
                     ).toLocaleString(),
                   })}
                 </p>
+              )}
+            </div>
+          )}
+
+          {form.course_id && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {`${t('academy.session')} *`}
+              </label>
+              <select
+                required
+                value={form.training_session_id}
+                onChange={(e) => setForm((prev) => ({ ...prev, training_session_id: e.target.value }))}
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 ${
+                  fieldErrors.training_session_id ? 'border-red-500' : 'border-gray-300'
+                }`}
+              >
+                <option value="">{t('academy.selectSession')}</option>
+                {enrollSessions.map((session) => (
+                  <option key={session.id} value={session.id}>
+                    {`${t('academy.session')} — ${new Date(session.start_at).toLocaleDateString(currentLocale())}${session.max_capacity != null ? ` (${session.enrollments_count ?? 0}/${session.max_capacity})` : ''}`}
+                  </option>
+                ))}
+              </select>
+              {enrollSessions.length === 0 && (
+                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                  {t('academy.noSessionsForCourse')}
+                </p>
+              )}
+              {fieldErrors.training_session_id && (
+                <p className="mt-1 text-xs text-red-500">{fieldErrors.training_session_id}</p>
               )}
             </div>
           )}
@@ -542,6 +612,19 @@ export default function FormationEnrollmentPage() {
             fetchOptions={sellerOptions}
             error={fieldErrors.seller_user_id}
           />
+
+          {!editing && (
+            <Input
+              label={`${t('academy.amountPaid')} (FCFA)`}
+              type="number"
+              min={0}
+              placeholder="0"
+              value={form.amount_paid}
+              onChange={(e) => setForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
+              error={fieldErrors.amount_paid}
+              hint={t('academy.amountPaidHint')}
+            />
+          )}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">

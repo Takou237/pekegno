@@ -56,7 +56,6 @@ function statusBadge(status: SessionStatus, t: ReturnType<typeof useTranslation>
 
 interface FormState {
   course_id: string;
-  module_id: string;
   trainer_id: string;
   start_at: string;
   end_at: string;
@@ -66,7 +65,6 @@ interface FormState {
 
 const emptyForm: FormState = {
   course_id: '',
-  module_id: '',
   trainer_id: '',
   start_at: '',
   end_at: '',
@@ -162,25 +160,6 @@ export default function AcademySessionsPage() {
     [agencyId],
   );
 
-  const moduleOptions = useCallback(
-    async (query: string) => {
-      if (!form.course_id) return [];
-      try {
-        const modules = await academyApi.modules(form.course_id);
-        return modules
-          .filter((m) => !query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase()))
-          .map((m) => ({
-            id: m.id,
-            label: m.name,
-            subtitle: `#${m.order_index}`,
-          }));
-      } catch {
-        return [];
-      }
-    },
-    [form.course_id],
-  );
-
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
@@ -193,7 +172,6 @@ export default function AcademySessionsPage() {
     setEditing(session);
     setForm({
       course_id: session.course?.id ?? '',
-      module_id: session.module?.id ?? '',
       trainer_id: session.trainer?.id ?? '',
       start_at: toDatetimeLocal(session.start_at),
       end_at: toDatetimeLocal(session.end_at),
@@ -214,7 +192,6 @@ export default function AcademySessionsPage() {
 
     const payload = {
       course_id: form.course_id,
-      module_id: form.module_id || null,
       trainer_id: form.trainer_id || null,
       agency_id: agencyId,
       start_at: form.start_at,
@@ -316,7 +293,6 @@ export default function AcademySessionsPage() {
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
                   <th className="px-5 py-3 font-medium">{t('nav.courses')}</th>
-                  <th className="px-5 py-3 font-medium">{t('academy.module')}</th>
                   <th className="px-5 py-3 font-medium">{t('nav.trainers')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.sessionDate')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.price')}</th>
@@ -335,9 +311,6 @@ export default function AcademySessionsPage() {
                       {session.course?.code && (
                         <span className="ml-2 font-mono text-xs text-gray-400">{session.course.code}</span>
                       )}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {session.module?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{trainerName(session.trainer)}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
@@ -456,21 +429,10 @@ export default function AcademySessionsPage() {
             label={`${t('nav.courses')} *`}
             placeholder={t('academy.searchCoursePlaceholder')}
             value={form.course_id}
-            onChange={(courseId) => setForm((prev) => ({ ...prev, course_id: courseId, module_id: '' }))}
+            onChange={(courseId) => setForm((prev) => ({ ...prev, course_id: courseId }))}
             fetchOptions={courseOptions}
             error={fieldErrors.course_id}
           />
-
-          {form.course_id && (
-            <Autocomplete
-              label={t('academy.module')}
-              placeholder={t('academy.searchModulePlaceholder')}
-              value={form.module_id}
-              onChange={(moduleId) => setForm((prev) => ({ ...prev, module_id: moduleId }))}
-              fetchOptions={moduleOptions}
-              error={fieldErrors.module_id}
-            />
-          )}
 
           <Autocomplete
             label={t('nav.trainers')}

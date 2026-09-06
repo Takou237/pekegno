@@ -4,6 +4,7 @@ import { Save, ArrowLeft, Download, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { client } from '@/api/client';
 import { attendancesApi } from '@/api/attendances.api';
+import { academyApi } from '@/api/academy.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -13,6 +14,7 @@ import {
   type AttendanceRosterItem,
   type AttendanceStatus,
 } from '@/types/attendance';
+import type { CourseModule } from '@/types/formation';
 import type { TrainingSession } from '@/api/academy.api';
 
 const STATUSES: AttendanceStatus[] = ['present', 'absent'];
@@ -28,33 +30,30 @@ export default function AttendanceSheetPage() {
   const { showToast } = useToast();
 
   const [session, setSession] = useState<TrainingSession | null>(null);
+  const [modules, setModules] = useState<CourseModule[]>([]);
+  const [selectedModule, setSelectedModule] = useState<string>('');
   const [roster, setRoster] = useState<AttendanceRosterItem[]>([]);
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadSession = useCallback(async () => {
     if (!sessionId) return;
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [sessionRes, attendances] = await Promise.all([
-        client.get(`/training-sessions/${sessionId}`),
-        attendancesApi.list(sessionId),
-      ]);
-
+      const sessionRes = await client.get(`/training-sessions/${sessionId}`);
       const sessionData: TrainingSession = sessionRes.data.data ?? sessionRes.data;
       setSession(sessionData);
-      setRoster(attendances);
 
-      const initial: Record<string, AttendanceStatus> = {};
-      for (const item of attendances) {
-        if (item.status) {
-          initial[item.learner_user_id] = item.status;
+      if (sessionData.course?.id) {
+        const mods = await academyApi.modules(sessionData.course.id);
+        setModules(mods);
+        if (mods.length > 0) {
+          setSelectedModule(mods[0].id);
         }
       }
-      setRecords(initial);
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('common.error')));
     } finally {
@@ -62,9 +61,31 @@ export default function AttendanceSheetPage() {
     }
   }, [sessionId, t]);
 
+  const loadRoster = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      const attendances = await attendancesApi.list(sessionId, selectedModule || null);
+      setRoster(attendances);
+      const initial: Record<string, AttendanceStatus> = {};
+      for (const item of attendances) {
+        if (item.status) {
+          initial[item.learner_user_id] = item.status;
+        }
+      }
+      setRecords(initial);
+    } catch {
+      setRoster([]);
+      setRecords({});
+    }
+  }, [sessionId, selectedModule]);
+
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadSession();
+  }, [loadSession]);
+
+  useEffect(() => {
+    if (session) loadRoster();
+  }, [session, loadRoster]);
 
   function setStatus(learnerUserId: string, status: AttendanceStatus) {
     setRecords((prev) => ({ ...prev, [learnerUserId]: status }));
@@ -86,9 +107,9 @@ export default function AttendanceSheetPage() {
         const status = records[item.learner_user_id];
         return status ? [{ learner_user_id: item.learner_user_id, status }] : [];
       });
-      await attendancesApi.bulkUpdate(sessionId, items);
+      await attendancesApi.bulkUpdate(sessionId, items, selectedModule || null);
       showToast(t('common.saved'), 'success');
-      loadData();
+      loadRoster();
     } catch (error) {
       showToast(extractErrorMessage(error, t('common.error')), 'error');
     } finally {
@@ -99,6 +120,7 @@ export default function AttendanceSheetPage() {
   const presentCount = Object.values(records).filter((s) => s === 'present').length;
   const totalCount = roster.length;
   const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+  const currentModule = modules.find((m) => m.id === selectedModule);
 
   function handleExport() {
     if (!session) return;
@@ -121,7 +143,7 @@ export default function AttendanceSheetPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${t('academy.attendanceSheet').replace(/\s+/g, '-')}-${session.id}.csv`;
+    a.download = `${t('academy.attendanceSheet').replace(/\s+/g, '-')}-${session.id}${currentModule ? `-${currentModule.name}` : ''}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -150,8 +172,7 @@ export default function AttendanceSheetPage() {
             {t('academy.attendanceSheet')}
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {session.course?.name ?? '—'}
-            {session.module?.name ? ` · ${session.module.name}` : ''} —{' '}
+            {session.course?.name ?? '—'} —{' '}
             {new Date(session.start_at).toLocaleString()}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
@@ -179,6 +200,30 @@ export default function AttendanceSheetPage() {
           </Button>
         </div>
       </div>
+
+      {modules.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t('academy.selectModule')}
+          </label>
+          <select
+            value={selectedModule}
+            onChange={(e) => setSelectedModule(e.target.value)}
+            className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          >
+            {modules.map((mod) => (
+              <option key={mod.id} value={mod.id}>
+                {mod.name} ({mod.duration_hours != null ? `${mod.duration_hours}h` : '—'})
+              </option>
+            ))}
+          </select>
+          {currentModule && (
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              {t('academy.module')} #{currentModule.order_index} — {currentModule.name}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-6">

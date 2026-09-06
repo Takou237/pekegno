@@ -64,6 +64,8 @@ class FormationEnrollmentController extends Controller
             'invoice_id' => 'nullable|exists:invoices,id',
             'seller_user_id' => 'nullable|exists:users,id',
             'seller_trainer_id' => 'nullable|exists:trainers,id|prohibits:seller_user_id',
+            'training_session_id' => 'nullable|exists:training_sessions,id',
+            'amount_paid' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
@@ -82,10 +84,34 @@ class FormationEnrollmentController extends Controller
             return response()->json(['message' => 'L\'apprenant est déjà inscrit à cette formation.'], 409);
         }
 
+        $requestedSessionId = $validated['training_session_id'] ?? null;
+
+        if ($requestedSessionId) {
+            $session = TrainingSession::find($requestedSessionId);
+
+            if (! $session || $session->course_id !== $validated['course_id']) {
+                return response()->json([
+                    'message' => 'La session sélectionnée n\'appartient pas à cette formation.',
+                    'errors' => ['training_session_id' => ['Session invalide pour cette formation.']],
+                ], 422);
+            }
+
+            $participantCount = SessionParticipant::where('training_session_id', $session->id)
+                ->where('status', 'enrolled')
+                ->count();
+
+            if ($session->max_capacity !== null && $participantCount >= $session->max_capacity) {
+                return response()->json([
+                    'message' => 'Cette session est complète, la capacité maximale est atteinte.',
+                    'errors' => ['training_session_id' => ['Session complète.']],
+                ], 422);
+            }
+        }
+
         $validated['enrolled_at'] = now();
         $validated['status'] = 'enrolled';
 
-        $enrollment = DB::transaction(function () use ($validated, $request, $existing) {
+        $enrollment = DB::transaction(function () use ($validated, $request, $existing, $requestedSessionId) {
             $invoiceId = $validated['invoice_id'] ?? null;
 
             if (! $invoiceId) {
@@ -106,7 +132,7 @@ class FormationEnrollmentController extends Controller
                 $enrollment = FormationEnrollment::create($validated);
             }
 
-            $this->assignToAvailableSessions($enrollment);
+            $this->assignToAvailableSessions($enrollment, $requestedSessionId);
 
             $enrollment->load(['course', 'learner', 'invoice', 'seller', 'sellerTrainer']);
 
@@ -186,11 +212,16 @@ class FormationEnrollmentController extends Controller
      * Le statut du participant est réactivé (upd/repère), ce qui resynchronise une
      * réinscription après annulation.
      */
-    private function assignToAvailableSessions(FormationEnrollment $enrollment): void
+    private function assignToAvailableSessions(FormationEnrollment $enrollment, ?string $trainingSessionId = null): void
     {
-        $sessions = TrainingSession::where('course_id', $enrollment->course_id)
-            ->where(fn ($q) => $q->whereNull('end_at')->orWhere('end_at', '>=', now()))
-            ->get(['id', 'max_capacity']);
+        $query = TrainingSession::where('course_id', $enrollment->course_id)
+            ->where(fn ($q) => $q->whereNull('end_at')->orWhere('end_at', '>=', now()));
+
+        if ($trainingSessionId) {
+            $query->whereKey($trainingSessionId);
+        }
+
+        $sessions = $query->get(['id', 'max_capacity']);
 
         foreach ($sessions as $session) {
             $count = SessionParticipant::where('training_session_id', $session->id)
@@ -250,6 +281,8 @@ class FormationEnrollmentController extends Controller
             return null;
         }
 
+        $amountPaid = min((float) ($validated['amount_paid'] ?? 0), $price);
+
         $learner = User::find($validated['learner_user_id']);
 
         $sellerUserId = $validated['seller_user_id'] ?? null;
@@ -305,12 +338,15 @@ class FormationEnrollmentController extends Controller
             'invoice_date' => now(),
             'payment_type' => null,
             'total_amount' => $price,
-            'amount_paid' => 0,
+            'amount_paid' => $amountPaid,
             'discount' => 0,
             'vat_rate' => 0,
             'status' => 'unpaid',
             'comment' => $comment,
         ]);
+
+        $invoice->refreshStatus();
+        $invoice->save();
 
         $invoice->items()->create([
             'service_id' => null,

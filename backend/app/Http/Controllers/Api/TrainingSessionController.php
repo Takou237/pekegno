@@ -9,7 +9,6 @@ use App\Http\Resources\TrainingSessionResource;
 use App\Models\Attendance;
 use App\Models\Course;
 use App\Models\FormationEnrollment;
-use App\Models\SessionParticipant;
 use App\Models\TrainingSession;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
@@ -62,10 +61,9 @@ class TrainingSessionController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = TrainingSession::with(['course', 'module', 'trainer', 'agency'])
+        $query = TrainingSession::with(['course', 'trainer', 'agency'])
             ->withCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->when($request->course_id, fn ($q, $v) => $q->where('course_id', $v))
-            ->when($request->module_id, fn ($q, $v) => $q->where('module_id', $v))
             ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
             ->when($request->from, fn ($q, $v) => $q->where('start_at', '>=', $v))
@@ -93,40 +91,14 @@ class TrainingSessionController extends Controller
     public function store(StoreTrainingSessionRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $data['module_id'] = null;
 
         if (empty($data['agency_id'])) {
             $data['agency_id'] = Course::find($data['course_id'])?->agency_id;
         }
 
         $session = DB::transaction(function () use ($data) {
-            $session = TrainingSession::create($data);
-
-            $enrollments = FormationEnrollment::where('course_id', $session->course_id)
-                ->whereNot('status', 'cancelled')
-                ->where('enrolled_at', '<=', $session->start_at)
-                ->pluck('id');
-
-            foreach ($enrollments as $enrollmentId) {
-                if ($session->max_capacity !== null) {
-                    $count = SessionParticipant::where('training_session_id', $session->id)
-                        ->where('status', 'enrolled')
-                        ->count();
-
-                    if ($count >= $session->max_capacity) {
-                        break;
-                    }
-                }
-
-                SessionParticipant::updateOrCreate(
-                    [
-                        'training_session_id' => $session->id,
-                        'formation_enrollment_id' => $enrollmentId,
-                    ],
-                    ['status' => 'enrolled']
-                );
-            }
-
-            return $session;
+            return TrainingSession::create($data);
         });
 
         return (new TrainingSessionResource($session->load(['course', 'trainer', 'agency']) ))
@@ -151,7 +123,7 @@ class TrainingSessionController extends Controller
     {
         return new TrainingSessionResource(
             $trainingSession
-                ->load(['course', 'module', 'trainer', 'agency'])
+                ->load(['course', 'trainer', 'agency'])
                 ->loadCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
         );
     }
@@ -172,6 +144,7 @@ class TrainingSessionController extends Controller
     )]
     public function update(UpdateTrainingSessionRequest $request, TrainingSession $trainingSession): TrainingSessionResource
     {
+        $trainingSession->forceFill(['module_id' => null]);
         $trainingSession->update($request->validated());
 
         return new TrainingSessionResource($trainingSession->fresh()->load(['course', 'trainer', 'agency']));

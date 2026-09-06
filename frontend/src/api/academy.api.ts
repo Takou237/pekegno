@@ -154,7 +154,6 @@ export type SessionStatus = 'planned' | 'ongoing' | 'completed' | 'cancelled';
 export interface TrainingSession {
   id: string;
   course?: { id: string; code: string; name: string; mode: Course['mode'] } | null;
-  module?: { id: string; name: string; order_index: number } | null;
   trainer?: {
     id: string;
     first_name: string | null;
@@ -175,7 +174,6 @@ export interface TrainingSession {
 
 export interface SessionPayload {
   course_id: string;
-  module_id?: string | null;
   trainer_id?: string | null;
   agency_id?: string | null;
   start_at: string;
@@ -316,8 +314,11 @@ export interface CourseProgressItem {
   course_id: string;
   course_name: string;
   course_code: string;
+  total_modules: number;
   total_sessions: number;
   completed_sessions: number;
+  total_slots: number;
+  completed_slots: number;
   progress_percent: number;
 }
 

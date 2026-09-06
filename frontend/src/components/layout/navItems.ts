@@ -161,7 +161,6 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
         { to: 'prospects', label: t('nav.prospects'), icon: Users, end: false },
         { to: 'learners', label: t('nav.learners'), icon: GraduationCap, end: false },
-        { to: 'enrollments', label: t('nav.enrollments'), icon: ClipboardList, end: false },
         { to: 'courses', label: t('nav.courses'), icon: BookOpen, end: false },
         { to: 'sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
         { to: 'planning', label: t('nav.planning'), icon: CalendarCheck, end: false },

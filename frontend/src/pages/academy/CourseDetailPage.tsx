@@ -10,6 +10,7 @@ import {
   StickyNote,
   UserPlus,
   ClipboardList,
+  Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,6 +20,8 @@ import {
   type SessionStatus,
   type TrainingSession,
 } from '@/api/academy.api';
+import { attendancesApi } from '@/api/attendances.api';
+import type { AttendanceRosterItem } from '@/types/attendance';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
 import type {
@@ -85,7 +88,6 @@ function formatDate(value: string | null): string {
 }
 
 interface SessionFormState {
-  module_id: string;
   trainer_id: string;
   start_at: string;
   end_at: string;
@@ -97,6 +99,8 @@ interface EnrollmentFormState {
   learner_user_id: string;
   seller_user_id: string;
   seller_trainer_id: string;
+  training_session_id: string;
+  amount_paid: string;
   notes: string;
 }
 
@@ -106,6 +110,8 @@ const emptyEnrollForm: EnrollmentFormState = {
   learner_user_id: '',
   seller_user_id: '',
   seller_trainer_id: '',
+  training_session_id: '',
+  amount_paid: '',
   notes: '',
 };
 
@@ -128,7 +134,6 @@ export default function CourseDetailPage() {
 
   const [sessionFormOpen, setSessionFormOpen] = useState(false);
   const [sessionForm, setSessionForm] = useState<SessionFormState>({
-    module_id: '',
     trainer_id: '',
     start_at: '',
     end_at: '',
@@ -145,8 +150,14 @@ export default function CourseDetailPage() {
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [enrollFieldErrors, setEnrollFieldErrors] = useState<Record<string, string>>({});
 
+  const [sessionLearnersMap, setSessionLearnersMap] = useState<Record<string, AttendanceRosterItem[]>>({});
+  const [sessionLearnersLoading, setSessionLearnersLoading] = useState<string | null>(null);
+
   const [deleteSession, setDeleteSession] = useState<TrainingSession | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [deleteEnrollment, setDeleteEnrollment] = useState<FormationEnrollment | null>(null);
+  const [isDeletingEnrollment, setIsDeletingEnrollment] = useState(false);
 
   const [moduleFormOpen, setModuleFormOpen] = useState(false);
   const [moduleForm, setModuleForm] = useState<{ name: string; description: string; trainer_id: string }>({
@@ -237,16 +248,6 @@ export default function CourseDetailPage() {
     }
   }
 
-  const moduleOptions = useCallback(
-    async (query: string) => {
-      const q = query.trim().toLowerCase();
-      return modules
-        .filter((m) => !q || m.name.toLowerCase().includes(q))
-        .map((m) => ({ id: m.id, label: m.name, subtitle: `#${m.order_index}` }));
-    },
-    [modules],
-  );
-
   const trainerOptions = useCallback(
     async (query: string) => {
       if (!agencyId) return [];
@@ -334,7 +335,6 @@ export default function CourseDetailPage() {
 
   function openCreateSession() {
     setSessionForm({
-      module_id: '',
       trainer_id: '',
       start_at: '',
       end_at: '',
@@ -356,7 +356,6 @@ export default function CourseDetailPage() {
       const saved = await academyApi.createSession({
         course_id: courseId,
         agency_id: agencyId,
-        module_id: sessionForm.module_id || null,
         trainer_id: sessionForm.trainer_id || null,
         start_at: sessionForm.start_at,
         end_at: sessionForm.end_at || null,
@@ -374,8 +373,8 @@ export default function CourseDetailPage() {
     }
   }
 
-  function openEnroll() {
-    setEnrollForm(emptyEnrollForm);
+  function openEnroll(sessionId?: string) {
+    setEnrollForm({ ...emptyEnrollForm, training_session_id: sessionId ?? '' });
     setEnrollError(null);
     setEnrollFieldErrors({});
     setEnrollOpen(true);
@@ -393,11 +392,20 @@ export default function CourseDetailPage() {
       ...(enrollForm.seller_trainer_id
         ? { seller_trainer_id: enrollForm.seller_trainer_id }
         : { seller_user_id: enrollForm.seller_user_id || undefined }),
+      ...(enrollForm.training_session_id ? { training_session_id: enrollForm.training_session_id } : {}),
+      ...(enrollForm.amount_paid ? { amount_paid: Number(enrollForm.amount_paid) } : {}),
       notes: enrollForm.notes || undefined,
     };
     try {
       const saved = await academyApi.createFormationEnrollment(payload);
       setLearners((prev) => [saved, ...prev]);
+      const sessionsData = await academyApi.sessions({ course_id: courseId, agency_id: agencyId, per_page: 100 });
+      setSessions(sessionsData.data);
+      setSessionLearnersMap((prev) => {
+        const next = { ...prev };
+        delete next[enrollForm.training_session_id];
+        return next;
+      });
       showToast(t('academy.enrollmentCreated'), 'success');
       setEnrollOpen(false);
     } catch (error) {
@@ -423,6 +431,36 @@ export default function CourseDetailPage() {
     }
   }
 
+  async function handleDeleteEnrollment() {
+    if (!deleteEnrollment) return;
+    setIsDeletingEnrollment(true);
+    try {
+      await academyApi.removeFormationEnrollment(deleteEnrollment.id);
+      setLearners((prev) => prev.map((l) => (l.id === deleteEnrollment.id ? { ...l, status: 'cancelled' as const } : l)));
+      showToast(t('academy.enrollmentDeleted'), 'success');
+      setDeleteEnrollment(null);
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('academy.deleteFailed')), 'error');
+    } finally {
+      setIsDeletingEnrollment(false);
+    }
+  }
+
+  async function toggleSession(sessionId: string, isExpanded: boolean) {
+    setExpandedSession(isExpanded ? null : sessionId);
+    if (isExpanded) return;
+    if (sessionLearnersMap[sessionId]) return;
+    setSessionLearnersLoading(sessionId);
+    try {
+      const roster = await attendancesApi.list(sessionId);
+      setSessionLearnersMap((prev) => ({ ...prev, [sessionId]: roster }));
+    } catch {
+      setSessionLearnersMap((prev) => ({ ...prev, [sessionId]: [] }));
+    } finally {
+      setSessionLearnersLoading((current) => (current === sessionId ? null : current));
+    }
+  }
+
   const stats = useMemo(() => {
     const completed = sessions.filter((s) => s.status === 'completed').length;
     const ongoing = sessions.filter((s) => s.status === 'ongoing').length;
@@ -435,6 +473,22 @@ export default function CourseDetailPage() {
       ongoing,
     };
   }, [sessions, modules, learners]);
+
+  const enrollableSessions = useMemo(() => {
+    const future = sessions.filter(
+      (s) =>
+        s.status !== 'cancelled' &&
+        s.status !== 'completed' &&
+        (s.end_at === null || new Date(s.end_at) >= new Date()),
+    );
+    if (enrollForm.training_session_id) {
+      const selected = sessions.find((s) => s.id === enrollForm.training_session_id);
+      if (selected && !future.some((s) => s.id === selected.id)) {
+        return [...future, selected];
+      }
+    }
+    return future;
+  }, [sessions, enrollForm.training_session_id]);
 
   if (isLoading) {
     return (
@@ -480,7 +534,7 @@ export default function CourseDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={openEnroll}>
+          <Button variant="outline" onClick={() => openEnroll()}>
             <UserPlus className="h-4 w-4" />
             {t('academy.newEnrollment')}
           </Button>
@@ -551,13 +605,13 @@ export default function CourseDetailPage() {
                 >
                   <button
                     type="button"
-                    onClick={() => setExpandedSession(isExpanded ? null : session.id)}
+                    onClick={() => toggleSession(session.id, isExpanded)}
                     className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50"
                   >
                     <div className="flex min-w-0 flex-col gap-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {session.module?.name ?? t('academy.session')}
+                          {t('academy.session')}
                         </span>
                         {statusBadge(session.status, t)}
                       </div>
@@ -587,7 +641,7 @@ export default function CourseDetailPage() {
                           {t('academy.enrolledLearners')}
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          <Button variant="outline" size="sm" onClick={openEnroll}>
+                          <Button variant="outline" size="sm" onClick={() => openEnroll(session.id)}>
                             <UserPlus className="h-4 w-4" />
                             {t('academy.newEnrollment')}
                           </Button>
@@ -597,26 +651,30 @@ export default function CourseDetailPage() {
                               {t('nav.presences')}
                             </Button>
                           </Link>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteSession(session)}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                            title={t('common.delete')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
-                      {learners.length === 0 ? (
+                      {sessionLearnersLoading === session.id ? (
+                        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
+                      ) : (sessionLearnersMap[session.id] ?? []).length === 0 ? (
                         <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{t('academy.noEnrollments')}</p>
                       ) : (
                         <ul className="mt-3 divide-y divide-gray-50 dark:divide-gray-800">
-                          {learners.map((enrollment) => (
-                            <li key={enrollment.id} className="flex items-center justify-between py-2 text-sm">
+                          {(sessionLearnersMap[session.id] ?? []).map((item) => (
+                            <li key={item.learner_user_id || item.formation_enrollment_id} className="flex items-center justify-between py-2 text-sm">
                               <span className="text-gray-700 dark:text-gray-300">
-                                {[enrollment.learner?.first_name, enrollment.learner?.last_name].filter(Boolean).join(' ') ||
-                                  enrollment.learner?.email ||
+                                {[item.learner?.first_name, item.learner?.last_name].filter(Boolean).join(' ') ||
+                                  item.learner?.email ||
                                   '—'}
                               </span>
-                              <Badge variant={enrollment.status === 'cancelled' ? 'error' : enrollment.status === 'completed' ? 'success' : 'brand'}>
-                                {enrollment.status === 'cancelled'
-                                  ? t('academy.statusCancelled')
-                                  : enrollment.status === 'completed'
-                                    ? t('academy.statusCompleted')
-                                    : t('academy.statusEnrolled')}
-                              </Badge>
+                              <Badge variant="brand">{t('academy.statusEnrolled')}</Badge>
                             </li>
                           ))}
                         </ul>
@@ -640,6 +698,7 @@ export default function CourseDetailPage() {
                 <tr>
                   <th className="px-5 py-3 font-medium">{t('academy.learner')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.statusEnrolled')}</th>
+                  <th className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -658,6 +717,18 @@ export default function CourseDetailPage() {
                             ? t('academy.statusCompleted')
                             : t('academy.statusEnrolled')}
                       </Badge>
+                    </td>
+                    <td className="px-5 py-3">
+                      {enrollment.status !== 'cancelled' && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteEnrollment(enrollment)}
+                          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                          title={t('academy.deleteEnrollmentTitle')}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -739,14 +810,6 @@ export default function CourseDetailPage() {
         <form onSubmit={handleCreateSession} className="flex flex-col gap-4">
           {sessionError && <Alert variant="error">{sessionError}</Alert>}
           <Autocomplete
-            label={t('academy.module')}
-            placeholder={t('academy.searchSessionPlaceholder')}
-            value={sessionForm.module_id}
-            onChange={(moduleId) => setSessionForm((prev) => ({ ...prev, module_id: moduleId }))}
-            fetchOptions={moduleOptions}
-            error={sessionFieldErrors.module_id}
-          />
-          <Autocomplete
             label={t('academy.trainer')}
             placeholder={t('academy.searchTrainerPlaceholder')}
             value={sessionForm.trainer_id}
@@ -814,6 +877,44 @@ export default function CourseDetailPage() {
               {t('academy.priceToPay', { amount: Number(course.effective_price ?? course.price).toLocaleString() })}
             </div>
           )}
+          <Input
+            label={`${t('academy.amountPaid')} (FCFA)`}
+            type="number"
+            min={0}
+            placeholder="0"
+            value={enrollForm.amount_paid}
+            onChange={(e) => setEnrollForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
+            error={enrollFieldErrors.amount_paid}
+            hint={t('academy.amountPaidHint')}
+          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {`${t('academy.session')} *`}
+            </label>
+            <select
+              required
+              value={enrollForm.training_session_id}
+              onChange={(e) => setEnrollForm((prev) => ({ ...prev, training_session_id: e.target.value }))}
+              className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 ${
+                enrollFieldErrors.training_session_id ? 'border-red-500' : 'border-gray-300'
+              }`}
+            >
+              <option value="">{t('academy.selectSession')}</option>
+              {enrollableSessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {`${t('academy.session')} — ${formatDate(session.start_at)}${session.end_at ? ` → ${formatDate(session.end_at)}` : ''}${session.max_capacity != null ? ` (${session.enrollments_count ?? 0}/${session.max_capacity})` : ''}`}
+                </option>
+              ))}
+            </select>
+            {enrollableSessions.length === 0 && (
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                {t('academy.noSessionsForCourse')}
+              </p>
+            )}
+            {enrollFieldErrors.training_session_id && (
+              <p className="mt-1 text-xs text-red-500">{enrollFieldErrors.training_session_id}</p>
+            )}
+          </div>
           <Autocomplete
             label={`${t('academy.learner')} *`}
             placeholder={t('academy.searchLearnerPlaceholder')}
@@ -905,11 +1006,23 @@ export default function CourseDetailPage() {
       <ConfirmDialog
         isOpen={Boolean(deleteSession)}
         title={t('academy.deleteSessionTitle')}
-        message={t('academy.deleteSessionConfirm', { label: deleteSession?.module?.name ?? '' })}
+        message={t('academy.deleteSessionConfirm', { label: formatDate(deleteSession?.start_at ?? '') })}
         confirmLabel={t('common.delete')}
         isLoading={isDeleting}
         onConfirm={handleDeleteSession}
         onCancel={() => setDeleteSession(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deleteEnrollment)}
+        title={t('academy.deleteEnrollmentTitle')}
+        message={deleteEnrollment ? t('academy.deleteEnrollmentConfirm', {
+          name: [deleteEnrollment.learner?.first_name, deleteEnrollment.learner?.last_name].filter(Boolean).join(' ') || deleteEnrollment.learner?.email || '',
+        }) : ''}
+        confirmLabel={t('common.delete')}
+        isLoading={isDeletingEnrollment}
+        onConfirm={handleDeleteEnrollment}
+        onCancel={() => setDeleteEnrollment(null)}
       />
     </div>
   );

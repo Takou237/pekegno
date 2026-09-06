@@ -474,6 +474,82 @@ class Phase6AcademyTest extends TestCase
         );
     }
 
+    public function test_enrollment_with_selected_session_assigns_only_to_that_session(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $first = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertCreated()->json();
+
+        $second = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(21)->toISOString(),
+        ])->assertCreated()->json();
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'training_session_id' => $first['id'],
+        ])->assertStatus(201);
+
+        $this->assertDatabaseHas('session_participants', [
+            'training_session_id' => $first['id'],
+            'status' => 'enrolled',
+        ]);
+        $this->assertDatabaseMissing('session_participants', [
+            'training_session_id' => $second['id'],
+        ]);
+    }
+
+    public function test_enrollment_rejects_session_from_another_course(): void
+    {
+        $this->admin();
+        $courseA = $this->createCourse();
+        $courseB = $this->createCourse();
+        $client = $this->createClient();
+
+        $sessionB = $this->postJson('/api/training-sessions', [
+            'course_id' => $courseB['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertCreated()->json();
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $courseA['id'],
+            'learner_user_id' => $client->id,
+            'training_session_id' => $sessionB['id'],
+        ])->assertStatus(422);
+    }
+
+    public function test_enrollment_rejects_selected_full_session(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $first = $this->createClient();
+        $second = $this->createClient();
+
+        $session = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+            'max_capacity' => 1,
+        ])->assertCreated()->json();
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $first->id,
+            'training_session_id' => $session['id'],
+        ])->assertStatus(201);
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $second->id,
+            'training_session_id' => $session['id'],
+        ])->assertStatus(422);
+    }
+
     public function test_enrollments_index_filters_by_learner(): void
     {
         $this->admin();
@@ -589,7 +665,7 @@ class Phase6AcademyTest extends TestCase
         ]);
     }
 
-    public function test_session_creation_respects_capacity_when_assigning_existing_enrollments(): void
+    public function test_session_creation_does_not_auto_assign_existing_enrollments(): void
     {
         $this->admin();
         $course = $this->createCourse();
@@ -605,6 +681,8 @@ class Phase6AcademyTest extends TestCase
             'learner_user_id' => $second->id,
         ])->assertCreated();
 
+        // Depuis que l'inscription choisit explicitement sa session,
+        // une nouvelle session démarre vide : pas d'affectation automatique.
         $session = $this->postJson('/api/training-sessions', [
             'course_id' => $course['id'],
             'start_at' => now()->addDays(7)->toISOString(),
@@ -614,9 +692,115 @@ class Phase6AcademyTest extends TestCase
             ->json();
 
         $this->assertSame(
-            1,
+            0,
             \Illuminate\Support\Facades\DB::table('session_participants')->where('training_session_id', $session['id'])->count()
         );
+    }
+
+    public function test_session_creation_ignores_module_selection(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $module = \App\Models\CourseModule::create([
+            'course_id' => $course['id'],
+            'name' => 'Module hérité',
+            'order_index' => 1,
+        ]);
+
+        // Un ancien client peut encore envoyer module_id : il est ignoré,
+        // une session couvre toute la formation, pas un module unique.
+        $session = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'module_id' => $module->id,
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertCreated()
+            ->json();
+
+        $this->assertArrayNotHasKey('module', $session);
+        $this->assertNull(
+            \Illuminate\Support\Facades\DB::table('training_sessions')->where('id', $session['id'])->value('module_id')
+        );
+    }
+
+    public function test_deleting_enrollment_cancels_linked_invoice(): void
+    {
+        $this->admin();
+        $course = $this->createCourse(['price' => 50000]);
+        $client = $this->createClient();
+
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201)
+            ->json();
+
+        $this->assertNotNull($enrollment['invoice_id']);
+        $this->assertDatabaseHas('invoices', [
+            'id' => $enrollment['invoice_id'],
+            'cancelled_at' => null,
+        ]);
+
+        $this->deleteJson('/api/formation-enrollments/'.$enrollment['id'])->assertStatus(204);
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $enrollment['invoice_id'],
+            'status' => 'cancelled',
+        ]);
+        $this->assertNotNull(Invoice::find($enrollment['invoice_id'])?->cancelled_at);
+    }
+
+    public function test_attendance_is_recorded_per_module(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $moduleA = \App\Models\CourseModule::create([
+            'course_id' => $course['id'],
+            'name' => 'Module A',
+            'order_index' => 1,
+        ]);
+        $moduleB = \App\Models\CourseModule::create([
+            'course_id' => $course['id'],
+            'name' => 'Module B',
+            'order_index' => 2,
+        ]);
+
+        $session = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertCreated()
+            ->json();
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+            'training_session_id' => $session['id'],
+        ])->assertStatus(201);
+
+        // Présence notée pour le module A uniquement.
+        $this->putJson("/api/training-sessions/{$session['id']}/attendances", [
+            'course_module_id' => $moduleA->id,
+            'attendances' => [['learner_user_id' => $client->id, 'status' => 'present']],
+        ])->assertOk()
+            ->assertJsonPath('attendances.0.status', 'present');
+
+        $this->assertDatabaseHas('attendances', [
+            'training_session_id' => $session['id'],
+            'learner_user_id' => $client->id,
+            'course_module_id' => $moduleA->id,
+            'status' => 'present',
+        ]);
+
+        // Le module B n'a pas encore été rempli pour cette session.
+        $this->getJson("/api/training-sessions/{$session['id']}/attendances?course_module_id={$moduleB->id}")
+            ->assertOk()
+            ->assertJsonPath('attendances.0.status', null);
+
+        // Sans module, aucune présence héritée n'est recréée.
+        $this->getJson("/api/training-sessions/{$session['id']}/attendances")
+            ->assertOk()
+            ->assertJsonPath('attendances.0.status', null);
     }
 
     public function test_training_report_aggregates(): void

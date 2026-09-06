@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, CalendarPlus } from 'lucide-react';
-import { academyApi, type Course, type Learner } from '@/api/academy.api';
+import { academyApi, type Course, type Learner, type TrainingSession } from '@/api/academy.api';
 import { clientsApi } from '@/api/clients.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -27,12 +27,16 @@ const STATUSES = ['enrolled', 'completed', 'cancelled'] as const;
 interface EnrollmentFormState {
   course_id: string;
   learner_user_id: string;
+  training_session_id: string;
+  amount_paid: string;
   notes: string;
 }
 
 const emptyEnrollmentForm: EnrollmentFormState = {
   course_id: '',
   learner_user_id: '',
+  training_session_id: '',
+  amount_paid: '',
   notes: '',
 };
 
@@ -82,6 +86,7 @@ export default function AcademyLearnersPage() {
   const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
   const [enrollmentFieldErrors, setEnrollmentFieldErrors] = useState<Record<string, string>>({});
   const [enrollmentCourses, setEnrollmentCourses] = useState<Course[]>([]);
+  const [enrollmentSessions, setEnrollmentSessions] = useState<TrainingSession[]>([]);
 
   // Modal nouvel apprenant : création d'un user rôle « client ».
   const [learnerOpen, setLearnerOpen] = useState(false);
@@ -131,6 +136,35 @@ export default function AcademyLearnersPage() {
     };
   }, [enrollmentOpen, agencyId]);
 
+  useEffect(() => {
+    if (!enrollmentForm.course_id || !agencyId) {
+      setEnrollmentSessions([]);
+      return;
+    }
+    setEnrollmentSessions([]);
+    let active = true;
+    academyApi
+      .sessions({ agency_id: agencyId, course_id: enrollmentForm.course_id, per_page: 100 })
+      .then((res) => {
+        if (active) {
+          setEnrollmentSessions(
+            res.data.filter(
+              (s) =>
+                s.status !== 'cancelled' &&
+                s.status !== 'completed' &&
+                (s.end_at === null || new Date(s.end_at) >= new Date()),
+            ),
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setEnrollmentSessions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [enrollmentForm.course_id, agencyId]);
+
   const selectedEnrollmentCourse =
     (courseId: string) => enrollmentCourses.find((c) => c.id === courseId) ?? null;
 
@@ -159,6 +193,7 @@ export default function AcademyLearnersPage() {
 
   function openEnrollmentModal() {
     setEnrollmentForm(emptyEnrollmentForm);
+    setEnrollmentSessions([]);
     setEnrollmentError(null);
     setEnrollmentFieldErrors({});
     setEnrollmentOpen(true);
@@ -181,6 +216,8 @@ export default function AcademyLearnersPage() {
       await academyApi.createFormationEnrollment({
         course_id: enrollmentForm.course_id,
         learner_user_id: enrollmentForm.learner_user_id,
+        training_session_id: enrollmentForm.training_session_id || undefined,
+        ...(enrollmentForm.amount_paid ? { amount_paid: Number(enrollmentForm.amount_paid) } : {}),
         notes: enrollmentForm.notes || undefined,
       });
       showToast(t('academy.enrollmentCreated'), 'success');
@@ -373,7 +410,7 @@ export default function AcademyLearnersPage() {
             </label>
             <select
               value={enrollmentForm.course_id || ''}
-              onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, course_id: e.target.value }))}
+              onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, course_id: e.target.value, training_session_id: '' }))}
               className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 ${
                 enrollmentFieldErrors.course_id ? 'border-red-500' : 'border-gray-300'
               }`}
@@ -393,6 +430,48 @@ export default function AcademyLearnersPage() {
           {(selectedEnrollmentCourse(enrollmentForm.course_id)?.effective_price != null || selectedEnrollmentCourse(enrollmentForm.course_id)?.price != null) && (
             <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
               {t('academy.priceToPay', { amount: Number(selectedEnrollmentCourse(enrollmentForm.course_id)?.effective_price ?? selectedEnrollmentCourse(enrollmentForm.course_id)?.price).toLocaleString() })}
+            </div>
+          )}
+
+          <Input
+            label={`${t('academy.amountPaid')} (FCFA)`}
+            type="number"
+            min={0}
+            placeholder="0"
+            value={enrollmentForm.amount_paid}
+            onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
+            error={enrollmentFieldErrors.amount_paid}
+            hint={t('academy.amountPaidHint')}
+          />
+
+          {enrollmentForm.course_id && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {`${t('academy.session')} *`}
+              </label>
+              <select
+                required
+                value={enrollmentForm.training_session_id}
+                onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, training_session_id: e.target.value }))}
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 ${
+                  enrollmentFieldErrors.training_session_id ? 'border-red-500' : 'border-gray-300'
+                }`}
+              >
+                <option value="">{t('academy.selectSession')}</option>
+                {enrollmentSessions.map((session) => (
+                  <option key={session.id} value={session.id}>
+                    {`${t('academy.session')} — ${new Date(session.start_at).toLocaleDateString(currentLocale())}${session.max_capacity != null ? ` (${session.enrollments_count ?? 0}/${session.max_capacity})` : ''}`}
+                  </option>
+                ))}
+              </select>
+              {enrollmentSessions.length === 0 && (
+                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                  {t('academy.noSessionsForCourse')}
+                </p>
+              )}
+              {enrollmentFieldErrors.training_session_id && (
+                <p className="mt-1 text-xs text-red-500">{enrollmentFieldErrors.training_session_id}</p>
+              )}
             </div>
           )}
 

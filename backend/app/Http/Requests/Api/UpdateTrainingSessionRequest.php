@@ -17,7 +17,6 @@ class UpdateTrainingSessionRequest extends FormRequest
     {
         return [
             'course_id' => ['sometimes', 'string', 'exists:courses,id'],
-            'module_id' => ['sometimes', 'nullable', 'string', Rule::exists('course_modules', 'id')->whereNull('deleted_at')],
             'trainer_id' => ['sometimes', 'nullable', 'string', Rule::exists('trainers', 'id')->whereNull('deleted_at')],
             'agency_id' => ['sometimes', 'nullable', 'string', Rule::exists('agencies', 'id')->whereNull('deleted_at')],
             'start_at' => ['sometimes', 'date'],
