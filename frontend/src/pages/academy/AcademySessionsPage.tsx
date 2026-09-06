@@ -4,6 +4,7 @@ import { Plus, Pencil, Trash2, ClipboardList } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   academyApi,
+  type Course,
   type SessionStatus,
   type TrainingSession,
 } from '@/api/academy.api';
@@ -87,6 +88,8 @@ export default function AcademySessionsPage() {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [statusFilter, setStatusFilter] = useState<'' | SessionStatus>('');
+  const [courseFilter, setCourseFilter] = useState('');
+  const [courseOptionsList, setCourseOptionsList] = useState<Course[]>([]);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -108,6 +111,7 @@ export default function AcademySessionsPage() {
     try {
       const response = await academyApi.sessions({
         agency_id: agencyId,
+        course_id: courseFilter || undefined,
         status: statusFilter || undefined,
         page,
         per_page: 15,
@@ -119,11 +123,27 @@ export default function AcademySessionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, statusFilter, page, t]);
+  }, [agencyId, courseFilter, statusFilter, page, t]);
 
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
+
+  useEffect(() => {
+    if (!agencyId) return;
+    let active = true;
+    academyApi
+      .courses({ agency_id: agencyId, per_page: 100 })
+      .then((res) => {
+        if (active) setCourseOptionsList(res.data);
+      })
+      .catch(() => {
+        if (active) setCourseOptionsList([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [agencyId]);
 
   // Options d'autocomplétion du formulaire : formations et formateurs de l'agence.
   const courseOptions = useCallback(
@@ -261,14 +281,30 @@ export default function AcademySessionsPage() {
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex max-w-xs gap-3">
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={courseFilter}
+            onChange={(e) => {
+              setPage(1);
+              setCourseFilter(e.target.value);
+            }}
+            className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          >
+            <option value="">{t('academy.allCourses')}</option>
+            {courseOptionsList.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.name}
+                {course.code ? ` (${course.code})` : ''}
+              </option>
+            ))}
+          </select>
           <select
             value={statusFilter}
             onChange={(e) => {
               setPage(1);
               setStatusFilter(e.target.value as typeof statusFilter);
             }}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
           >
             <option value="">{t('academy.allStatuses')}</option>
             {STATUSES.map((s) => (

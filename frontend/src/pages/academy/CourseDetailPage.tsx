@@ -24,6 +24,13 @@ import { attendancesApi } from '@/api/attendances.api';
 import type { AttendanceRosterItem } from '@/types/attendance';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
+import { clientsApi } from '@/api/clients.api';
+import {
+  EnrollmentLearnerField,
+  emptyNewLearnerForm,
+  type LearnerMode,
+  type NewLearnerFormState,
+} from '@/components/academy/EnrollmentLearnerField';
 import type {
   CourseModule as CourseModuleType,
   FormationEnrollment,
@@ -149,6 +156,8 @@ export default function CourseDetailPage() {
   const [enrollSubmitting, setEnrollSubmitting] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [enrollFieldErrors, setEnrollFieldErrors] = useState<Record<string, string>>({});
+  const [learnerMode, setLearnerMode] = useState<LearnerMode>('existing');
+  const [newLearner, setNewLearner] = useState<NewLearnerFormState>(emptyNewLearnerForm);
 
   const [sessionLearnersMap, setSessionLearnersMap] = useState<Record<string, AttendanceRosterItem[]>>({});
   const [sessionLearnersLoading, setSessionLearnersLoading] = useState<string | null>(null);
@@ -375,6 +384,8 @@ export default function CourseDetailPage() {
 
   function openEnroll(sessionId?: string) {
     setEnrollForm({ ...emptyEnrollForm, training_session_id: sessionId ?? '' });
+    setLearnerMode('existing');
+    setNewLearner(emptyNewLearnerForm);
     setEnrollError(null);
     setEnrollFieldErrors({});
     setEnrollOpen(true);
@@ -386,17 +397,34 @@ export default function CourseDetailPage() {
     setEnrollError(null);
     setEnrollFieldErrors({});
     setEnrollSubmitting(true);
-    const payload: FormationEnrollmentPayload = {
-      course_id: courseId,
-      learner_user_id: enrollForm.learner_user_id,
-      ...(enrollForm.seller_trainer_id
-        ? { seller_trainer_id: enrollForm.seller_trainer_id }
-        : { seller_user_id: enrollForm.seller_user_id || undefined }),
-      ...(enrollForm.training_session_id ? { training_session_id: enrollForm.training_session_id } : {}),
-      ...(enrollForm.amount_paid ? { amount_paid: Number(enrollForm.amount_paid) } : {}),
-      notes: enrollForm.notes || undefined,
-    };
     try {
+      let learnerUserId = enrollForm.learner_user_id;
+      if (learnerMode === 'new') {
+        if (!newLearner.first_name || !newLearner.last_name || !newLearner.email) {
+          setEnrollError(t('academy.newLearnerRequired'));
+          setEnrollFieldErrors({});
+          setEnrollSubmitting(false);
+          return;
+        }
+        const created = await clientsApi.create({
+          first_name: newLearner.first_name,
+          last_name: newLearner.last_name,
+          email: newLearner.email,
+          phone: newLearner.phone || null,
+          registered_agency_id: agencyId,
+        });
+        learnerUserId = created.id;
+      }
+      const payload: FormationEnrollmentPayload = {
+        course_id: courseId,
+        learner_user_id: learnerUserId,
+        ...(enrollForm.seller_trainer_id
+          ? { seller_trainer_id: enrollForm.seller_trainer_id }
+          : { seller_user_id: enrollForm.seller_user_id || undefined }),
+        ...(enrollForm.training_session_id ? { training_session_id: enrollForm.training_session_id } : {}),
+        ...(enrollForm.amount_paid ? { amount_paid: Number(enrollForm.amount_paid) } : {}),
+        notes: enrollForm.notes || undefined,
+      };
       const saved = await academyApi.createFormationEnrollment(payload);
       setLearners((prev) => [saved, ...prev]);
       const sessionsData = await academyApi.sessions({ course_id: courseId, agency_id: agencyId, per_page: 100 });
@@ -915,12 +943,14 @@ export default function CourseDetailPage() {
               <p className="mt-1 text-xs text-red-500">{enrollFieldErrors.training_session_id}</p>
             )}
           </div>
-          <Autocomplete
-            label={`${t('academy.learner')} *`}
-            placeholder={t('academy.searchLearnerPlaceholder')}
-            value={enrollForm.learner_user_id}
-            onChange={(learnerId) => setEnrollForm((prev) => ({ ...prev, learner_user_id: learnerId }))}
+          <EnrollmentLearnerField
+            mode={learnerMode}
+            onModeChange={setLearnerMode}
+            learnerUserId={enrollForm.learner_user_id}
+            onLearnerUserIdChange={(learnerId) => setEnrollForm((prev) => ({ ...prev, learner_user_id: learnerId }))}
             fetchOptions={learnerOptions}
+            newLearner={newLearner}
+            onNewLearnerChange={setNewLearner}
             error={enrollFieldErrors.learner_user_id}
           />
           <Autocomplete

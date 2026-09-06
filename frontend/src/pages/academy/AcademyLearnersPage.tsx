@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
-import { Autocomplete } from '@/components/ui/Autocomplete';
+import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
 
@@ -85,6 +85,8 @@ export default function AcademyLearnersPage() {
   const [isSubmittingEnrollment, setIsSubmittingEnrollment] = useState(false);
   const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
   const [enrollmentFieldErrors, setEnrollmentFieldErrors] = useState<Record<string, string>>({});
+  const [learnerMode, setLearnerMode] = useState<LearnerMode>('existing');
+  const [newLearner, setNewLearner] = useState<NewLearnerFormState>(emptyNewLearnerForm);
   const [enrollmentCourses, setEnrollmentCourses] = useState<Course[]>([]);
   const [enrollmentSessions, setEnrollmentSessions] = useState<TrainingSession[]>([]);
 
@@ -193,6 +195,8 @@ export default function AcademyLearnersPage() {
 
   function openEnrollmentModal() {
     setEnrollmentForm(emptyEnrollmentForm);
+    setLearnerMode('existing');
+    setNewLearner(emptyNewLearnerForm);
     setEnrollmentSessions([]);
     setEnrollmentError(null);
     setEnrollmentFieldErrors({});
@@ -213,9 +217,25 @@ export default function AcademyLearnersPage() {
     setEnrollmentFieldErrors({});
     setIsSubmittingEnrollment(true);
     try {
+      let learnerUserId = enrollmentForm.learner_user_id;
+      if (learnerMode === 'new') {
+        if (!newLearner.first_name || !newLearner.last_name || !newLearner.email) {
+          setEnrollmentError(t('academy.newLearnerRequired'));
+          setIsSubmittingEnrollment(false);
+          return;
+        }
+        const created = await clientsApi.create({
+          first_name: newLearner.first_name,
+          last_name: newLearner.last_name,
+          email: newLearner.email,
+          phone: newLearner.phone || null,
+          registered_agency_id: agencyId,
+        });
+        learnerUserId = created.id;
+      }
       await academyApi.createFormationEnrollment({
         course_id: enrollmentForm.course_id,
-        learner_user_id: enrollmentForm.learner_user_id,
+        learner_user_id: learnerUserId,
         training_session_id: enrollmentForm.training_session_id || undefined,
         ...(enrollmentForm.amount_paid ? { amount_paid: Number(enrollmentForm.amount_paid) } : {}),
         notes: enrollmentForm.notes || undefined,
@@ -475,12 +495,14 @@ export default function AcademyLearnersPage() {
             </div>
           )}
 
-          <Autocomplete
-            label={`${t('academy.learner')} *`}
-            placeholder={t('academy.searchLearnerPlaceholder')}
-            value={enrollmentForm.learner_user_id}
-            onChange={(learnerId) => setEnrollmentForm((prev) => ({ ...prev, learner_user_id: learnerId }))}
+          <EnrollmentLearnerField
+            mode={learnerMode}
+            onModeChange={setLearnerMode}
+            learnerUserId={enrollmentForm.learner_user_id}
+            onLearnerUserIdChange={(learnerId) => setEnrollmentForm((prev) => ({ ...prev, learner_user_id: learnerId }))}
             fetchOptions={learnerOptions}
+            newLearner={newLearner}
+            onNewLearnerChange={setNewLearner}
             error={enrollmentFieldErrors.learner_user_id}
           />
 

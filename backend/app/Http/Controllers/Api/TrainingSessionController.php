@@ -165,7 +165,11 @@ class TrainingSessionController extends Controller
     )]
     public function destroy(TrainingSession $trainingSession): JsonResponse
     {
-        $trainingSession->delete();
+        DB::transaction(function () use ($trainingSession) {
+            Attendance::where('training_session_id', $trainingSession->id)->delete();
+            \App\Models\SessionParticipant::where('training_session_id', $trainingSession->id)->delete();
+            $trainingSession->delete();
+        });
 
         return response()->json(null, 204);
     }

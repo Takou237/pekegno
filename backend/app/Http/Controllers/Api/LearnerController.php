@@ -23,7 +23,8 @@ class LearnerController extends Controller
      */
     private function scopedSessionParticipants(Request $request, User $learner)
     {
-        $query = SessionParticipant::whereHas('formationEnrollment', fn ($q) => $q->where('learner_user_id', $learner->id));
+        $query = SessionParticipant::whereHas('formationEnrollment', fn ($q) => $q->where('learner_user_id', $learner->id))
+            ->whereHas('session');
         $agencyIds = $this->scopeService->agencyIds($request->user());
 
         $this->applyAgencyScope($query, $agencyIds);
@@ -36,7 +37,7 @@ class LearnerController extends Controller
      */
     private function scopedSessionParticipantQuery(?array $scopeAgencyIds)
     {
-        $query = SessionParticipant::query();
+        $query = SessionParticipant::query()->whereHas('session');
 
         $this->applyAgencyScope($query, $scopeAgencyIds);
 
@@ -297,7 +298,7 @@ class LearnerController extends Controller
             ->values();
 
         $recent = $participants
-            ->reject(fn ($p) => $p->status === 'cancelled')
+            ->reject(fn ($p) => $p->status === 'cancelled' || $p->session === null)
             ->sortByDesc('created_at')
             ->take(5)
             ->values();
@@ -370,7 +371,7 @@ class LearnerController extends Controller
     {
         $session = $participant->session;
         $enrollment = $participant->formationEnrollment;
-        $attended = $enrollment
+        $attended = $session !== null && $enrollment
             ? \App\Models\Attendance::where('training_session_id', $session->id)
                 ->where('learner_user_id', $enrollment->learner_user_id)
                 ->where('status', 'present')

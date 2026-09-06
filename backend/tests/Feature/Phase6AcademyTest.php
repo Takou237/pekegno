@@ -380,6 +380,72 @@ class Phase6AcademyTest extends TestCase
         ]);
     }
 
+    public function test_deleting_session_removes_participants_and_attendances(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $session = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertCreated()
+            ->json();
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201);
+
+        $this->putJson("/api/training-sessions/{$session['id']}/attendances", [
+            'attendances' => [['learner_user_id' => $client->id, 'status' => 'present']],
+        ])->assertOk();
+
+        $this->deleteJson("/api/training-sessions/{$session['id']}")
+            ->assertStatus(204);
+
+        $this->assertDatabaseMissing('session_participants', [
+            'training_session_id' => $session['id'],
+        ]);
+        $this->assertDatabaseMissing('attendances', [
+            'training_session_id' => $session['id'],
+        ]);
+
+        $this->getJson("/api/learners/{$client->id}/stats")
+            ->assertOk()
+            ->assertJsonPath('stats.enrollments_total', 0);
+    }
+
+    public function test_learner_stats_exclude_participants_of_soft_deleted_session(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $session = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertCreated()
+            ->json();
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('session_participants', [
+            'training_session_id' => $session['id'],
+        ]);
+
+        // Suppression douce : le participant subsiste, mais la session n'est plus visible.
+        TrainingSession::find($session['id'])->delete();
+
+        $this->getJson("/api/learners/{$client->id}/stats")
+            ->assertOk()
+            ->assertJsonPath('stats.enrollments_total', 0)
+            ->assertJsonCount(0, 'recent_enrollments');
+    }
+
     public function test_attendance_sheet_has_no_default_status_until_marked(): void
     {
         $this->admin();

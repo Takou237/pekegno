@@ -7,7 +7,6 @@ use App\Http\Requests\Api\StoreCourseRequest;
 use App\Http\Requests\Api\UpdateCourseRequest;
 use App\Http\Resources\CourseResource;
 use App\Models\Course;
-use App\Models\TrainingSession;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -113,14 +112,6 @@ class CourseController extends Controller
         if (! empty($categoryIds)) {
             $course->categories()->sync($categoryIds);
         }
-
-        // Une formation crée d'abord une session planifiée par défaut.
-        TrainingSession::create([
-            'course_id' => $course->id,
-            'agency_id' => $course->agency_id,
-            'price' => $course->price,
-            'status' => 'planned',
-        ]);
 
         return (new CourseResource($course->load(['agency', 'categories'])))
             ->response()
