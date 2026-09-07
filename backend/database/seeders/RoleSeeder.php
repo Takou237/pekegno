@@ -124,7 +124,7 @@ class RoleSeeder extends Seeder
                 $p('services', ['consulter']),
                 $p('products', ['consulter']),
                 $p('categories', ['consulter']),
-                $p('invoices', ['consulter', 'creer', 'imprimer', 'encaisser']),
+                $p('invoices', ['consulter', 'creer', 'imprimer', 'encaisser', 'valider']),
                 $p('comptabilite', ['consulter']),
                 $p('bilans', ['consulter', 'exporter']),
                 $p('abonnements', ['consulter', 'creer', 'renouveler']),

@@ -25,6 +25,11 @@ class Invoice extends Model
         'discount',
         'vat_rate',
         'status',
+        'validation_status',
+        'validated_by',
+        'validated_at',
+        'rejection_reason',
+        'source',
         'commission_amount',
         'points_awarded',
         'comment',
@@ -38,6 +43,7 @@ class Invoice extends Model
         return [
             'invoice_date' => 'datetime',
             'cancelled_at' => 'datetime',
+            'validated_at' => 'datetime',
             'total_amount' => 'decimal:2',
             'amount_paid' => 'decimal:2',
             'discount' => 'decimal:2',
@@ -85,6 +91,16 @@ class Invoice extends Model
     public function commissionPayments(): HasMany
     {
         return $this->hasMany(CommissionPayment::class);
+    }
+
+    public function paymentProofs(): HasMany
+    {
+        return $this->hasMany(PaymentProof::class);
+    }
+
+    public function validator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'validated_by');
     }
 
     public function getBalanceDueAttribute(): float

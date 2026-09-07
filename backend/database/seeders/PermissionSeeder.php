@@ -25,7 +25,7 @@ class PermissionSeeder extends Seeder
         'commercials' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter', 'reporting'],
         'employes' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
         'prospects' => ['consulter', 'creer', 'modifier', 'supprimer'],
-        'invoices' => ['consulter', 'creer', 'modifier', 'imprimer', 'annuler', 'encaisser', 'exporter'],
+        'invoices' => ['consulter', 'creer', 'modifier', 'imprimer', 'annuler', 'encaisser', 'valider', 'exporter'],
         'activity-logs' => ['consulter', 'exporter'],
         'settings' => ['modifier'],
         'stats' => ['consulter'],

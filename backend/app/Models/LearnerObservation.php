@@ -17,8 +17,18 @@ class LearnerObservation extends Model
         'learner_user_id',
         'course_id',
         'session_id',
+        'course_module_id',
+        'author_user_id',
+        'visible_to_client',
         'content',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'visible_to_client' => 'boolean',
+        ];
+    }
 
     public function learner(): BelongsTo
     {
@@ -33,5 +43,15 @@ class LearnerObservation extends Model
     public function session(): BelongsTo
     {
         return $this->belongsTo(TrainingSession::class, 'session_id');
+    }
+
+    public function courseModule(): BelongsTo
+    {
+        return $this->belongsTo(CourseModule::class, 'course_module_id');
+    }
+
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'author_user_id');
     }
 }

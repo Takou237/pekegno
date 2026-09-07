@@ -17,6 +17,7 @@ class Product extends Model
         'sku',
         'name',
         'description',
+        'cover_image',
         'category_id',
         'brand',
         'purchase_price',
@@ -24,6 +25,8 @@ class Product extends Model
         'tax_rate',
         'is_stock_managed',
         'is_active',
+        'is_public',
+        'slug',
         'agency_id',
     ];
 
@@ -35,6 +38,7 @@ class Product extends Model
             'tax_rate' => 'decimal:2',
             'is_stock_managed' => 'boolean',
             'is_active' => 'boolean',
+            'is_public' => 'boolean',
         ];
     }
 
@@ -76,6 +80,11 @@ class Product extends Model
     public function scopeAvailableIn(Builder $query, string $agencyId): Builder
     {
         return $query->where(fn ($q) => $q->where('agency_id', $agencyId)->orWhereNull('agency_id'));
+    }
+
+    public function scopePublic(Builder $query): Builder
+    {
+        return $query->where('is_public', true);
     }
 
     public static function generateSku(): string
