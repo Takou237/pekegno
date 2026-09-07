@@ -22,6 +22,7 @@ import {
   UserCheck,
   BookOpen,
   ClipboardList,
+  ClipboardCheck,
   Undo2,
   Warehouse,
   Landmark,
@@ -109,6 +110,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t, unpaidBadge),
+      { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
       { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       catalogItem(t),
     ];
@@ -137,6 +139,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (roleName === 'commercial') {
     return [
       ...baseItems,
+      { to: '/commercial/dashboard', label: t('nav.myDashboard'), icon: BarChart3, end: false },
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
       { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
       invoiceItem(t, unpaidBadge),

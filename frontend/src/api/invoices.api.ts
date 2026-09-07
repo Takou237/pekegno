@@ -5,6 +5,7 @@ import type {
   InvoiceListParams,
   InvoiceTotals,
   PayInvoicePayload,
+  RejectInvoicePayload,
   UpdateInvoicePayload,
 } from '@/types/invoice';
 import type { PaginatedResponse } from '@/types/agency';
@@ -42,6 +43,16 @@ export const invoicesApi = {
 
   async cancel(id: string): Promise<Invoice> {
     const { data } = await client.post<Invoice>(`/invoices/${id}/cancel`);
+    return data;
+  },
+
+  async validate(id: string): Promise<Invoice> {
+    const { data } = await client.post<Invoice>(`/invoices/${id}/validate`);
+    return data;
+  },
+
+  async reject(id: string, payload: RejectInvoicePayload): Promise<Invoice> {
+    const { data } = await client.post<Invoice>(`/invoices/${id}/reject`, payload);
     return data;
   },
 };

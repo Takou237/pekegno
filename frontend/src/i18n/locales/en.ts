@@ -167,6 +167,8 @@ export default {
     planning: 'Planning',
     production: 'Production',
     revisions: 'Revisions',
+    pendingInvoices: 'Validations',
+    myDashboard: 'My dashboard',
   },
 
   auth: {
@@ -947,6 +949,21 @@ export default {
     noTimeline: 'No activities for this client.',
   },
 
+  commercial: {
+    selfTitle: 'My dashboard',
+    selfNoProfile: 'No sales profile linked to your account.',
+    selfNoAgency: 'No agency',
+    selfNewSale: 'Quick sale',
+    selfNewInvoice: 'New invoice',
+    selfTurnover: 'Revenue',
+    selfSales: 'Sales',
+    selfCommissions: 'Commissions',
+    selfPoints: 'Points',
+    selfMyDetail: 'My profile',
+    selfRecentInvoices: 'Recent invoices',
+    selfViewAll: 'View all',
+  },
+
   commercials: {
     title: 'Sales staff',
     subtitle: 'Manage salespeople, points and commissions.',
@@ -1200,6 +1217,27 @@ export default {
     quickOptional: 'Optional information',
     passTier: 'Tier',
     commissionPerTranche: 'Bonus rule',
+    pendingTitle: 'Invoice validations',
+    pendingSubtitle: 'Invoices waiting for validation.',
+    pendingEmpty: 'No invoice pending validation.',
+    colValidation: 'Validation',
+    colSource: 'Source',
+    validate: 'Validate',
+    reject: 'Reject',
+    validated: 'Invoice {{number}} validated.',
+    rejected: 'Invoice {{number}} rejected.',
+    validateFailed: 'Could not validate the invoice.',
+    rejectFailed: 'Could not reject the invoice.',
+    rejectTitle: 'Reject invoice {{number}}',
+    rejectReason: 'Rejection reason',
+    rejectReasonPlaceholder: 'Specify the reason for rejection…',
+    rejectReasonRequired: 'A rejection reason is required.',
+    validationPending: 'Pending',
+    validationValidated: 'Validated',
+    validationRejected: 'Rejected',
+    sourceInPerson: 'In person',
+    sourceCommercialOnline: 'Online commercial',
+    sourceClientSelf: 'Client portal',
   },
 
   audit: {

@@ -168,6 +168,8 @@ export default {
     planning: 'Planning',
     production: 'Production',
     revisions: 'Révisions',
+    pendingInvoices: 'Validations',
+    myDashboard: 'Mon tableau de bord',
   },
 
   auth: {
@@ -955,6 +957,21 @@ export default {
     noTimeline: 'Aucune activité pour ce client.',
   },
 
+  commercial: {
+    selfTitle: 'Mon tableau de bord',
+    selfNoProfile: 'Aucun profil commercial lié à votre compte.',
+    selfNoAgency: 'Aucune agence',
+    selfNewSale: 'Vente rapide',
+    selfNewInvoice: 'Nouvelle facture',
+    selfTurnover: 'Chiffre d\'affaires',
+    selfSales: 'Ventes',
+    selfCommissions: 'Commissions',
+    selfPoints: 'Points',
+    selfMyDetail: 'Mon profil',
+    selfRecentInvoices: 'Factures récentes',
+    selfViewAll: 'Tout voir',
+  },
+
   commercials: {
     title: 'Commerciaux',
     subtitle: 'Gestion des commerciaux, points et commissions.',
@@ -1208,6 +1225,27 @@ export default {
     quickOptional: 'Informations optionnelles',
     passTier: 'Tranche',
     commissionPerTranche: 'Règle de prime',
+    pendingTitle: 'Validations de factures',
+    pendingSubtitle: 'Factures en attente de validation.',
+    pendingEmpty: 'Aucune facture en attente de validation.',
+    colValidation: 'Validation',
+    colSource: 'Source',
+    validate: 'Valider',
+    reject: 'Rejeter',
+    validated: 'Facture {{number}} validée.',
+    rejected: 'Facture {{number}} rejetée.',
+    validateFailed: 'Impossible de valider la facture.',
+    rejectFailed: 'Impossible de rejeter la facture.',
+    rejectTitle: 'Rejeter la facture {{number}}',
+    rejectReason: 'Motif de rejet',
+    rejectReasonPlaceholder: 'Précisez le motif du rejet…',
+    rejectReasonRequired: 'Le motif de rejet est obligatoire.',
+    validationPending: 'En attente',
+    validationValidated: 'Validée',
+    validationRejected: 'Rejetée',
+    sourceInPerson: 'En présentiel',
+    sourceCommercialOnline: 'Commercial en ligne',
+    sourceClientSelf: 'Espace client',
   },
 
   audit: {

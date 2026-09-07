@@ -2,6 +2,8 @@ import type { Agency } from './agency';
 import type { CommissionPayment } from './commercial';
 
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
+export type InvoiceValidationStatus = 'pending' | 'validated' | 'rejected';
+export type InvoiceSource = 'in_person' | 'commercial_online' | 'client_self';
 export type PaymentMethod = 'cash' | 'om' | 'momo' | 'mobile';
 
 export interface AgencySnapshot {
@@ -56,6 +58,11 @@ export interface Invoice {
   vat_rate: string;
   vat_amount: number;
   status: InvoiceStatus;
+  validation_status: InvoiceValidationStatus;
+  validated_by: string | null;
+  validated_at: string | null;
+  rejection_reason: string | null;
+  source: InvoiceSource | null;
   commission_amount: string | null;
   points_awarded: number | null;
   comment: string | null;
@@ -83,6 +90,7 @@ export interface InvoiceTotals {
 export interface InvoiceListParams {
   search?: string;
   status?: InvoiceStatus | `${InvoiceStatus},${InvoiceStatus}`;
+  validation_status?: InvoiceValidationStatus | `${InvoiceValidationStatus},${InvoiceValidationStatus}`;
   agency_id?: string;
   client_id?: string;
   commercial_id?: string;
@@ -134,4 +142,8 @@ export interface PayInvoicePayload {
   paid_at?: string;
   comment?: string;
   treasury_account_id?: string;
+}
+
+export interface RejectInvoicePayload {
+  rejection_reason: string;
 }

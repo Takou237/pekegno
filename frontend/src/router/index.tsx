@@ -53,6 +53,7 @@ const ClientListPage = lazy(() => import('@/pages/clients/ClientListPage'));
 const ClientDetailPage = lazy(() => import('@/pages/clients/ClientDetailPage'));
 const CommercialListPage = lazy(() => import('@/pages/commercials/CommercialListPage'));
 const CommercialDetailPage = lazy(() => import('@/pages/commercials/CommercialDetailPage'));
+const CommercialSelfDashboardPage = lazy(() => import('@/pages/commercials/CommercialSelfDashboardPage'));
 const AgencyCommercialsPage = lazy(() => import('@/pages/commercials/AgencyCommercialsPage'));
 const AgencyCommercialDetailPage = lazy(
   () => import('@/pages/commercials/AgencyCommercialDetailPage')
@@ -61,6 +62,7 @@ const AgencyCommercialReportPage = lazy(
   () => import('@/pages/commercials/AgencyCommercialReportPage')
 );
 const InvoiceListPage = lazy(() => import('@/pages/invoices/InvoiceListPage'));
+const PendingInvoicesPage = lazy(() => import('@/pages/invoices/PendingInvoicesPage'));
 const InvoiceFormPage = lazy(() => import('@/pages/invoices/InvoiceFormPage'));
 const QuickSalePage = lazy(() => import('@/pages/invoices/QuickSalePage'));
 const InvoiceDetailPage = lazy(() => import('@/pages/invoices/InvoiceDetailPage'));
@@ -174,6 +176,7 @@ export const router = createBrowserRouter([
           { path: '/clients', element: page(<ClientListPage />, table) },
           { path: '/clients/:id', element: page(<ClientDetailPage />, detail) },
           { path: '/commercials', element: page(<CommercialListPage />, table) },
+          { path: '/commercial/dashboard', element: page(<CommercialSelfDashboardPage />, dashboard) },
           { path: '/commercials/report', element: page(<CommercialReportPage />, table) },
           { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },
           { path: '/employees', element: page(<EmployeeListPage />, table) },
@@ -190,6 +193,7 @@ export const router = createBrowserRouter([
           { path: '/bilans', element: page(<DailyBilanPage />, table) },
           { path: '/subscriptions', element: page(<SubscriptionListPage />, table) },
           { path: '/invoices', element: page(<InvoiceListPage />, table) },
+          { path: '/invoices/pending', element: page(<PendingInvoicesPage />, table) },
           { path: '/invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: '/invoices/quick', element: page(<QuickSalePage />, form) },
           { path: '/invoices/:id', element: page(<InvoiceDetailPage />, detail) },
