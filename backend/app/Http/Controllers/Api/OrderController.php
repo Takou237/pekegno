@@ -3,13 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Invoice;
 use App\Models\Order;
-use App\Models\OrderLine;
-use App\Models\Service;
-use App\Models\User;
 use App\Services\ActivityLogger;
-use App\Services\InvoiceNumberGenerator;
+use App\Services\OrderInvoicingService;
 use App\Services\OrderNumberGenerator;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +19,7 @@ class OrderController extends Controller
     public function __construct(
         private readonly ScopeService $scopeService,
         private readonly OrderNumberGenerator $orderNumber,
-        private readonly InvoiceNumberGenerator $invoiceNumber,
+        private readonly OrderInvoicingService $invoicing,
         private readonly ActivityLogger $logger,
     ) {}
 
@@ -102,7 +98,7 @@ class OrderController extends Controller
                 throw ValidationException::withMessages(['agency_id' => "L'agence est requise."]);
             }
 
-            $lines = $this->buildLines($data['lines']);
+            $lines = $this->invoicing->buildLines($data['lines']);
             $subtotal = round(collect($lines)->sum('line_total'), 2);
             $discount = (float) ($data['discount'] ?? 0);
             $total = round(max(0, $subtotal - $discount), 2);
@@ -185,7 +181,7 @@ class OrderController extends Controller
         $data = $this->validateOrder($request, update: true);
 
         $order = DB::transaction(function () use ($order, $data, $request) {
-            $lines = isset($data['lines']) ? $this->buildLines($data['lines']) : $order->lines;
+            $lines = isset($data['lines']) ? $this->invoicing->buildLines($data['lines']) : $order->lines;
 
             $subtotal = round(collect($lines)->sum('line_total'), 2);
             $discount = (float) ($data['discount'] ?? $order->discount);
@@ -307,40 +303,7 @@ class OrderController extends Controller
         }
 
         $invoice = DB::transaction(function () use ($order, $request) {
-            $client = $order->client;
-
-            $isRemote = in_array($order->channel, ['commercial_online', 'client_self'], true);
-
-            $invoice = Invoice::create([
-                'number' => $this->invoiceNumber->next(),
-                'agency_id' => $order->agency_id,
-                'client_id' => $order->client_id,
-                'client_name' => $client ? trim("{$client->first_name} {$client->last_name}") : null,
-                'commercial_id' => $order->commercial_id,
-                'seller_user_id' => $request->user()->id,
-                'invoice_date' => now(),
-                'payment_type' => null,
-                'total_amount' => $order->total_amount,
-                'amount_paid' => 0,
-                'discount' => $order->discount,
-                'vat_rate' => $order->vat_rate,
-                'status' => 'unpaid',
-                'validation_status' => $isRemote ? Invoice::VALIDATION_PENDING : Invoice::VALIDATION_VALIDATED,
-                'source' => $isRemote ? 'online' : 'in_person',
-                'comment' => "Commande {$order->number}",
-            ]);
-
-            foreach ($order->lines as $line) {
-                $invoice->items()->create([
-                    'service_id' => $line->service_id,
-                    'label' => $line->label,
-                    'unit_price' => $line->unit_price,
-                    'quantity' => $line->quantity,
-                    'line_total' => $line->line_total,
-                ]);
-            }
-
-            $order->update(['status' => 'completed', 'invoice_id' => $invoice->id]);
+            $invoice = $this->invoicing->invoiceFromOrder($order, $request->user()->id);
 
             $this->logger->log(
                 action: 'invoiced',
@@ -411,50 +374,5 @@ class OrderController extends Controller
             'lines.*.unit_price' => ['required_if:lines.*.line_type,manual', 'nullable', 'numeric', 'min:0'],
             'lines.*.quantity' => ['nullable', 'integer', 'min:1', 'max:9999'],
         ]);
-    }
-
-    /**
-     * Construit les lignes avec snapshot du prix : catalogue = prix du service
-     * (surchargeable), manuel = prix saisi. Les occurrences multiples d'un même
-     * service sont autorisées.
-     */
-    private function buildLines(array $lines): array
-    {
-        $result = [];
-
-        foreach ($lines as $line) {
-            $type = $line['line_type'] ?? 'catalog';
-            $quantity = (int) ($line['quantity'] ?? 1);
-
-            $unitPrice = null;
-            $label = null;
-            $serviceId = null;
-
-            if ($type === 'catalog' && ! empty($line['service_id'])) {
-                $service = Service::findOrFail($line['service_id']);
-                $serviceId = $service->id;
-                $label = $service->name;
-                $unitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
-                    ? (float) $line['unit_price']
-                    : (float) $service->price;
-            } else {
-                $label = $line['label'];
-                $unitPrice = (float) $line['unit_price'];
-            }
-
-            $unitPrice = round(max(0, $unitPrice), 2);
-
-            $result[] = [
-                'line_type' => $type,
-                'service_id' => $serviceId,
-                'label' => $label,
-                'description' => $line['description'] ?? null,
-                'unit_price' => $unitPrice,
-                'quantity' => $quantity,
-                'line_total' => round($unitPrice * $quantity, 2),
-            ];
-        }
-
-        return $result;
     }
 }

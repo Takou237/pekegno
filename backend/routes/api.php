@@ -21,6 +21,13 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CourseCategoryController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ClientController;
+use App\Http\Controllers\Api\Client\ClientAttendanceController;
+use App\Http\Controllers\Api\Client\ClientCheckoutController;
+use App\Http\Controllers\Api\Client\ClientEnrollmentController;
+use App\Http\Controllers\Api\Client\ClientInvoiceController;
+use App\Http\Controllers\Api\Client\ClientLearnerController;
+use App\Http\Controllers\Api\Client\ClientLearnerObservationController;
+use App\Http\Controllers\Api\Client\ClientOrderController;
 use App\Http\Controllers\Api\CommercialController;
 use App\Http\Controllers\Api\CommercialReportController;
 use App\Http\Controllers\Api\CourseController;
@@ -91,6 +98,19 @@ Route::post('/client/register', RegisterController::class)->middleware('throttle
 Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::post('/client/logout', ClientLogoutController::class);
     Route::get('/client/me', ClientMeController::class);
+
+    Route::get('/client/orders', [ClientOrderController::class, 'index']);
+    Route::post('/client/orders', [ClientOrderController::class, 'store']);
+    Route::get('/client/orders/{order}', [ClientOrderController::class, 'show']);
+    Route::post('/client/checkout', ClientCheckoutController::class);
+    Route::get('/client/invoices', [ClientInvoiceController::class, 'index']);
+    Route::get('/client/invoices/{invoice}', [ClientInvoiceController::class, 'show']);
+    Route::post('/client/invoices/{invoice}/payment-proof', [ClientInvoiceController::class, 'uploadProof']);
+    Route::get('/client/enrollments', [ClientEnrollmentController::class, 'index']);
+    Route::get('/client/learner-profile', [ClientLearnerController::class, 'show']);
+    Route::get('/client/attendances', [ClientAttendanceController::class, 'index']);
+    Route::get('/client/observations', [ClientLearnerObservationController::class, 'index']);
+    Route::post('/client/observations', [ClientLearnerObservationController::class, 'store']);
 });
 
 Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'update.activity', 'portal:staff'])->group(function () {
