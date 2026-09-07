@@ -1169,6 +1169,7 @@ export default {
     detailTitle: 'Invoice {{number}}',
     print: 'Print',
     printTitle: 'Print invoice',
+    printPendingPayment: 'Printable after full collection by the cashier',
     cancelInvoice: 'Cancel invoice',
     cancelTitle: 'Cancel this invoice?',
     cancelMessage: 'The invoice "{{number}}" will be cancelled and excluded from statistics.',

@@ -197,12 +197,21 @@ class InvoiceController extends Controller
             // (caissier / admin / comptable) sont validées directement.
             $needsValidation = $request->user()->role?->name === 'commercial';
 
+            // Une vente faite par un commercial est automatiquement rattachée à son propre
+            // profil même si l'écran de saisie n'envoie pas commercial_id (vente rapide, etc.).
+            // Sans cette affectation, la facture serait orpheline : invisible dans ses factures
+            // récentes et exclue de ses stats (nombre de ventes, CA, commission).
+            $commercialId = $data['commercial_id'] ?? null;
+            if ($needsValidation && ! $commercialId) {
+                $commercialId = $request->user()->commercialProfile?->id;
+            }
+
             $invoice = Invoice::create([
                 'number' => $this->numberGenerator->next(),
                 'agency_id' => $data['agency_id'] ?? $request->user()->primaryAgency()->value('agencies.id'),
                 'client_id' => $data['client_id'] ?? null,
                 'client_name' => $data['client_name'] ?? null,
-                'commercial_id' => $data['commercial_id'] ?? null,
+                'commercial_id' => $commercialId,
                 'seller_user_id' => $data['seller_user_id'] ?? $request->user()->id,
                 'invoice_date' => $data['invoice_date'] ?? now(),
                 'payment_type' => $data['payment_type'] ?? null,

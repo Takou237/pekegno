@@ -130,9 +130,10 @@ class Phase5CommercialValidationTest extends TestCase
         Sanctum::actingAs($commercialUser);
 
         // 2 articles : quantités 2 et 3 → nombre de ventes attendu = 5
+        // NB : commercial_id n'est PAS envoyé, comme dans l'écran réel (vente rapide) :
+        // le backend doit rattacher automatiquement la facture au profil du commercial.
         $invoice = $this->postJson('/api/invoices', [
             'agency_id' => $agency->id,
-            'commercial_id' => $commercial->id,
             'items' => [
                 ['label' => 'Massage', 'unit_price' => 10000, 'quantity' => 2],
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 3],
@@ -140,6 +141,9 @@ class Phase5CommercialValidationTest extends TestCase
         ])->assertStatus(201)->json();
 
         $total = 2 * 10000 + 3 * 15000; // 65000
+
+        // La facture a été rattachée automatiquement au profil du commercial.
+        $this->assertSame($commercial->id, $invoice['commercial_id']);
 
         // Avant validation/encaissement : aucune vente comptabilisée.
         $stats = $this->scopedStats($commercial->id);

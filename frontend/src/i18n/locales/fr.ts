@@ -1177,6 +1177,7 @@ export default {
     detailTitle: 'Facture {{number}}',
     print: 'Imprimer',
     printTitle: 'Imprimer la facture',
+    printPendingPayment: 'Imprimable après encaissement complet par le caissier',
     cancelInvoice: 'Annuler la facture',
     cancelTitle: 'Annuler cette facture ?',
     cancelMessage: 'La facture « {{number}} » sera annulée et exclue des statistiques.',
