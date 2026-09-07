@@ -589,6 +589,7 @@ class CommercialController extends Controller
 
         $base = $commercial->invoices()
             ->where('status', 'paid')
+            ->where('validation_status', \App\Models\Invoice::VALIDATION_VALIDATED)
             ->whereNull('cancelled_at')
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
@@ -611,6 +612,7 @@ class CommercialController extends Controller
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->where('invoices.commercial_id', $commercial->id)
             ->where('invoices.status', 'paid')
+            ->where('invoices.validation_status', \App\Models\Invoice::VALIDATION_VALIDATED)
             ->whereNull('invoices.cancelled_at')
             ->when($from, fn ($q) => $q->whereDate('invoices.invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoices.invoice_date', '<=', $to))
@@ -625,10 +627,21 @@ class CommercialController extends Controller
             ->where('rule', 'commission_payment')
             ->sum('amount');
 
+        // Nombre de ventes = somme des quantités de services vendus (pas le nombre de factures).
+        $salesCount = (int) DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->where('invoices.commercial_id', $commercial->id)
+            ->where('invoices.status', 'paid')
+            ->where('invoices.validation_status', \App\Models\Invoice::VALIDATION_VALIDATED)
+            ->whereNull('invoices.cancelled_at')
+            ->when($from, fn ($q) => $q->whereDate('invoices.invoice_date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('invoices.invoice_date', '<=', $to))
+            ->sum('invoice_items.quantity');
+
         return response()->json([
             'commercial' => $commercial->only(['id', 'first_name', 'last_name', 'email', 'points_balance', 'commission_type', 'commission_value', 'is_active']),
             'turnover' => round((float) (clone $base)->sum('total_amount'), 2),
-            'sales_count' => (clone $base)->count(),
+            'sales_count' => $salesCount,
             // Solde restant : commissions gagnées sur factures payées − versements effectués.
             'commissions' => round(max($earnedCommissions - $paidCommissions, 0), 2),
             'points_balance' => $commercial->points_balance,

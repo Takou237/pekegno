@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '@/router/ProtectedRoute';
 import { GuestRoute } from '@/router/GuestRoute';
+import { HomeRedirect } from '@/router/HomeRedirect';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AgencyLayout } from '@/components/agencies/AgencyLayout';
 import { AgencyRedirect } from '@/components/agencies/AgencyRedirect';
@@ -21,7 +22,6 @@ const TwoFactorPage = lazy(() => import('@/pages/auth/TwoFactorPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
 const RegisterPage = lazy(() => import('@/pages/register/RegisterPage'));
-const PEKEGNOGroupDashboard = lazy(() => import('@/pages/dashboard/PEKEGNOGroupDashboard'));
 const AcademyDashboardPage = lazy(() => import('@/pages/dashboard/AcademyDashboardPage'));
 const CountryDashboardPage = lazy(() => import('@/pages/dashboard/CountryDashboardPage'));
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
@@ -164,7 +164,7 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: page(<PEKEGNOGroupDashboard />, dashboard) },
+          { path: '/', element: page(<HomeRedirect />, dashboard) },
           { path: '/profile', element: page(<ProfilePage />, detail) },
           { path: '/countries', element: page(<CountryListPage />, cards) },
           { path: '/agencies', element: page(<AgencyListPage />, cards) },

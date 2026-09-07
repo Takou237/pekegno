@@ -191,6 +191,12 @@ class InvoiceController extends Controller
                 ]);
             }
 
+            // Une facture créée par un commercial passe par le workflow de validation : elle
+            // naît en attente et ne devient définitive (entrée en comptabilité, encaissable)
+            // qu'après validation par un caissier / la direction. Les ventes de guichet
+            // (caissier / admin / comptable) sont validées directement.
+            $needsValidation = $request->user()->role?->name === 'commercial';
+
             $invoice = Invoice::create([
                 'number' => $this->numberGenerator->next(),
                 'agency_id' => $data['agency_id'] ?? $request->user()->primaryAgency()->value('agencies.id'),
@@ -205,6 +211,8 @@ class InvoiceController extends Controller
                 'discount' => $discount,
                 'vat_rate' => $vatRate,
                 'status' => 'unpaid',
+                'validation_status' => $needsValidation ? Invoice::VALIDATION_PENDING : Invoice::VALIDATION_VALIDATED,
+                'source' => $needsValidation ? 'in_person' : 'in_person',
                 'comment' => $data['comment'] ?? null,
             ]);
 
@@ -231,7 +239,7 @@ class InvoiceController extends Controller
                 ]);
             }
 
-            if (! empty($data['advance'])) {
+            if (! $needsValidation && ! empty($data['advance'])) {
                 $this->applyPayment($invoice, (float) $data['advance'], $data['payment_type'] ?? 'cash', true, $request->user()->id);
             }
 
@@ -429,9 +437,18 @@ class InvoiceController extends Controller
             new OA\Response(response: 200, description: 'Facture annulée'),
         ]
     )]
-    public function cancel(Invoice $invoice): JsonResponse
+    public function cancel(Request $request, Invoice $invoice): JsonResponse
     {
         abort_if($invoice->is_cancelled, 422, 'Cette facture est déjà annulée.');
+
+        // Un commercial ne peut annuler que ses propres factures non encore validées
+        // (en attente ou rejetées). Une fois validée (définitive), seule la direction /
+        // un responsable peut l'annuler.
+        if ($request->user()->role?->name === 'commercial') {
+            $ownProfile = $request->user()->commercialProfile;
+            abort_if(! $ownProfile || $invoice->commercial_id !== $ownProfile->id, 403, 'Vous ne pouvez annuler que vos propres factures.');
+            abort_if(in_array($invoice->validation_status, [Invoice::VALIDATION_VALIDATED], true), 422, 'Une facture validée ne peut plus être supprimée par son commercial.');
+        }
 
         $invoice->update(['cancelled_at' => now()]);
         $invoice->refreshStatus();

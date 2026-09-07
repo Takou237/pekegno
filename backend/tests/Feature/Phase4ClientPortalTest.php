@@ -120,7 +120,7 @@ class Phase4ClientPortalTest extends TestCase
         $this->assertEquals(35000, $invoice['total_amount']);
         $this->assertSame('unpaid', $invoice['status']);
         $this->assertSame(Invoice::VALIDATION_PENDING, $invoice['validation_status']);
-        $this->assertSame('online', $invoice['source']);
+        $this->assertSame('client_self', $invoice['source']);
 
         $this->assertDatabaseHas('orders', [
             'id' => $order['id'],

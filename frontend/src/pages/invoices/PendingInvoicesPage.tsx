@@ -6,6 +6,7 @@ import { invoicesApi } from '@/api/invoices.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
 import { formatRelativeDate } from '@/utils/date';
 import { formatCurrency } from '@/utils/number';
 import { Button } from '@/components/ui/Button';
@@ -42,6 +43,10 @@ function SourceLabel({ source }: { source: InvoiceSource | null }) {
 export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { user: currentUser } = useAuth();
+  const canValidateInvoice = ['super-admin', 'direction-generale', 'caissier'].includes(
+    currentUser?.role?.name ?? ''
+  );
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -186,7 +191,9 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                   <th className="px-5 py-3 font-medium">{t('invoices.colSource')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colValidation')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('invoices.colTotal')}</th>
+                  {canValidateInvoice && (
                   <th className="px-5 py-3 text-right font-medium">{t('common.actions')}</th>
+                )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -213,6 +220,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                     <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(inv.total_amount)}
                     </td>
+                    {canValidateInvoice && (
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <Button
@@ -230,6 +238,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                         </Button>
                       </div>
                     </td>
+                  )}
                   </tr>
                 ))}
               </tbody>

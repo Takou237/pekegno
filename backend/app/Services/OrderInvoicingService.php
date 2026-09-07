@@ -68,16 +68,24 @@ class OrderInvoicingService
 
     /**
      * Crée la facture à partir d'une commande (statut completed + invoice_id).
-     * Les commandes distantes (commercial_online / client_self) passent par le
-     * workflow de validation : validation_status=pending, source=online.
-     * Les commandes en personne (in_person) sont directement validées.
+     * Toute commande avec un commercial attribué (commercial_id) ou un canal distant
+     * (commercial_online / client_self) naît en attente de validation : validation_status=pending.
+     * Elle ne devient définitive (validated, entrée en comptabilité, encaissable) qu'après
+     * validation par un caissier / la direction. Seules les ventes de guichet sans
+     * commercial (in_person, commercial_id null) sont directement validées.
      */
     public function invoiceFromOrder(Order $order, string $actorUserId): Invoice
     {
         return DB::transaction(function () use ($order, $actorUserId) {
             $client = $order->client;
 
-            $isRemote = in_array($order->channel, ['commercial_online', 'client_self'], true);
+            $needsValidation = $order->commercial_id !== null || in_array($order->channel, ['commercial_online', 'client_self'], true);
+
+            $source = match ($order->channel) {
+                'client_self' => 'client_self',
+                'commercial_online' => 'commercial_online',
+                default => 'in_person',
+            };
 
             $invoice = Invoice::create([
                 'number' => $this->invoiceNumber->next(),
@@ -93,8 +101,8 @@ class OrderInvoicingService
                 'discount' => $order->discount,
                 'vat_rate' => $order->vat_rate,
                 'status' => 'unpaid',
-                'validation_status' => $isRemote ? Invoice::VALIDATION_PENDING : Invoice::VALIDATION_VALIDATED,
-                'source' => $isRemote ? 'online' : 'in_person',
+                'validation_status' => $needsValidation ? Invoice::VALIDATION_PENDING : Invoice::VALIDATION_VALIDATED,
+                'source' => $source,
                 'comment' => "Commande {$order->number}",
             ]);
 

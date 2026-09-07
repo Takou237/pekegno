@@ -10,6 +10,7 @@ import { agenciesApi } from '@/api/agencies.api';
 import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/utils/number';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -41,9 +42,12 @@ export default function InvoiceFormPage({
 }: { lockedAgencyId?: string; backPath?: string; successPath?: string } = {}) {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { user: currentUser } = useAuth();
   const navigate = useNavigate();
   const { agencyId: routeAgencyId } = useParams<{ agencyId?: string }>();
   const [searchParams] = useSearchParams();
+
+  const isCommercial = currentUser?.role?.name === 'commercial';
 
   const presetAgencyId = lockedAgencyId ?? routeAgencyId ?? searchParams.get('agency_id') ?? '';
   const [agencyLocked] = useState(Boolean(presetAgencyId));
@@ -159,7 +163,7 @@ export default function InvoiceFormPage({
         invoice_date: invoiceDate,
         payment_type: paymentType || undefined,
         comment: comment || undefined,
-        advance: Number(advance) || undefined,
+        advance: !isCommercial ? Number(advance) || undefined : undefined,
         discount: Number(discount) || undefined,
         vat_rate: Number(vatRate) || undefined,
         items: validLines.map((l) => ({
@@ -445,16 +449,18 @@ export default function InvoiceFormPage({
             />
           </div>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input
-              label={t('invoices.advance')}
-              type="number"
-              min={0}
-              step="0.01"
-              value={advance}
-              onChange={(e) => setAdvance(e.target.value)}
-              error={errors.advance}
-              hint={t('invoices.advanceHint')}
-            />
+            {!isCommercial && (
+              <Input
+                label={t('invoices.advance')}
+                type="number"
+                min={0}
+                step="0.01"
+                value={advance}
+                onChange={(e) => setAdvance(e.target.value)}
+                error={errors.advance}
+                hint={t('invoices.advanceHint')}
+              />
+            )}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('invoices.headerComment')}
@@ -505,7 +511,7 @@ export default function InvoiceFormPage({
               </span>
             </div>
             <Button type="submit" isLoading={submitting}>
-              {t('invoices.createSubmit')}
+              {isCommercial ? t('invoices.createSubmitPending') : t('invoices.createSubmit')}
             </Button>
           </div>
         </div>

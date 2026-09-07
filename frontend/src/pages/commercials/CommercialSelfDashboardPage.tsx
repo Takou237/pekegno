@@ -1,26 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { TrendingUp, ShoppingCart, Coins, Star, FileText, Target, Building2, Plus } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Coins, Star, FileText, Target, Building2, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { commercialsApi } from '@/api/commercials.api';
 import { invoicesApi } from '@/api/invoices.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
 import { Button } from '@/components/ui/Button';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
+import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Commercial, CommercialStats } from '@/types/commercial';
 import type { Invoice } from '@/types/invoice';
 
 export default function CommercialSelfDashboardPage() {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const { user } = useAuth();
   const [commercial, setCommercial] = useState<Commercial | null>(null);
   const [stats, setStats] = useState<CommercialStats | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
@@ -47,6 +51,20 @@ export default function CommercialSelfDashboardPage() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  async function handleDelete(inv: Invoice) {
+    if (!window.confirm(t('invoices.cancelTitle'))) return;
+    setDeletingId(inv.id);
+    try {
+      await invoicesApi.cancel(inv.id);
+      showToast(t('invoices.cancelled'), 'success');
+      setInvoices((prev) => prev.filter((i) => i.id !== inv.id));
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('invoices.cancelFailed')), 'error');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   if (isLoading) {
     return <SkeletonDetail />;
@@ -161,6 +179,7 @@ export default function CommercialSelfDashboardPage() {
                   <th className="px-5 py-3 font-medium">{t('invoices.colClient')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('invoices.colTotal')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colStatus')}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -180,7 +199,27 @@ export default function CommercialSelfDashboardPage() {
                       {formatCurrency(inv.total_amount)}
                     </td>
                     <td className="px-5 py-3">
-                      <InvoiceStatusBadge status={inv.status} />
+                      {inv.validation_status === 'pending' ? (
+                        <ValidationBadge status={inv.validation_status} />
+                      ) : (
+                        <InvoiceStatusBadge status={inv.status} />
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      {inv.validation_status === 'pending' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(inv)}
+                          disabled={deletingId === inv.id}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-error-600 hover:bg-error-50 disabled:opacity-50 dark:text-error-400 dark:hover:bg-error-500/10"
+                          title={t('invoices.cancelInvoice')}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {deletingId === inv.id ? t('common.loading') : t('invoices.cancelInvoice')}
+                        </button>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

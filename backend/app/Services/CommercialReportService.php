@@ -58,11 +58,16 @@ class CommercialReportService
         $ids = $commercials->pluck('id');
 
         $invoices = Invoice::query()
-            ->whereNull('cancelled_at')
-            ->whereIn('commercial_id', $ids)
-            ->whereBetween('invoice_date', [$from, $to])
-            ->selectRaw('commercial_id, count(*) as sales_count, sum(total_amount) as revenue_billed, count(distinct client_id) as clients_converted')
-            ->groupBy('commercial_id')
+            ->whereNull('invoices.cancelled_at')
+            ->whereIn('invoices.commercial_id', $ids)
+            ->whereBetween('invoices.invoice_date', [$from, $to])
+            ->join('invoice_items', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->selectRaw(
+                'invoices.commercial_id, coalesce(sum(invoice_items.quantity), 0) as sales_count, '
+                .'sum(invoices.total_amount) as revenue_billed, '
+                .'count(distinct invoices.client_id) as clients_converted'
+            )
+            ->groupBy('invoices.commercial_id')
             ->get()
             ->keyBy('commercial_id');
 

@@ -22,6 +22,7 @@ import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoicePrint } from '@/components/invoices/InvoicePrint';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
+import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Invoice, PaymentMethod } from '@/types/invoice';
 
 export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
@@ -61,6 +62,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const canCollect = ['super-admin', 'direction-generale', 'responsable-agence', 'caissier', 'comptable'].includes(
     currentUser?.role?.name ?? ''
   );
+
+  const isCommercial = currentUser?.role?.name === 'commercial';
 
   const fetchInvoice = useCallback(async () => {
     setIsLoading(true);
@@ -207,6 +210,9 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               {t('invoices.detailTitle', { number: invoice.number })}
             </h1>
             <InvoiceStatusBadge status={invoice.status} />
+            {invoice.validation_status !== 'validated' && (
+              <ValidationBadge status={invoice.validation_status} />
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" onClick={() => setPrintOpen(true)}>
@@ -225,8 +231,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 {t('invoices.pay')}
               </Button>
             )}
-            {!invoice.is_cancelled && (
-              <Button variant="danger" onClick={() => setCancelTarget(true)}>
+            {!invoice.is_cancelled && (!isCommercial || invoice.validation_status !== 'validated') && (
+              <Button variant="danger" onClick={() => setCancelTarget(true)} disabled={cancelSubmitting}>
                 <XCircle className="h-4 w-4" />
                 {t('invoices.cancelInvoice')}
               </Button>
