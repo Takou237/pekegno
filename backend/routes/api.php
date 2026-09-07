@@ -225,6 +225,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoices.consulter');
     Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->middleware('permission:invoices.modifier');
     Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'pay'])->middleware('permission:invoices.encaisser');
+    Route::post('/invoices/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->middleware('permission:invoices.valider');
+    Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])->middleware('permission:invoices.valider');
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:invoices.annuler');
 
     Route::post('/orders', [OrderController::class, 'store'])->middleware('permission:orders.creer');

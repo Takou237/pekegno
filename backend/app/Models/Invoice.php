@@ -6,10 +6,23 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
 
 class Invoice extends Model
 {
     use HasUuids;
+
+    public const VALIDATION_PENDING = 'pending';
+
+    public const VALIDATION_VALIDATED = 'validated';
+
+    public const VALIDATION_REJECTED = 'rejected';
+
+    public const VALIDATION_STATUSES = [
+        self::VALIDATION_PENDING,
+        self::VALIDATION_VALIDATED,
+        self::VALIDATION_REJECTED,
+    ];
 
     protected $fillable = [
         'number',
@@ -101,6 +114,15 @@ class Invoice extends Model
     public function validator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'validated_by');
+    }
+
+    /**
+     * Factures entrées en comptabilité (validation_status = validated).
+     * Utilisé par les agrégats/CA pour exclure pending et rejected.
+     */
+    public function scopeValidated(Builder $query): Builder
+    {
+        return $query->where('validation_status', self::VALIDATION_VALIDATED);
     }
 
     public function getBalanceDueAttribute(): float

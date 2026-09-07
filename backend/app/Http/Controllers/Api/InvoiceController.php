@@ -43,6 +43,7 @@ class InvoiceController extends Controller
         parameters: [
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par numéro, nom client ou email client', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut', schema: new OA\Schema(type: 'string', enum: ['unpaid', 'partial', 'paid'])),
+            new OA\Parameter(name: 'validation_status', in: 'query', description: 'Filtrer par statut de validation (séparable par virgule)', schema: new OA\Schema(type: 'string', enum: ['pending', 'validated', 'rejected'])),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'client_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'commercial_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
@@ -83,6 +84,10 @@ class InvoiceController extends Controller
             ->when($request->status, function ($q, $s) {
                 $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
                 $q->whereIn('status', $statuses);
+            })
+            ->when($request->validation_status, function ($q, $s) {
+                $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
+                $q->whereIn('validation_status', $statuses);
             })
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))
@@ -311,6 +316,7 @@ class InvoiceController extends Controller
     {
         abort_if($invoice->is_cancelled, 422, "Impossible d'encaisser une facture annulée.");
         abort_if($invoice->status === 'paid', 422, 'Cette facture est déjà soldée.');
+        abort_if($invoice->validation_status !== Invoice::VALIDATION_VALIDATED, 422, "La facture doit être validée avant d'être encaissée.");
 
         $amount = round((float) $request->input('amount'), 2);
         if ($amount > $invoice->balance_due) {
@@ -335,6 +341,78 @@ class InvoiceController extends Controller
             $invoice->id,
             "Paiement de {$amount} FCFA ({$request->input('payment_method')}) sur la facture {$invoice->number}",
         );
+
+        return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
+    }
+
+    #[OA\Post(
+        path: '/api/invoices/{invoice}/validate',
+        summary: 'Valider une facture en attente (entrée en comptabilité)',
+        tags: ['Factures'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Facture validée'),
+            new OA\Response(response: 422, description: 'Facture non en attente ou déjà validée'),
+        ]
+    )]
+    public function validateInvoice(Invoice $invoice): JsonResponse
+    {
+        abort_if($invoice->validation_status === Invoice::VALIDATION_VALIDATED, 422, 'Cette facture est déjà validée.');
+        abort_if($invoice->validation_status !== Invoice::VALIDATION_PENDING, 422, 'Seule une facture en attente peut être validée.');
+
+        $invoice->update([
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+            'validated_by' => auth()->id(),
+            'validated_at' => now(),
+            'rejection_reason' => null,
+        ]);
+
+        $this->logger->log('validated', 'invoice', $invoice->id, "Facture {$invoice->number} validée");
+
+        return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
+    }
+
+    #[OA\Post(
+        path: '/api/invoices/{invoice}/reject',
+        summary: 'Rejeter une facture en attente (motif obligatoire)',
+        tags: ['Factures'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['rejection_reason'],
+                properties: [
+                    new OA\Property(property: 'rejection_reason', type: 'string', description: 'Motif du rejet'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Facture rejetée'),
+            new OA\Response(response: 422, description: 'Motif manquant ou facture non en attente'),
+        ]
+    )]
+    public function reject(Request $request, Invoice $invoice): JsonResponse
+    {
+        abort_if($invoice->validation_status === Invoice::VALIDATION_REJECTED, 422, 'Cette facture est déjà rejetée.');
+        abort_if($invoice->validation_status !== Invoice::VALIDATION_PENDING, 422, 'Seule une facture en attente peut être rejetée.');
+
+        $reason = trim((string) $request->input('rejection_reason', ''));
+        abort_if($reason === '', 422, 'La raison du rejet est obligatoire.');
+
+        $invoice->update([
+            'validation_status' => Invoice::VALIDATION_REJECTED,
+            'validated_by' => auth()->id(),
+            'validated_at' => now(),
+            'rejection_reason' => $reason,
+        ]);
+
+        $this->logger->log('rejected', 'invoice', $invoice->id, "Facture {$invoice->number} rejetée : {$reason}");
 
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
     }

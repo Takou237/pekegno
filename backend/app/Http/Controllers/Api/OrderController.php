@@ -113,6 +113,7 @@ class OrderController extends Controller
                 'client_id' => $data['client_id'],
                 'commercial_id' => $data['commercial_id'] ?? null,
                 'status' => $data['status'] ?? 'draft',
+                'channel' => $data['channel'] ?? 'in_person',
                 'order_date' => $data['order_date'] ?? now()->toDateString(),
                 'subtotal' => $subtotal,
                 'discount' => $discount,
@@ -192,6 +193,7 @@ class OrderController extends Controller
 
             $order->update([
                 'status' => $data['status'] ?? $order->status,
+                'channel' => $data['channel'] ?? $order->channel,
                 'commercial_id' => $data['commercial_id'] ?? $order->commercial_id,
                 'order_date' => $data['order_date'] ?? $order->order_date,
                 'subtotal' => $subtotal,
@@ -307,6 +309,8 @@ class OrderController extends Controller
         $invoice = DB::transaction(function () use ($order, $request) {
             $client = $order->client;
 
+            $isRemote = in_array($order->channel, ['commercial_online', 'client_self'], true);
+
             $invoice = Invoice::create([
                 'number' => $this->invoiceNumber->next(),
                 'agency_id' => $order->agency_id,
@@ -321,6 +325,8 @@ class OrderController extends Controller
                 'discount' => $order->discount,
                 'vat_rate' => $order->vat_rate,
                 'status' => 'unpaid',
+                'validation_status' => $isRemote ? Invoice::VALIDATION_PENDING : Invoice::VALIDATION_VALIDATED,
+                'source' => $isRemote ? 'online' : 'in_person',
                 'comment' => "Commande {$order->number}",
             ]);
 
@@ -393,6 +399,7 @@ class OrderController extends Controller
             'commercial_id' => ['nullable', 'uuid', 'exists:commercials,id'],
             'order_date' => ['nullable', 'date'],
             'status' => ['nullable', 'in:draft,confirmed,cancelled'],
+            'channel' => ['nullable', 'in:in_person,commercial_online,client_self'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'notes' => ['nullable', 'string'],
