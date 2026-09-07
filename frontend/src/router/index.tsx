@@ -47,6 +47,7 @@ const CategoryListPage = lazy(() => import('@/pages/categories/CategoryListPage'
 const CategoryTrashPage = lazy(() => import('@/pages/categories/CategoryTrashPage'));
 const ServiceListPage = lazy(() => import('@/pages/services/ServiceListPage'));
 const DepartmentServicesPage = lazy(() => import('@/pages/departments/DepartmentServicesPage'));
+const DepartmentProductsPage = lazy(() => import('@/pages/departments/DepartmentProductsPage'));
 const ServiceTrashPage = lazy(() => import('@/pages/services/ServiceTrashPage'));
 const ClientListPage = lazy(() => import('@/pages/clients/ClientListPage'));
 const ClientDetailPage = lazy(() => import('@/pages/clients/ClientDetailPage'));
@@ -276,6 +277,7 @@ export const router = createBrowserRouter([
           { path: 'contracts', element: page(<ContractListPage />, table) },
           { path: 'contracts/:contractId', element: page(<ContractDetailPage />, detail) },
           { path: 'services', element: page(<DepartmentServicesPage />, cards) },
+          { path: 'products', element: page(<DepartmentProductsPage />, cards) },
           { path: 'academy', element: page(<AgencyAcademyPage />, cards) },
           { path: 'community', element: page(<ComingSoonPage />, table) },
           { path: 'advertising', element: page(<ComingSoonPage />, table) },

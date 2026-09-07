@@ -1070,6 +1070,7 @@ export default {
     title: 'Invoices',
     subtitle: 'Manage sales and payments.',
     newInvoice: 'New invoice',
+    newSale: 'New sale',
     export: 'Export invoices',
     searchPlaceholder: 'Invoice number…',
     empty: 'No invoice found.',

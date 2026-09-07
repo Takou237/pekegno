@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play, Tag } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play, Tag, ShoppingCart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { categoriesApi } from '@/api/categories.api';
@@ -19,6 +19,7 @@ import { ServiceDetailModal } from '@/components/services/ServiceDetailModal';
 import { CategoryFormModal } from '@/components/categories/CategoryFormModal';
 import AgencyAcademyFormations from '@/pages/academy/AgencyAcademyFormations';
 import PromotionFormModal from '@/components/promotions/PromotionFormModal';
+import QuickSaleModal from '@/components/invoices/QuickSaleModal';
 import {
   canCreateService,
   canDeleteService,
@@ -82,6 +83,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
 
   const [promoService, setPromoService] = useState<Service | null>(null);
   const [promoEditing, setPromoEditing] = useState<Promotion | null>(null);
+  const [quickSaleOpen, setQuickSaleOpen] = useState(false);
   const canPromoteService = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     user?.role?.name ?? ''
   );
@@ -283,6 +285,10 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('services.subtitle')}</p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <Button variant="outline" onClick={() => setQuickSaleOpen(true)}>
+            <ShoppingCart className="h-4 w-4" />
+            {t('invoices.newSale')}
+          </Button>
           {canExportData(user) && (
             <Button variant="outline" onClick={handleExport} isLoading={isExporting}>
               <Download className="h-4 w-4" />
@@ -640,6 +646,12 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         isLoading={isDeleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <QuickSaleModal
+        isOpen={quickSaleOpen}
+        onClose={() => setQuickSaleOpen(false)}
+        agencyId={agencyId}
       />
     </div>
   );

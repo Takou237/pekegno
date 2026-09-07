@@ -1078,6 +1078,7 @@ export default {
     title: 'Factures',
     subtitle: 'Gestion des ventes et encaissements.',
     newInvoice: 'Nouvelle facture',
+    newSale: 'Nouvelle vente',
     export: 'Exporter les factures',
     searchPlaceholder: 'Numéro de facture…',
     empty: 'Aucune facture trouvée.',
