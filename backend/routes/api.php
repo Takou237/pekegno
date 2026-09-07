@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\ProspectController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\Public\PublicCatalogController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScopeController;
@@ -65,6 +66,17 @@ use App\Http\Controllers\Api\UserAssignmentController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Support\Facades\Route;
+
+// === Public storefront (aucune authentification) ===
+Route::prefix('public')->group(function () {
+    Route::get('/countries', [PublicCatalogController::class, 'countries']);
+    Route::get('/agencies', [PublicCatalogController::class, 'agencies']);
+    Route::get('/services', [PublicCatalogController::class, 'services']);
+    Route::get('/services/{service}', [PublicCatalogController::class, 'service']);
+    Route::get('/products', [PublicCatalogController::class, 'products']);
+    Route::get('/products/{product}', [PublicCatalogController::class, 'product']);
+    Route::get('/agencies/{agency}/payment-methods', [PublicCatalogController::class, 'agencyPaymentMethods']);
+});
 
 Route::post('/auth/login', LoginController::class);
 Route::post('/auth/register', RegisterController::class);
