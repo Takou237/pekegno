@@ -106,6 +106,7 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::get('/client/invoices', [ClientInvoiceController::class, 'index']);
     Route::get('/client/invoices/{invoice}', [ClientInvoiceController::class, 'show']);
     Route::post('/client/invoices/{invoice}/payment-proof', [ClientInvoiceController::class, 'uploadProof']);
+    Route::get('/client/invoices/{invoice}/receipt', [ClientInvoiceController::class, 'receipt']);
     Route::get('/client/enrollments', [ClientEnrollmentController::class, 'index']);
     Route::get('/client/learner-profile', [ClientLearnerController::class, 'show']);
     Route::get('/client/attendances', [ClientAttendanceController::class, 'index']);

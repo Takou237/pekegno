@@ -90,18 +90,35 @@ class ClientCheckoutController extends Controller
 
     private function validateCheckout(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'agency_id' => ['required', 'uuid', 'exists:agencies,id'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'notes' => ['nullable', 'string'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.line_type' => ['nullable', 'in:catalog,manual'],
-            'lines.*.service_id' => ['required_if:lines.*.line_type,catalog', 'nullable', 'uuid', 'exists:services,id'],
+            'lines.*' => ['array', static function (string $attribute, array $value, $fail): void {
+                $type = $value['line_type'] ?? 'catalog';
+                if ($type === 'catalog' && empty($value['service_id']) && empty($value['product_id'])) {
+                    $fail('La ligne catalogue doit référencer un service ou un produit.');
+                }
+            }],
+            'lines.*.service_id' => ['nullable', 'uuid', 'exists:services,id'],
+            'lines.*.product_id' => ['nullable', 'uuid', 'exists:products,id'],
             'lines.*.label' => ['required_if:lines.*.line_type,manual', 'nullable', 'string', 'max:255'],
             'lines.*.description' => ['nullable', 'string'],
             'lines.*.unit_price' => ['required_if:lines.*.line_type,manual', 'nullable', 'numeric', 'min:0'],
             'lines.*.quantity' => ['nullable', 'integer', 'min:1', 'max:9999'],
         ]);
+
+        foreach ($data['lines'] as $line) {
+            if (($line['line_type'] ?? 'catalog') === 'catalog' && ! empty($line['service_id']) && ! empty($line['product_id'])) {
+                throw ValidationException::withMessages([
+                    'lines' => 'Une ligne catalogue ne peut pas référencer un service et un produit en même temps.',
+                ]);
+            }
+        }
+
+        return $data;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\Service;
 use Illuminate\Support\Facades\DB;
 
@@ -20,8 +21,8 @@ class OrderInvoicingService
 
     /**
      * Construit les lignes avec snapshot du prix : catalogue = prix du service
-     * (surchargeable), manuel = prix saisi. Les occurrences multiples d'un même
-     * service sont autorisées.
+     * ou du produit (surchargeable), manuel = prix saisi. Les occurrences
+     * multiples d'un même article sont autorisées.
      *
      * @param  array<int, array<string, mixed>>  $lines
      * @return array<int, array<string, mixed>>
@@ -37,6 +38,7 @@ class OrderInvoicingService
             $unitPrice = null;
             $label = null;
             $serviceId = null;
+            $productId = null;
 
             if ($type === 'catalog' && ! empty($line['service_id'])) {
                 $service = Service::findOrFail($line['service_id']);
@@ -45,6 +47,13 @@ class OrderInvoicingService
                 $unitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
                     ? (float) $line['unit_price']
                     : (float) $service->price;
+            } elseif ($type === 'catalog' && ! empty($line['product_id'])) {
+                $product = Product::findOrFail($line['product_id']);
+                $productId = $product->id;
+                $label = $product->name;
+                $unitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
+                    ? (float) $line['unit_price']
+                    : (float) $product->selling_price;
             } else {
                 $label = $line['label'];
                 $unitPrice = (float) ($line['unit_price'] ?? 0);
@@ -55,6 +64,7 @@ class OrderInvoicingService
             $result[] = [
                 'line_type' => $type,
                 'service_id' => $serviceId,
+                'product_id' => $productId,
                 'label' => $label,
                 'description' => $line['description'] ?? null,
                 'unit_price' => $unitPrice,
@@ -109,6 +119,7 @@ class OrderInvoicingService
             foreach ($order->lines as $line) {
                 $invoice->items()->create([
                     'service_id' => $line->service_id,
+                    'product_id' => $line->product_id,
                     'label' => $line->label,
                     'unit_price' => $line->unit_price,
                     'quantity' => $line->quantity,

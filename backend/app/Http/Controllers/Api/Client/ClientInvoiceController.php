@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
 use App\Services\ActivityLogger;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
+use Symfony\Component\HttpFoundation\Response;
 
 class ClientInvoiceController extends Controller
 {
@@ -129,5 +131,40 @@ class ClientInvoiceController extends Controller
             'payment_proof' => $proof,
             'url' => Storage::disk('public')->url($path),
         ], 201);
+    }
+
+    /**
+     * Télécharge le reçu PDF de la facture du client connecté.
+     */
+    #[OA\Get(
+        path: '/api/client/invoices/{invoice}/receipt',
+        summary: 'Télécharger le reçu PDF d\'une facture',
+        tags: ['Espace client'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'PDF du reçu'),
+            new OA\Response(response: 404, description: 'Facture introuvable'),
+        ]
+    )]
+    public function receipt(Request $request, Invoice $invoice): Response
+    {
+        abort_unless($invoice->client_id === $request->user()->id, 404, 'Facture introuvable.');
+
+        $invoice->load(['agency:id,name,city,address,phone,email', 'items']);
+
+        $pdf = Pdf::loadView('pdf.invoice-receipt', ['invoice' => $invoice]);
+
+        $this->logger->log(
+            action: 'receipt_downloaded',
+            entityType: 'invoice',
+            entityId: $invoice->id,
+            description: "Reçu PDF de la facture {$invoice->number} téléchargé",
+            request: $request,
+        );
+
+        return $pdf->download("facture-{$invoice->number}.pdf");
     }
 }

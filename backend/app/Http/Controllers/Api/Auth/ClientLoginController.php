@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\LoginRequest;
+use App\Http\Resources\UserResource;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use OpenApi\Attributes as OA;
@@ -39,6 +40,10 @@ class ClientLoginController extends Controller
             ip: $request->ip(),
             userAgent: $request->userAgent(),
         );
+
+        // Le site client consomme `user.name` (UserResource) : on sérialise
+        // explicitement pour être cohérent avec GET /api/client/me.
+        $result['user'] = new UserResource($result['user']);
 
         return response()->json($result);
     }

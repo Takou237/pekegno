@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\InvoiceStatusMail;
 use App\Http\Requests\Api\StoreInvoicePaymentRequest;
 use App\Http\Requests\Api\StoreInvoiceRequest;
 use App\Http\Requests\Api\UpdateInvoiceRequest;
@@ -19,6 +20,7 @@ use App\Services\PointsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
@@ -389,6 +391,8 @@ class InvoiceController extends Controller
 
         $this->logger->log('validated', 'invoice', $invoice->id, "Facture {$invoice->number} validée");
 
+        $this->sendStatusNotification($invoice);
+
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
     }
 
@@ -431,6 +435,8 @@ class InvoiceController extends Controller
 
         $this->logger->log('rejected', 'invoice', $invoice->id, "Facture {$invoice->number} rejetée : {$reason}");
 
+        $this->sendStatusNotification($invoice);
+
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
     }
 
@@ -471,5 +477,25 @@ class InvoiceController extends Controller
     private function applyPayment(Invoice $invoice, float $amount, string $method, bool $isAdvance, string $userId): void
     {
         $this->paymentService->applyPayment($invoice, $amount, $method, $isAdvance, $userId);
+    }
+
+    /**
+     * Notifie le client par email quand une de ses factures passe "validée" ou
+     * "rejetée" (lien vers son espace client si FRONTEND_URL est configuré).
+     */
+    private function sendStatusNotification(Invoice $invoice): void
+    {
+        $email = $invoice->client?->email;
+
+        if (! $email) {
+            return;
+        }
+
+        $frontend = rtrim((string) env('FRONTEND_URL', ''), '/');
+
+        Mail::to($email)->send(new InvoiceStatusMail(
+            invoice: $invoice,
+            clientUrl: $frontend !== '' ? "{$frontend}/mon-compte/factures" : null,
+        ));
     }
 }
