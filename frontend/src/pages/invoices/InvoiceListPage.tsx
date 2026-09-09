@@ -19,6 +19,8 @@ import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import { canExportData } from '@/utils/exportPermissions';
+import { canViewAgencies } from '@/utils/catalogPermissions';
+import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Invoice, InvoiceStatus } from '@/types/invoice';
 import type { Agency, PaginationMeta } from '@/types/agency';
 
@@ -66,8 +68,9 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
   const to = searchParams.get('to') ?? '';
 
   useEffect(() => {
+    if (!canViewAgencies(currentUser)) return;
     agenciesApi.list({ per_page: 100 }).then((res) => setAgencies(res.data ?? [])).catch(() => {});
-  }, []);
+  }, [currentUser]);
 
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
@@ -179,7 +182,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
             <option value="paid">{t('invoices.statusPaid')}</option>
             <option value="cancelled">{t('invoices.statusCancelled')}</option>
           </Select>
-          {!fixedAgencyId && (
+          {!fixedAgencyId && canViewAgencies(currentUser) && (
             <Select label={t('invoices.filterAgency')} value={agencyId} onChange={(e) => setFilter('agency_id', e.target.value)}>
               <option value="">{t('common.selectAllAgencies')}</option>
               {agencies.map((a) => (
@@ -235,6 +238,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
                   <th className="px-5 py-3 text-right font-medium">{t('invoices.colBalance')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('invoices.colTotal')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colStatus')}</th>
+                  <th className="px-5 py-3 font-medium">{t('invoices.colValidation')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('common.actions')}</th>
                 </tr>
               </thead>
@@ -263,7 +267,15 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
                       {inv.agency?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
-                      {formatCurrency(inv.amount_paid)}
+                      {Number(inv.amount_paid) === 0 &&
+                      inv.validation_status === 'pending' &&
+                      Number(inv.declared_advance ?? 0) > 0 ? (
+                        <span className="italic text-amber-600 dark:text-amber-400" title={t('invoices.declaredAdvanceHint')}>
+                          {formatCurrency(inv.declared_advance)} ({t('invoices.declaredAdvance')})
+                        </span>
+                      ) : (
+                        formatCurrency(inv.amount_paid)
+                      )}
                     </td>
                     <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(inv.balance_due)}
@@ -278,6 +290,9 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
                       {formatCurrency(inv.total_amount)}
                     </td>
                     <td className="px-5 py-3">{<InvoiceStatusBadge status={inv.status} />}</td>
+                    <td className="px-5 py-3">
+                      <ValidationBadge status={inv.validation_status} />
+                    </td>
                     <td className="px-5 py-3 text-right">
                       <button
                         type="button"

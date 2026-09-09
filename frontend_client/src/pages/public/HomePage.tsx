@@ -9,12 +9,12 @@ export default function HomePage() {
   const [counts, setCounts] = useState({ services: 0, formations: 0, products: 0, countries: 0 });
 
   useEffect(() => {
-    Promise.all([publicApi.getCountries(), publicApi.getServices(), publicApi.getProducts()])
-      .then(([countries, services, products]) => {
+    Promise.all([publicApi.getCountries(), publicApi.getServices(), publicApi.getProducts(), publicApi.getCourses()])
+      .then(([countries, services, products, courses]) => {
         setCounts({
           countries: countries.length,
-          services: services.filter((s) => s.category?.name !== 'Formations').length,
-          formations: services.filter((s) => s.category?.name === 'Formations').length,
+          services: services.length,
+          formations: courses.length,
           products: products.length,
         });
       })
@@ -23,7 +23,7 @@ export default function HomePage() {
 
   const features = [
     { icon: GraduationCap, title: t('home.formations'), desc: t('home.formationDesc'), count: counts.formations, to: '/catalogue?type=formation' },
-    { icon: Briefcase, title: t('home.services'), desc: t('home.serviceDesc'), count: counts.services + counts.products, to: '/catalogue?type=service' },
+    { icon: Briefcase, title: t('home.services'), desc: t('home.serviceDesc'), count: counts.services + counts.products, to: '/catalogue?type=product' },
     { icon: Globe, title: t('home.countries'), desc: t('home.countryDesc'), count: counts.countries, to: '/catalogue' },
   ];
 

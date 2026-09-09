@@ -1,6 +1,18 @@
 import i18n, { currentLocale } from '@/i18n';
 
 /**
+ * Retourne la date du jour dans le fuseau local de l'utilisateur (YYYY-MM-DD).
+ * À utiliser pour les bornes from/to (le backend interprète ces dates dans le
+ * fuseau métier Africa/Douala).
+ */
+export function todayLocal(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Formate une date à la façon WhatsApp :
  * - aujourd'hui -> "Aujourd'hui"
  * - hier -> "Hier"

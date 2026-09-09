@@ -221,7 +221,6 @@ export default function PaymentPage() {
                   <Select label={t('checkout.paymentMethod')} value={method} onChange={(e) => setMethod(e.target.value)}>
                     <option value="orange_money">Orange Money</option>
                     <option value="mtn_momo">MTN MoMo</option>
-                    <option value="bank_transfer">{t('payment.transfer')}</option>
                     <option value="cash">{t('payment.cash')}</option>
                   </Select>
 

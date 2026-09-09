@@ -122,6 +122,7 @@ export default {
     selectAgencyRequired: 'Veuillez sélectionner une agence pour passer commande.',
   },
   account: {
+    backToCatalog: 'Retour au catalogue',
     dashboard: 'Tableau de bord',
     orders: 'Mes commandes',
     invoices: 'Mes factures',
@@ -153,6 +154,14 @@ export default {
     addObservation: 'Ajouter une observation',
     observationContent: 'Contenu de l\'observation',
     submitObservation: 'Envoyer',
+  },
+  academy: {
+    selectSession: 'Choisir une session',
+    noSessionYet: 'Aucune session pour le moment',
+    enrollNow: "S'inscrire",
+    enrollmentCreated: 'Inscription enregistrée, votre facture est en attente de validation.',
+    enrollFailed: "L'inscription a échoué.",
+    loginToEnroll: 'Connectez-vous pour vous inscrire à cette formation.',
   },
   status: {
     pending: 'En attente',

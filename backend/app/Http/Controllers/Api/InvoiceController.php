@@ -11,6 +11,7 @@ use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\Service;
 use App\Models\SessionParticipant;
+use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
 use App\Services\CommissionService;
@@ -37,6 +38,34 @@ class InvoiceController extends Controller
         private readonly \App\Services\SellerProfileService $sellerProfiles,
     ) {}
 
+    private function scopeByRole($query, ?User $user)
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        // Un commercial n'accède qu'à ses propres factures (liste et totaux).
+        if ($user->role?->name === 'commercial') {
+            if (! $user->commercialProfile) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            return $query->where('commercial_id', $user->commercialProfile->id);
+        }
+
+        // Un caissier ne voit que les factures de ses agences affectées.
+        if ($user->role?->name === 'caissier') {
+            $agencyIds = DB::table('user_assignments')
+                ->where('user_id', $user->id)
+                ->whereNotNull('agency_id')
+                ->pluck('agency_id');
+
+            return $query->whereIn('agency_id', $agencyIds);
+        }
+
+        return $query;
+    }
+
     #[OA\Get(
         path: '/api/invoices',
         summary: 'Lister les factures avec filtres, pagination et totaux',
@@ -60,7 +89,7 @@ class InvoiceController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $base = Invoice::query()
+        $base = $this->scopeByRole(Invoice::query(), $request->user())
             ->when($request->boolean('from_enrollments'), fn ($q) => $q->whereIn(
                 'invoices.id',
                 FormationEnrollment::query()->whereNotNull('invoice_id')->pluck('invoice_id')
@@ -210,7 +239,9 @@ class InvoiceController extends Controller
 
             $invoice = Invoice::create([
                 'number' => $this->numberGenerator->next(),
-                'agency_id' => $data['agency_id'] ?? $request->user()->primaryAgency()->value('agencies.id'),
+                'agency_id' => $data['agency_id']
+                    ?? $request->user()->commercialProfile?->agency_id
+                    ?? $request->user()->primaryAgency()->value('agencies.id'),
                 'client_id' => $data['client_id'] ?? null,
                 'client_name' => $data['client_name'] ?? null,
                 'commercial_id' => $commercialId,
@@ -219,6 +250,7 @@ class InvoiceController extends Controller
                 'payment_type' => $data['payment_type'] ?? null,
                 'total_amount' => $total,
                 'amount_paid' => 0,
+                'declared_advance' => ! empty($data['advance']) ? (float) $data['advance'] : null,
                 'discount' => $discount,
                 'vat_rate' => $vatRate,
                 'status' => 'unpaid',
@@ -344,6 +376,15 @@ class InvoiceController extends Controller
             ], 422);
         }
 
+        // Une commande passée par le client lui-même sur le site doit être réglée
+        // intégralement : pas d'avance possible sur ce canal (contrairement aux
+        // ventes en agence, où un acompte peut être pris au comptoir).
+        if ($invoice->source === 'client_self' && ($request->boolean('is_advance') || $amount < $invoice->balance_due)) {
+            return response()->json([
+                'message' => 'Une commande passée en ligne par le client doit être réglée intégralement, sans avance.',
+            ], 422);
+        }
+
         $this->paymentService->applyPayment(
             invoice: $invoice,
             amount: $amount,
@@ -388,6 +429,19 @@ class InvoiceController extends Controller
             'validated_at' => now(),
             'rejection_reason' => null,
         ]);
+
+        // L'avance annoncée par le commercial à la création n'a pas été encaissée
+        // (il ne peut pas manier de caisse) : elle est appliquée maintenant, au
+        // moment où un caissier / la direction valide la facture.
+        if ((float) ($invoice->declared_advance ?? 0) > 0 && (float) $invoice->amount_paid === 0.0) {
+            $this->paymentService->applyPayment(
+                $invoice,
+                (float) $invoice->declared_advance,
+                $invoice->payment_type ?? 'cash',
+                true,
+                auth()->id(),
+            );
+        }
 
         $this->logger->log('validated', 'invoice', $invoice->id, "Facture {$invoice->number} validée");
 

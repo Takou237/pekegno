@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/hooks/useAuth';
 import { formatRelativeDate } from '@/utils/date';
 import { formatCurrency } from '@/utils/number';
+import { canViewAgencies } from '@/utils/catalogPermissions';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -44,7 +45,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
-  const canValidateInvoice = ['super-admin', 'direction-generale', 'caissier'].includes(
+  const canValidateInvoice = ['super-admin', 'direction-generale', 'responsable-agence', 'caissier'].includes(
     currentUser?.role?.name ?? ''
   );
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,8 +66,9 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
   const agencyId = fixedAgencyId ?? (searchParams.get('agency_id') ?? '');
 
   useEffect(() => {
+    if (!canViewAgencies(currentUser)) return;
     agenciesApi.list({ per_page: 100 }).then((res) => setAgencies(res.data ?? [])).catch(() => {});
-  }, []);
+  }, [currentUser]);
 
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
@@ -159,7 +161,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-3">
-          {!fixedAgencyId && (
+          {!fixedAgencyId && canViewAgencies(currentUser) && (
             <Select label={t('invoices.filterAgency')} value={agencyId} onChange={(e) => setFilter('agency_id', e.target.value)}>
               <option value="">{t('common.selectAllAgencies')}</option>
               {agencies.map((a) => (
@@ -190,6 +192,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                   <th className="px-5 py-3 font-medium">{t('invoices.colAgency')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colSource')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colValidation')}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t('invoices.colAdvance')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('invoices.colTotal')}</th>
                   {canValidateInvoice && (
                   <th className="px-5 py-3 text-right font-medium">{t('common.actions')}</th>
@@ -216,6 +219,9 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                     </td>
                     <td className="px-5 py-3">
                       <ValidationBadge status={inv.validation_status} />
+                    </td>
+                    <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                      {Number(inv.declared_advance ?? 0) > 0 ? formatCurrency(inv.declared_advance) : '—'}
                     </td>
                     <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(inv.total_amount)}

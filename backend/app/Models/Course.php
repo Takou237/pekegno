@@ -32,6 +32,8 @@ class Course extends Model
         'duration_months',
         'agency_id',
         'is_active',
+        'is_public',
+        'slug',
     ];
 
     protected function casts(): array
@@ -41,6 +43,7 @@ class Course extends Model
             'duration_hours' => 'integer',
             'duration_months' => 'integer',
             'is_active' => 'boolean',
+            'is_public' => 'boolean',
         ];
     }
 
@@ -90,6 +93,11 @@ class Course extends Model
     public function scopeAvailableIn(Builder $query, string $agencyId): Builder
     {
         return $query->where(fn ($q) => $q->where('agency_id', $agencyId)->orWhereNull('agency_id'));
+    }
+
+    public function scopePublic(Builder $query): Builder
+    {
+        return $query->where('is_public', true)->where('is_active', true);
     }
 
     public static function generateCode(): string

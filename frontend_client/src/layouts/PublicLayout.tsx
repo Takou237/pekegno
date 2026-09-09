@@ -27,7 +27,7 @@ export default function PublicLayout() {
               <Link to="/catalogue" className="text-sm font-medium text-gray-600 hover:text-brand-600">{t('nav.catalog')}</Link>
             </nav>
 
-            <div className="hidden md:flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-4">
               <div className="relative">
                 <button onClick={() => setLangOpen(!langOpen)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
                   <Globe size={16} /> {lang.toUpperCase()}
@@ -39,6 +39,7 @@ export default function PublicLayout() {
                   </div>
                 )}
               </div>
+
               <Link to="/panier" aria-label={t('nav.cart')} className="relative flex items-center text-gray-600 hover:text-brand-600 transition-colors">
                 <ShoppingCart size={22} />
                 {count > 0 && (
@@ -47,17 +48,18 @@ export default function PublicLayout() {
                   </span>
                 )}
               </Link>
+
               {isAuthenticated ? (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4 pl-4 border-l border-gray-200">
                   <Link to="/mon-compte" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-brand-600">
-                    <User size={16} /> {user?.name}
+                    <User size={16} /> <span className="max-w-[140px] truncate">{user?.name}</span>
                   </Link>
-                  <button onClick={logout} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-error-600">
+                  <button onClick={logout} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-gray-500 hover:bg-error-50 hover:text-error-600">
                     <LogOut size={16} /> {t('nav.logout')}
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
                   <Link to="/connexion" className="text-sm font-medium text-gray-600 hover:text-brand-600">{t('nav.login')}</Link>
                   <Link to="/inscription" className="inline-flex items-center px-4 py-2 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600">{t('nav.register')}</Link>
                 </div>

@@ -19,6 +19,7 @@ import { Autocomplete, FREE_TEXT_PREFIX, type AutocompleteOption } from '@/compo
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem } from '@/types/service';
+import type { Commercial } from '@/types/commercial';
 
 interface InvoiceLineDraft {
   key: string;
@@ -66,7 +67,25 @@ export default function InvoiceFormPage({
   const [lines, setLines] = useState<InvoiceLineDraft[]>([newLine()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [myCommercial, setMyCommercial] = useState<Commercial | null>(null);
   const serviceResultsRef = useRef<Record<string, ServiceSearchItem[]>>({});
+
+  useEffect(() => {
+    if (!isCommercial || !currentUser?.id) return;
+    commercialsApi
+      .list({ per_page: 100 })
+      .then((res) => {
+        const mine = (res.data ?? []).find((c) => c.user_id === currentUser.id) ?? null;
+        setMyCommercial(mine);
+        if (mine) {
+          setSellerId(mine.id);
+          setSellerIsTrainer(false);
+          if (mine.agency_id && !presetAgencyId) setAgencyId(mine.agency_id);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCommercial, currentUser?.id]);
 
   useEffect(() => {
     if (!agencyLocked || !presetAgencyId) return;
@@ -221,58 +240,76 @@ export default function InvoiceFormPage({
               }}
               error={errors.client_id}
             />
-            <Autocomplete
-              label={t('invoices.seller')}
-              placeholder={t('invoices.headerCommercialPlaceholder')}
-              value={sellerId}
-              onChange={(id) => {
-                if (!id) {
-                  setSellerId('');
-                  setSellerIsTrainer(false);
+            {isCommercial ? (
+              <Input
+                label={t('invoices.seller')}
+                value={
+                  myCommercial
+                    ? myCommercial.full_name || [myCommercial.first_name, myCommercial.last_name].filter(Boolean).join(' ')
+                    : currentUser?.name || ''
                 }
-              }}
-              onPick={(option) => {
-                if (option.isTrainer) {
-                  setSellerIsTrainer(true);
-                  setSellerId(option.userId ?? option.id);
-                } else {
-                  setSellerIsTrainer(false);
-                  setSellerId(option.id);
-                }
-              }}
-              fetchOptions={async (query) => {
-                const [coms, emps] = await Promise.all([
-                  commercialsApi.search(query.trim()).catch(() => []),
-                  employeesApi.search(query.trim()).catch(() => []),
-                ]);
-                const seen = new Set<string>();
-                const results: AutocompleteOption[] = [];
-                for (const c of [...coms, ...emps]) {
-                  if (seen.has(c.id)) continue;
-                  seen.add(c.id);
-                  if (c.is_trainer && c.user_id) {
-                    results.push({
-                      id: c.id,
-                      userId: c.user_id,
-                      isTrainer: true,
-                      label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                      subtitle: c.email ?? '',
-                    });
-                  } else {
-                    results.push({
-                      id: c.id,
-                      label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                      subtitle: c.email ?? '',
-                    });
+                disabled
+              />
+            ) : (
+              <Autocomplete
+                label={t('invoices.seller')}
+                placeholder={t('invoices.headerCommercialPlaceholder')}
+                value={sellerId}
+                onChange={(id) => {
+                  if (!id) {
+                    setSellerId('');
+                    setSellerIsTrainer(false);
                   }
-                }
-                return results;
-              }}
-            />
+                }}
+                onPick={(option) => {
+                  if (option.isTrainer) {
+                    setSellerIsTrainer(true);
+                    setSellerId(option.userId ?? option.id);
+                  } else {
+                    setSellerIsTrainer(false);
+                    setSellerId(option.id);
+                  }
+                }}
+                fetchOptions={async (query) => {
+                  const [coms, emps] = await Promise.all([
+                    commercialsApi.search(query.trim()).catch(() => []),
+                    employeesApi.search(query.trim()).catch(() => []),
+                  ]);
+                  const seen = new Set<string>();
+                  const results: AutocompleteOption[] = [];
+                  for (const c of [...coms, ...emps]) {
+                    if (seen.has(c.id)) continue;
+                    seen.add(c.id);
+                    if (c.is_trainer && c.user_id) {
+                      results.push({
+                        id: c.id,
+                        userId: c.user_id,
+                        isTrainer: true,
+                        label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+                        subtitle: c.email ?? '',
+                      });
+                    } else {
+                      results.push({
+                        id: c.id,
+                        label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+                        subtitle: c.email ?? '',
+                      });
+                    }
+                  }
+                  return results;
+                }}
+              />
+            )}
             {agencyLocked ? (
               <Input
                 label={t('invoices.headerAgency')}
                 value={lockedAgencyName}
+                disabled
+              />
+            ) : isCommercial ? (
+              <Input
+                label={t('invoices.headerAgency')}
+                value={myCommercial?.agency?.name ?? ''}
                 disabled
               />
             ) : (

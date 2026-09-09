@@ -35,14 +35,9 @@ export const router = createBrowserRouter([
       { path: 'produits/:slug', element: <SuspenseWrapper><ProductDetailPage /></SuspenseWrapper> },
       { path: 'panier', element: <SuspenseWrapper><CartPage /></SuspenseWrapper> },
       { path: 'paiement/:orderId', element: <SuspenseWrapper><PaymentPage /></SuspenseWrapper> },
-      {
-        element: <GuestRoute><PublicLayout /></GuestRoute>,
-        children: [
-          { path: 'connexion', element: <SuspenseWrapper><LoginPage /></SuspenseWrapper> },
-          { path: 'inscription', element: <SuspenseWrapper><RegisterPage /></SuspenseWrapper> },
-          { path: 'mot-de-passe-oublie', element: <SuspenseWrapper><ForgotPasswordPage /></SuspenseWrapper> },
-        ],
-      },
+      { path: 'connexion', element: <GuestRoute><SuspenseWrapper><LoginPage /></SuspenseWrapper></GuestRoute> },
+      { path: 'inscription', element: <GuestRoute><SuspenseWrapper><RegisterPage /></SuspenseWrapper></GuestRoute> },
+      { path: 'mot-de-passe-oublie', element: <GuestRoute><SuspenseWrapper><ForgotPasswordPage /></SuspenseWrapper></GuestRoute> },
     ],
   },
   {

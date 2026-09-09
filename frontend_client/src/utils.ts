@@ -8,8 +8,8 @@ export function formatCurrency(amount: number | string): string {
   }).format(n) + ' FCFA';
 }
 
-export function displayPrice(item: { type: 'service' | 'product'; price?: number | string; effective_price?: number | string; selling_price?: number | string; price_with_tax?: number | string }): number {
-  if (item.type === 'service') {
+export function displayPrice(item: { type: 'service' | 'product' | 'course'; price?: number | string; effective_price?: number | string; selling_price?: number | string; price_with_tax?: number | string }): number {
+  if (item.type === 'service' || item.type === 'course') {
     const ep = item.effective_price ?? item.price ?? 0;
     return typeof ep === 'string' ? parseFloat(ep) : ep;
   }

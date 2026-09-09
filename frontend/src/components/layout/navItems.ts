@@ -43,6 +43,8 @@ export interface NavItem {
   icon: LucideIcon;
   end: boolean;
   badge?: number;
+  /** Renvoie false si le lien ne doit pas être actif pour ce pathname (ex. Factures hors page validations). */
+  isPathActive?: (pathname: string) => boolean;
 }
 
 function catalogItem(t: TranslateFn): NavItem {
@@ -51,8 +53,13 @@ function catalogItem(t: TranslateFn): NavItem {
 
 export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-departement', 'caissier', 'comptable', 'commercial']);
 
+// « Factures » ne doit pas rester actif sur la page des validations (/invoices/pending),
+// sinon il serait surligné en même temps que « Validations ».
+const isInvoiceActive = (pathname: string): boolean =>
+  pathname !== '/invoices/pending' && !pathname.startsWith('/invoices/pending/');
+
 function invoiceItem(t: TranslateFn, badge?: number): NavItem {
-  return { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false, badge };
+  return { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false, badge, isPathActive: isInvoiceActive };
 }
 
 export function getMainItems(t: TranslateFn, roleName: string | null | undefined, agencyId?: string, unpaidBadge?: number): NavItem[] {
@@ -107,11 +114,10 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
 
   if (roleName === 'caissier') {
     return [
-      { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+      { to: '/caissier/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t, unpaidBadge),
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
-      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       catalogItem(t),
     ];
   }
@@ -139,9 +145,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (roleName === 'commercial') {
     return [
       ...baseItems,
-      { to: '/commercial/dashboard', label: t('nav.myDashboard'), icon: BarChart3, end: false },
-      { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
-      { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
+      { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
       invoiceItem(t, unpaidBadge),
       catalogItem(t),
     ];

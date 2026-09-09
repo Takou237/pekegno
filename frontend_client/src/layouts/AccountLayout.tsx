@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
-import { LayoutDashboard, ShoppingCart, FileText, GraduationCap, BookOpen, UserCircle, LogOut, Menu, X, Globe } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, FileText, GraduationCap, BookOpen, UserCircle, LogOut, Menu, X, Globe, Store } from 'lucide-react';
 import { useState } from 'react';
 import { applyLanguage, detectInitialLanguage } from '@/i18n';
 
@@ -81,6 +81,9 @@ export default function AccountLayout() {
             <Menu size={24} />
           </button>
           <div className="flex-1" />
+          <Link to="/catalogue" className="flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700">
+            <Store size={16} /> {t('account.backToCatalog')}
+          </Link>
           <div className="relative">
             <button onClick={() => applyLanguage(lang === 'fr' ? 'en' : 'fr')} className="flex items-center gap-1 text-sm text-gray-500">
               <Globe size={16} /> {lang.toUpperCase()}

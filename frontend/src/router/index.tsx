@@ -24,6 +24,7 @@ const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
 const RegisterPage = lazy(() => import('@/pages/register/RegisterPage'));
 const AcademyDashboardPage = lazy(() => import('@/pages/dashboard/AcademyDashboardPage'));
 const CountryDashboardPage = lazy(() => import('@/pages/dashboard/CountryDashboardPage'));
+const CashierDashboardPage = lazy(() => import('@/pages/dashboard/CashierDashboardPage'));
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 const AgencyListPage = lazy(() => import('@/pages/agencies/AgencyListPage'));
 const AgencyTrashPage = lazy(() => import('@/pages/agencies/AgencyTrashPage'));
@@ -67,6 +68,7 @@ const InvoiceFormPage = lazy(() => import('@/pages/invoices/InvoiceFormPage'));
 const QuickSalePage = lazy(() => import('@/pages/invoices/QuickSalePage'));
 const InvoiceDetailPage = lazy(() => import('@/pages/invoices/InvoiceDetailPage'));
 const AgencyInvoicesPage = lazy(() => import('@/pages/invoices/AgencyInvoicesPage'));
+const AgencyPendingInvoicesPage = lazy(() => import('@/pages/invoices/AgencyPendingInvoicesPage'));
 const AgencyInvoiceDetailPage = lazy(() => import('@/pages/invoices/AgencyInvoiceDetailPage'));
 const AccountingPage = lazy(() => import('@/pages/accounting/AccountingPage'));
 const AgencyAccountingPage = lazy(() => import('@/pages/accounting/AgencyAccountingPage'));
@@ -102,6 +104,7 @@ const CourseDetailPage = lazy(() => import('@/pages/academy/CourseDetailPage'));
 const FormationEnrollmentPage = lazy(() => import('@/pages/academy/FormationEnrollmentPage'));
 const SellerProfilesPage = lazy(() => import('@/pages/academy/SellerProfilesPage'));
 const AcademyProspectsPage = lazy(() => import('@/pages/academy/AcademyProspectsPage'));
+const ProspectsList = lazy(() => import('@/components/prospects/ProspectsList'));
 const AcademyReceivablesPage = lazy(() => import('@/pages/academy/AcademyReceivablesPage'));
 const AcademyReportsPage = lazy(() => import('@/pages/academy/AcademyReportsPage'));
 const AcademyPlanningPage = lazy(() => import('@/pages/academy/AcademyPlanningPage'));
@@ -136,6 +139,7 @@ const agencyChildren = [
   { path: 'employees/:id', element: page(<AgencyEmployeeDetailPage />, detail) },
   { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
   { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
+  { path: 'invoices/pending', element: page(<AgencyPendingInvoicesPage />, table) },
   { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
   { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },
   { path: 'accounting', element: page(<AgencyAccountingPage />, table) },
@@ -165,6 +169,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: '/', element: page(<HomeRedirect />, dashboard) },
+          { path: '/caissier/dashboard', element: page(<CashierDashboardPage />, dashboard) },
           { path: '/profile', element: page(<ProfilePage />, detail) },
           { path: '/countries', element: page(<CountryListPage />, cards) },
           { path: '/agencies', element: page(<AgencyListPage />, cards) },
@@ -187,6 +192,7 @@ export const router = createBrowserRouter([
           { path: '/expenses', element: page(<ExpenseListPage />, table) },
           { path: '/commissions/rules', element: page(<CommissionRulesPage />, table) },
           { path: '/commissions/entries', element: page(<CommissionEntriesPage />, table) },
+          { path: '/prospects', element: page(<ProspectsList hideCommercialField />, table) },
           { path: '/companies', element: page(<CompanyListPage />, table) },
           { path: '/opportunities', element: page(<OpportunityKanbanPage />, table) },
           { path: '/opportunities/:id', element: page(<OpportunityDetailPage />, detail) },

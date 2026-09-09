@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Agency;
 use App\Models\AgencyPaymentMethod;
 use App\Models\Country;
+use App\Models\Course;
 use App\Models\Product;
 use App\Models\Service;
 use Illuminate\Http\JsonResponse;
@@ -154,11 +155,72 @@ class PublicCatalogController extends Controller
         return response()->json($this->serializeProduct($model));
     }
 
+    public function courses(Request $request): JsonResponse
+    {
+        $courses = Course::query()
+            ->with(['categories', 'agency'])
+            ->withCount(['sessions' => fn ($q) => $q->where(fn ($w) => $w->whereNull('end_at')->orWhere('end_at', '>=', now()))])
+            ->public()
+            ->when($request->category_id, fn ($q, $value) => $q->whereHas('categories', fn ($c) => $c->where('course_categories.id', $value)))
+            ->when($request->agency_id, fn ($q, $value) => $q->availableIn($value))
+            ->when($request->filled('country_id'), function ($q) use ($request) {
+                $q->where(function ($inner) use ($request) {
+                    $inner->whereNull('agency_id')
+                        ->orWhereHas('agency', fn ($agency) => $agency->where('country_id', $request->country_id));
+                });
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Course $course) => $this->serializeCourse($course));
+
+        return response()->json($courses);
+    }
+
+    public function course(Request $request, string $course): JsonResponse
+    {
+        $model = Course::query()
+            ->with(['categories', 'agency'])
+            ->public()
+            ->where(function ($q) use ($course) {
+                if (Str::isUuid($course)) {
+                    $q->where('id', $course)->orWhere('slug', $course);
+                } else {
+                    $q->where('slug', $course);
+                }
+            })
+            ->firstOrFail();
+
+        $payload = $this->serializeCourse($model);
+        $payload['objective'] = $model->objective;
+        $payload['prerequisites'] = $model->prerequisites;
+        $payload['presentation_video'] = $model->presentation_video;
+        $payload['duration_hours'] = $model->duration_hours;
+        $payload['duration_type'] = $model->duration_type;
+        $payload['duration_months'] = $model->duration_months;
+        $payload['sessions'] = $model->sessions()
+            ->where(fn ($q) => $q->whereNull('end_at')->orWhere('end_at', '>=', now()))
+            ->whereNot('status', 'cancelled')
+            ->orderBy('start_at')
+            ->get()
+            ->map(fn ($session) => [
+                'id' => $session->id,
+                'start_at' => $session->start_at,
+                'end_at' => $session->end_at,
+                'max_capacity' => $session->max_capacity,
+                'enrolled_count' => $session->participants()->where('status', 'enrolled')->count(),
+            ]);
+
+        return response()->json($payload);
+    }
+
     public function agencyPaymentMethods(Agency $agency): JsonResponse
     {
         $methods = AgencyPaymentMethod::query()
             ->where('agency_id', $agency->id)
             ->where('is_active', true)
+            // Le virement bancaire n'est pas proposé au client sur le site : il
+            // reste réservé aux paiements gérés en agence.
+            ->where('provider', '!=', 'bank_transfer')
             ->get()
             ->map(fn (AgencyPaymentMethod $method) => [
                 'id' => $method->id,
@@ -220,6 +282,33 @@ class PublicCatalogController extends Controller
                 'name' => $product->agency->name,
                 'city' => $product->agency->city,
                 'country' => $product->agency->country,
+            ] : null,
+        ];
+    }
+
+    private function serializeCourse(Course $course): array
+    {
+        return [
+            'id' => $course->id,
+            'slug' => $course->slug ?? $course->id,
+            'code' => $course->code,
+            'name' => $course->name,
+            'description' => $course->description,
+            'mode' => $course->mode,
+            'price' => (string) $course->price,
+            'effective_price' => (string) $course->effective_price,
+            'cover_image' => $course->cover_image,
+            'sessions_count' => $course->sessions_count ?? 0,
+            'categories' => $course->categories->map(fn ($category) => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'color' => $category->color,
+            ]),
+            'agency' => $course->agency ? [
+                'id' => $course->agency->id,
+                'name' => $course->agency->name,
+                'city' => $course->agency->city,
+                'country' => $course->agency->country,
             ] : null,
         ];
     }

@@ -698,6 +698,8 @@ export default {
       todayCollections: 'Today\'s Collections',
       recentInvoices: 'Recent Invoices',
       newQuickSale: 'New Quick Sale',
+      pendingTitle: 'Pending Validation',
+      viewPending: 'All validations',
     },
     commercialDashboard: {
       myStats: 'My Stats',

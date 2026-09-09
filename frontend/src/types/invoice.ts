@@ -54,6 +54,7 @@ export interface Invoice {
   payment_type: PaymentMethod | null;
   total_amount: string;
   amount_paid: string;
+  declared_advance: string | null;
   discount: string;
   vat_rate: string;
   vat_amount: number;

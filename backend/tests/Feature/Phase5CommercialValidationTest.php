@@ -170,7 +170,7 @@ class Phase5CommercialValidationTest extends TestCase
         $this->assertGreaterThan(0, (float) $stats['commissions']);
 
         // La facture validée + encaissée figure dans l'historique du commercial.
-        $this->actingAsRole('commercial');
+        Sanctum::actingAs($commercialUser);
         $list = $this->getJson('/api/invoices?commercial_id='.$commercial->id)
             ->assertOk()
             ->json('invoices.data');

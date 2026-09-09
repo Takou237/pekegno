@@ -258,6 +258,13 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
             {formatCurrency(invoice.amount_paid)}
           </p>
+          {Number(invoice.amount_paid) === 0 &&
+            invoice.validation_status === 'pending' &&
+            Number(invoice.declared_advance ?? 0) > 0 && (
+              <p className="mt-1 text-xs italic text-amber-600 dark:text-amber-400">
+                {formatCurrency(invoice.declared_advance)} {t('invoices.declaredAdvance')} — {t('invoices.declaredAdvanceHint')}
+              </p>
+            )}
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.balanceDue')}</p>

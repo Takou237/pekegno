@@ -69,6 +69,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Business Timezone Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Fuseau horaire métier utilisé pour interpréter les bornes de période
+    | "date seule" (from/to) transmises par les clients. Les dates & heures
+    | sont stockées en UTC ; une bordure de journée "2026-09-09" est donc
+    | convertie en [2026-09-08 23:00, 2026-09-09 22:59] UTC pour
+    | Africa/Douala (UTC+1).
+    |
+    */
+
+    'business_timezone' => env('APP_BUSINESS_TIMEZONE', 'Africa/Douala'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

@@ -7,12 +7,13 @@ import { SkeletonCards } from '@/components/ui/Skeleton';
 import Pagination from '@/components/ui/Pagination';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
-import { Search, SlidersHorizontal, ShoppingCart } from 'lucide-react';
-import type { Country, Agency, Service, Product } from '@/types';
+import { Search, SlidersHorizontal, ShoppingCart, GraduationCap } from 'lucide-react';
+import type { Country, Agency, Service, Product, PublicCourse } from '@/types';
 
-type CatalogItem = (Service | Product) & { type: 'service' | 'product' };
-
-const isFormation = (item: CatalogItem): boolean => item.type === 'service' && item.category?.name === 'Formations';
+type CatalogItem =
+  | (Service & { type: 'service' })
+  | (Product & { type: 'product' })
+  | (PublicCourse & { type: 'course' });
 
 const PER_PAGE_OPTIONS = [8, 12, 24];
 
@@ -35,7 +36,6 @@ export default function CatalogPage() {
   const types = [
     { key: 'all', label: t('catalog.typeAll') },
     { key: 'formation', label: t('catalog.typeFormations') },
-    { key: 'service', label: t('catalog.typeServices') },
     { key: 'product', label: t('catalog.typeProducts') },
   ];
 
@@ -59,8 +59,9 @@ export default function CatalogPage() {
     Promise.all([
       publicApi.getServices(params).then((services) => services.map((s) => ({ ...s, type: 'service' as const }))),
       publicApi.getProducts(params).then((products) => products.map((p) => ({ ...p, type: 'product' as const }))),
+      publicApi.getCourses(params).then((courses) => courses.map((c) => ({ ...c, type: 'course' as const }))),
     ])
-      .then(([services, products]) => setItems([...services, ...products]))
+      .then(([services, products, courses]) => setItems([...services, ...products, ...courses]))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, [selectedCountry, selectedAgency]);
@@ -79,9 +80,8 @@ export default function CatalogPage() {
       item.name.toLowerCase().includes(search.toLowerCase()) ||
       item.description?.toLowerCase().includes(search.toLowerCase());
     if (!matchesSearch) return false;
-    if (typeParam === 'formation') return isFormation(item);
-    if (typeParam === 'service') return item.type === 'service' && !isFormation(item);
-    if (typeParam === 'product') return item.type === 'product';
+    if (typeParam === 'formation') return item.type === 'course';
+    if (typeParam === 'product') return item.type === 'product' || item.type === 'service';
     return true;
   });
 
@@ -206,26 +206,36 @@ export default function CatalogPage() {
                 )}
                 <div className="p-5">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">{item.type === 'service' ? 'Service' : 'Produit'}</span>
-                    {item.category && <span className="text-xs text-gray-400">{item.category.name}</span>}
+                    <span className="text-xs font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">
+                      {item.type === 'service' ? t('catalog.typeServices') : item.type === 'course' ? t('catalog.typeFormations') : t('catalog.typeProducts')}
+                    </span>
+                    {item.type === 'course'
+                      ? item.categories[0] && <span className="text-xs text-gray-400">{item.categories[0].name}</span>
+                      : item.category && <span className="text-xs text-gray-400">{item.category.name}</span>}
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-brand-600 transition-colors">{item.name}</h3>
                   {item.description && <p className="text-sm text-gray-500 line-clamp-2 mb-3">{item.description}</p>}
-<div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-brand-600">{formatCurrency(displayPrice(item))}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleQuickAdd(item);
-                    }}
-                    aria-label={t('cart.addToCart')}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-600 hover:text-white transition-colors"
-                  >
-                    <ShoppingCart size={18} />
-                  </button>
-                </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-brand-600">{formatCurrency(displayPrice(item))}</span>
+                    {item.type === 'course' ? (
+                      <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-brand-50 text-brand-600">
+                        <GraduationCap size={18} />
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleQuickAdd(item);
+                        }}
+                        aria-label={t('cart.addToCart')}
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-600 hover:text-white transition-colors"
+                      >
+                        <ShoppingCart size={18} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Link>
             ))}

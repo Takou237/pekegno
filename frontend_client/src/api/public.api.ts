@@ -1,5 +1,5 @@
 import { client } from './client';
-import type { Country, Agency, Service, Product, AgencyPaymentMethod } from '@/types';
+import type { Country, Agency, Service, Product, PublicCourse, AgencyPaymentMethod } from '@/types';
 
 export const publicApi = {
   async getCountries(): Promise<Country[]> {
@@ -29,6 +29,16 @@ export const publicApi = {
 
   async getProduct(idOrSlug: string): Promise<Product> {
     const { data } = await client.get<Product>(`/public/products/${idOrSlug}`);
+    return data;
+  },
+
+  async getCourses(params?: { country_id?: string; agency_id?: string; category_id?: string }): Promise<PublicCourse[]> {
+    const { data } = await client.get<PublicCourse[]>('/public/courses', { params });
+    return data;
+  },
+
+  async getCourse(idOrSlug: string): Promise<PublicCourse> {
+    const { data } = await client.get<PublicCourse>(`/public/courses/${idOrSlug}`);
     return data;
   },
 

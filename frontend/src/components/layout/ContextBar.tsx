@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Globe, Building2, FolderTree, Bell, Menu } from 'lucide-react';
 import { useOrgContext } from '@/context/OrgContext';
+import { useAuth } from '@/hooks/useAuth';
 import { UserMenu } from '@/components/common/UserMenu';
 import { Spinner } from '@/components/ui/Spinner';
 
@@ -81,7 +82,9 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const { countries, selection, loading, setSelection } = useOrgContext();
+  const showOrgSelectors = !['commercial', 'caissier'].includes(user?.role?.name ?? '');
 
   const findAgency = useCallback(
     (agencyId: string) => {
@@ -229,37 +232,41 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
         </button>
       )}
 
-      <span className="mr-1 hidden text-sm font-bold tracking-tight text-brand-600 dark:text-brand-400 lg:block">
-        PEKEGNO
-      </span>
-      <span className="mx-1 hidden text-gray-300 dark:text-gray-600 lg:inline">|</span>
+      {showOrgSelectors && (
+        <>
+          <span className="mr-1 hidden text-sm font-bold tracking-tight text-brand-600 dark:text-brand-400 lg:block">
+            PEKEGNO
+          </span>
+          <span className="mx-1 hidden text-gray-300 dark:text-gray-600 lg:inline">|</span>
 
-      <SelectDropdown
-        label={t('contextBar.country')}
-        icon={Globe}
-        value={selection.countryId}
-        onChange={handleCountryChange}
-        groups={countryGroups}
-        placeholder={t('contextBar.selectCountry')}
-      />
+          <SelectDropdown
+            label={t('contextBar.country')}
+            icon={Globe}
+            value={selection.countryId}
+            onChange={handleCountryChange}
+            groups={countryGroups}
+            placeholder={t('contextBar.selectCountry')}
+          />
 
-      <SelectDropdown
-        label={t('contextBar.agency')}
-        icon={Building2}
-        value={selection.agencyId}
-        onChange={handleAgencyChange}
-        groups={agencyGroups}
-        placeholder={t('contextBar.selectAgency')}
-      />
+          <SelectDropdown
+            label={t('contextBar.agency')}
+            icon={Building2}
+            value={selection.agencyId}
+            onChange={handleAgencyChange}
+            groups={agencyGroups}
+            placeholder={t('contextBar.selectAgency')}
+          />
 
-      <SelectDropdown
-        label={t('contextBar.department')}
-        icon={FolderTree}
-        value={selection.departmentId}
-        onChange={handleDepartmentChange}
-        groups={departmentGroups}
-        placeholder={t('contextBar.selectDepartment')}
-      />
+          <SelectDropdown
+            label={t('contextBar.department')}
+            icon={FolderTree}
+            value={selection.departmentId}
+            onChange={handleDepartmentChange}
+            groups={departmentGroups}
+            placeholder={t('contextBar.selectDepartment')}
+          />
+        </>
+      )}
 
       {leftSlot && <div className="ml-2 hidden lg:block">{leftSlot}</div>}
 

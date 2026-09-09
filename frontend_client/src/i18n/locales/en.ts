@@ -122,6 +122,7 @@ export default {
     selectAgencyRequired: 'Please select an agency to place your order.',
   },
   account: {
+    backToCatalog: 'Back to catalog',
     dashboard: 'Dashboard',
     orders: 'My Orders',
     invoices: 'My Invoices',
@@ -153,6 +154,14 @@ export default {
     addObservation: 'Add Observation',
     observationContent: 'Observation Content',
     submitObservation: 'Submit',
+  },
+  academy: {
+    selectSession: 'Choose a session',
+    noSessionYet: 'No session yet',
+    enrollNow: 'Enroll now',
+    enrollmentCreated: 'Enrollment created, your invoice is pending validation.',
+    enrollFailed: 'Enrollment failed.',
+    loginToEnroll: 'Log in to enroll in this course.',
   },
   status: {
     pending: 'Pending',

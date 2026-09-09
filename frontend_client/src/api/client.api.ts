@@ -54,6 +54,11 @@ export const clientApi = {
     return data;
   },
 
+  async enroll(payload: { course_id: string; training_session_id?: string }): Promise<FormationEnrollment> {
+    const { data } = await client.post('/client/enrollments', payload);
+    return data;
+  },
+
   async getLearnerProfile(): Promise<LearnerProfile> {
     const { data } = await client.get('/client/learner-profile');
     return data;

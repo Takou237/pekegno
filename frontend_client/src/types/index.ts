@@ -79,6 +79,36 @@ export interface Product {
   category?: Category | null;
 }
 
+export interface PublicCourseSession {
+  id: string;
+  start_at: string;
+  end_at: string | null;
+  max_capacity: number | null;
+  enrolled_count: number;
+}
+
+export interface PublicCourse {
+  id: string;
+  slug: string;
+  code: string;
+  name: string;
+  description: string | null;
+  mode: 'online' | 'in_person' | 'mixed';
+  price: number | string;
+  effective_price: number | string;
+  cover_image: string | null;
+  sessions_count: number;
+  objective?: string | null;
+  prerequisites?: string | null;
+  presentation_video?: string | null;
+  duration_hours?: number | null;
+  duration_type?: string | null;
+  duration_months?: number | null;
+  sessions?: PublicCourseSession[];
+  categories: { id: string; name: string; color: string | null }[];
+  agency?: Agency;
+}
+
 export interface AgencyPaymentMethod {
   id: string;
   agency_id?: string;

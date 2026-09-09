@@ -49,7 +49,7 @@ class RoleSeeder extends Seeder
                 $p('clients', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
                 $p('commercials', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter', 'reporting']),
                 $p('employes', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
-                $p('invoices', ['consulter', 'creer', 'modifier', 'imprimer', 'annuler', 'exporter']),
+                $p('invoices', ['consulter', 'creer', 'modifier', 'imprimer', 'annuler', 'exporter', 'valider']),
                 $p('stats', ['consulter']),
                 $p('comptabilite', ['consulter', 'creer', 'modifier', 'exporter']),
                 $p('accounting-categories', ['consulter', 'creer', 'modifier']),
@@ -102,8 +102,9 @@ class RoleSeeder extends Seeder
             ),
             'commercial' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
-                $p('clients', ['consulter']),
+                $p('clients', ['consulter', 'creer']),
                 $p('commercials', ['consulter']),
+                $p('employes', ['consulter']),
                 $p('services', ['consulter']),
                 $p('products', ['consulter']),
                 $p('categories', ['consulter']),
@@ -118,6 +119,9 @@ class RoleSeeder extends Seeder
                 $p('presences', ['consulter']),
                 $p('certificats', ['consulter']),
                 $p('contrats', ['consulter', 'creer']),
+                $p('courses', ['consulter']),
+                $p('sessions', ['consulter']),
+                $p('enrollments', ['consulter', 'creer']),
             ),
             'caissier' => array_merge(
                 $p('clients', ['consulter']),
@@ -135,6 +139,7 @@ class RoleSeeder extends Seeder
                 $p('reports', ['consulter']),
                 $p('depenses', ['consulter', 'creer', 'encaisser']),
                 $p('commissions', ['consulter']),
+                $p('stats', ['consulter']),
             ),
             'comptable' => array_merge(
                 $p('clients', ['consulter', 'exporter']),

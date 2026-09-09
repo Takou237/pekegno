@@ -37,6 +37,7 @@ export interface Service {
   effective_price: string;
   bonus_fixed: string | null;
   is_seminar: boolean;
+  is_public: boolean;
   seminar_tiers: SeminarTier[];
   cover_image: string | null;
   presentation_video: string | null;
@@ -67,6 +68,7 @@ export interface ServicePayload {
   price: number | string;
   bonus_fixed?: number | string | null;
   is_seminar?: boolean;
+  is_public?: boolean;
   tiers?: { tier: string; label: string; price: number | string; description?: string | null }[];
   description?: string | null;
   cover_image?: string | null;

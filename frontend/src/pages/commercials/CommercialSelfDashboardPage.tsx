@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { TrendingUp, ShoppingCart, Coins, Star, FileText, Target, Building2, Plus, Trash2 } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Coins, Star, Target, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { commercialsApi } from '@/api/commercials.api';
 import { invoicesApi } from '@/api/invoices.api';
@@ -91,23 +91,11 @@ export default function CommercialSelfDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('commercial.selfTitle')}</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {firstName} · {commercial.agency?.name ?? t('commercial.selfNoAgency')}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button onClick={() => (window.location.href = '/invoices/quick')}>
-            <Plus className="h-4 w-4" />
-            {t('commercial.selfNewSale')}
-          </Button>
-          <Button variant="outline" onClick={() => (window.location.href = '/invoices/new')}>
-            <FileText className="h-4 w-4" />
-            {t('commercial.selfNewInvoice')}
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('commercial.selfTitle')}</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {firstName} · {commercial.agency?.name ?? t('commercial.selfNoAgency')}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -149,14 +137,6 @@ export default function CommercialSelfDashboardPage() {
         <Button variant="outline" onClick={() => (window.location.href = `/commercials/${commercial.id}`)}>
           <Target className="h-4 w-4" />
           {t('commercial.selfMyDetail')}
-        </Button>
-        <Button variant="outline" onClick={() => (window.location.href = '/opportunities')}>
-          <Target className="h-4 w-4" />
-          {t('nav.opportunities')}
-        </Button>
-        <Button variant="outline" onClick={() => (window.location.href = '/companies')}>
-          <Building2 className="h-4 w-4" />
-          {t('nav.companies')}
         </Button>
       </div>
 
