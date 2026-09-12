@@ -9,6 +9,7 @@ import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/utils/number';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -18,6 +19,7 @@ import { Autocomplete, FREE_TEXT_PREFIX, type AutocompleteOption } from '@/compo
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem } from '@/types/service';
+import type { Commercial } from '@/types/commercial';
 
 interface InvoiceLineDraft {
   key: string;
@@ -46,15 +48,19 @@ interface QuickSaleModalProps {
 export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleModalProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { user: currentUser } = useAuth();
+  const isCommercial = currentUser?.role?.name === 'commercial';
 
   const [clientId, setClientId] = useState('');
   const [sellerId, setSellerId] = useState('');
   const [sellerIsTrainer, setSellerIsTrainer] = useState(false);
+  const [myCommercial, setMyCommercial] = useState<Commercial | null>(null);
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('cash');
   const [advance, setAdvance] = useState('');
   const [discount, setDiscount] = useState('');
   const [vatRate, setVatRate] = useState('');
   const [comment, setComment] = useState('');
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const [lines, setLines] = useState<InvoiceLineDraft[]>([newLine()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -90,13 +96,28 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
     setDiscount('');
     setVatRate('');
     setComment('');
+    setProofFile(null);
     setLines([newLine()]);
     setErrors({});
   }
 
   useEffect(() => {
-    if (isOpen) {
-      reset();
+    if (!isOpen) return;
+    reset();
+    if (isCommercial && currentUser?.id) {
+      commercialsApi
+        .list({ per_page: 100 })
+        .then((res) => {
+          const mine = (res.data ?? []).find((c) => c.user_id === currentUser.id) ?? null;
+          setMyCommercial(mine);
+          if (mine) {
+            setSellerId(mine.id);
+            setSellerIsTrainer(false);
+          }
+        })
+        .catch(() => setMyCommercial(null));
+    } else {
+      setMyCommercial(null);
     }
   }, [isOpen]);
 
@@ -171,7 +192,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
     setSubmitting(true);
     setErrors({});
     try {
-      await invoicesApi.create({
+      const payload = {
         client_id: freeClientName ? undefined : clientId || undefined,
         client_name: freeClientName || undefined,
         commercial_id: !sellerIsTrainer && sellerId ? sellerId : undefined,
@@ -189,7 +210,12 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
           quantity: Number(l.quantity) || 1,
           pass_tier: l.kind === 'service' ? l.pass_tier || undefined : undefined,
         })),
-      });
+      };
+      if (proofFile && (paymentType === 'om' || paymentType === 'momo')) {
+        await invoicesApi.createWithProof(payload, proofFile);
+      } else {
+        await invoicesApi.create(payload);
+      }
       showToast(t('invoices.created'), 'success');
       handleClose();
     } catch (error) {
@@ -225,54 +251,66 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
             }}
             error={errors.client_id}
           />
-          <Autocomplete
-            label={t('invoices.seller')}
-            placeholder={t('invoices.headerCommercialPlaceholder')}
-            value={sellerId}
-            onChange={(id) => {
-              if (!id) {
-                setSellerId('');
-                setSellerIsTrainer(false);
+          {isCommercial ? (
+            <Input
+              label={t('invoices.seller')}
+              value={
+                myCommercial
+                  ? myCommercial.full_name || [myCommercial.first_name, myCommercial.last_name].filter(Boolean).join(' ')
+                  : currentUser?.name || ''
               }
-            }}
-            onPick={(option) => {
-              if (option.isTrainer) {
-                setSellerIsTrainer(true);
-                setSellerId(option.userId ?? option.id);
-              } else {
-                setSellerIsTrainer(false);
-                setSellerId(option.id);
-              }
-            }}
-            fetchOptions={async (query) => {
-              const [coms, emps] = await Promise.all([
-                commercialsApi.search(query.trim()).catch(() => []),
-                employeesApi.search(query.trim()).catch(() => []),
-              ]);
-              const seen = new Set<string>();
-              const results: AutocompleteOption[] = [];
-              for (const c of [...coms, ...emps]) {
-                if (seen.has(c.id)) continue;
-                seen.add(c.id);
-                if (c.is_trainer && c.user_id) {
-                  results.push({
-                    id: c.id,
-                    userId: c.user_id,
-                    isTrainer: true,
-                    label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                    subtitle: c.email ?? '',
-                  });
-                } else {
-                  results.push({
-                    id: c.id,
-                    label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                    subtitle: c.email ?? '',
-                  });
+              disabled
+            />
+          ) : (
+            <Autocomplete
+              label={t('invoices.seller')}
+              placeholder={t('invoices.headerCommercialPlaceholder')}
+              value={sellerId}
+              onChange={(id) => {
+                if (!id) {
+                  setSellerId('');
+                  setSellerIsTrainer(false);
                 }
-              }
-              return results;
-            }}
-          />
+              }}
+              onPick={(option) => {
+                if (option.isTrainer) {
+                  setSellerIsTrainer(true);
+                  setSellerId(option.userId ?? option.id);
+                } else {
+                  setSellerIsTrainer(false);
+                  setSellerId(option.id);
+                }
+              }}
+              fetchOptions={async (query) => {
+                const [coms, emps] = await Promise.all([
+                  commercialsApi.search(query.trim()).catch(() => []),
+                  employeesApi.search(query.trim()).catch(() => []),
+                ]);
+                const seen = new Set<string>();
+                const results: AutocompleteOption[] = [];
+                for (const c of [...coms, ...emps]) {
+                  if (seen.has(c.id)) continue;
+                  seen.add(c.id);
+                  if (c.is_trainer && c.user_id) {
+                    results.push({
+                      id: c.id,
+                      userId: c.user_id,
+                      isTrainer: true,
+                      label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+                      subtitle: c.email ?? '',
+                    });
+                  } else {
+                    results.push({
+                      id: c.id,
+                      label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+                      subtitle: c.email ?? '',
+                    });
+                  }
+                }
+                return results;
+              }}
+            />
+          )}
         </div>
 
         <div>
@@ -444,6 +482,21 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
             hint={t('invoices.vatHint')}
           />
         </div>
+
+        {(paymentType === 'om' || paymentType === 'momo') && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('invoices.paymentProof')} <span className="font-normal text-gray-400">({t('invoices.paymentProofOptional')})</span>
+            </label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+              className="w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-400"
+            />
+            <p className="mt-1 text-xs text-gray-400">{t('invoices.paymentProofHint')}</p>
+          </div>
+        )}
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">

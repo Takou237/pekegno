@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\ForgotPasswordRequest;
 use App\Mail\ResetPasswordMail;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -48,7 +49,11 @@ class ForgotPasswordController extends Controller
             'created_at' => now(),
         ]);
 
-        $resetUrl = config('app.frontend_url', 'http://localhost:5173')
+        $user = User::where('email', $email)->first();
+
+        $resetUrl = ($user?->role?->name === 'client'
+            ? config('app.client_frontend_url', 'http://localhost:5174')
+            : config('app.frontend_url', 'http://localhost:5173'))
             . "/reset-password?token={$token}&email={$email}";
 
         Mail::to($email)->send(new ResetPasswordMail($resetUrl));

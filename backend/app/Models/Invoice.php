@@ -6,10 +6,23 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
 
 class Invoice extends Model
 {
     use HasUuids;
+
+    public const VALIDATION_PENDING = 'pending';
+
+    public const VALIDATION_VALIDATED = 'validated';
+
+    public const VALIDATION_REJECTED = 'rejected';
+
+    public const VALIDATION_STATUSES = [
+        self::VALIDATION_PENDING,
+        self::VALIDATION_VALIDATED,
+        self::VALIDATION_REJECTED,
+    ];
 
     protected $fillable = [
         'number',
@@ -22,9 +35,15 @@ class Invoice extends Model
         'payment_type',
         'total_amount',
         'amount_paid',
+        'declared_advance',
         'discount',
         'vat_rate',
         'status',
+        'validation_status',
+        'validated_by',
+        'validated_at',
+        'rejection_reason',
+        'source',
         'commission_amount',
         'points_awarded',
         'comment',
@@ -38,8 +57,10 @@ class Invoice extends Model
         return [
             'invoice_date' => 'datetime',
             'cancelled_at' => 'datetime',
+            'validated_at' => 'datetime',
             'total_amount' => 'decimal:2',
             'amount_paid' => 'decimal:2',
+            'declared_advance' => 'decimal:2',
             'discount' => 'decimal:2',
             'vat_rate' => 'decimal:2',
             'commission_amount' => 'decimal:2',
@@ -85,6 +106,25 @@ class Invoice extends Model
     public function commissionPayments(): HasMany
     {
         return $this->hasMany(CommissionPayment::class);
+    }
+
+    public function paymentProofs(): HasMany
+    {
+        return $this->hasMany(PaymentProof::class);
+    }
+
+    public function validator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'validated_by');
+    }
+
+    /**
+     * Factures entrées en comptabilité (validation_status = validated).
+     * Utilisé par les agrégats/CA pour exclure pending et rejected.
+     */
+    public function scopeValidated(Builder $query): Builder
+    {
+        return $query->where('validation_status', self::VALIDATION_VALIDATED);
     }
 
     public function getBalanceDueAttribute(): float

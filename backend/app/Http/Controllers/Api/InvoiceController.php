@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\InvoiceStatusMail;
 use App\Http\Requests\Api\StoreInvoicePaymentRequest;
 use App\Http\Requests\Api\StoreInvoiceRequest;
 use App\Http\Requests\Api\UpdateInvoiceRequest;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Models\PaymentProof;
 use App\Models\Service;
 use App\Models\SessionParticipant;
+use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
 use App\Services\CommissionService;
@@ -19,6 +22,7 @@ use App\Services\PointsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
@@ -35,6 +39,34 @@ class InvoiceController extends Controller
         private readonly \App\Services\SellerProfileService $sellerProfiles,
     ) {}
 
+    private function scopeByRole($query, ?User $user)
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        // Un commercial n'accède qu'à ses propres factures (liste et totaux).
+        if ($user->role?->name === 'commercial') {
+            if (! $user->commercialProfile) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            return $query->where('commercial_id', $user->commercialProfile->id);
+        }
+
+        // Un caissier ne voit que les factures de ses agences affectées.
+        if ($user->role?->name === 'caissier') {
+            $agencyIds = DB::table('user_assignments')
+                ->where('user_id', $user->id)
+                ->whereNotNull('agency_id')
+                ->pluck('agency_id');
+
+            return $query->whereIn('agency_id', $agencyIds);
+        }
+
+        return $query;
+    }
+
     #[OA\Get(
         path: '/api/invoices',
         summary: 'Lister les factures avec filtres, pagination et totaux',
@@ -43,6 +75,7 @@ class InvoiceController extends Controller
         parameters: [
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par numéro, nom client ou email client', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut', schema: new OA\Schema(type: 'string', enum: ['unpaid', 'partial', 'paid'])),
+            new OA\Parameter(name: 'validation_status', in: 'query', description: 'Filtrer par statut de validation (séparable par virgule)', schema: new OA\Schema(type: 'string', enum: ['pending', 'validated', 'rejected'])),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'client_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'commercial_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
@@ -57,7 +90,7 @@ class InvoiceController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $base = Invoice::query()
+        $base = $this->scopeByRole(Invoice::query(), $request->user())
             ->when($request->boolean('from_enrollments'), fn ($q) => $q->whereIn(
                 'invoices.id',
                 FormationEnrollment::query()->whereNotNull('invoice_id')->pluck('invoice_id')
@@ -84,6 +117,10 @@ class InvoiceController extends Controller
                 $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
                 $q->whereIn('status', $statuses);
             })
+            ->when($request->validation_status, function ($q, $s) {
+                $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
+                $q->whereIn('validation_status', $statuses);
+            })
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))
             ->when($request->commercial_id, fn ($q, $id) => $q->where('commercial_id', $id))
@@ -106,6 +143,7 @@ class InvoiceController extends Controller
 
         $invoices = $base
             ->with(['client:id,first_name,last_name,email,client_number,phone', 'commercial:id,first_name,last_name,email,phone', 'agency:id,name,code,city,address,phone,email'])
+            ->withCount(['paymentProofs' => fn ($q) => $q->where('status', PaymentProof::STATUS_PENDING)])
             ->orderByDesc('invoice_date')
             ->paginate($perPage);
 
@@ -186,20 +224,40 @@ class InvoiceController extends Controller
                 ]);
             }
 
+            // Une facture créée par un commercial passe par le workflow de validation : elle
+            // naît en attente et ne devient définitive (entrée en comptabilité, encaissable)
+            // qu'après validation par un caissier / la direction. Les ventes de guichet
+            // (caissier / admin / comptable) sont validées directement.
+            $needsValidation = $request->user()->role?->name === 'commercial';
+
+            // Une vente faite par un commercial est automatiquement rattachée à son propre
+            // profil même si l'écran de saisie n'envoie pas commercial_id (vente rapide, etc.).
+            // Sans cette affectation, la facture serait orpheline : invisible dans ses factures
+            // récentes et exclue de ses stats (nombre de ventes, CA, commission).
+            $commercialId = $data['commercial_id'] ?? null;
+            if ($needsValidation && ! $commercialId) {
+                $commercialId = $request->user()->commercialProfile?->id;
+            }
+
             $invoice = Invoice::create([
                 'number' => $this->numberGenerator->next(),
-                'agency_id' => $data['agency_id'] ?? $request->user()->primaryAgency()->value('agencies.id'),
+                'agency_id' => $data['agency_id']
+                    ?? $request->user()->commercialProfile?->agency_id
+                    ?? $request->user()->primaryAgency()->value('agencies.id'),
                 'client_id' => $data['client_id'] ?? null,
                 'client_name' => $data['client_name'] ?? null,
-                'commercial_id' => $data['commercial_id'] ?? null,
+                'commercial_id' => $commercialId,
                 'seller_user_id' => $data['seller_user_id'] ?? $request->user()->id,
                 'invoice_date' => $data['invoice_date'] ?? now(),
                 'payment_type' => $data['payment_type'] ?? null,
                 'total_amount' => $total,
                 'amount_paid' => 0,
+                'declared_advance' => ! empty($data['advance']) ? (float) $data['advance'] : null,
                 'discount' => $discount,
                 'vat_rate' => $vatRate,
                 'status' => 'unpaid',
+                'validation_status' => $needsValidation ? Invoice::VALIDATION_PENDING : Invoice::VALIDATION_VALIDATED,
+                'source' => $needsValidation ? 'in_person' : 'in_person',
                 'comment' => $data['comment'] ?? null,
             ]);
 
@@ -226,7 +284,30 @@ class InvoiceController extends Controller
                 ]);
             }
 
-            if (! empty($data['advance'])) {
+            // Paiement numérique (OM / MoMo) : le commercial peut joindre une
+            // preuve de paiement qui sera examinée par le caissier avant
+            // validation et encaissement.
+            if ($request->hasFile('proof_file')) {
+                $request->validate(['proof_file' => ['required', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120']]);
+
+                if (! in_array($data['payment_type'] ?? null, ['om', 'momo'], true)) {
+                    throw ValidationException::withMessages([
+                        'proof_file' => 'Une preuve de paiement ne peut être jointe que pour un paiement numérique (OM ou MoMo).',
+                    ]);
+                }
+
+                $path = $request->file('proof_file')->store('payment-proofs', 'public');
+
+                PaymentProof::create([
+                    'invoice_id' => $invoice->id,
+                    'submitted_by' => $request->user()->id,
+                    'payment_method' => $data['payment_type'],
+                    'file_path' => $path,
+                    'status' => PaymentProof::STATUS_PENDING,
+                ]);
+            }
+
+            if (! $needsValidation && ! empty($data['advance'])) {
                 $this->applyPayment($invoice, (float) $data['advance'], $data['payment_type'] ?? 'cash', true, $request->user()->id);
             }
 
@@ -258,7 +339,16 @@ class InvoiceController extends Controller
     )]
     public function show(Invoice $invoice): JsonResponse
     {
-        $invoice->load(['items', 'payments', 'commissionPayments', 'client', 'commercial', 'agency', 'seller']);
+        $invoice->load([
+            'items',
+            'payments',
+            'commissionPayments',
+            'client',
+            'commercial',
+            'agency',
+            'seller',
+            'paymentProofs' => fn ($q) => $q->with(['submitter:id,first_name,last_name,email', 'reviewer:id,first_name,last_name,email']),
+        ]);
 
         return response()->json($invoice);
     }
@@ -311,11 +401,21 @@ class InvoiceController extends Controller
     {
         abort_if($invoice->is_cancelled, 422, "Impossible d'encaisser une facture annulée.");
         abort_if($invoice->status === 'paid', 422, 'Cette facture est déjà soldée.');
+        abort_if($invoice->validation_status !== Invoice::VALIDATION_VALIDATED, 422, "La facture doit être validée avant d'être encaissée.");
 
         $amount = round((float) $request->input('amount'), 2);
         if ($amount > $invoice->balance_due) {
             return response()->json([
                 'message' => "Le montant dépasse le reste à payer ({$invoice->balance_due} FCFA).",
+            ], 422);
+        }
+
+        // Une commande passée par le client lui-même sur le site doit être réglée
+        // intégralement : pas d'avance possible sur ce canal (contrairement aux
+        // ventes en agence, où un acompte peut être pris au comptoir).
+        if ($invoice->source === 'client_self' && ($request->boolean('is_advance') || $amount < $invoice->balance_due)) {
+            return response()->json([
+                'message' => 'Une commande passée en ligne par le client doit être réglée intégralement, sans avance.',
             ], 422);
         }
 
@@ -340,6 +440,113 @@ class InvoiceController extends Controller
     }
 
     #[OA\Post(
+        path: '/api/invoices/{invoice}/validate',
+        summary: 'Valider une facture en attente (entrée en comptabilité)',
+        tags: ['Factures'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Facture validée'),
+            new OA\Response(response: 422, description: 'Facture non en attente ou déjà validée'),
+        ]
+    )]
+    public function validateInvoice(Invoice $invoice): JsonResponse
+    {
+        abort_if($invoice->validation_status === Invoice::VALIDATION_VALIDATED, 422, 'Cette facture est déjà validée.');
+        abort_if($invoice->validation_status !== Invoice::VALIDATION_PENDING, 422, 'Seule une facture en attente peut être validée.');
+
+        // Le caissier doit d'abord examiner et accepter les preuves de paiement
+        // soumises (client en ligne / paiement numérique) avant de valider.
+        $proofs = $invoice->paymentProofs;
+        if ($proofs->isNotEmpty() && ! $proofs->contains('status', PaymentProof::STATUS_ACCEPTED)) {
+            abort(422, 'Une preuve de paiement en attente doit être examinée et acceptée avant la validation.');
+        }
+
+        $invoice->update([
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+            'validated_by' => auth()->id(),
+            'validated_at' => now(),
+            'rejection_reason' => null,
+        ]);
+
+        // L'avance annoncée par le commercial à la création n'a pas été encaissée
+        // (il ne peut pas manier de caisse) : elle est appliquée maintenant, au
+        // moment où un caissier / la direction valide la facture.
+        if ((float) ($invoice->declared_advance ?? 0) > 0 && (float) $invoice->amount_paid === 0.0) {
+            $this->paymentService->applyPayment(
+                $invoice,
+                (float) $invoice->declared_advance,
+                $invoice->payment_type ?? 'cash',
+                true,
+                auth()->id(),
+            );
+        }
+
+        $this->logger->log('validated', 'invoice', $invoice->id, "Facture {$invoice->number} validée");
+
+        $this->sendStatusNotification($invoice);
+
+        return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
+    }
+
+    #[OA\Post(
+        path: '/api/invoices/{invoice}/reject',
+        summary: 'Rejeter une facture en attente (motif obligatoire)',
+        tags: ['Factures'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['rejection_reason'],
+                properties: [
+                    new OA\Property(property: 'rejection_reason', type: 'string', description: 'Motif du rejet'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Facture rejetée'),
+            new OA\Response(response: 422, description: 'Motif manquant ou facture non en attente'),
+        ]
+    )]
+    public function reject(Request $request, Invoice $invoice): JsonResponse
+    {
+        abort_if($invoice->validation_status === Invoice::VALIDATION_REJECTED, 422, 'Cette facture est déjà rejetée.');
+        abort_if($invoice->validation_status !== Invoice::VALIDATION_PENDING, 422, 'Seule une facture en attente peut être rejetée.');
+
+        $reason = trim((string) $request->input('rejection_reason', ''));
+        abort_if($reason === '', 422, 'La raison du rejet est obligatoire.');
+
+        $invoice->update([
+            'validation_status' => Invoice::VALIDATION_REJECTED,
+            'validated_by' => auth()->id(),
+            'validated_at' => now(),
+            'rejection_reason' => $reason,
+        ]);
+
+        // Une preuve encore en attente devient caduque : la facture étant rejetée,
+        // elle aussi est marquée rejetée pour éviter un état incohérent.
+        $invoice->paymentProofs()
+            ->where('status', PaymentProof::STATUS_PENDING)
+            ->update([
+                'status' => PaymentProof::STATUS_REJECTED,
+                'reviewed_by' => auth()->id(),
+                'reviewed_at' => now(),
+                'notes' => 'Facture rejetée : '.$reason,
+            ]);
+
+        $this->logger->log('rejected', 'invoice', $invoice->id, "Facture {$invoice->number} rejetée : {$reason}");
+
+        $this->sendStatusNotification($invoice);
+
+        return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
+    }
+
+    #[OA\Post(
         path: '/api/invoices/{invoice}/cancel',
         summary: 'Annuler une facture (exclue des statistiques)',
         tags: ['Factures'],
@@ -351,9 +558,18 @@ class InvoiceController extends Controller
             new OA\Response(response: 200, description: 'Facture annulée'),
         ]
     )]
-    public function cancel(Invoice $invoice): JsonResponse
+    public function cancel(Request $request, Invoice $invoice): JsonResponse
     {
         abort_if($invoice->is_cancelled, 422, 'Cette facture est déjà annulée.');
+
+        // Un commercial ne peut annuler que ses propres factures non encore validées
+        // (en attente ou rejetées). Une fois validée (définitive), seule la direction /
+        // un responsable peut l'annuler.
+        if ($request->user()->role?->name === 'commercial') {
+            $ownProfile = $request->user()->commercialProfile;
+            abort_if(! $ownProfile || $invoice->commercial_id !== $ownProfile->id, 403, 'Vous ne pouvez annuler que vos propres factures.');
+            abort_if(in_array($invoice->validation_status, [Invoice::VALIDATION_VALIDATED], true), 422, 'Une facture validée ne peut plus être supprimée par son commercial.');
+        }
 
         $invoice->update(['cancelled_at' => now()]);
         $invoice->refreshStatus();
@@ -367,5 +583,25 @@ class InvoiceController extends Controller
     private function applyPayment(Invoice $invoice, float $amount, string $method, bool $isAdvance, string $userId): void
     {
         $this->paymentService->applyPayment($invoice, $amount, $method, $isAdvance, $userId);
+    }
+
+    /**
+     * Notifie le client par email quand une de ses factures passe "validée" ou
+     * "rejetée" (lien vers son espace client si FRONTEND_URL est configuré).
+     */
+    private function sendStatusNotification(Invoice $invoice): void
+    {
+        $email = $invoice->client?->email;
+
+        if (! $email) {
+            return;
+        }
+
+        $frontend = rtrim((string) env('FRONTEND_URL', ''), '/');
+
+        Mail::to($email)->send(new InvoiceStatusMail(
+            invoice: $invoice,
+            clientUrl: $frontend !== '' ? "{$frontend}/mon-compte/factures" : null,
+        ));
     }
 }

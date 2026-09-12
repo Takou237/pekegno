@@ -5,11 +5,15 @@ namespace Tests\Feature;
 use App\Models\ClientCategory;
 use App\Models\Role;
 use App\Models\User;
+use App\Mail\ResetPasswordMail;
 use Database\Seeders\ClientCategorySeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class Phase2AuthTest extends TestCase
@@ -232,5 +236,140 @@ class Phase2AuthTest extends TestCase
             'email' => $staff->email,
             'password' => 'password',
         ])->assertStatus(422);
+    }
+
+    public function test_forgot_password_email_points_to_client_frontend_for_clients(): void
+    {
+        Mail::fake();
+        $this->registerClient();
+
+        $this->postJson('/api/auth/forgot-password', [
+            'email' => 'claire@example.com',
+        ])->assertOk();
+
+        Mail::assertSent(ResetPasswordMail::class, function (ResetPasswordMail $mail) {
+            return str_starts_with($mail->url, 'http://localhost:5174/reset-password?')
+                && str_contains($mail->url, 'token=');
+        });
+    }
+
+    public function test_forgot_password_email_points_to_staff_frontend_for_staff(): void
+    {
+        Mail::fake();
+        $staff = $this->createStaff();
+
+        $this->postJson('/api/auth/forgot-password', [
+            'email' => $staff->email,
+        ])->assertOk();
+
+        Mail::assertSent(ResetPasswordMail::class, function (ResetPasswordMail $mail) {
+            return str_starts_with($mail->url, 'http://localhost:5173/reset-password?');
+        });
+    }
+
+    public function test_reset_password_updates_password_and_revokes_tokens(): void
+    {
+        $this->registerClient();
+        $this->clientLogin();
+
+        $plainToken = Str::random(64);
+        DB::table('password_reset_tokens')->insert([
+            'email' => 'claire@example.com',
+            'token' => hash('sha256', $plainToken),
+            'created_at' => now(),
+        ]);
+
+        $this->postJson('/api/auth/reset-password', [
+            'token' => $plainToken,
+            'email' => 'claire@example.com',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])->assertOk();
+
+        $client = User::where('email', 'claire@example.com')->firstOrFail();
+        $this->assertTrue(Hash::check('newpassword123', $client->password));
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'claire@example.com']);
+        $this->assertSame(0, $client->tokens()->count());
+    }
+
+    public function test_reset_password_rejects_invalid_token(): void
+    {
+        $this->registerClient();
+
+        $this->postJson('/api/auth/reset-password', [
+            'token' => 'invalid-token',
+            'email' => 'claire@example.com',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])->assertStatus(422);
+    }
+
+    public function test_client_updates_profile_via_me(): void
+    {
+        $this->registerClient();
+        $login = $this->clientLogin();
+
+        \Illuminate\Support\Facades\Auth::forgetGuards();
+
+        $this->withToken($login['token'])
+            ->putJson('/api/client/me', [
+                'first_name' => 'Claire',
+                'last_name' => 'Modifiée',
+                'phone' => '+237699999999',
+                'city' => 'Douala',
+                'country' => 'Cameroun',
+            ])
+            ->assertOk()
+            ->assertJsonPath('first_name', 'Claire')
+            ->assertJsonPath('last_name', 'Modifiée')
+            ->assertJsonPath('phone', '+237699999999')
+            ->assertJsonPath('city', 'Douala');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'claire@example.com',
+            'last_name' => 'Modifiée',
+            'city' => 'Douala',
+            'country' => 'Cameroun',
+        ]);
+    }
+
+    public function test_client_can_change_password(): void
+    {
+        $this->registerClient();
+        $login = $this->clientLogin();
+
+        $this->withToken($login['token'])
+            ->putJson('/api/auth/change-password', [
+                'current_password' => 'password123',
+                'password' => 'newpassword456',
+                'password_confirmation' => 'newpassword456',
+            ])
+            ->assertOk();
+
+        \Illuminate\Support\Facades\Auth::forgetGuards();
+
+        $this->postJson('/api/client/login', [
+            'email' => 'claire@example.com',
+            'password' => 'newpassword456',
+        ])->assertOk();
+
+        $this->postJson('/api/client/login', [
+            'email' => 'claire@example.com',
+            'password' => 'password123',
+        ])->assertStatus(422);
+    }
+
+    public function test_client_cannot_change_password_with_wrong_current_password(): void
+    {
+        $this->registerClient();
+        $login = $this->clientLogin();
+
+        $this->withToken($login['token'])
+            ->putJson('/api/auth/change-password', [
+                'current_password' => 'wrong-password',
+                'password' => 'newpassword456',
+                'password_confirmation' => 'newpassword456',
+            ])
+            ->assertStatus(422);
     }
 }

@@ -24,6 +24,8 @@ class Service extends Model
         'price',
         'bonus_fixed',
         'is_seminar',
+        'is_public',
+        'slug',
         'cover_image',
         'presentation_video',
     ];
@@ -34,6 +36,7 @@ class Service extends Model
             'price' => 'decimal:2',
             'bonus_fixed' => 'decimal:2',
             'is_seminar' => 'boolean',
+            'is_public' => 'boolean',
         ];
     }
 
@@ -88,6 +91,11 @@ class Service extends Model
     public function scopeAvailableIn(Builder $query, string $agencyId): Builder
     {
         return $query->where(fn ($q) => $q->where('agency_id', $agencyId)->orWhereNull('agency_id'));
+    }
+
+    public function scopePublic(Builder $query): Builder
+    {
+        return $query->where('is_public', true);
     }
 
     public static function generateCode(): string

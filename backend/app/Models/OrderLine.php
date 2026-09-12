@@ -14,6 +14,7 @@ class OrderLine extends Model
         'order_id',
         'line_type',
         'service_id',
+        'product_id',
         'label',
         'description',
         'unit_price',
@@ -38,5 +39,10 @@ class OrderLine extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
     }
 }

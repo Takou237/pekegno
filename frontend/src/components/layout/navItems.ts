@@ -22,6 +22,7 @@ import {
   UserCheck,
   BookOpen,
   ClipboardList,
+  ClipboardCheck,
   Undo2,
   Warehouse,
   Landmark,
@@ -29,6 +30,7 @@ import {
   ScrollText,
   Settings,
   Target,
+  ImageIcon,
 } from 'lucide-react';
 import type { DepartmentType } from '@/types/department';
 
@@ -42,6 +44,8 @@ export interface NavItem {
   icon: LucideIcon;
   end: boolean;
   badge?: number;
+  /** Renvoie false si le lien ne doit pas être actif pour ce pathname (ex. Factures hors page validations). */
+  isPathActive?: (pathname: string) => boolean;
 }
 
 function catalogItem(t: TranslateFn): NavItem {
@@ -50,8 +54,13 @@ function catalogItem(t: TranslateFn): NavItem {
 
 export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-departement', 'caissier', 'comptable', 'commercial']);
 
+// « Factures » ne doit pas rester actif sur la page des validations (/invoices/pending),
+// sinon il serait surligné en même temps que « Validations ».
+const isInvoiceActive = (pathname: string): boolean =>
+  pathname !== '/invoices/pending' && !pathname.startsWith('/invoices/pending/');
+
 function invoiceItem(t: TranslateFn, badge?: number): NavItem {
-  return { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false, badge };
+  return { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false, badge, isPathActive: isInvoiceActive };
 }
 
 export function getMainItems(t: TranslateFn, roleName: string | null | undefined, agencyId?: string, unpaidBadge?: number): NavItem[] {
@@ -73,6 +82,10 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/academy', label: t('nav.academy'), icon: GraduationCap, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: FileText, end: false },
+      { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
+      { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
+      { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
+      { to: '/payment-proofs', label: t('nav.paymentProofs'), icon: ImageIcon, end: false },
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
     ];
   }
@@ -91,6 +104,9 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
       { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
+      { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
+      { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
+      { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
     ];
   }
@@ -106,10 +122,11 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
 
   if (roleName === 'caissier') {
     return [
-      { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+      { to: '/caissier/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t, unpaidBadge),
-      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
+      { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
+      { to: '/payment-proofs', label: t('nav.paymentProofs'), icon: ImageIcon, end: false },
       catalogItem(t),
     ];
   }
@@ -127,6 +144,9 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
       { to: '/subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
+      { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
+      { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
+      { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
       { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
@@ -137,8 +157,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (roleName === 'commercial') {
     return [
       ...baseItems,
-      { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
-      { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
+      { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
       invoiceItem(t, unpaidBadge),
       catalogItem(t),
     ];

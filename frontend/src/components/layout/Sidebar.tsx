@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UserRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,7 @@ import { invoicesApi } from '@/api/invoices.api';
 export function Sidebar() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const location = useLocation();
   const [unpaidBadge, setUnpaidBadge] = useState<number>(0);
   const agencyAssignment = user?.assignments?.find((a: any) => a.pivot?.is_primary === true);
   const roleName = user?.role?.name;
@@ -32,8 +33,15 @@ export function Sidebar() {
         </span>
       </div>
       <nav className="flex flex-1 flex-col gap-1">
-        {mainItems.map(({ to, label, icon: Icon, end, badge }) => (
-          <NavLink key={to} to={to} end={end} className={navLinkClass}>
+        {mainItems.map(({ to, label, icon: Icon, end, badge, isPathActive }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              navLinkClass({ isActive: isActive && (isPathActive ? isPathActive(location.pathname) : true) })
+            }
+          >
             <Icon className="h-5 w-5" />
             {label}
             {badge != null && badge > 0 && (

@@ -21,6 +21,13 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CourseCategoryController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\ClientController;
+use App\Http\Controllers\Api\Client\ClientAttendanceController;
+use App\Http\Controllers\Api\Client\ClientCheckoutController;
+use App\Http\Controllers\Api\Client\ClientEnrollmentController;
+use App\Http\Controllers\Api\Client\ClientInvoiceController;
+use App\Http\Controllers\Api\Client\ClientLearnerController;
+use App\Http\Controllers\Api\Client\ClientLearnerObservationController;
+use App\Http\Controllers\Api\Client\ClientOrderController;
 use App\Http\Controllers\Api\CommercialController;
 use App\Http\Controllers\Api\CommercialReportController;
 use App\Http\Controllers\Api\CourseController;
@@ -31,12 +38,14 @@ use App\Http\Controllers\Api\DepartmentController;
 
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\PaymentProofController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\ProspectController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\Public\PublicCatalogController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScopeController;
@@ -66,11 +75,28 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Support\Facades\Route;
 
+// === Public storefront (aucune authentification) ===
+Route::prefix('public')->group(function () {
+    Route::get('/countries', [PublicCatalogController::class, 'countries']);
+    Route::get('/agencies', [PublicCatalogController::class, 'agencies']);
+    Route::get('/services', [PublicCatalogController::class, 'services']);
+    Route::get('/services/{service}', [PublicCatalogController::class, 'service']);
+    Route::get('/products', [PublicCatalogController::class, 'products']);
+    Route::get('/products/{product}', [PublicCatalogController::class, 'product']);
+    Route::get('/courses', [PublicCatalogController::class, 'courses']);
+    Route::get('/courses/{course}', [PublicCatalogController::class, 'course']);
+    Route::get('/agencies/{agency}/payment-methods', [PublicCatalogController::class, 'agencyPaymentMethods']);
+});
+
 Route::post('/auth/login', LoginController::class);
 Route::post('/auth/register', RegisterController::class);
 Route::post('/auth/forgot-password', ForgotPasswordController::class);
 Route::post('/auth/reset-password', ResetPasswordController::class);
 Route::post('/auth/2fa/login', [TwoFactorController::class, 'login']);
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::put('/auth/change-password', ChangePasswordController::class);
+});
 
 Route::post('/staff/login', StaffLoginController::class)->middleware('throttle:5,1');
 Route::post('/client/login', ClientLoginController::class)->middleware('throttle:5,1');
@@ -79,11 +105,27 @@ Route::post('/client/register', RegisterController::class)->middleware('throttle
 Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::post('/client/logout', ClientLogoutController::class);
     Route::get('/client/me', ClientMeController::class);
+    Route::put('/client/me', [ClientMeController::class, 'update']);
+
+    Route::get('/client/orders', [ClientOrderController::class, 'index']);
+    Route::post('/client/orders', [ClientOrderController::class, 'store']);
+    Route::get('/client/orders/{order}', [ClientOrderController::class, 'show']);
+    Route::post('/client/checkout', ClientCheckoutController::class);
+    Route::get('/client/invoices', [ClientInvoiceController::class, 'index']);
+    Route::get('/client/invoices/{invoice}', [ClientInvoiceController::class, 'show']);
+    Route::post('/client/invoices/{invoice}/payment-proof', [ClientInvoiceController::class, 'uploadProof']);
+    Route::get('/client/invoices/{invoice}/receipt', [ClientInvoiceController::class, 'receipt']);
+    Route::delete('/client/invoices/{invoice}', [ClientInvoiceController::class, 'destroy']);
+    Route::get('/client/enrollments', [ClientEnrollmentController::class, 'index']);
+    Route::post('/client/enrollments', [ClientEnrollmentController::class, 'store']);
+    Route::get('/client/learner-profile', [ClientLearnerController::class, 'show']);
+    Route::get('/client/attendances', [ClientAttendanceController::class, 'index']);
+    Route::get('/client/observations', [ClientLearnerObservationController::class, 'index']);
+    Route::post('/client/observations', [ClientLearnerObservationController::class, 'store']);
 });
 
 Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'update.activity', 'portal:staff'])->group(function () {
     Route::post('/auth/logout', LogoutController::class);
-    Route::put('/auth/change-password', ChangePasswordController::class);
     Route::delete('/auth/account', DeleteAccountController::class);
     Route::get('/user', ProfileController::class);
 
@@ -189,6 +231,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/commercials/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/ranking', [CommercialController::class, 'ranking'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/report', [CommercialReportController::class, 'report'])->middleware('permission:commercials.reporting');
+    Route::get('/commercials/me/stats', [CommercialController::class, 'meStats']);
     Route::get('/commercials/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:commercials.consulter');
     Route::post('/commercials/{commercial}/points', [CommercialController::class, 'adjustPoints'])->middleware('permission:commercials.modifier');
     Route::get('/commercials', [CommercialController::class, 'index'])->middleware('permission:commercials.consulter');
@@ -213,7 +256,13 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoices.consulter');
     Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->middleware('permission:invoices.modifier');
     Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'pay'])->middleware('permission:invoices.encaisser');
+    Route::post('/invoices/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->middleware('permission:invoices.valider');
+    Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])->middleware('permission:invoices.valider');
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:invoices.annuler');
+
+    Route::get('/payment-proofs', [PaymentProofController::class, 'index'])->middleware('permission:invoices.consulter');
+    Route::post('/payment-proofs/{proof}/approve', [PaymentProofController::class, 'approve'])->middleware('permission:invoices.valider');
+    Route::post('/payment-proofs/{proof}/reject', [PaymentProofController::class, 'reject'])->middleware('permission:invoices.valider');
 
     Route::post('/orders', [OrderController::class, 'store'])->middleware('permission:orders.creer');
     Route::get('/orders/{order}', [OrderController::class, 'show'])->middleware('permission:orders.consulter');

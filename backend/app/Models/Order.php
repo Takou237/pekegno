@@ -19,6 +19,7 @@ class Order extends Model
         'commercial_id',
         'invoice_id',
         'status',
+        'channel',
         'order_date',
         'subtotal',
         'discount',

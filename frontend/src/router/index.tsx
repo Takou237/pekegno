@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '@/router/ProtectedRoute';
 import { GuestRoute } from '@/router/GuestRoute';
+import { HomeRedirect } from '@/router/HomeRedirect';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AgencyLayout } from '@/components/agencies/AgencyLayout';
 import { AgencyRedirect } from '@/components/agencies/AgencyRedirect';
@@ -21,9 +22,9 @@ const TwoFactorPage = lazy(() => import('@/pages/auth/TwoFactorPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
 const RegisterPage = lazy(() => import('@/pages/register/RegisterPage'));
-const PEKEGNOGroupDashboard = lazy(() => import('@/pages/dashboard/PEKEGNOGroupDashboard'));
 const AcademyDashboardPage = lazy(() => import('@/pages/dashboard/AcademyDashboardPage'));
 const CountryDashboardPage = lazy(() => import('@/pages/dashboard/CountryDashboardPage'));
+const CashierDashboardPage = lazy(() => import('@/pages/dashboard/CashierDashboardPage'));
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 const AgencyListPage = lazy(() => import('@/pages/agencies/AgencyListPage'));
 const AgencyTrashPage = lazy(() => import('@/pages/agencies/AgencyTrashPage'));
@@ -53,6 +54,7 @@ const ClientListPage = lazy(() => import('@/pages/clients/ClientListPage'));
 const ClientDetailPage = lazy(() => import('@/pages/clients/ClientDetailPage'));
 const CommercialListPage = lazy(() => import('@/pages/commercials/CommercialListPage'));
 const CommercialDetailPage = lazy(() => import('@/pages/commercials/CommercialDetailPage'));
+const CommercialSelfDashboardPage = lazy(() => import('@/pages/commercials/CommercialSelfDashboardPage'));
 const AgencyCommercialsPage = lazy(() => import('@/pages/commercials/AgencyCommercialsPage'));
 const AgencyCommercialDetailPage = lazy(
   () => import('@/pages/commercials/AgencyCommercialDetailPage')
@@ -61,10 +63,13 @@ const AgencyCommercialReportPage = lazy(
   () => import('@/pages/commercials/AgencyCommercialReportPage')
 );
 const InvoiceListPage = lazy(() => import('@/pages/invoices/InvoiceListPage'));
+const PendingInvoicesPage = lazy(() => import('@/pages/invoices/PendingInvoicesPage'));
+const PaymentProofsPage = lazy(() => import('@/pages/invoices/PaymentProofsPage'));
 const InvoiceFormPage = lazy(() => import('@/pages/invoices/InvoiceFormPage'));
 const QuickSalePage = lazy(() => import('@/pages/invoices/QuickSalePage'));
 const InvoiceDetailPage = lazy(() => import('@/pages/invoices/InvoiceDetailPage'));
 const AgencyInvoicesPage = lazy(() => import('@/pages/invoices/AgencyInvoicesPage'));
+const AgencyPendingInvoicesPage = lazy(() => import('@/pages/invoices/AgencyPendingInvoicesPage'));
 const AgencyInvoiceDetailPage = lazy(() => import('@/pages/invoices/AgencyInvoiceDetailPage'));
 const AccountingPage = lazy(() => import('@/pages/accounting/AccountingPage'));
 const AgencyAccountingPage = lazy(() => import('@/pages/accounting/AgencyAccountingPage'));
@@ -72,6 +77,9 @@ const DailyBilanPage = lazy(() => import('@/pages/bilans/DailyBilanPage'));
 const SubscriptionListPage = lazy(() => import('@/pages/subscriptions/SubscriptionListPage'));
 const AgencySubscriptionsPage = lazy(() => import('@/pages/subscriptions/AgencySubscriptionsPage'));
 const CommercialReportPage = lazy(() => import('@/pages/commercials/CommercialReportPage'));
+const SubscriptionsReportPage = lazy(() => import('@/pages/reports/SubscriptionsReportPage'));
+const CustomersReportPage = lazy(() => import('@/pages/reports/CustomersReportPage'));
+const ComparisonReportPage = lazy(() => import('@/pages/reports/ComparisonReportPage'));
 const EmployeeListPage = lazy(() => import('@/pages/employees/EmployeeListPage'));
 const EmployeeDetailPage = lazy(() => import('@/pages/employees/EmployeeDetailPage'));
 const AgencyEmployeeListPage = lazy(() => import('@/pages/employees/AgencyEmployeeListPage'));
@@ -100,6 +108,7 @@ const CourseDetailPage = lazy(() => import('@/pages/academy/CourseDetailPage'));
 const FormationEnrollmentPage = lazy(() => import('@/pages/academy/FormationEnrollmentPage'));
 const SellerProfilesPage = lazy(() => import('@/pages/academy/SellerProfilesPage'));
 const AcademyProspectsPage = lazy(() => import('@/pages/academy/AcademyProspectsPage'));
+const ProspectsList = lazy(() => import('@/components/prospects/ProspectsList'));
 const AcademyReceivablesPage = lazy(() => import('@/pages/academy/AcademyReceivablesPage'));
 const AcademyReportsPage = lazy(() => import('@/pages/academy/AcademyReportsPage'));
 const AcademyPlanningPage = lazy(() => import('@/pages/academy/AcademyPlanningPage'));
@@ -134,6 +143,7 @@ const agencyChildren = [
   { path: 'employees/:id', element: page(<AgencyEmployeeDetailPage />, detail) },
   { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
   { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
+  { path: 'invoices/pending', element: page(<AgencyPendingInvoicesPage />, table) },
   { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
   { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },
   { path: 'accounting', element: page(<AgencyAccountingPage />, table) },
@@ -162,7 +172,8 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: page(<PEKEGNOGroupDashboard />, dashboard) },
+          { path: '/', element: page(<HomeRedirect />, dashboard) },
+          { path: '/caissier/dashboard', element: page(<CashierDashboardPage />, dashboard) },
           { path: '/profile', element: page(<ProfilePage />, detail) },
           { path: '/countries', element: page(<CountryListPage />, cards) },
           { path: '/agencies', element: page(<AgencyListPage />, cards) },
@@ -174,6 +185,7 @@ export const router = createBrowserRouter([
           { path: '/clients', element: page(<ClientListPage />, table) },
           { path: '/clients/:id', element: page(<ClientDetailPage />, detail) },
           { path: '/commercials', element: page(<CommercialListPage />, table) },
+          { path: '/commercial/dashboard', element: page(<CommercialSelfDashboardPage />, dashboard) },
           { path: '/commercials/report', element: page(<CommercialReportPage />, table) },
           { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },
           { path: '/employees', element: page(<EmployeeListPage />, table) },
@@ -184,12 +196,18 @@ export const router = createBrowserRouter([
           { path: '/expenses', element: page(<ExpenseListPage />, table) },
           { path: '/commissions/rules', element: page(<CommissionRulesPage />, table) },
           { path: '/commissions/entries', element: page(<CommissionEntriesPage />, table) },
+          { path: '/prospects', element: page(<ProspectsList hideCommercialField />, table) },
           { path: '/companies', element: page(<CompanyListPage />, table) },
           { path: '/opportunities', element: page(<OpportunityKanbanPage />, table) },
           { path: '/opportunities/:id', element: page(<OpportunityDetailPage />, detail) },
           { path: '/bilans', element: page(<DailyBilanPage />, table) },
           { path: '/subscriptions', element: page(<SubscriptionListPage />, table) },
+          { path: '/reports/subscriptions', element: page(<SubscriptionsReportPage />, table) },
+          { path: '/reports/customers', element: page(<CustomersReportPage />, table) },
+          { path: '/reports/comparison', element: page(<ComparisonReportPage />, table) },
           { path: '/invoices', element: page(<InvoiceListPage />, table) },
+          { path: '/invoices/pending', element: page(<PendingInvoicesPage />, table) },
+          { path: '/payment-proofs', element: page(<PaymentProofsPage />, table) },
           { path: '/invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: '/invoices/quick', element: page(<QuickSalePage />, form) },
           { path: '/invoices/:id', element: page(<InvoiceDetailPage />, detail) },

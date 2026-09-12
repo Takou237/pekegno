@@ -29,6 +29,7 @@ import {
 } from '@/utils/catalogPermissions';
 import { canExportData } from '@/utils/exportPermissions';
 import { currentLocale } from '@/i18n';
+import { commercialsApi } from '@/api/commercials.api';
 import type { Service } from '@/types/service';
 import type { Category } from '@/types/category';
 import type { Agency, PaginationMeta } from '@/types/agency';
@@ -46,6 +47,23 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const { countryId } = useParams<{ countryId?: string }>();
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<'services' | 'formations'>('services');
+
+  const isCommercial = user?.role?.name === 'commercial';
+  const [ownAgencyId, setOwnAgencyId] = useState('');
+
+  useEffect(() => {
+    if (!isCommercial || agencyId || !user?.id) return;
+    commercialsApi
+      .list({ per_page: 100 })
+      .then((res) => {
+        const mine = (res.data ?? []).find((c) => c.user_id === user.id);
+        if (mine?.agency_id) setOwnAgencyId(mine.agency_id);
+      })
+      .catch(() => {});
+  }, [isCommercial, agencyId, user?.id]);
+
+  const effectiveAgencyId = agencyId || ownAgencyId || undefined;
+  const effectiveShowAcademyTabs = showAcademyTabs || (isCommercial && Boolean(effectiveAgencyId));
 
   const servicesBase = agencyId
     ? countryId
@@ -247,7 +265,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     return null;
   };
 
-  if (showAcademyTabs && agencyId && tab === 'formations') {
+  if (effectiveShowAcademyTabs && effectiveAgencyId && tab === 'formations') {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -272,7 +290,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             {t('nav.academy')}
           </button>
         </div>
-        <AgencyAcademyFormations agencyId={agencyId} />
+        <AgencyAcademyFormations agencyId={effectiveAgencyId} />
       </div>
     );
   }
@@ -318,7 +336,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         </div>
       </div>
 
-      {showAcademyTabs && agencyId && (
+      {effectiveShowAcademyTabs && effectiveAgencyId && (
         <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
           <button
             type="button"
@@ -651,7 +669,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
       <QuickSaleModal
         isOpen={quickSaleOpen}
         onClose={() => setQuickSaleOpen(false)}
-        agencyId={agencyId}
+        agencyId={effectiveAgencyId}
       />
     </div>
   );

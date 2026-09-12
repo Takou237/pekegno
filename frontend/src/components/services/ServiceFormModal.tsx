@@ -22,6 +22,7 @@ interface ServiceFormState {
   price: string;
   bonus_fixed: string;
   is_seminar: boolean;
+  is_public: boolean;
   description: string;
   cover_image: string | null;
   presentation_video: string;
@@ -36,6 +37,7 @@ function emptyForm(categoryId: string, agencyId = ''): ServiceFormState {
     price: '',
     bonus_fixed: '',
     is_seminar: false,
+    is_public: true,
     description: '',
     cover_image: null,
     presentation_video: '',
@@ -87,6 +89,7 @@ export function ServiceFormModal({
               price: source.price,
               bonus_fixed: source.bonus_fixed ?? '',
               is_seminar: source.is_seminar ?? false,
+              is_public: isDuplicating ? true : (source.is_public ?? false),
               description: source.description ?? '',
               cover_image: source.cover_image,
               presentation_video: source.presentation_video ?? '',
@@ -133,6 +136,7 @@ export function ServiceFormModal({
       price: form.price !== '' ? Number(form.price) : (form.is_seminar ? 0 : Number(form.price)),
       bonus_fixed: form.bonus_fixed ? Number(form.bonus_fixed) : null,
       is_seminar: form.is_seminar,
+      is_public: form.is_public,
       tiers: form.is_seminar && form.tiers.length > 0
         ? form.tiers.filter((t) => t.tier && t.label.trim()).map((t) => ({
             tier: t.tier,
@@ -264,6 +268,17 @@ export function ServiceFormModal({
           />
           {t('services.isSeminar')}
         </label>
+
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <input
+            type="checkbox"
+            checked={form.is_public}
+            onChange={(e) => update('is_public', e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/30"
+          />
+          {t('services.isPublic')}
+        </label>
+        <p className="-mt-2 text-xs text-gray-400 dark:text-gray-500">{t('services.isPublicHint')}</p>
 
         {form.is_seminar && (
           <div className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-700">

@@ -1,14 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Search, GraduationCap } from 'lucide-react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Search, GraduationCap, Plus, UserPlus, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type Course } from '@/api/academy.api';
 import { courseCategoriesApi } from '@/api/courseCategories.api';
+import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/useToast';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Pagination } from '@/components/ui/Pagination';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Alert } from '@/components/ui/Alert';
+import FormationEnrollmentModal from '@/components/academy/FormationEnrollmentModal';
+import { canCreateCourse, canEnrollLearners } from '@/utils/academyPermissions';
 import { formatCurrency } from '@/utils/number';
 import type { CourseCategory } from '@/types/category';
+import type { FormationEnrollment } from '@/types/formation';
 
 interface AgencyAcademyFormationsProps {
   agencyId: string;
@@ -25,8 +35,26 @@ function modeLabel(mode: Course['mode'], t: ReturnType<typeof useTranslation>['t
   }
 }
 
+interface CourseFormState {
+  name: string;
+  mode: Course['mode'];
+  category_ids: string[];
+  price: string;
+  description: string;
+}
+
+const emptyCourseForm: CourseFormState = {
+  name: '',
+  mode: 'in_person',
+  category_ids: [],
+  price: '',
+  description: '',
+};
+
 export default function AgencyAcademyFormations({ agencyId }: AgencyAcademyFormationsProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [categories, setCategories] = useState<CourseCategory[]>([]);
@@ -37,6 +65,13 @@ export default function AgencyAcademyFormations({ agencyId }: AgencyAcademyForma
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [courseFormOpen, setCourseFormOpen] = useState(false);
+  const [courseForm, setCourseForm] = useState<CourseFormState>(emptyCourseForm);
+  const [courseSubmitting, setCourseSubmitting] = useState(false);
+  const [courseFormError, setCourseFormError] = useState<string | null>(null);
+  const [courseFieldErrors, setCourseFieldErrors] = useState<Record<string, string>>({});
+  const [enrollOpen, setEnrollOpen] = useState(false);
 
   useEffect(() => {
     courseCategoriesApi
@@ -80,12 +115,64 @@ export default function AgencyAcademyFormations({ agencyId }: AgencyAcademyForma
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
+  function openCourseForm() {
+    setCourseForm(emptyCourseForm);
+    setCourseFormError(null);
+    setCourseFieldErrors({});
+    setCourseFormOpen(true);
+  }
+
+  async function handleCreateCourse(event: FormEvent) {
+    event.preventDefault();
+    setCourseSubmitting(true);
+    setCourseFormError(null);
+    setCourseFieldErrors({});
+    try {
+      const saved = await academyApi.createCourse({
+        name: courseForm.name,
+        mode: courseForm.mode,
+        category_ids: courseForm.category_ids.length > 0 ? courseForm.category_ids : undefined,
+        price: courseForm.price ? Number(courseForm.price) : null,
+        description: courseForm.description || null,
+        agency_id: agencyId,
+      });
+      showToast(t('academy.saved'), 'success');
+      setCourses((prev) => [saved, ...prev]);
+      setCourseFormOpen(false);
+    } catch (error) {
+      setCourseFormError(extractErrorMessage(error, t('academy.saveFailed')));
+      setCourseFieldErrors(extractFieldErrors(error));
+    } finally {
+      setCourseSubmitting(false);
+    }
+  }
+
+  function handleEnrollmentSaved(_enrollment: FormationEnrollment) {
+    fetchCourses();
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <p className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-        <GraduationCap className="h-4 w-4" />
-        {t('academy.coursesSubtitle')}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+          <GraduationCap className="h-4 w-4" />
+          {t('academy.coursesSubtitle')}
+        </p>
+        <div className="flex flex-wrap gap-3">
+          {canEnrollLearners(user) && (
+            <Button variant="outline" onClick={() => setEnrollOpen(true)}>
+              <UserPlus className="h-4 w-4" />
+              {t('academy.newEnrollment')}
+            </Button>
+          )}
+          {canCreateCourse(user) && (
+            <Button onClick={openCourseForm}>
+              <Plus className="h-4 w-4" />
+              {t('academy.newCourse')}
+            </Button>
+          )}
+        </div>
+      </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 lg:flex-row lg:items-end">
         <div className="flex-1">
@@ -218,6 +305,124 @@ export default function AgencyAcademyFormations({ agencyId }: AgencyAcademyForma
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={courseFormOpen}
+        onClose={() => setCourseFormOpen(false)}
+        title={t('academy.newCourse')}
+        maxWidth="max-w-lg"
+      >
+        <form onSubmit={handleCreateCourse} className="flex flex-col gap-4">
+          {courseFormError && <Alert variant="error">{courseFormError}</Alert>}
+
+          <Input
+            label={t('academy.courseName')}
+            required
+            value={courseForm.name}
+            onChange={(e) => setCourseForm((prev) => ({ ...prev, name: e.target.value }))}
+            error={courseFieldErrors.name}
+          />
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.mode')}
+            </label>
+            <select
+              value={courseForm.mode}
+              onChange={(e) => setCourseForm((prev) => ({ ...prev, mode: e.target.value as Course['mode'] }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              {(['in_person', 'online', 'mixed'] as const).map((m) => (
+                <option key={m} value={m}>
+                  {modeLabel(m, t)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {categories.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('academy.categories')}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => {
+                  const selected = courseForm.category_ids.includes(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() =>
+                        setCourseForm((prev) => ({
+                          ...prev,
+                          category_ids: selected
+                            ? prev.category_ids.filter((id) => id !== cat.id)
+                            : [...prev.category_ids, cat.id],
+                        }))
+                      }
+                      title={cat.name}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        selected
+                          ? 'text-white shadow-sm'
+                          : 'border-gray-300 text-gray-600 hover:border-brand-400 dark:border-gray-700 dark:text-gray-300'
+                      }`}
+                      style={
+                        selected
+                          ? { backgroundColor: cat.color ?? '#3B82F6', borderColor: cat.color ?? '#3B82F6' }
+                          : undefined
+                      }
+                    >
+                      {selected && <Check className="h-3.5 w-3.5" />}
+                      {cat.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {courseFieldErrors.category_ids && (
+                <p className="text-sm text-error-500">{courseFieldErrors.category_ids}</p>
+              )}
+            </div>
+          )}
+
+          <Input
+            label={t('academy.price')}
+            type="number"
+            min="0"
+            step="1"
+            value={courseForm.price}
+            onChange={(e) => setCourseForm((prev) => ({ ...prev, price: e.target.value }))}
+            error={courseFieldErrors.price}
+          />
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.description')}
+            </label>
+            <textarea
+              value={courseForm.description}
+              onChange={(e) => setCourseForm((prev) => ({ ...prev, description: e.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            />
+          </div>
+
+          <div className="mt-2 flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setCourseFormOpen(false)} disabled={courseSubmitting} className="flex-1">
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" isLoading={courseSubmitting} className="flex-1">
+              {t('common.create')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <FormationEnrollmentModal
+        isOpen={enrollOpen}
+        onClose={() => setEnrollOpen(false)}
+        agencyId={agencyId}
+        onSaved={handleEnrollmentSaved}
+      />
     </div>
   );
 }

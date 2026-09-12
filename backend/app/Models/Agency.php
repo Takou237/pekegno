@@ -165,6 +165,11 @@ class Agency extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    public function paymentMethods(): HasMany
+    {
+        return $this->hasMany(AgencyPaymentMethod::class);
+    }
+
     /**
      * Chiffre d'affaires : somme des factures payées non annulées.
      */

@@ -25,6 +25,7 @@ class StoreServiceRequest extends FormRequest
                 ? ['sometimes', 'nullable', 'numeric', 'min:0']
                 : ['required', 'numeric', 'min:0'],
             'is_seminar' => ['sometimes', 'boolean'],
+            'is_public' => ['sometimes', 'boolean'],
             'tiers' => ['sometimes', 'array', 'max:3'],
             'tiers.*.tier' => ['required', 'in:classique,premium,vip'],
             'tiers.*.label' => ['required', 'string', 'max:255'],

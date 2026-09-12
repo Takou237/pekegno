@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Printer, XCircle, Wallet, Pencil } from 'lucide-react';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Printer, XCircle, Wallet, Pencil, ImageIcon, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
@@ -22,7 +22,8 @@ import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoicePrint } from '@/components/invoices/InvoicePrint';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
-import type { Invoice, PaymentMethod } from '@/types/invoice';
+import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
+import type { Invoice, PaymentMethod, PaymentProof } from '@/types/invoice';
 
 export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { id: routeId = '', invoiceId = '' } = useParams();
@@ -30,6 +31,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const backToList = fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices` : '/invoices';
 
@@ -41,6 +43,12 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const [payOpen, setPayOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(false);
+
+  const [proofPreview, setProofPreview] = useState<PaymentProof | null>(null);
+  const [rejectProofTarget, setRejectProofTarget] = useState<PaymentProof | null>(null);
+  const [rejectProofNotes, setRejectProofNotes] = useState('');
+  const [proofSubmitting, setProofSubmitting] = useState(false);
+  const [proofError, setProofError] = useState<string | null>(null);
 
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
@@ -62,6 +70,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     currentUser?.role?.name ?? ''
   );
 
+  const isCommercial = currentUser?.role?.name === 'commercial';
+
   const fetchInvoice = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
@@ -72,6 +82,18 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       setEditCommercialId(inv.commercial_id ?? '');
       setEditPaymentType(inv.payment_type ?? '');
       setEditComment(inv.comment ?? '');
+      // Arrivée depuis la liste des en attente ("Valider") : ouvrir directement
+      // la première preuve de paiement à analyser.
+      if (searchParams.get('review') === 'proof') {
+        const pending = (inv.payment_proofs ?? []).find((p) => p.status === 'pending');
+        if (pending) {
+          setProofPreview(pending);
+          setProofError(null);
+        }
+        const next = new URLSearchParams(searchParams);
+        next.delete('review');
+        setSearchParams(next, { replace: true });
+      }
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('invoices.loadFailed')));
     } finally {
@@ -170,6 +192,56 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     }
   }
 
+  async function handleApproveProof(proof: PaymentProof) {
+    setProofSubmitting(true);
+    setProofError(null);
+    try {
+      const result = await invoicesApi.approveProof(proof.id);
+      if (result.invoice?.validation_status === 'validated') {
+        showToast(t('invoices.validated', { number: result.invoice.number }), 'success');
+      } else {
+        showToast(t('invoices.proofApproved'), 'success');
+      }
+      setProofPreview(null);
+      fetchInvoice();
+    } catch (error) {
+      setProofError(extractErrorMessage(error, t('invoices.proofError')));
+    } finally {
+      setProofSubmitting(false);
+    }
+  }
+
+  function openRejectProof(proof: PaymentProof) {
+    setRejectProofTarget(proof);
+    setRejectProofNotes('');
+    setProofError(null);
+  }
+
+  async function handleRejectProof() {
+    if (!rejectProofTarget) return;
+    if (!rejectProofNotes.trim()) {
+      setProofError(t('invoices.proofRejectReasonRequired'));
+      return;
+    }
+    setProofSubmitting(true);
+    setProofError(null);
+    try {
+      const result = await invoicesApi.rejectProof(rejectProofTarget.id, rejectProofNotes.trim());
+      if (result.invoice?.validation_status === 'rejected') {
+        showToast(t('invoices.rejected', { number: result.invoice.number }), 'success');
+      } else {
+        showToast(t('invoices.proofRejectedToast'), 'success');
+      }
+      setRejectProofTarget(null);
+      setProofPreview(null);
+      fetchInvoice();
+    } catch (error) {
+      setProofError(extractErrorMessage(error, t('invoices.proofError')));
+    } finally {
+      setProofSubmitting(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <SkeletonDetail />
@@ -207,9 +279,17 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               {t('invoices.detailTitle', { number: invoice.number })}
             </h1>
             <InvoiceStatusBadge status={invoice.status} />
+            {invoice.validation_status !== 'validated' && (
+              <ValidationBadge status={invoice.validation_status} />
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" onClick={() => setPrintOpen(true)}>
+            <Button
+              variant="outline"
+              onClick={() => setPrintOpen(true)}
+              disabled={isCommercial && invoice.status !== 'paid'}
+              title={isCommercial && invoice.status !== 'paid' ? t('invoices.printPendingPayment') : undefined}
+            >
               <Printer className="h-4 w-4" />
               {t('invoices.print')}
             </Button>
@@ -225,8 +305,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 {t('invoices.pay')}
               </Button>
             )}
-            {!invoice.is_cancelled && (
-              <Button variant="danger" onClick={() => setCancelTarget(true)}>
+            {!invoice.is_cancelled && (!isCommercial || invoice.validation_status !== 'validated') && (
+              <Button variant="danger" onClick={() => setCancelTarget(true)} disabled={cancelSubmitting}>
                 <XCircle className="h-4 w-4" />
                 {t('invoices.cancelInvoice')}
               </Button>
@@ -247,6 +327,13 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
             {formatCurrency(invoice.amount_paid)}
           </p>
+          {Number(invoice.amount_paid) === 0 &&
+            invoice.validation_status === 'pending' &&
+            Number(invoice.declared_advance ?? 0) > 0 && (
+              <p className="mt-1 text-xs italic text-amber-600 dark:text-amber-400">
+                {formatCurrency(invoice.declared_advance)} {t('invoices.declaredAdvance')} — {t('invoices.declaredAdvanceHint')}
+              </p>
+            )}
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.balanceDue')}</p>
@@ -364,6 +451,83 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {invoice.payment_proofs && invoice.payment_proofs.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {t('invoices.paymentProofsTitle')}
+          </h2>
+          {invoice.validation_status === 'pending' && invoice.payment_proofs.length > 0 && (
+            <p className="mb-3 text-xs italic text-amber-600 dark:text-amber-400">
+              {t('invoices.paymentProofsHint')}
+            </p>
+          )}
+          <div className="space-y-3">
+            {invoice.payment_proofs.map((proof) => (
+              <div
+                key={proof.id}
+                className="flex flex-col gap-3 rounded-xl border border-gray-100 p-3 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setProofPreview(proof)}
+                    className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800"
+                    title={t('invoices.proofView')}
+                  >
+                    {proof.file_url ? (
+                      <img src={proof.file_url} alt={t('invoices.paymentProof')} className="h-full w-full object-cover" />
+                    ) : (
+                      <ImageIcon className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                  <div className="text-sm">
+                    <p className="font-medium capitalize text-gray-800 dark:text-gray-100">
+                      {proof.payment_method === 'om'
+                        ? t('invoices.paymentOm')
+                        : proof.payment_method === 'momo'
+                        ? t('invoices.paymentMomo')
+                        : proof.payment_method}
+                    </p>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {t('invoices.proofStatus')}:{' '}
+                      {proof.status === 'pending'
+                        ? t('invoices.proofPending')
+                        : proof.status === 'accepted'
+                        ? t('invoices.proofAccepted')
+                        : t('invoices.proofRejected')}
+                    </p>
+                    {proof.reference && (
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {t('invoices.proofReference')}: {proof.reference}
+                      </p>
+                    )}
+                    {proof.notes && (
+                      <p className="text-xs text-error-500 dark:text-error-400">{proof.notes}</p>
+                    )}
+                  </div>
+                </div>
+                {proof.status === 'pending' && canCollect && (
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setProofPreview(proof)}>
+                      <ImageIcon className="h-4 w-4" />
+                      {t('invoices.proofView')}
+                    </Button>
+                    <Button size="sm" onClick={() => handleApproveProof(proof)} isLoading={proofSubmitting}>
+                      <ThumbsUp className="h-4 w-4" />
+                      {t('invoices.proofApprove')}
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => openRejectProof(proof)}>
+                      <ThumbsDown className="h-4 w-4" />
+                      {t('invoices.proofReject')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -619,6 +783,79 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         onConfirm={handleCancel}
         onCancel={() => setCancelTarget(false)}
       />
+
+      <Modal
+        isOpen={proofPreview !== null}
+        onClose={() => setProofPreview(null)}
+        title={t('invoices.proofView')}
+        maxWidth="max-w-2xl"
+      >
+        {proofPreview && (
+          <div className="flex flex-col gap-4">
+            {proofError && <Alert variant="error">{proofError}</Alert>}
+            {proofPreview.file_url ? (
+              <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                <img src={proofPreview.file_url} alt={t('invoices.paymentProof')} className="max-h-[60vh] w-full object-contain" />
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">—</p>
+            )}
+            <div className="text-sm text-gray-600 dark:text-gray-300">
+              <p className="flex justify-between"><span>{t('invoices.paymentMethod')}</span><span className="font-medium capitalize">{proofPreview.payment_method}</span></p>
+              {proofPreview.phone_number_used && <p className="flex justify-between mt-1"><span>{t('invoices.proofPhone')}</span><span className="font-medium">{proofPreview.phone_number_used}</span></p>}
+              {proofPreview.reference && <p className="flex justify-between mt-1"><span>{t('invoices.proofReference')}</span><span className="font-medium">{proofPreview.reference}</span></p>}
+              {proofPreview.submitter && (
+                <p className="flex justify-between mt-1">
+                  <span>{t('invoices.proofSubmittedBy')}</span>
+                  <span className="font-medium">
+                    {[proofPreview.submitter.first_name, proofPreview.submitter.last_name].filter(Boolean).join(' ') || proofPreview.submitter.email}
+                  </span>
+                </p>
+              )}
+            </div>
+            {proofPreview.status === 'pending' && canCollect && (
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => openRejectProof(proofPreview)} disabled={proofSubmitting}>
+                  <ThumbsDown className="h-4 w-4" />
+                  {t('invoices.proofReject')}
+                </Button>
+                <Button onClick={() => handleApproveProof(proofPreview)} isLoading={proofSubmitting}>
+                  <ThumbsUp className="h-4 w-4" />
+                  {t('invoices.proofApprove')}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={rejectProofTarget !== null}
+        onClose={() => setRejectProofTarget(null)}
+        title={t('invoices.proofRejectTitle')}
+        maxWidth="max-w-md"
+      >
+        {rejectProofTarget && (
+          <form onSubmit={(e) => { e.preventDefault(); handleRejectProof(); }} className="flex flex-col gap-4">
+            {proofError && <Alert variant="error">{proofError}</Alert>}
+            <Input
+              label={t('invoices.proofRejectReason')}
+              value={rejectProofNotes}
+              onChange={(e) => setRejectProofNotes(e.target.value)}
+              error={proofError ?? undefined}
+              placeholder={t('invoices.proofRejectReasonPlaceholder')}
+            />
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setRejectProofTarget(null)} disabled={proofSubmitting}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" variant="danger" isLoading={proofSubmitting} disabled={!rejectProofNotes.trim()}>
+                {t('invoices.proofReject')}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }

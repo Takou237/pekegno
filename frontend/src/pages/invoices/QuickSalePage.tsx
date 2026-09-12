@@ -7,6 +7,7 @@ import { clientsApi } from '@/api/clients.api';
 import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/utils/number';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -19,7 +20,10 @@ import type { ServiceSearchItem, SeminarTier } from '@/types/service';
 export default function QuickSalePage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { user: currentUser } = useAuth();
   const navigate = useNavigate();
+
+  const isCommercial = currentUser?.role?.name === 'commercial';
 
   // Service
   const [serviceId, setServiceId] = useState('');
@@ -75,11 +79,11 @@ export default function QuickSalePage() {
       setErrors({ service_id: t('invoices.quickSelectService') });
       return;
     }
-    if (!paymentType) {
+    if (!paymentType && !isCommercial) {
       setErrors({ payment_type: t('invoices.quickSelectPaymentType') });
       return;
     }
-    if (Number(amountReceived) <= 0 && total > 0) {
+    if (!isCommercial && Number(amountReceived) <= 0 && total > 0) {
       setErrors({ amount_received: t('invoices.quickReceiveAmountRequired') });
       return;
     }
@@ -104,15 +108,16 @@ export default function QuickSalePage() {
         ],
       });
 
-      // Immediately record the payment if amount received > 0
-      if (Number(amountReceived) > 0) {
+      // Un commercial ne peut pas encaisser : sa facture part en attente de validation.
+      // Seul un caissier / la direction valide puis encaisse.
+      if (!isCommercial && Number(amountReceived) > 0) {
         await invoicesApi.pay(invoice.id, {
           amount: Number(amountReceived),
           payment_method: paymentType as PaymentMethod,
         });
       }
 
-      showToast(t('invoices.quickSuccess'), 'success');
+      showToast(isCommercial ? t('invoices.quickSuccessPending') : t('invoices.quickSuccess'), 'success');
       navigate(`/invoices/${invoice.id}`);
     } catch (error) {
       setErrors(extractFieldErrors(error));
@@ -253,6 +258,11 @@ export default function QuickSalePage() {
               )}
             </div>
           </div>
+          {isCommercial && (
+            <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">
+              {t('invoices.quickPendingNote')}
+            </p>
+          )}
         </div>
 
         {/* Optional fields */}
@@ -304,7 +314,7 @@ export default function QuickSalePage() {
               </span>
             </div>
             <Button type="submit" isLoading={submitting}>
-              {t('invoices.quickSubmit')}
+              {isCommercial ? t('invoices.quickSubmitPending') : t('invoices.quickSubmit')}
             </Button>
           </div>
         </div>

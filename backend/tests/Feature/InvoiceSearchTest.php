@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Agency;
+use App\Models\Commercial;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -149,5 +151,85 @@ class InvoiceSearchTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'invoices.data')
             ->assertJsonPath('invoices.data.0.client_id', $client['id']);
+    }
+
+    public function test_commercial_only_sees_own_invoices(): void
+    {
+        $agency = Agency::factory()->create();
+
+        $commercialUser = User::factory()->create([
+            'role_id' => Role::where('name', 'commercial')->value('id'),
+        ]);
+        $commercial = Commercial::factory()->create([
+            'user_id' => $commercialUser->id,
+            'agency_id' => $agency->id,
+        ]);
+
+        $otherUser = User::factory()->create([
+            'role_id' => Role::where('name', 'commercial')->value('id'),
+        ]);
+        $other = Commercial::factory()->create([
+            'user_id' => $otherUser->id,
+            'agency_id' => $agency->id,
+        ]);
+
+        $this->actingAsAdmin();
+
+        $this->postJson('/api/invoices', [
+            'commercial_id' => $commercial->id,
+            'agency_id' => $agency->id,
+            'items' => [
+                ['label' => 'Vente commercial 1', 'unit_price' => 5000, 'quantity' => 1],
+            ],
+        ])->assertStatus(201);
+
+        $this->postJson('/api/invoices', [
+            'commercial_id' => $other->id,
+            'agency_id' => $agency->id,
+            'items' => [
+                ['label' => 'Vente commercial 2', 'unit_price' => 6000, 'quantity' => 1],
+            ],
+        ])->assertStatus(201);
+
+        Sanctum::actingAs($commercialUser);
+
+        $this->getJson('/api/invoices')
+            ->assertOk()
+            ->assertJsonCount(1, 'invoices.data')
+            ->assertJsonPath('invoices.data.0.commercial_id', $commercial->id);
+    }
+
+    public function test_caissier_only_sees_own_agencies_invoices(): void
+    {
+        $agencyA = Agency::factory()->create();
+        $agencyB = Agency::factory()->create();
+
+        $caissier = User::factory()->create([
+            'role_id' => Role::where('name', 'caissier')->value('id'),
+        ]);
+        $caissier->assignments()->sync([$agencyA->id => ['is_primary' => true]]);
+
+        $this->actingAsAdmin();
+
+        $invoiceA = $this->postJson('/api/invoices', [
+            'agency_id' => $agencyA->id,
+            'items' => [
+                ['label' => 'Vente agence A', 'unit_price' => 5000, 'quantity' => 1],
+            ],
+        ])->assertStatus(201)->json();
+
+        $this->postJson('/api/invoices', [
+            'agency_id' => $agencyB->id,
+            'items' => [
+                ['label' => 'Vente agence B', 'unit_price' => 6000, 'quantity' => 1],
+            ],
+        ])->assertStatus(201);
+
+        Sanctum::actingAs($caissier);
+
+        $this->getJson('/api/invoices')
+            ->assertOk()
+            ->assertJsonCount(1, 'invoices.data')
+            ->assertJsonPath('invoices.data.0.id', $invoiceA['id']);
     }
 }

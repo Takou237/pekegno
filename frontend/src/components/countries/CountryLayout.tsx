@@ -15,6 +15,7 @@ import {
   BarChart3,
   Contact,
   GraduationCap,
+  Receipt,
 } from 'lucide-react';
 import { countriesApi } from '@/api/countries.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -31,6 +32,7 @@ function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
     { to: 'users', label: t('nav.users'), icon: Users, end: false },
     { to: 'privileges', label: t('nav.privileges'), icon: Users, end: false },
     { to: 'catalog', label: t('nav.catalog'), icon: Package, end: false },
+    { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
     { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
     { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
     { to: 'subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },

@@ -2,6 +2,8 @@ import type { Agency } from './agency';
 import type { CommissionPayment } from './commercial';
 
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
+export type InvoiceValidationStatus = 'pending' | 'validated' | 'rejected';
+export type InvoiceSource = 'in_person' | 'commercial_online' | 'client_self';
 export type PaymentMethod = 'cash' | 'om' | 'momo' | 'mobile';
 
 export interface AgencySnapshot {
@@ -52,10 +54,16 @@ export interface Invoice {
   payment_type: PaymentMethod | null;
   total_amount: string;
   amount_paid: string;
+  declared_advance: string | null;
   discount: string;
   vat_rate: string;
   vat_amount: number;
   status: InvoiceStatus;
+  validation_status: InvoiceValidationStatus;
+  validated_by: string | null;
+  validated_at: string | null;
+  rejection_reason: string | null;
+  source: InvoiceSource | null;
   commission_amount: string | null;
   points_awarded: number | null;
   comment: string | null;
@@ -71,6 +79,8 @@ export interface Invoice {
   seller?: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
   items?: InvoiceItem[];
   payments?: InvoicePayment[];
+  payment_proofs?: PaymentProof[];
+  payment_proofs_count?: number;
   commission_payments?: CommissionPayment[];
 }
 
@@ -83,6 +93,7 @@ export interface InvoiceTotals {
 export interface InvoiceListParams {
   search?: string;
   status?: InvoiceStatus | `${InvoiceStatus},${InvoiceStatus}`;
+  validation_status?: InvoiceValidationStatus | `${InvoiceValidationStatus},${InvoiceValidationStatus}`;
   agency_id?: string;
   client_id?: string;
   commercial_id?: string;
@@ -134,4 +145,54 @@ export interface PayInvoicePayload {
   paid_at?: string;
   comment?: string;
   treasury_account_id?: string;
+}
+
+export interface RejectInvoicePayload {
+  rejection_reason: string;
+}
+
+export type PaymentProofStatus = 'pending' | 'accepted' | 'rejected';
+
+export interface PaymentProofInvoiceRef {
+  id: string;
+  number: string;
+  client_name: string | null;
+  total_amount: string | number;
+  validation_status: string;
+  status: string;
+}
+
+export interface PaymentProof {
+  id: string;
+  invoice_id: string;
+  submitted_by: string | null;
+  payment_method: string;
+  phone_number_used: string | null;
+  reference: string | null;
+  file_path: string;
+  file_url: string | null;
+  status: PaymentProofStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  invoice?: PaymentProofInvoiceRef | null;
+  submitter?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+  } | null;
+  reviewer?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+  } | null;
+}
+
+export interface ProofReviewResponse {
+  proof: PaymentProof;
+  invoice: Invoice | null;
 }

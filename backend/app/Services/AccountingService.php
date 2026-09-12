@@ -15,6 +15,10 @@ class AccountingService
      */
     public function recordIncomeFromPayment(Invoice $invoice, InvoicePayment $payment): ?AccountingTransaction
     {
+        if (($invoice->validation_status ?? Invoice::VALIDATION_VALIDATED) !== Invoice::VALIDATION_VALIDATED) {
+            return null;
+        }
+
         if (AccountingTransaction::where('invoice_id', $invoice->id)
             ->where('reference', $invoice->number)
             ->where('amount', (float) $payment->amount)

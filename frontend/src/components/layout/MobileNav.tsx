@@ -94,8 +94,15 @@ export function MobileNav({ contextTitle, contextItems = [], contextOnly = false
                   </p>
                 )}
                 <nav className="flex flex-1 flex-col gap-1">
-                  {contextItems.map(({ to, label, icon: Icon, end, badge }) => (
-                    <NavLink key={to || '/'} to={to} end={end} className={navLinkClass}>
+                  {contextItems.map(({ to, label, icon: Icon, end, badge, isPathActive }) => (
+                    <NavLink
+                      key={to || '/'}
+                      to={to}
+                      end={end}
+                      className={({ isActive }) =>
+                        navLinkClass({ isActive: isActive && (isPathActive ? isPathActive(location.pathname) : true) })
+                      }
+                    >
                       <Icon className="h-5 w-5" />
                       {label}
                       {badge != null && badge > 0 && (
@@ -134,8 +141,15 @@ export function MobileNav({ contextTitle, contextItems = [], contextOnly = false
                       {contextTitle}
                     </p>
                     <nav className="mb-4 flex flex-col gap-1 border-b border-gray-100 pb-4 dark:border-gray-800">
-                      {contextItems.map(({ to, label, icon: Icon, end, badge }) => (
-                        <NavLink key={to || '/'} to={to} end={end} className={navLinkClass}>
+                      {contextItems.map(({ to, label, icon: Icon, end, badge, isPathActive }) => (
+                        <NavLink
+                          key={to || '/'}
+                          to={to}
+                          end={end}
+                          className={({ isActive }) =>
+                            navLinkClass({ isActive: isActive && (isPathActive ? isPathActive(location.pathname) : true) })
+                          }
+                        >
                           <Icon className="h-5 w-5" />
                           {label}
                           {badge != null && badge > 0 && (
@@ -153,8 +167,15 @@ export function MobileNav({ contextTitle, contextItems = [], contextOnly = false
                 )}
 
                 <nav className="flex flex-1 flex-col gap-1">
-                  {mainItems.map(({ to, label, icon: Icon, end, badge }) => (
-                    <NavLink key={to} to={to} end={end} className={navLinkClass}>
+                  {mainItems.map(({ to, label, icon: Icon, end, badge, isPathActive }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      end={end}
+                      className={({ isActive }) =>
+                        navLinkClass({ isActive: isActive && (isPathActive ? isPathActive(location.pathname) : true) })
+                      }
+                    >
                       <Icon className="h-5 w-5" />
                       {label}
                       {badge != null && badge > 0 && (
