@@ -95,6 +95,7 @@ export default function CatalogPage() {
   }, [search, typeParam, selectedCountry, selectedAgency]);
 
   const handleQuickAdd = (item: CatalogItem) => {
+    if (item.type === 'course') return;
     addItem({
       type: item.type,
       id: item.id,

@@ -1,5 +1,5 @@
 import { client } from './client';
-import type { LoginResponse } from '@/types';
+import type { LoginResponse, User } from '@/types';
 
 export const authApi = {
   async login(email: string, password: string): Promise<LoginResponse> {
@@ -23,6 +23,21 @@ export const authApi = {
 
   async forgotPassword(email: string): Promise<{ message: string }> {
     const { data } = await client.post('/auth/forgot-password', { email });
+    return data;
+  },
+
+  async resetPassword(payload: { token: string; email: string; password: string; password_confirmation: string }): Promise<{ message: string }> {
+    const { data } = await client.post<{ message: string }>('/auth/reset-password', payload);
+    return data;
+  },
+
+  async updateProfile(payload: { first_name: string; last_name: string; phone?: string; city?: string; country?: string; address?: string }): Promise<User> {
+    const { data } = await client.put<User>('/client/me', payload);
+    return data;
+  },
+
+  async changePassword(payload: { current_password: string; password: string; password_confirmation: string }): Promise<{ message: string }> {
+    const { data } = await client.put<{ message: string }>('/auth/change-password', payload);
     return data;
   },
 };

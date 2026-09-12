@@ -78,8 +78,11 @@ class Phase3ValidationWorkflowTest extends TestCase
 
     public function test_cashier_filters_pending_invoices_and_validates_them(): void
     {
-        $this->staffWithRole('caissier');
+        $caissier = $this->staffWithRole('caissier');
         $invoice = $this->pendingInvoice();
+
+        // Un caissier ne voit que les factures des agences auxquelles il est affecté.
+        $caissier->assignments()->sync([$invoice->agency_id => ['is_primary' => true]]);
 
         $this->getJson('/api/invoices?validation_status=pending')
             ->assertOk()

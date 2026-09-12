@@ -64,6 +64,7 @@ export default function InvoiceFormPage({
   const [discount, setDiscount] = useState('');
   const [vatRate, setVatRate] = useState('');
   const [comment, setComment] = useState('');
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const [lines, setLines] = useState<InvoiceLineDraft[]>([newLine()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -173,7 +174,7 @@ export default function InvoiceFormPage({
     setSubmitting(true);
     setErrors({});
     try {
-      await invoicesApi.create({
+      const payload = {
         client_id: freeClientName ? undefined : clientId || undefined,
         client_name: freeClientName || undefined,
         commercial_id: !sellerIsTrainer && sellerId ? sellerId : undefined,
@@ -192,7 +193,12 @@ export default function InvoiceFormPage({
           quantity: Number(l.quantity) || 1,
           pass_tier: l.pass_tier || undefined,
         })),
-      });
+      };
+      if (proofFile && paymentType) {
+        await invoicesApi.createWithProof(payload, proofFile);
+      } else {
+        await invoicesApi.create(payload);
+      }
       showToast(t('invoices.created'), 'success');
       navigate(successPath ?? (agencyLocked ? `/agencies/${presetAgencyId}/invoices` : '/invoices'));
     } catch (error) {
@@ -348,6 +354,20 @@ export default function InvoiceFormPage({
                 <option value="momo">{t('invoices.paymentMomo')}</option>
               </Select>
             </div>
+            {(paymentType === 'om' || paymentType === 'momo') && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('invoices.paymentProof')} <span className="font-normal text-gray-400">({t('invoices.paymentProofOptional')})</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-400"
+                />
+                <p className="mt-1 text-xs text-gray-400">{t('invoices.paymentProofHint')}</p>
+              </div>
+            )}
           </div>
         </div>
 

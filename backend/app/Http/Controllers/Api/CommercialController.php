@@ -584,6 +584,34 @@ class CommercialController extends Controller
     {
         $this->scopeByRole(Commercial::whereKey($commercial->id), $request->user())->firstOrFail();
 
+        return $this->buildStats($commercial, $request);
+    }
+
+    #[OA\Get(
+        path: '/api/commercials/me/stats',
+        summary: 'Statistiques du commercial connecté',
+        tags: ['Commerciaux'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Statistiques'),
+            new OA\Response(response: 404, description: 'Aucun profil commercial associé'),
+        ]
+    )]
+    public function meStats(Request $request): JsonResponse
+    {
+        $commercial = $request->user()?->commercialProfile;
+
+        if (! $commercial) {
+            return response()->json([
+                'message' => 'Aucun profil commercial associé à votre compte.',
+            ], 404);
+        }
+
+        return $this->buildStats($commercial, $request);
+    }
+
+    private function buildStats(Commercial $commercial, Request $request): JsonResponse
+    {
         $from = $request->date('from');
         $to = $request->date('to');
 

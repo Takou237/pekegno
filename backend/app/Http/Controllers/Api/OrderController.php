@@ -34,6 +34,18 @@ class OrderController extends Controller
         return $query->whereIn('agency_id', $agencyIds);
     }
 
+    /**
+     * Verrouille l'attribution de la vente : un vendeur connecté est toujours
+     * crédité lui-même ; seuls les profils sans profil commercial (admin,
+     * responsable…) peuvent assigner un commercial tiers.
+     */
+    private function lockedCommercialId(Request $request, ?string $provided): ?string
+    {
+        $profile = $request->user()?->commercialProfile;
+
+        return $profile ? $profile->id : $provided;
+    }
+
     #[OA\Get(
         path: '/api/orders',
         summary: 'Lister les commandes (filtres statut/client/agence/dates)',
@@ -107,7 +119,7 @@ class OrderController extends Controller
                 'number' => $this->orderNumber->next(),
                 'agency_id' => $agencyId,
                 'client_id' => $data['client_id'],
-                'commercial_id' => $data['commercial_id'] ?? null,
+                'commercial_id' => $this->lockedCommercialId($request, $data['commercial_id'] ?? null),
                 'status' => $data['status'] ?? 'draft',
                 'channel' => $data['channel'] ?? 'in_person',
                 'order_date' => $data['order_date'] ?? now()->toDateString(),
@@ -190,7 +202,7 @@ class OrderController extends Controller
             $order->update([
                 'status' => $data['status'] ?? $order->status,
                 'channel' => $data['channel'] ?? $order->channel,
-                'commercial_id' => $data['commercial_id'] ?? $order->commercial_id,
+                'commercial_id' => $this->lockedCommercialId($request, $data['commercial_id'] ?? $order->commercial_id),
                 'order_date' => $data['order_date'] ?? $order->order_date,
                 'subtotal' => $subtotal,
                 'discount' => $discount,

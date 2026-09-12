@@ -124,6 +124,13 @@ export interface User {
   name: string;
   email: string;
   role: { name: string } | null;
+  first_name?: string;
+  last_name?: string;
+  phone?: string | null;
+  city?: string | null;
+  country?: string | null;
+  address?: string | null;
+  client_number?: string;
 }
 
 export interface LoginResponse {
@@ -309,14 +316,6 @@ export interface LearnerObservation {
   author?: { id: string; first_name?: string; last_name?: string; name?: string };
   course_module?: { id: string; name?: string; order_index?: number };
   course?: { id: string; name?: string };
-}
-
-export interface LearnerProfile {
-  id: string;
-  user_id: string;
-  total_observations: number;
-  total_attendances: number;
-  attendance_rate: number;
 }
 
 export interface PaymentProof {

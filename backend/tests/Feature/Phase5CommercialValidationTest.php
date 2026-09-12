@@ -5,11 +5,13 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\Commercial;
 use App\Models\Invoice;
+use App\Models\PaymentProof;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -177,11 +179,145 @@ class Phase5CommercialValidationTest extends TestCase
         $this->assertContains($invoice['id'], array_column($list, 'id'));
     }
 
+    public function test_commercial_can_attach_digital_payment_proof_at_creation(): void
+    {
+        $commercial = $this->createCommercialUser();
+        Sanctum::actingAs($commercial);
+
+        $invoice = $this->post('/api/invoices', [
+            'payment_type' => 'om',
+            'items' => [
+                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
+        ])->assertStatus(201)->json();
+
+        $this->assertSame(Invoice::VALIDATION_PENDING, $invoice['validation_status']);
+
+        $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
+        $this->assertNotNull($proof);
+        $this->assertSame(PaymentProof::STATUS_PENDING, $proof->status);
+        $this->assertSame($commercial->id, $proof->submitted_by);
+        $this->assertSame('om', $proof->payment_method);
+        $this->assertNotNull($proof->file_path);
+
+        // Le caissier ne peut pas valider tant que la preuve n'a pas été acceptée.
+        $this->actingAsRole('caissier');
+        $this->postJson("/api/invoices/{$invoice['id']}/validate")
+            ->assertStatus(422);
+    }
+
+    public function test_cashier_accepting_proof_validates_invoice_automatically(): void
+    {
+        $commercial = $this->createCommercialUser();
+        Sanctum::actingAs($commercial);
+
+        $invoice = $this->post('/api/invoices', [
+            'payment_type' => 'om',
+            'items' => [
+                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
+        ])->assertStatus(201)->json();
+
+        $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
+
+        // Le caissier accepte la preuve → la facture est automatiquement validée.
+        $this->actingAsRole('caissier');
+        $response = $this->postJson("/api/payment-proofs/{$proof->id}/approve")
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(PaymentProof::STATUS_ACCEPTED, $response['proof']['status']);
+        $this->assertSame(Invoice::VALIDATION_VALIDATED, $response['invoice']['validation_status']);
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice['id'],
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+        ]);
+
+        // Le caissier peut ensuite encaisser directement.
+        $this->postJson("/api/invoices/{$invoice['id']}/payments", [
+            'amount' => 15000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+    }
+
+    public function test_cashier_rejecting_proof_rejects_invoice_automatically(): void
+    {
+        $commercial = $this->createCommercialUser();
+        Sanctum::actingAs($commercial);
+
+        $invoice = $this->post('/api/invoices', [
+            'payment_type' => 'momo',
+            'items' => [
+                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
+        ])->assertStatus(201)->json();
+
+        $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
+
+        // Le caissier rejette la preuve → la facture est automatiquement rejetée.
+        $this->actingAsRole('caissier');
+        $response = $this->postJson("/api/payment-proofs/{$proof->id}/reject", [
+            'notes' => 'Capture illisible.',
+        ])->assertOk()
+            ->json();
+
+        $this->assertSame(PaymentProof::STATUS_REJECTED, $response['proof']['status']);
+        $this->assertSame(Invoice::VALIDATION_REJECTED, $response['invoice']['validation_status']);
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice['id'],
+            'validation_status' => Invoice::VALIDATION_REJECTED,
+        ]);
+    }
+
     private function scopedStats(string $commercialId): array
     {
         $this->actingAsRole('super-admin');
         return $this->getJson("/api/commercials/{$commercialId}/stats")
             ->assertOk()
             ->json();
+    }
+
+    public function test_commercial_can_view_own_stats(): void
+    {
+        $commercial = $this->createCommercialUser();
+        Sanctum::actingAs($commercial);
+
+        $invoice = $this->postJson('/api/invoices', [
+            'items' => [
+                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+        ])->assertStatus(201)->json();
+
+        // Un caissier valide puis encaisse la facture (statut paid).
+        $this->actingAsRole('caissier');
+        $this->postJson("/api/invoices/{$invoice['id']}/validate")->assertOk();
+        $this->postJson("/api/invoices/{$invoice['id']}/payments", [
+            'amount' => 15000,
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        Sanctum::actingAs($commercial);
+        $stats = $this->getJson('/api/commercials/me/stats')
+            ->assertOk()
+            ->json();
+
+        $this->assertSame($commercial->commercialProfile->id, $stats['commercial']['id']);
+        $this->assertSame(15000.0, (float) $stats['turnover']);
+        $this->assertSame(1, $stats['sales_count']);
+        $this->assertSame($commercial->commercialProfile->points_balance, $stats['points_balance']);
+        $this->assertArrayHasKey('monthly', $stats);
+    }
+
+    public function test_user_without_commercial_profile_cannot_view_own_stats(): void
+    {
+        $this->actingAsRole('caissier');
+
+        $this->getJson('/api/commercials/me/stats')
+            ->assertStatus(404);
     }
 }

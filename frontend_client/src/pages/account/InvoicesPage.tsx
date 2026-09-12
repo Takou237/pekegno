@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
-import { CreditCard, Smartphone, Download } from 'lucide-react';
+import { CreditCard, Smartphone, Download, Trash2 } from 'lucide-react';
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
@@ -89,6 +89,17 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleDelete = async (inv: Invoice) => {
+    if (!window.confirm(t('account.deleteRejectedConfirm') ?? `Supprimer la facture ${inv.number} ?`)) return;
+    try {
+      await clientApi.deleteInvoice(inv.id);
+      showToast(t('account.deletedRejected'), 'success');
+      load();
+    } catch {
+      showToast(t('account.deleteRejectedError'), 'error');
+    }
+  };
+
   if (loading) return <Spinner className="py-20" />;
 
   return (
@@ -127,6 +138,11 @@ export default function InvoicesPage() {
                         {inv.validation_status === 'pending' && (
                           <Button size="sm" onClick={() => openPayment(inv)}>
                             <CreditCard size={14} className="mr-1" /> {t('account.payNow')}
+                          </Button>
+                        )}
+                        {inv.validation_status === 'rejected' && (
+                          <Button size="sm" variant="danger" onClick={() => handleDelete(inv)}>
+                            <Trash2 size={14} className="mr-1" /> {t('account.delete')}
                           </Button>
                         )}
                       </div>

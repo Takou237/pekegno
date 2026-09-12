@@ -134,6 +134,47 @@ class ClientInvoiceController extends Controller
     }
 
     /**
+     * Supprime une facture rejetée du client connecté.
+     * Seule une facture dont le statut de validation est "rejected" peut être supprimée.
+     */
+    #[OA\Delete(
+        path: '/api/client/invoices/{invoice}',
+        summary: 'Supprimer une facture rejetée du client connecté',
+        tags: ['Espace client'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Facture supprimée'),
+            new OA\Response(response: 404, description: 'Facture introuvable'),
+            new OA\Response(response: 422, description: 'Seule une facture rejetée est supprimable'),
+        ]
+    )]
+    public function destroy(Request $request, Invoice $invoice): JsonResponse
+    {
+        abort_unless($invoice->client_id === $request->user()->id, 404, 'Facture introuvable.');
+        abort_if($invoice->validation_status !== Invoice::VALIDATION_REJECTED, 422, 'Seule une facture rejetée peut être supprimée.');
+
+        $number = $invoice->number;
+
+        $invoice->paymentProofs()->delete();
+        $invoice->payments()->delete();
+        $invoice->items()->delete();
+        $invoice->delete();
+
+        $this->logger->log(
+            action: 'deleted',
+            entityType: 'invoice',
+            entityId: $invoice->id,
+            description: "Le client a supprimé la facture rejetée {$number}",
+            request: $request,
+        );
+
+        return response()->json(['message' => "Facture {$number} supprimée."]);
+    }
+
+    /**
      * Télécharge le reçu PDF de la facture du client connecté.
      */
     #[OA\Get(

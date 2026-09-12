@@ -30,6 +30,7 @@ import {
   ScrollText,
   Settings,
   Target,
+  ImageIcon,
 } from 'lucide-react';
 import type { DepartmentType } from '@/types/department';
 
@@ -81,6 +82,10 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/academy', label: t('nav.academy'), icon: GraduationCap, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: FileText, end: false },
+      { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
+      { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
+      { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
+      { to: '/payment-proofs', label: t('nav.paymentProofs'), icon: ImageIcon, end: false },
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
     ];
   }
@@ -99,6 +104,9 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
       { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
+      { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
+      { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
+      { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
     ];
   }
@@ -118,6 +126,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t, unpaidBadge),
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
+      { to: '/payment-proofs', label: t('nav.paymentProofs'), icon: ImageIcon, end: false },
       catalogItem(t),
     ];
   }
@@ -135,6 +144,9 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
       { to: '/subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
+      { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
+      { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
+      { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
       { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },

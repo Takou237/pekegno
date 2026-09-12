@@ -37,6 +37,11 @@ export const clientApi = {
     return data;
   },
 
+  async deleteInvoice(id: string): Promise<{ message: string }> {
+    const { data } = await client.delete(`/client/invoices/${id}`);
+    return data;
+  },
+
   async downloadReceipt(invoiceId: string): Promise<Blob> {
     const { data } = await client.get<Blob>(`/client/invoices/${invoiceId}/receipt`, { responseType: 'blob' });
     return data;

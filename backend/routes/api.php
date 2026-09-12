@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\DepartmentController;
 
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\PaymentProofController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProfileController;
@@ -93,6 +94,10 @@ Route::post('/auth/forgot-password', ForgotPasswordController::class);
 Route::post('/auth/reset-password', ResetPasswordController::class);
 Route::post('/auth/2fa/login', [TwoFactorController::class, 'login']);
 
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::put('/auth/change-password', ChangePasswordController::class);
+});
+
 Route::post('/staff/login', StaffLoginController::class)->middleware('throttle:5,1');
 Route::post('/client/login', ClientLoginController::class)->middleware('throttle:5,1');
 Route::post('/client/register', RegisterController::class)->middleware('throttle:3,10');
@@ -100,6 +105,7 @@ Route::post('/client/register', RegisterController::class)->middleware('throttle
 Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::post('/client/logout', ClientLogoutController::class);
     Route::get('/client/me', ClientMeController::class);
+    Route::put('/client/me', [ClientMeController::class, 'update']);
 
     Route::get('/client/orders', [ClientOrderController::class, 'index']);
     Route::post('/client/orders', [ClientOrderController::class, 'store']);
@@ -109,6 +115,7 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::get('/client/invoices/{invoice}', [ClientInvoiceController::class, 'show']);
     Route::post('/client/invoices/{invoice}/payment-proof', [ClientInvoiceController::class, 'uploadProof']);
     Route::get('/client/invoices/{invoice}/receipt', [ClientInvoiceController::class, 'receipt']);
+    Route::delete('/client/invoices/{invoice}', [ClientInvoiceController::class, 'destroy']);
     Route::get('/client/enrollments', [ClientEnrollmentController::class, 'index']);
     Route::post('/client/enrollments', [ClientEnrollmentController::class, 'store']);
     Route::get('/client/learner-profile', [ClientLearnerController::class, 'show']);
@@ -119,7 +126,6 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
 
 Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'update.activity', 'portal:staff'])->group(function () {
     Route::post('/auth/logout', LogoutController::class);
-    Route::put('/auth/change-password', ChangePasswordController::class);
     Route::delete('/auth/account', DeleteAccountController::class);
     Route::get('/user', ProfileController::class);
 
@@ -225,6 +231,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/commercials/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/ranking', [CommercialController::class, 'ranking'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/report', [CommercialReportController::class, 'report'])->middleware('permission:commercials.reporting');
+    Route::get('/commercials/me/stats', [CommercialController::class, 'meStats']);
     Route::get('/commercials/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:commercials.consulter');
     Route::post('/commercials/{commercial}/points', [CommercialController::class, 'adjustPoints'])->middleware('permission:commercials.modifier');
     Route::get('/commercials', [CommercialController::class, 'index'])->middleware('permission:commercials.consulter');
@@ -252,6 +259,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/invoices/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->middleware('permission:invoices.valider');
     Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])->middleware('permission:invoices.valider');
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:invoices.annuler');
+
+    Route::get('/payment-proofs', [PaymentProofController::class, 'index'])->middleware('permission:invoices.consulter');
+    Route::post('/payment-proofs/{proof}/approve', [PaymentProofController::class, 'approve'])->middleware('permission:invoices.valider');
+    Route::post('/payment-proofs/{proof}/reject', [PaymentProofController::class, 'reject'])->middleware('permission:invoices.valider');
 
     Route::post('/orders', [OrderController::class, 'store'])->middleware('permission:orders.creer');
     Route::get('/orders/{order}', [OrderController::class, 'show'])->middleware('permission:orders.consulter');

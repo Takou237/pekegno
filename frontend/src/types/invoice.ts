@@ -79,6 +79,8 @@ export interface Invoice {
   seller?: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
   items?: InvoiceItem[];
   payments?: InvoicePayment[];
+  payment_proofs?: PaymentProof[];
+  payment_proofs_count?: number;
   commission_payments?: CommissionPayment[];
 }
 
@@ -147,4 +149,50 @@ export interface PayInvoicePayload {
 
 export interface RejectInvoicePayload {
   rejection_reason: string;
+}
+
+export type PaymentProofStatus = 'pending' | 'accepted' | 'rejected';
+
+export interface PaymentProofInvoiceRef {
+  id: string;
+  number: string;
+  client_name: string | null;
+  total_amount: string | number;
+  validation_status: string;
+  status: string;
+}
+
+export interface PaymentProof {
+  id: string;
+  invoice_id: string;
+  submitted_by: string | null;
+  payment_method: string;
+  phone_number_used: string | null;
+  reference: string | null;
+  file_path: string;
+  file_url: string | null;
+  status: PaymentProofStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  invoice?: PaymentProofInvoiceRef | null;
+  submitter?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+  } | null;
+  reviewer?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+  } | null;
+}
+
+export interface ProofReviewResponse {
+  proof: PaymentProof;
+  invoice: Invoice | null;
 }

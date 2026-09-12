@@ -176,12 +176,13 @@ class PublicCatalogSeeder extends Seeder
                     'name' => $data['name'],
                     'description' => "Formation certifiante : {$data['name']}.",
                     'price' => $data['price'],
-                    'mode' => 'presentiel',
-                    'duration_hours' => 12,
-                    'duration_type' => 'hours',
-                    'agency_id' => $agencyId,
-                    'is_active' => true,
-                ]
+                'mode' => 'presentiel',
+                'duration_hours' => 12,
+                'duration_type' => 'hours',
+                'agency_id' => $agencyId,
+                'is_active' => true,
+                'is_public' => true,
+            ]
             );
 
             if ($course->modules()->count() === 0) {

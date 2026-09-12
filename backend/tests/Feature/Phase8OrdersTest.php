@@ -307,4 +307,19 @@ class Phase8OrdersTest extends TestCase
 
         $this->getJson('/api/orders')->assertOk();
     }
+
+    public function test_commercial_creating_order_is_locked_to_own_profile(): void
+    {
+        $user = User::factory()->create([
+            'role_id' => Role::where('name', 'commercial')->value('id'),
+        ]);
+        $ownProfile = Commercial::factory()->create(['user_id' => $user->id]);
+        $target = Commercial::factory()->create();
+        Sanctum::actingAs($user);
+
+        $order = $this->createOrder(['commercial_id' => $target->id]);
+
+        $this->assertEquals($ownProfile->id, $order['commercial_id']);
+        $this->assertNotEquals($target->id, $order['commercial_id']);
+    }
 }

@@ -10,6 +10,20 @@ class PaymentProof extends Model
 {
     use HasUuids;
 
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_ACCEPTED = 'accepted';
+
+    public const STATUS_REJECTED = 'rejected';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_ACCEPTED,
+        self::STATUS_REJECTED,
+    ];
+
+    protected $appends = ['file_url'];
+
     protected $fillable = [
         'invoice_id',
         'submitted_by',
@@ -43,5 +57,10 @@ class PaymentProof extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function getFileUrlAttribute(): ?string
+    {
+        return $this->file_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->file_path) : null;
     }
 }

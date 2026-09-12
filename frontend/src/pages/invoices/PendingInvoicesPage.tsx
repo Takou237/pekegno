@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { Check, XCircle, FileText, ArrowLeft } from 'lucide-react';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { Check, XCircle, FileText, ArrowLeft, ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { agenciesApi } from '@/api/agencies.api';
@@ -45,6 +45,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const canValidateInvoice = ['super-admin', 'direction-generale', 'responsable-agence', 'caissier'].includes(
     currentUser?.role?.name ?? ''
   );
@@ -108,6 +109,16 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
   }
 
   async function handleValidate(invoice: Invoice) {
+    // Une facture avec preuve(s) de paiement en attente doit d'abord être
+    // examinée : on ouvre directement la preuve à analyser ; son acceptation
+    // (ou son rejet) validera (ou rejettera) automatiquement la facture.
+    if (Number(invoice.payment_proofs_count ?? 0) > 0) {
+      const target = fixedAgencyId
+        ? `/agencies/${fixedAgencyId}/invoices/${invoice.id}`
+        : `/invoices/${invoice.id}`;
+      navigate(`${target}?review=proof`);
+      return;
+    }
     setActionId(invoice.id);
     try {
       await invoicesApi.validate(invoice.id);
@@ -210,6 +221,12 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                         <FileText className="h-4 w-4 text-gray-400" />
                         {inv.number}
                       </Link>
+                      {Number(inv.payment_proofs_count ?? 0) > 0 && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          <ImageIcon className="h-3 w-3" />
+                          {inv.payment_proofs_count} {t('invoices.pendingProof')}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{formatRelativeDate(inv.invoice_date)}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{inv.client_label ?? '—'}</td>

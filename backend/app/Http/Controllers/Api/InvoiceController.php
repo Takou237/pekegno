@@ -9,6 +9,7 @@ use App\Http\Requests\Api\StoreInvoiceRequest;
 use App\Http\Requests\Api\UpdateInvoiceRequest;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Models\PaymentProof;
 use App\Models\Service;
 use App\Models\SessionParticipant;
 use App\Models\User;
@@ -142,6 +143,7 @@ class InvoiceController extends Controller
 
         $invoices = $base
             ->with(['client:id,first_name,last_name,email,client_number,phone', 'commercial:id,first_name,last_name,email,phone', 'agency:id,name,code,city,address,phone,email'])
+            ->withCount(['paymentProofs' => fn ($q) => $q->where('status', PaymentProof::STATUS_PENDING)])
             ->orderByDesc('invoice_date')
             ->paginate($perPage);
 
@@ -282,6 +284,29 @@ class InvoiceController extends Controller
                 ]);
             }
 
+            // Paiement numérique (OM / MoMo) : le commercial peut joindre une
+            // preuve de paiement qui sera examinée par le caissier avant
+            // validation et encaissement.
+            if ($request->hasFile('proof_file')) {
+                $request->validate(['proof_file' => ['required', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120']]);
+
+                if (! in_array($data['payment_type'] ?? null, ['om', 'momo'], true)) {
+                    throw ValidationException::withMessages([
+                        'proof_file' => 'Une preuve de paiement ne peut être jointe que pour un paiement numérique (OM ou MoMo).',
+                    ]);
+                }
+
+                $path = $request->file('proof_file')->store('payment-proofs', 'public');
+
+                PaymentProof::create([
+                    'invoice_id' => $invoice->id,
+                    'submitted_by' => $request->user()->id,
+                    'payment_method' => $data['payment_type'],
+                    'file_path' => $path,
+                    'status' => PaymentProof::STATUS_PENDING,
+                ]);
+            }
+
             if (! $needsValidation && ! empty($data['advance'])) {
                 $this->applyPayment($invoice, (float) $data['advance'], $data['payment_type'] ?? 'cash', true, $request->user()->id);
             }
@@ -314,7 +339,16 @@ class InvoiceController extends Controller
     )]
     public function show(Invoice $invoice): JsonResponse
     {
-        $invoice->load(['items', 'payments', 'commissionPayments', 'client', 'commercial', 'agency', 'seller']);
+        $invoice->load([
+            'items',
+            'payments',
+            'commissionPayments',
+            'client',
+            'commercial',
+            'agency',
+            'seller',
+            'paymentProofs' => fn ($q) => $q->with(['submitter:id,first_name,last_name,email', 'reviewer:id,first_name,last_name,email']),
+        ]);
 
         return response()->json($invoice);
     }
@@ -423,6 +457,13 @@ class InvoiceController extends Controller
         abort_if($invoice->validation_status === Invoice::VALIDATION_VALIDATED, 422, 'Cette facture est déjà validée.');
         abort_if($invoice->validation_status !== Invoice::VALIDATION_PENDING, 422, 'Seule une facture en attente peut être validée.');
 
+        // Le caissier doit d'abord examiner et accepter les preuves de paiement
+        // soumises (client en ligne / paiement numérique) avant de valider.
+        $proofs = $invoice->paymentProofs;
+        if ($proofs->isNotEmpty() && ! $proofs->contains('status', PaymentProof::STATUS_ACCEPTED)) {
+            abort(422, 'Une preuve de paiement en attente doit être examinée et acceptée avant la validation.');
+        }
+
         $invoice->update([
             'validation_status' => Invoice::VALIDATION_VALIDATED,
             'validated_by' => auth()->id(),
@@ -486,6 +527,17 @@ class InvoiceController extends Controller
             'validated_at' => now(),
             'rejection_reason' => $reason,
         ]);
+
+        // Une preuve encore en attente devient caduque : la facture étant rejetée,
+        // elle aussi est marquée rejetée pour éviter un état incohérent.
+        $invoice->paymentProofs()
+            ->where('status', PaymentProof::STATUS_PENDING)
+            ->update([
+                'status' => PaymentProof::STATUS_REJECTED,
+                'reviewed_by' => auth()->id(),
+                'reviewed_at' => now(),
+                'notes' => 'Facture rejetée : '.$reason,
+            ]);
 
         $this->logger->log('rejected', 'invoice', $invoice->id, "Facture {$invoice->number} rejetée : {$reason}");
 
