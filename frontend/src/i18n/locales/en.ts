@@ -167,8 +167,7 @@ export default {
     planning: 'Planning',
     production: 'Production',
     revisions: 'Revisions',
-    pendingInvoices: 'Validations',
-      paymentProofs: 'Payment proofs',
+    pendingInvoices: 'Validation',
       subscriptionsReport: 'Subscriptions report',
       customersReport: 'Customers report',
       comparisonReport: 'Revenue comparison',
@@ -408,6 +407,9 @@ export default {
     selectAgency: 'Agency',
     selectDepartment: 'Department',
     notifications: 'Notifications',
+    pendingValidations: 'Invoices awaiting validation',
+    noPending: 'No invoice pending.',
+    seeAllPending: 'See all validations ({{count}})',
   },
 
   departmentTypes: {

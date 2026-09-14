@@ -191,6 +191,7 @@ export interface Invoice {
   updated_at: string;
   items?: InvoiceItem[];
   payments?: InvoicePayment[];
+  payment_proofs_count?: number;
 }
 
 export interface InvoiceItem {

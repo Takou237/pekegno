@@ -30,7 +30,6 @@ import {
   ScrollText,
   Settings,
   Target,
-  ImageIcon,
 } from 'lucide-react';
 import type { DepartmentType } from '@/types/department';
 
@@ -84,7 +83,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/bilans', label: t('nav.bilans'), icon: FileText, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
-      { to: '/payment-proofs', label: t('nav.paymentProofs'), icon: ImageIcon, end: false },
+      { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
     ];
   }
@@ -125,7 +124,6 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t, unpaidBadge),
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
-      { to: '/payment-proofs', label: t('nav.paymentProofs'), icon: ImageIcon, end: false },
       catalogItem(t),
     ];
   }

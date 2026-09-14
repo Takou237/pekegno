@@ -221,7 +221,6 @@ export default function PaymentPage() {
                   <Select label={t('checkout.paymentMethod')} value={method} onChange={(e) => setMethod(e.target.value)}>
                     <option value="orange_money">Orange Money</option>
                     <option value="mtn_momo">MTN MoMo</option>
-                    <option value="cash">{t('payment.cash')}</option>
                   </Select>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

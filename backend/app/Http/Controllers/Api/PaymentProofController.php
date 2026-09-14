@@ -183,6 +183,19 @@ class PaymentProofController extends Controller
                 true,
                 $userId,
             );
+        } elseif ($invoice->source === 'client_self' && (float) $invoice->amount_paid === 0.0) {
+            // Une commande passée en ligne par le client est réglée intégralement (pas
+            // d'avance possible sur ce canal) : accepter la preuve de paiement encaisse
+            // donc directement le montant total, et la facture passe en statut "payé".
+            $proof = $invoice->paymentProofs()->where('status', PaymentProof::STATUS_ACCEPTED)->latest('reviewed_at')->first();
+
+            $this->paymentService->applyPayment(
+                $invoice,
+                (float) $invoice->total_amount,
+                $proof?->payment_method ?? $invoice->payment_type ?? 'cash',
+                false,
+                $userId,
+            );
         }
 
         $this->logger->log('validated', 'invoice', $invoice->id, "Facture {$invoice->number} validée (preuve de paiement acceptée)");

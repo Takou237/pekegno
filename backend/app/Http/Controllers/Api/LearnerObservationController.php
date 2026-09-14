@@ -18,7 +18,14 @@ class LearnerObservationController extends Controller
         }
 
         if ($request->filled('course_id')) {
-            $query->where('course_id', $request->input('course_id'));
+            // Une observation posée sur un module peut avoir course_id=null (données
+            // historiques) : on la rattache alors via son module pour qu'elle reste
+            // visible dans l'onglet Observations de la fiche formation.
+            $courseId = $request->input('course_id');
+            $query->where(function ($q) use ($courseId) {
+                $q->where('course_id', $courseId)
+                    ->orWhereHas('courseModule', fn ($m) => $m->where('course_id', $courseId));
+            });
         }
 
         if ($request->filled('session_id')) {

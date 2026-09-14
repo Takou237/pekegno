@@ -135,10 +135,13 @@ export default function InvoicesPage() {
                         <Button size="sm" variant="outline" onClick={() => handleDownload(inv)}>
                           <Download size={14} className="mr-1" /> {t('account.downloadReceipt')}
                         </Button>
-                        {inv.validation_status === 'pending' && (
+                        {inv.validation_status === 'pending' && Number(inv.payment_proofs_count ?? 0) === 0 && (
                           <Button size="sm" onClick={() => openPayment(inv)}>
                             <CreditCard size={14} className="mr-1" /> {t('account.payNow')}
                           </Button>
+                        )}
+                        {inv.validation_status === 'pending' && Number(inv.payment_proofs_count ?? 0) > 0 && (
+                          <span className="text-xs font-medium text-amber-600">{t('account.proofUnderReview')}</span>
                         )}
                         {inv.validation_status === 'rejected' && (
                           <Button size="sm" variant="danger" onClick={() => handleDelete(inv)}>
@@ -186,7 +189,6 @@ export default function InvoicesPage() {
             <Select label={t('checkout.paymentMethod')} value={method} onChange={(e) => setMethod(e.target.value)}>
               <option value="orange_money">Orange Money</option>
               <option value="mtn_momo">MTN MoMo</option>
-              <option value="cash">Especes</option>
             </Select>
 
             <Input label={t('checkout.phoneNumber')} type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />

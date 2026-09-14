@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
+use App\Models\CourseModule;
 use App\Models\LearnerObservation;
 use App\Services\ActivityLogger;
 use Illuminate\Http\JsonResponse;
@@ -61,9 +62,17 @@ class ClientLearnerObservationController extends Controller
             'content' => ['required', 'string'],
         ]);
 
+        // Une observation posée sur un module doit rester rattachée à son cours
+        // (course_id), sinon elle devient invisible dans l'onglet Observations
+        // de la fiche formation côté staff, qui ne filtre que sur ce champ.
+        $courseId = $validated['course_id'] ?? null;
+        if (! $courseId && ! empty($validated['course_module_id'])) {
+            $courseId = CourseModule::find($validated['course_module_id'])?->course_id;
+        }
+
         $observation = LearnerObservation::create([
             'learner_user_id' => $request->user()->id,
-            'course_id' => $validated['course_id'] ?? null,
+            'course_id' => $courseId,
             'course_module_id' => $validated['course_module_id'] ?? null,
             'session_id' => $validated['session_id'] ?? null,
             'author_user_id' => $request->user()->id,

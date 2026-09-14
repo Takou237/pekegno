@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { Check, XCircle, FileText, ArrowLeft, ImageIcon } from 'lucide-react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { Check, XCircle, FileText, ArrowLeft, ImageIcon, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { agenciesApi } from '@/api/agencies.api';
@@ -18,7 +18,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
-import type { Invoice, InvoiceValidationStatus, InvoiceSource } from '@/types/invoice';
+import type { Invoice, InvoiceValidationStatus, InvoiceSource, PaymentProof } from '@/types/invoice';
 import type { Agency, PaginationMeta } from '@/types/agency';
 
 export function ValidationBadge({ status }: { status: InvoiceValidationStatus }) {
@@ -45,7 +45,6 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
-  const navigate = useNavigate();
   const canValidateInvoice = ['super-admin', 'direction-generale', 'responsable-agence', 'caissier'].includes(
     currentUser?.role?.name ?? ''
   );
@@ -63,6 +62,12 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
+
+  const [proofModalInvoice, setProofModalInvoice] = useState<Invoice | null>(null);
+  const [proofModalProof, setProofModalProof] = useState<PaymentProof | null>(null);
+  const [proofModalLoading, setProofModalLoading] = useState(false);
+  const [proofModalError, setProofModalError] = useState<string | null>(null);
+  const [proofSubmitting, setProofSubmitting] = useState(false);
 
   const agencyId = fixedAgencyId ?? (searchParams.get('agency_id') ?? '');
 
@@ -110,13 +115,22 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
 
   async function handleValidate(invoice: Invoice) {
     // Une facture avec preuve(s) de paiement en attente doit d'abord être
-    // examinée : on ouvre directement la preuve à analyser ; son acceptation
-    // (ou son rejet) validera (ou rejettera) automatiquement la facture.
+    // examinée : on affiche la preuve directement dans la page (aucune
+    // navigation), et un seul clic sur "Valider" accepte la preuve, ce qui
+    // valide automatiquement la facture côté backend.
     if (Number(invoice.payment_proofs_count ?? 0) > 0) {
-      const target = fixedAgencyId
-        ? `/agencies/${fixedAgencyId}/invoices/${invoice.id}`
-        : `/invoices/${invoice.id}`;
-      navigate(`${target}?review=proof`);
+      setProofModalInvoice(invoice);
+      setProofModalProof(null);
+      setProofModalError(null);
+      setProofModalLoading(true);
+      try {
+        const res = await invoicesApi.listProofs({ invoice_id: invoice.id, status: 'pending', per_page: 1 });
+        setProofModalProof(res.data[0] ?? null);
+      } catch (error) {
+        setProofModalError(extractErrorMessage(error, t('invoices.loadFailed')));
+      } finally {
+        setProofModalLoading(false);
+      }
       return;
     }
     setActionId(invoice.id);
@@ -129,6 +143,35 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
     } finally {
       setActionId(null);
     }
+  }
+
+  function closeProofModal() {
+    setProofModalInvoice(null);
+    setProofModalProof(null);
+    setProofModalError(null);
+  }
+
+  async function handleApproveProof() {
+    if (!proofModalProof || !proofModalInvoice) return;
+    setProofSubmitting(true);
+    setProofModalError(null);
+    try {
+      await invoicesApi.approveProof(proofModalProof.id);
+      showToast(t('invoices.validated', { number: proofModalInvoice.number }), 'success');
+      closeProofModal();
+      fetchInvoices();
+    } catch (error) {
+      setProofModalError(extractErrorMessage(error, t('invoices.proofError')));
+    } finally {
+      setProofSubmitting(false);
+    }
+  }
+
+  function rejectFromProofModal() {
+    if (!proofModalInvoice) return;
+    const invoice = proofModalInvoice;
+    closeProofModal();
+    openReject(invoice);
   }
 
   async function handleReject(event: FormEvent) {
@@ -281,6 +324,94 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={proofModalInvoice !== null}
+        onClose={closeProofModal}
+        title={t('invoices.paymentProof')}
+        maxWidth="max-w-lg"
+      >
+        {proofModalInvoice && (
+          <div className="flex flex-col gap-4">
+            {proofModalLoading ? (
+              <div className="flex h-40 items-center justify-center">
+                <span className="text-sm text-gray-400">{t('common.loading')}</span>
+              </div>
+            ) : proofModalProof ? (
+              <>
+                {proofModalProof.file_url ? (
+                  <a
+                    href={proofModalProof.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group relative inline-flex justify-center rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-800"
+                  >
+                    <img
+                      src={proofModalProof.file_url}
+                      alt={t('invoices.paymentProof')}
+                      className="max-h-64 rounded-lg object-contain"
+                    />
+                    <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-lg bg-gray-900/70 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      <ExternalLink className="h-3 w-3" />
+                      {t('invoices.proofView')}
+                    </span>
+                  </a>
+                ) : (
+                  <div className="flex h-40 items-center justify-center rounded-xl bg-gray-100 text-sm text-gray-400 dark:bg-gray-800">
+                    {t('invoices.proofView')}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 rounded-xl bg-gray-50 p-3 text-sm dark:bg-gray-800/60">
+                  <div>
+                    <p className="text-xs uppercase text-gray-400">{t('invoices.colNumber')}</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{proofModalInvoice.number}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-gray-400">{t('invoices.colTotal')}</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{formatCurrency(proofModalInvoice.total_amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-gray-400">{t('invoices.paymentType')}</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{proofModalProof.payment_method || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-gray-400">{t('invoices.proofPhone')}</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{proofModalProof.phone_number_used ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-gray-400">{t('invoices.proofReference')}</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{proofModalProof.reference ?? '—'}</p>
+                  </div>
+                </div>
+
+                {proofModalError && <Alert variant="error">{proofModalError}</Alert>}
+
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="danger" onClick={rejectFromProofModal} disabled={proofSubmitting}>
+                    <XCircle className="h-4 w-4" />
+                    {t('invoices.reject')}
+                  </Button>
+                  <Button type="button" onClick={handleApproveProof} isLoading={proofSubmitting}>
+                    <Check className="h-4 w-4" />
+                    {t('invoices.validate')}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                {proofModalError && <Alert variant="error">{proofModalError}</Alert>}
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.proofsEmpty')}</p>
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" onClick={closeProofModal}>
+                    {t('common.close')}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         isOpen={rejectTarget !== null}

@@ -29,6 +29,7 @@ class ClientInvoiceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Invoice::with(['agency:id,name,city', 'items'])
+            ->withCount(['paymentProofs' => fn ($q) => $q->where('status', PaymentProof::STATUS_PENDING)])
             ->where('client_id', $request->user()->id);
 
         if ($request->filled('validation_status')) {

@@ -1,11 +1,16 @@
-import { type ReactNode, useCallback, useEffect, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Globe, Building2, FolderTree, Bell, Menu } from 'lucide-react';
+import { ChevronDown, Globe, Building2, FolderTree, Bell, Menu, ImageIcon, FileText } from 'lucide-react';
 import { useOrgContext } from '@/context/OrgContext';
 import { useAuth } from '@/hooks/useAuth';
+import { invoicesApi } from '@/api/invoices.api';
+import { formatCurrency } from '@/utils/number';
 import { UserMenu } from '@/components/common/UserMenu';
 import { Spinner } from '@/components/ui/Spinner';
+import type { Invoice } from '@/types/invoice';
+
+const CAN_VALIDATE_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence', 'caissier']);
 
 interface Option {
   value: string;
@@ -85,6 +90,39 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   const { user } = useAuth();
   const { countries, selection, loading, setSelection } = useOrgContext();
   const showOrgSelectors = !['commercial', 'caissier'].includes(user?.role?.name ?? '');
+
+  const canValidate = CAN_VALIDATE_ROLES.has(user?.role?.name ?? '');
+  const [pendingInvoices, setPendingInvoices] = useState<Invoice[]>([]);
+  const [pendingTotal, setPendingTotal] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!canValidate) return;
+    let cancelled = false;
+    invoicesApi
+      .list({ validation_status: 'pending', per_page: 5 })
+      .then((res) => {
+        if (cancelled) return;
+        setPendingInvoices(res.invoices.data);
+        setPendingTotal(res.invoices.meta.total);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [canValidate, location.pathname]);
+
+  useEffect(() => {
+    if (!notifOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setNotifOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notifOpen]);
 
   const findAgency = useCallback(
     (agencyId: string) => {
@@ -189,26 +227,35 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
     [countries],
   );
 
+  // Une fois un pays sélectionné, on ne propose plus que ses agences (au lieu de
+  // la liste complète de tous les pays) : moins de scroll, moins de clics.
   const agencyGroups: OptionGroup[] = useMemo(
     () =>
-      countries.map((c) => ({
-        label: c.name,
-        options: c.agencies.map((a) => ({ value: a.id, label: `${a.name} (${a.code})` })),
-      })),
-    [countries],
+      countries
+        .filter((c) => !selection.countryId || c.id === selection.countryId)
+        .map((c) => ({
+          label: c.name,
+          options: c.agencies.map((a) => ({ value: a.id, label: `${a.name} (${a.code})` })),
+        })),
+    [countries, selection.countryId],
   );
 
+  // Idem pour les départements : filtrés par l'agence sélectionnée, sinon par
+  // le pays sélectionné, sinon la liste complète (comportement d'origine).
   const departmentGroups: OptionGroup[] = useMemo(
     () =>
-      countries.flatMap((c) =>
-        c.agencies
-          .filter((a) => (a.departments?.length ?? 0) > 0)
-          .map((a) => ({
-            label: `${a.name} · ${c.name}`,
-            options: a.departments.map((d) => ({ value: d.id, label: d.name })),
-          })),
-      ),
-    [countries],
+      countries
+        .filter((c) => !selection.countryId || c.id === selection.countryId)
+        .flatMap((c) =>
+          c.agencies
+            .filter((a) => (a.departments?.length ?? 0) > 0)
+            .filter((a) => !selection.agencyId || a.id === selection.agencyId)
+            .map((a) => ({
+              label: `${a.name} · ${c.name}`,
+              options: a.departments.map((d) => ({ value: d.id, label: d.name })),
+            })),
+        ),
+    [countries, selection.countryId, selection.agencyId],
   );
 
   if (loading) {
@@ -272,13 +319,66 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
 
       <div className="ml-auto flex items-center gap-1">
         {rightSlot}
-        <button
-          type="button"
-          className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-          aria-label={t('contextBar.notifications')}
-        >
-          <Bell className="h-4.5 w-4.5" />
-        </button>
+        {canValidate && (
+          <div className="relative" ref={notifRef}>
+            <button
+              type="button"
+              onClick={() => setNotifOpen((v) => !v)}
+              className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              aria-label={t('contextBar.notifications')}
+            >
+              <Bell className="h-4.5 w-4.5" />
+              {pendingTotal > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {pendingTotal > 99 ? '99+' : pendingTotal}
+                </span>
+              )}
+            </button>
+
+            {notifOpen && (
+              <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
+                  {t('contextBar.pendingValidations')}
+                </div>
+                {pendingInvoices.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-gray-400">{t('contextBar.noPending')}</p>
+                ) : (
+                  <ul className="max-h-80 overflow-y-auto">
+                    {pendingInvoices.map((inv) => (
+                      <li key={inv.id}>
+                        <Link
+                          to="/invoices/pending"
+                          onClick={() => setNotifOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                        >
+                          {Number(inv.payment_proofs_count ?? 0) > 0 ? (
+                            <ImageIcon className="h-4 w-4 shrink-0 text-amber-500" />
+                          ) : (
+                            <FileText className="h-4 w-4 shrink-0 text-gray-400" />
+                          )}
+                          <span className="flex-1 truncate">
+                            <span className="font-medium text-gray-800 dark:text-gray-100">{inv.number}</span>
+                            <span className="ml-1.5 text-gray-500 dark:text-gray-400">{inv.client_label ?? ''}</span>
+                          </span>
+                          <span className="shrink-0 font-medium text-gray-700 dark:text-gray-200">
+                            {formatCurrency(inv.total_amount)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link
+                  to="/invoices/pending"
+                  onClick={() => setNotifOpen(false)}
+                  className="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-medium text-brand-600 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
+                >
+                  {t('contextBar.seeAllPending', { count: pendingTotal })}
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
         <UserMenu />
       </div>
     </div>

@@ -170,6 +170,7 @@ export default {
     actions: 'Actions',
     viewInvoice: 'View Invoice',
     payNow: 'Pay Now',
+    proofUnderReview: 'Proof under review',
     downloadReceipt: 'Download PDF Receipt',
     delete: 'Delete',
     deleteRejectedConfirm: 'Delete this rejected invoice? This action is irreversible.',

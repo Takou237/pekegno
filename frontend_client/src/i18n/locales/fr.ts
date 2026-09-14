@@ -170,6 +170,7 @@ export default {
     actions: 'Actions',
     viewInvoice: 'Voir la facture',
     payNow: 'Payer maintenant',
+    proofUnderReview: 'Preuve en cours de vérification',
     downloadReceipt: 'Télécharger le reçu PDF',
     delete: 'Supprimer',
     deleteRejectedConfirm: 'Supprimer cette facture rejetée ? Cette action est irréversible.',

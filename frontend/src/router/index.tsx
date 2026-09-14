@@ -63,7 +63,6 @@ const AgencyCommercialReportPage = lazy(
 );
 const InvoiceListPage = lazy(() => import('@/pages/invoices/InvoiceListPage'));
 const PendingInvoicesPage = lazy(() => import('@/pages/invoices/PendingInvoicesPage'));
-const PaymentProofsPage = lazy(() => import('@/pages/invoices/PaymentProofsPage'));
 const InvoiceFormPage = lazy(() => import('@/pages/invoices/InvoiceFormPage'));
 const QuickSalePage = lazy(() => import('@/pages/invoices/QuickSalePage'));
 const InvoiceDetailPage = lazy(() => import('@/pages/invoices/InvoiceDetailPage'));
@@ -207,7 +206,6 @@ export const router = createBrowserRouter([
           { path: '/reports/comparison', element: page(<ComparisonReportPage />, table) },
           { path: '/invoices', element: page(<InvoiceListPage />, table) },
           { path: '/invoices/pending', element: page(<PendingInvoicesPage />, table) },
-          { path: '/payment-proofs', element: page(<PaymentProofsPage />, table) },
           { path: '/invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: '/invoices/quick', element: page(<QuickSalePage />, form) },
           { path: '/invoices/:id', element: page(<InvoiceDetailPage />, detail) },
