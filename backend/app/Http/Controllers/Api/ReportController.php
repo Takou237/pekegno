@@ -125,6 +125,7 @@ class ReportController extends Controller
             new OA\Parameter(name: 'from', in: 'query', description: 'Date début (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
             new OA\Parameter(name: 'to', in: 'query', description: 'Date fin (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'country_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'limit', in: 'query', description: 'Nombre de clients du top', schema: new OA\Schema(type: 'integer', default: 10)),
         ],
         responses: [
@@ -144,6 +145,7 @@ class ReportController extends Controller
         $newClients = (clone $clients)
             ->whereBetween('users.created_at', [$from, $to])
             ->when($request->agency_id, fn ($q, $agencyId) => $q->whereHas('assignments', fn ($inner) => $inner->where('agency_id', $agencyId)))
+            ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('assignments', fn ($inner) => $inner->where('country_id', $countryId)))
             ->when($agencyIds !== null, fn ($q) => $q->whereHas('assignments', fn ($inner) => $inner->whereIn('agency_id', $agencyIds)));
 
         $byCountry = (clone $newClients)
@@ -166,6 +168,7 @@ class ReportController extends Controller
             ->where('invoices.status', 'paid')
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('invoices.agency_id', $agencyId))
+            ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('agency', fn ($inner) => $inner->where('country_id', $countryId)))
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds));
 
         $topClients = (clone $invoices)
@@ -197,7 +200,11 @@ class ReportController extends Controller
             ]);
 
         $activeCustomers = (clone $clients)
-            ->whereHas('clientInvoices', fn ($q) => $q->whereNull('cancelled_at')->whereBetween('invoice_date', [$from, $to]))
+            ->whereHas('clientInvoices', fn ($q) => $q->whereNull('cancelled_at')
+                ->whereBetween('invoice_date', [$from, $to])
+                ->when($request->agency_id, fn ($inner, $agencyId) => $inner->where('agency_id', $agencyId))
+                ->when($request->country_id, fn ($inner, $countryId) => $inner->whereHas('agency', fn ($a) => $a->where('country_id', $countryId)))
+                ->when($agencyIds !== null, fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
             ->count();
 
         return response()->json([
@@ -227,6 +234,8 @@ class ReportController extends Controller
             new OA\Parameter(name: 'dimension', in: 'query', required: true, description: 'country, city ou agency', schema: new OA\Schema(type: 'string', enum: ['country', 'city', 'agency'])),
             new OA\Parameter(name: 'from', in: 'query', description: 'Date début (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
             new OA\Parameter(name: 'to', in: 'query', description: 'Date fin (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'country_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'CA groupé par dimension'),
@@ -245,6 +254,8 @@ class ReportController extends Controller
         $query = Invoice::whereNull('cancelled_at')
             ->where('status', 'paid')
             ->whereBetween('invoice_date', [$from, $to])
+            ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
+            ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('agency', fn ($inner) => $inner->where('country_id', $countryId)))
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
         $select = match ($dimension) {

@@ -697,11 +697,22 @@ export default function CourseDetailPage() {
                         <ul className="mt-3 divide-y divide-gray-50 dark:divide-gray-800">
                           {(sessionLearnersMap[session.id] ?? []).map((item) => (
                             <li key={item.learner_user_id || item.formation_enrollment_id} className="flex items-center justify-between py-2 text-sm">
-                              <span className="text-gray-700 dark:text-gray-300">
-                                {[item.learner?.first_name, item.learner?.last_name].filter(Boolean).join(' ') ||
-                                  item.learner?.email ||
-                                  '—'}
-                              </span>
+                              {item.learner_user_id ? (
+                                <Link
+                                  to={`/departments/${departmentId}/learners/${item.learner_user_id}`}
+                                  className="text-gray-700 hover:text-brand-600 hover:underline dark:text-gray-300 dark:hover:text-brand-400"
+                                >
+                                  {[item.learner?.first_name, item.learner?.last_name].filter(Boolean).join(' ') ||
+                                    item.learner?.email ||
+                                    '—'}
+                                </Link>
+                              ) : (
+                                <span className="text-gray-700 dark:text-gray-300">
+                                  {[item.learner?.first_name, item.learner?.last_name].filter(Boolean).join(' ') ||
+                                    item.learner?.email ||
+                                    '—'}
+                                </span>
+                              )}
                               <Badge variant="brand">{t('academy.statusEnrolled')}</Badge>
                             </li>
                           ))}
@@ -730,12 +741,25 @@ export default function CourseDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                {learners.map((enrollment) => (
+                {learners.map((enrollment) => {
+                  const learnerId = enrollment.learner?.id ?? enrollment.learner_user_id;
+                  return (
                   <tr key={enrollment.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50">
                     <td className="px-5 py-3 text-gray-700 dark:text-gray-300">
-                      {[enrollment.learner?.first_name, enrollment.learner?.last_name].filter(Boolean).join(' ') ||
+                      {learnerId ? (
+                        <Link
+                          to={`/departments/${departmentId}/learners/${learnerId}`}
+                          className="font-medium text-gray-800 hover:text-brand-600 hover:underline dark:text-gray-100 dark:hover:text-brand-400"
+                        >
+                          {[enrollment.learner?.first_name, enrollment.learner?.last_name].filter(Boolean).join(' ') ||
+                            enrollment.learner?.email ||
+                            '—'}
+                        </Link>
+                      ) : (
+                        [enrollment.learner?.first_name, enrollment.learner?.last_name].filter(Boolean).join(' ') ||
                         enrollment.learner?.email ||
-                        '—'}
+                        '—'
+                      )}
                     </td>
                     <td className="px-5 py-3">
                       <Badge variant={enrollment.status === 'cancelled' ? 'error' : enrollment.status === 'completed' ? 'success' : 'brand'}>
@@ -759,7 +783,8 @@ export default function CourseDetailPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

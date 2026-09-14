@@ -8,6 +8,7 @@ use App\Models\Agency;
 use App\Models\Commercial;
 use App\Models\Country;
 use App\Models\Department;
+use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
@@ -188,6 +189,7 @@ class StatsController extends Controller
         parameters: [
             new OA\Parameter(name: 'agency_id', in: 'query', description: 'Filtrer par agence', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'months', in: 'query', description: 'Nombre de mois', schema: new OA\Schema(type: 'integer', default: 12)),
+            new OA\Parameter(name: 'from_enrollments', in: 'query', description: 'Limiter aux factures issues d\'inscriptions academy', schema: new OA\Schema(type: 'boolean')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Série mensuelle'),
@@ -208,6 +210,10 @@ class StatsController extends Controller
             ->validated()
             ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('agency', fn ($inner) => $inner->where('country_id', $countryId)))
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
+            ->when($request->boolean('from_enrollments'), fn ($q) => $q->whereIn(
+                'invoices.id',
+                FormationEnrollment::query()->whereNotNull('invoice_id')->pluck('invoice_id')
+            ))
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
         $dateExpr = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql'

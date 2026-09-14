@@ -21,6 +21,8 @@ export interface InvoiceIndexResponse {
 export interface ProofListParams {
   status?: PaymentProofStatus;
   invoice_id?: string;
+  agency_id?: string;
+  country_id?: string;
   page?: number;
   per_page?: number;
 }

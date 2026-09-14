@@ -309,7 +309,7 @@ export default function DepartmentOverviewPage() {
     }
     let monthly: MonthlyRevenuePoint[] = [];
     try {
-      monthly = await statsApi.monthlyRevenue({ months: 12, agencyId });
+      monthly = await statsApi.monthlyRevenue({ months: 12, agencyId, fromEnrollments: true });
     } catch {
       /* ignore */
     }

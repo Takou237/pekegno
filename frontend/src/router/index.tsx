@@ -21,7 +21,6 @@ const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const TwoFactorPage = lazy(() => import('@/pages/auth/TwoFactorPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
-const RegisterPage = lazy(() => import('@/pages/register/RegisterPage'));
 const AcademyDashboardPage = lazy(() => import('@/pages/dashboard/AcademyDashboardPage'));
 const CountryDashboardPage = lazy(() => import('@/pages/dashboard/CountryDashboardPage'));
 const CashierDashboardPage = lazy(() => import('@/pages/dashboard/CashierDashboardPage'));
@@ -115,6 +114,8 @@ const AcademyPlanningPage = lazy(() => import('@/pages/academy/AcademyPlanningPa
 const AcademyInvoicesPage = lazy(() => import('@/pages/academy/AcademyInvoicesPage'));
 const AcademyInvoiceFormPage = lazy(() => import('@/pages/academy/AcademyInvoiceFormPage'));
 const AcademyCommissionsPage = lazy(() => import('@/pages/academy/AcademyCommissionsPage'));
+const AcademyAccountingPage = lazy(() => import('@/pages/academy/AcademyAccountingPage'));
+const AcademyBilanPage = lazy(() => import('@/pages/academy/AcademyBilanPage'));
 const ContractListPage = lazy(() => import('@/pages/agency/ContractListPage'));
 const ContractDetailPage = lazy(() => import('@/pages/agency/ContractDetailPage'));
 const RenewalsPage = lazy(() => import('@/pages/agency/RenewalsPage'));
@@ -163,7 +164,6 @@ export const router = createBrowserRouter([
       { path: '/forgot-password', element: page(<ForgotPasswordPage />, form) },
       { path: '/reset-password', element: page(<ResetPasswordPage />, form) },
       { path: '/two-factor', element: page(<TwoFactorPage />, form) },
-      { path: '/register', element: page(<RegisterPage />, form) },
     ],
   },
   {
@@ -288,6 +288,8 @@ export const router = createBrowserRouter([
           { path: 'receivables', element: page(<AcademyReceivablesPage />, table) },
           { path: 'certificates', element: page(<CertificateListPage />, table) },
           { path: 'reports', element: page(<AcademyReportsPage />, table) },
+          { path: 'accounting', element: page(<AcademyAccountingPage />, table) },
+          { path: 'bilans', element: page(<AcademyBilanPage />, table) },
           // Agency routes
           { path: 'clients', element: page(<ClientListPage />, table) },
           { path: 'clients/:id', element: page(<ClientDetailPage />, detail) },

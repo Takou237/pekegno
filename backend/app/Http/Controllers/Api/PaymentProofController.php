@@ -34,6 +34,8 @@ class PaymentProofController extends Controller
         parameters: [
             new OA\Parameter(name: 'invoice_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['pending', 'accepted', 'rejected'])),
+            new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'country_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
         ],
         responses: [
@@ -42,10 +44,15 @@ class PaymentProofController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+
         $query = PaymentProof::query()
-            ->with(['invoice:id,number,client_name,total_amount,validation_status,status', 'submitter:id,first_name,last_name,email', 'reviewer:id,first_name,last_name,email'])
+            ->with(['invoice:id,number,client_name,total_amount,validation_status,status,agency_id', 'submitter:id,first_name,last_name,email', 'reviewer:id,first_name,last_name,email'])
             ->when($request->filled('invoice_id'), fn ($q) => $q->where('invoice_id', $request->input('invoice_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
+            ->when($request->filled('agency_id'), fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->where('agency_id', $request->input('agency_id'))))
+            ->when($request->filled('country_id'), fn ($q) => $q->whereHas('invoice.agency', fn ($inner) => $inner->where('country_id', $request->input('country_id'))))
+            ->when($agencyIds !== null, fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
             ->orderByDesc('created_at');
 
         return response()->json($query->paginate(min((int) $request->input('per_page', 15), 100)));

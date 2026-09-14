@@ -82,7 +82,6 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/academy', label: t('nav.academy'), icon: GraduationCap, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: FileText, end: false },
-      { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
       { to: '/payment-proofs', label: t('nav.paymentProofs'), icon: ImageIcon, end: false },
@@ -188,6 +187,8 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
         { to: 'certificates', label: t('nav.certificates'), icon: FileText, end: false },
         { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
+        { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
+        { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
         { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
       ];
 

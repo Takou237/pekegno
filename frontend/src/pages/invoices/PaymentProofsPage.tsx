@@ -14,6 +14,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
+import { GeoFilters } from '@/pages/reports/ReportFilters';
 import type { PaymentProof, PaymentProofStatus } from '@/types/invoice';
 import type { PaginationMeta } from '@/types/agency';
 
@@ -50,6 +51,8 @@ export default function PaymentProofsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [countryId, setCountryId] = useState('');
+  const [agencyId, setAgencyId] = useState('');
 
   const [selected, setSelected] = useState<PaymentProof | null>(null);
   const [rejectMode, setRejectMode] = useState(false);
@@ -61,7 +64,13 @@ export default function PaymentProofsPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await invoicesApi.listProofs({ status, page, per_page: 15 });
+      const response = await invoicesApi.listProofs({
+        status,
+        page,
+        per_page: 15,
+        country_id: countryId || undefined,
+        agency_id: agencyId || undefined,
+      });
       setProofs(response.data);
       setMeta(response.meta);
     } catch (error) {
@@ -69,7 +78,7 @@ export default function PaymentProofsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [status, page, t]);
+  }, [status, page, countryId, agencyId, t]);
 
   useEffect(() => {
     fetchProofs();
@@ -156,6 +165,15 @@ export default function PaymentProofsPage() {
             {t(tab.labelKey)}
           </button>
         ))}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-end">
+        <GeoFilters
+          countryId={countryId}
+          agencyId={agencyId}
+          onCountry={(v) => { setCountryId(v); setPage(1); }}
+          onAgency={(v) => { setAgencyId(v); setPage(1); }}
+        />
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">

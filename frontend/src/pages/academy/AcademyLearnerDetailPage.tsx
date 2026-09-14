@@ -13,8 +13,6 @@ import {
   Phone,
   Users,
   Award,
-  MessageSquare,
-  Trash2,
   CalendarCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -23,8 +21,6 @@ import { certificatesApi } from '@/api/certificates.api';
 import { extractErrorMessage } from '@/api/errors';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
 import { formatCurrency } from '@/utils/number';
 import type { Certificate } from '@/types/certificate';
@@ -125,13 +121,9 @@ export default function AcademyLearnerDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { learnerId } = useParams<{ learnerId: string }>();
-  const { showToast } = useToast();
   const [data, setData] = useState<LearnerStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [observations, setObservations] = useState<{ id: string; content: string; created_at: string }[]>([]);
-  const [newObs, setNewObs] = useState('');
-  const [addingObs, setAddingObs] = useState(false);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
 
   useEffect(() => {
@@ -141,13 +133,11 @@ export default function AcademyLearnerDetailPage() {
     setLoadError(null);
     Promise.all([
       academyApi.learnerStats(learnerId),
-      academyApi.learnerObservations({ learner_user_id: learnerId, per_page: 10 }).catch(() => ({ data: [] })),
       certificatesApi.list({ per_page: 50 }).catch(() => ({ data: [] as Certificate[], current_page: 1, last_page: 1, per_page: 50, total: 0 })),
     ])
-      .then(([statsRes, obsRes, certRes]) => {
+      .then(([statsRes, certRes]) => {
         if (!active) return;
         setData(statsRes);
-        setObservations(obsRes.data as { id: string; content: string; created_at: string }[]);
         setCertificates(certRes.data as Certificate[]);
       })
       .catch((error) => {
@@ -156,29 +146,6 @@ export default function AcademyLearnerDetailPage() {
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, [learnerId, t]);
-
-  async function handleAddObservation() {
-    if (!learnerId || !newObs.trim()) return;
-    setAddingObs(true);
-    try {
-      const created = await academyApi.createLearnerObservation({ learner_user_id: learnerId, content: newObs.trim() });
-      setObservations((prev) => [created as { id: string; content: string; created_at: string }, ...prev]);
-      setNewObs('');
-      showToast(t('common.saved'), 'success');
-    } catch (error) {
-      showToast(extractErrorMessage(error, t('academy.saveFailed')), 'error');
-    } finally { setAddingObs(false); }
-  }
-
-  async function handleDeleteObservation(id: string) {
-    if (!window.confirm(t('common.confirmDelete'))) return;
-    try {
-      await academyApi.removeLearnerObservation(id);
-      setObservations((prev) => prev.filter((o) => o.id !== id));
-    } catch (error) {
-      showToast(extractErrorMessage(error, t('academy.deleteFailed')), 'error');
-    }
-  }
 
   if (isLoading) return <SkeletonDashboard />;
 
@@ -432,52 +399,6 @@ export default function AcademyLearnerDetailPage() {
               </div>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Observations */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          <MessageSquare className="h-4 w-4" />
-          {t('academy.observations')}
-        </h2>
-        <div className="mb-3 flex gap-2">
-          <textarea
-            value={newObs}
-            onChange={(e) => setNewObs(e.target.value)}
-            rows={2}
-            placeholder={t('academy.addObservationPlaceholder')}
-            className="flex-1 resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          />
-          <Button onClick={handleAddObservation} isLoading={addingObs} disabled={!newObs.trim()}>
-            {t('common.add')}
-          </Button>
-        </div>
-        {observations.length === 0 ? (
-          <p className="text-sm text-gray-400">{t('academy.noObservations')}</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-            {observations.map((obs) => (
-              <li key={obs.id} className="flex items-start justify-between gap-3 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-700 dark:text-gray-200">{obs.content}</p>
-                  <p className="mt-0.5 text-xs text-gray-400">
-                    {new Date(obs.created_at).toLocaleString(currentLocale(), {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteObservation(obs.id)}
-                  className="shrink-0 rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 dark:text-gray-600 dark:hover:bg-red-500/10"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </li>
-            ))}
-          </ul>
         )}
       </div>
 

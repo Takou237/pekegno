@@ -99,12 +99,12 @@ export const reportsApi = {
     return data;
   },
 
-  async customers(params: ReportDateParams & { agency_id?: string; limit?: number } = {}): Promise<CustomersReportResponse> {
+  async customers(params: ReportDateParams & { agency_id?: string; country_id?: string; limit?: number } = {}): Promise<CustomersReportResponse> {
     const { data } = await client.get<CustomersReportResponse>('/reports/customers', { params });
     return data;
   },
 
-  async comparison(params: ReportDateParams & { dimension?: ComparisonDimension } = {}): Promise<ComparisonReportResponse> {
+  async comparison(params: ReportDateParams & { dimension?: ComparisonDimension; agency_id?: string; country_id?: string } = {}): Promise<ComparisonReportResponse> {
     const { data } = await client.get<ComparisonReportResponse>('/reports/comparison', { params });
     return data;
   },

@@ -1,6 +1,62 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { useOrgContext } from '@/context/OrgContext';
+
+export function GeoFilters({
+  countryId,
+  agencyId,
+  onCountry,
+  onAgency,
+}: {
+  countryId: string;
+  agencyId: string;
+  onCountry: (value: string) => void;
+  onAgency: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { countries } = useOrgContext();
+
+  const agencies = useMemo(() => {
+    if (!countryId) return [];
+    return countries.find((c) => c.id === countryId)?.agencies ?? [];
+  }, [countryId, countries]);
+
+  return (
+    <>
+      <div className="w-full sm:w-56">
+        <Select
+          label={t('reports.filterCountry')}
+          value={countryId}
+          onChange={(e) => {
+            onCountry(e.target.value);
+            onAgency('');
+          }}
+        >
+          <option value="">{t('dashboard.allCountries')}</option>
+          {countries.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </Select>
+      </div>
+      <div className="w-full sm:w-56">
+        <Select
+          label={t('reports.filterAgency')}
+          value={agencyId}
+          onChange={(e) => onAgency(e.target.value)}
+          disabled={!countryId}
+        >
+          <option value="">{t('dashboard.allAgencies')}</option>
+          {agencies.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </Select>
+      </div>
+    </>
+  );
+}
 
 export function ReportFilters({
   from,

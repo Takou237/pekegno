@@ -71,7 +71,7 @@ function StatCard({
   );
 }
 
-export default function AcademyDashboardPage() {
+export default function AcademyDashboardPage({ fixedAgencyId }: { fixedAgencyId?: string } = {}) {
   const { t } = useTranslation();
   const { countryId: routeCountryId } = useParams<{ countryId?: string }>();
   const { countries } = useOrgContext();
@@ -80,7 +80,9 @@ export default function AcademyDashboardPage() {
   const [filterCountryId, setFilterCountryId] = useState<string>(routeCountryId ?? '');
   const [filterAgencyId, setFilterAgencyId] = useState<string>('');
 
+  const isFixedAgency = Boolean(fixedAgencyId);
   const scopedCountryId = routeCountryId ?? filterCountryId;
+  const scopedAgencyId = fixedAgencyId ?? filterAgencyId;
 
   const filteredAgencies = useMemo(() => {
     if (!scopedCountryId) return [];
@@ -94,8 +96,8 @@ export default function AcademyDashboardPage() {
 
     statsApi
       .trainingGroup({
-        countryId: scopedCountryId || undefined,
-        agencyId: filterAgencyId || undefined,
+        countryId: isFixedAgency ? undefined : scopedCountryId || undefined,
+        agencyId: scopedAgencyId || undefined,
       })
       .then((res) => {
         if (active) setTraining(res.training);
@@ -110,7 +112,7 @@ export default function AcademyDashboardPage() {
     return () => {
       active = false;
     };
-  }, [scopedCountryId, filterAgencyId]);
+  }, [isFixedAgency, scopedCountryId, scopedAgencyId]);
 
   const modeBreakdown = useMemo(() => {
     if (!training) return [];
@@ -144,39 +146,41 @@ export default function AcademyDashboardPage() {
           </h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {!routeCountryId && (
+        {!isFixedAgency && (
+          <div className="flex flex-wrap items-center gap-3">
+            {!routeCountryId && (
+              <select
+                value={filterCountryId}
+                onChange={(e) => {
+                  setFilterCountryId(e.target.value);
+                  setFilterAgencyId('');
+                }}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              >
+                <option value="">{t('dashboard.allCountries')}</option>
+                {countries.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
             <select
-              value={filterCountryId}
-              onChange={(e) => {
-                setFilterCountryId(e.target.value);
-                setFilterAgencyId('');
-              }}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              value={filterAgencyId}
+              onChange={(e) => setFilterAgencyId(e.target.value)}
+              disabled={!scopedCountryId}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
             >
-              <option value="">{t('dashboard.allCountries')}</option>
-              {countries.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+              <option value="">{t('dashboard.allAgencies')}</option>
+              {filteredAgencies.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
                 </option>
               ))}
             </select>
-          )}
-
-          <select
-            value={filterAgencyId}
-            onChange={(e) => setFilterAgencyId(e.target.value)}
-            disabled={!scopedCountryId}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-          >
-            <option value="">{t('dashboard.allAgencies')}</option>
-            {filteredAgencies.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </div>
+          </div>
+        )}
       </div>
 
       {training && (
