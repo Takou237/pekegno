@@ -124,7 +124,12 @@ class RoleSeeder extends Seeder
                 $p('enrollments', ['consulter', 'creer']),
             ),
             'caissier' => array_merge(
-                $p('clients', ['consulter']),
+                // Le caissier vend au guichet et inscrit des apprenants aux formations :
+                // il peut créer des clients (nouveau apprenant dans le formulaire
+                // d'inscription), créer/modifier des inscriptions et vendre (factures).
+                // countries.consulter sert au sélecteur de pays du formulaire apprenant.
+                $p('clients', ['consulter', 'creer']),
+                $p('countries', ['consulter']),
                 $p('services', ['consulter']),
                 $p('products', ['consulter']),
                 $p('categories', ['consulter']),
@@ -134,7 +139,7 @@ class RoleSeeder extends Seeder
                 $p('abonnements', ['consulter', 'creer', 'renouveler']),
                 $p('courses', ['consulter']),
                 $p('sessions', ['consulter']),
-                $p('enrollments', ['consulter']),
+                $p('enrollments', ['consulter', 'creer', 'modifier']),
                 $p('orders', ['consulter']),
                 $p('reports', ['consulter']),
                 $p('depenses', ['consulter', 'creer', 'encaisser']),

@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
 /**
@@ -56,6 +57,60 @@ class PaymentProofController extends Controller
             ->orderByDesc('created_at');
 
         return response()->json($query->paginate(min((int) $request->input('per_page', 15), 100)));
+    }
+
+    #[OA\Post(
+        path: '/api/invoices/{invoice}/payment-proof',
+        summary: 'Soumettre une preuve de paiement pour une facture (staff)',
+        description: 'Permet au commercial (ou tout membre du personnel habilité) de joindre une preuve de paiement à une facture, exactement comme un client. La preuve reste en attente d\'examen par le caissier.',
+        tags: ['Factures'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 201, description: 'Preuve créée'),
+            new OA\Response(response: 404, description: 'Facture introuvable'),
+            new OA\Response(response: 422, description: 'Facture déjà validée ou rejetée / fichier invalide'),
+        ]
+    )]
+    public function uploadStaffProof(Request $request, Invoice $invoice): JsonResponse
+    {
+        abort_if($invoice->validation_status === Invoice::VALIDATION_VALIDATED, 422, 'Cette facture est déjà validée.');
+        abort_if($invoice->validation_status === Invoice::VALIDATION_REJECTED, 422, 'Cette facture a été rejetée : elle ne peut plus recevoir de preuve de paiement.');
+
+        $data = $request->validate([
+            'file' => ['required', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
+            'payment_method' => ['required', 'string', 'max:30'],
+            'phone_number_used' => ['nullable', 'string', 'max:30'],
+            'reference' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $path = $request->file('file')->store('payment-proofs', 'public');
+
+        $proof = PaymentProof::create([
+            'invoice_id' => $invoice->id,
+            'submitted_by' => $request->user()->id,
+            'payment_method' => $data['payment_method'],
+            'phone_number_used' => $data['phone_number_used'] ?? null,
+            'reference' => $data['reference'] ?? null,
+            'file_path' => $path,
+            'status' => 'pending',
+        ]);
+
+        $this->logger->log(
+            action: 'proof_submitted',
+            entityType: 'invoice',
+            entityId: $invoice->id,
+            description: "Preuve de paiement (staff, {$data['payment_method']}) soumise pour la facture {$invoice->number}",
+            newValues: ['payment_proof' => $proof->id, 'method' => $data['payment_method']],
+            request: $request,
+        );
+
+        return response()->json([
+            'payment_proof' => $proof,
+            'url' => Storage::disk('public')->url($path),
+        ], 201);
     }
 
     #[OA\Post(

@@ -9,6 +9,7 @@ import { clientsApi } from '@/api/clients.api';
 import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -22,6 +23,7 @@ import type {
   FormationEnrollmentPayload,
 } from '@/types/formation';
 import type { Department } from '@/types/department';
+import type { PaymentMethod } from '@/types/invoice';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -55,6 +57,7 @@ interface FormState {
   seller_trainer_id: string;
   training_session_id: string;
   amount_paid: string;
+  payment_type: '' | PaymentMethod;
   notes: string;
 }
 
@@ -67,6 +70,7 @@ const emptyForm: FormState = {
   seller_trainer_id: '',
   training_session_id: '',
   amount_paid: '',
+  payment_type: 'cash',
   notes: '',
 };
 
@@ -74,6 +78,9 @@ export default function FormationEnrollmentPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
+  const { user: currentUser } = useAuth();
+  const isCommercial = currentUser?.role?.name === 'commercial';
+  const isSellerUser = isCommercial || currentUser?.role?.name === 'caissier';
 
   const [enrollments, setEnrollments] = useState<FormationEnrollment[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
@@ -93,6 +100,9 @@ export default function FormationEnrollmentPage() {
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollSessions, setEnrollSessions] = useState<TrainingSession[]>([]);
+  // Preuve de paiement jointe à l'inscription (obligatoire pour un commercial,
+  // comme pour une vente rapide).
+  const [proofFile, setProofFile] = useState<File | null>(null);
 
   const [statusModal, setStatusModal] = useState<FormationEnrollment | null>(null);
   const [newStatus, setNewStatus] = useState<EnrollmentStatus>('enrolled');
@@ -141,14 +151,17 @@ export default function FormationEnrollmentPage() {
   }, [formOpen, agencyId]);
 
   useEffect(() => {
-    if (!form.course_id || !agencyId) {
+    if (!form.course_id) {
       setEnrollSessions([]);
       return;
     }
     setEnrollSessions([]);
     let active = true;
+    // Pas de filtre agency_id : une session hérite de l'agence de son cours
+    // (potentiellement nulle pour les formations globales). Côté backend,
+    // scopeQuery restreint déjà aux agences autorisées.
     academyApi
-      .sessions({ agency_id: agencyId, course_id: form.course_id, per_page: 100 })
+      .sessions({ course_id: form.course_id, per_page: 100 })
       .then((res) => {
         if (active) {
           setEnrollSessions(
@@ -167,37 +180,33 @@ export default function FormationEnrollmentPage() {
     return () => {
       active = false;
     };
-  }, [form.course_id, agencyId]);
+  }, [form.course_id]);
 
   const selectedCourse = useCallback(
     (courseId: string) => courses.find((c) => c.id === courseId) ?? null,
     [courses],
   );
 
+  // Règle métier : tout client est un apprenant, mais tout apprenant n'est pas
+  // un client. L'inscription exige un client (compte « client »), donc
+  // l'autocomplete propose les clients enregistrés.
   const learnerOptions = useCallback(
     async (query: string) => {
-      if (!agencyId) return [];
       const q = query.trim();
-      const response = await academyApi.learners({
-        agency_id: agencyId,
-        search: q || undefined,
-        per_page: q ? 50 : 100,
-      });
-      return response.data.map((learner) => {
+      const results = await clientsApi.search(q);
+      return results.map((client) => {
         const fullName =
-          [learner.learner?.first_name, learner.learner?.last_name].filter(Boolean).join(' ') ||
-          learner.learner?.email ||
+          [client.first_name, client.last_name].filter(Boolean).join(' ') ||
+          client.email ||
           '';
         return {
-          id: learner.id,
+          id: client.id,
           label: fullName,
-          subtitle: [learner.learner?.client_number, learner.learner?.email]
-            .filter(Boolean)
-            .join(' — '),
+          subtitle: [client.client_number, client.email].filter(Boolean).join(' — '),
         };
       });
     },
-    [agencyId],
+    [],
   );
 
   const sellerOptions = useCallback(
@@ -267,6 +276,7 @@ export default function FormationEnrollmentPage() {
     setNewLearner(emptyNewLearnerForm);
     setFormError(null);
     setFieldErrors({});
+    setProofFile(null);
     setFormOpen(true);
   }
 
@@ -281,10 +291,12 @@ export default function FormationEnrollmentPage() {
       seller_trainer_id: enrollment.seller_trainer_id ?? '',
       training_session_id: '',
       amount_paid: '',
+      payment_type: 'cash',
       notes: enrollment.notes ?? '',
     });
     setFormError(null);
     setFieldErrors({});
+    setProofFile(null);
     setFormOpen(true);
   }
 
@@ -296,6 +308,14 @@ export default function FormationEnrollmentPage() {
     setIsSubmitting(true);
 
     try {
+      // Un commercial doit toujours joindre une preuve de paiement avant la
+      // création de l'inscription (comme pour une vente). Non requis en édition.
+      if (!editing && isCommercial && !proofFile) {
+        setFormError(t('invoices.proofRequiredForSale'));
+        setIsSubmitting(false);
+        return;
+      }
+
       let learnerUserId = form.learner_user_id;
       if (learnerMode === 'new') {
         if (!newLearner.first_name || !newLearner.last_name || !newLearner.email) {
@@ -308,18 +328,25 @@ export default function FormationEnrollmentPage() {
           last_name: newLearner.last_name,
           email: newLearner.email,
           phone: newLearner.phone || null,
+          country_id: newLearner.country_id || undefined,
           registered_agency_id: agencyId,
         });
         learnerUserId = created.id;
       }
 
+      // Un commercial ou un caissier qui s'inscrit est toujours le vendeur :
+      // le champ est pré-rempli et verrouillé, le backend rattachera la facture
+      // à son propre profil.
+      const sellerUserId = isSellerUser && currentUser?.id ? currentUser.id : form.seller_user_id || undefined;
+
       const payload: FormationEnrollmentPayload = {
         course_id: form.course_id,
         learner_user_id: learnerUserId,
-        seller_user_id: form.seller_user_id || undefined,
+        seller_user_id: sellerUserId,
         seller_trainer_id: form.seller_trainer_id || undefined,
         ...(form.training_session_id ? { training_session_id: form.training_session_id } : {}),
         ...(form.amount_paid ? { amount_paid: Number(form.amount_paid) } : {}),
+        payment_type: form.payment_type || 'cash',
         notes: form.notes || undefined,
       };
 
@@ -327,7 +354,9 @@ export default function FormationEnrollmentPage() {
         const saved = await academyApi.updateFormationEnrollment(editing.id, payload);
         setEnrollments((prev) => prev.map((e) => (e.id === saved.id ? saved : e)));
       } else {
-        const saved = await academyApi.createFormationEnrollment(payload);
+        const saved = proofFile
+          ? await academyApi.createFormationEnrollmentWithProof(payload, proofFile, form.payment_type || 'cash')
+          : await academyApi.createFormationEnrollment(payload);
         setEnrollments((prev) => [saved, ...prev]);
       }
       showToast(t('academy.saved'), 'success');
@@ -624,24 +653,33 @@ export default function FormationEnrollmentPage() {
             allowCreate={!editing}
           />
 
-          <Autocomplete
-            label={t('academy.seller')}
-            placeholder={t('academy.searchSellerPlaceholder')}
-            value={form.seller_trainer_id
-              ? SELLER_TRAINER_PREFIX + form.seller_trainer_id
-              : form.seller_user_id}
-            onChange={(id) =>
-              setForm((prev) =>
-                id.startsWith(SELLER_TRAINER_PREFIX)
-                  ? { ...prev, seller_trainer_id: id.slice(SELLER_TRAINER_PREFIX.length), seller_user_id: '' }
-                  : { ...prev, seller_user_id: id, seller_trainer_id: '' },
-              )
-            }
-            fetchOptions={sellerOptions}
-            error={fieldErrors.seller_user_id}
-          />
+          {isSellerUser ? (
+            <Input
+              label={t('academy.seller')}
+              value={currentUser?.name || ''}
+              disabled
+            />
+          ) : (
+            <Autocomplete
+              label={t('academy.seller')}
+              placeholder={t('academy.searchSellerPlaceholder')}
+              value={form.seller_trainer_id
+                ? SELLER_TRAINER_PREFIX + form.seller_trainer_id
+                : form.seller_user_id}
+              onChange={(id) =>
+                setForm((prev) =>
+                  id.startsWith(SELLER_TRAINER_PREFIX)
+                    ? { ...prev, seller_trainer_id: id.slice(SELLER_TRAINER_PREFIX.length), seller_user_id: '' }
+                    : { ...prev, seller_user_id: id, seller_trainer_id: '' },
+                )
+              }
+              fetchOptions={sellerOptions}
+              error={fieldErrors.seller_user_id}
+            />
+          )}
 
           {!editing && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
               label={`${t('academy.amountPaid')} (FCFA)`}
               type="number"
@@ -652,7 +690,44 @@ export default function FormationEnrollmentPage() {
               error={fieldErrors.amount_paid}
               hint={t('academy.amountPaidHint')}
             />
-          )}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('invoices.headerPaymentType')}
+              </label>
+              <select
+                value={form.payment_type}
+                onChange={(e) => setForm((prev) => ({ ...prev, payment_type: e.target.value as '' | PaymentMethod }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              >
+                {isCommercial && <option value="">—</option>}
+                <option value="cash">{t('invoices.paymentCash')}</option>
+                <option value="om">{t('invoices.paymentOm')}</option>
+                <option value="momo">{t('invoices.paymentMomo')}</option>
+              </select>
+              {fieldErrors.payment_type && (
+                <p className="mt-1 text-xs text-red-500">{fieldErrors.payment_type}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!editing && isCommercial && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('invoices.paymentProof')} <span className="text-error-500">*</span>
+            </label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+              className="w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-400"
+            />
+            {fieldErrors.proof_file && (
+              <p className="mt-1 text-xs text-error-500">{fieldErrors.proof_file}</p>
+            )}
+            <p className="mt-1 text-xs text-gray-400">{t('invoices.paymentProofHint')}</p>
+          </div>
+        )}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -670,7 +745,13 @@ export default function FormationEnrollmentPage() {
             <Button type="button" variant="outline" onClick={() => setFormOpen(false)} disabled={isSubmitting} className="flex-1">
               {t('common.cancel')}
             </Button>
-            <Button type="submit" isLoading={isSubmitting} className="flex-1">
+            <Button
+              type="submit"
+              isLoading={isSubmitting}
+              disabled={!editing && isCommercial && !proofFile}
+              title={!editing && isCommercial && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+              className="flex-1"
+            >
               {editing ? t('common.save') : t('common.create')}
             </Button>
           </div>

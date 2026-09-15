@@ -6,6 +6,7 @@ use App\Models\Commercial;
 use App\Models\Course;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Models\PaymentProof;
 use App\Models\SessionParticipant;
 use App\Models\Trainer;
 use App\Models\TrainingSession;
@@ -67,6 +68,8 @@ class FormationEnrollmentController extends Controller
             'training_session_id' => 'nullable|exists:training_sessions,id',
             'amount_paid' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
+            'payment_type' => 'nullable|string|in:cash,om,momo,mobile',
+            'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
         ]);
 
         if (! User::whereKey($validated['learner_user_id'])->whereHas('role', fn ($q) => $q->where('name', 'client'))->exists()) {
@@ -110,6 +113,12 @@ class FormationEnrollmentController extends Controller
 
         $validated['enrolled_at'] = now();
         $validated['status'] = 'enrolled';
+
+        // T8 : sans vendeur explicite, c'est l'utilisateur connecté (commercial, caissier…)
+        // qui est crédité de la vente, sur l'inscription comme sur la facture générée.
+        if (empty($validated['seller_user_id']) && empty($validated['seller_trainer_id'])) {
+            $validated['seller_user_id'] = $request->user()?->id;
+        }
 
         $enrollment = DB::transaction(function () use ($validated, $request, $existing, $requestedSessionId) {
             $invoiceId = $validated['invoice_id'] ?? null;
@@ -266,6 +275,12 @@ class FormationEnrollmentController extends Controller
     /**
      * Génère automatiquement la facture d'inscription à partir du prix de la formation
      * (et du commercial/employé vendeur sélectionné, le cas échéant).
+     *
+     * Créée par un commercial : la facture naît en attente de validation (validation_status
+     * = pending, hors comptabilité) et le montant annoncé comme payé est conservé comme
+     * avance déclarée (declared_advance) — le commercial ne peut pas manier la caisse.
+     * C'est le caissier / la direction qui valide, applique l'avance et encaisse le reste.
+     * Créée par un autre rôle (guichet) : la facture est directement validée.
      */
     private function generateInvoiceForEnrollment(array $validated, Request $request): ?string
     {
@@ -328,6 +343,11 @@ class FormationEnrollmentController extends Controller
             $comment .= " — Vendeur : {$sellerTrainerName}";
         }
 
+        // Un commercial ne peut pas encaisser : le montant saisi comme « payé » devient
+        // une avance déclarée, appliquée à la validation par le caissier, et la facture
+        // part en attente de validation au lieu d'entrer directement en comptabilité.
+        $needsValidation = $request->user()->role?->name === 'commercial';
+
         $invoice = Invoice::create([
             'number' => $this->invoiceNumber->next(),
             'agency_id' => $course->agency_id ?? $request->user()?->primaryAgency()->value('agencies.id'),
@@ -336,12 +356,14 @@ class FormationEnrollmentController extends Controller
             'commercial_id' => $commercialId,
             'seller_user_id' => $sellerUserId,
             'invoice_date' => now(),
-            'payment_type' => null,
+            'payment_type' => $validated['payment_type'] ?? null,
             'total_amount' => $price,
-            'amount_paid' => $amountPaid,
+            'amount_paid' => $needsValidation ? 0 : $amountPaid,
+            'declared_advance' => $needsValidation && $amountPaid > 0 ? $amountPaid : null,
             'discount' => 0,
             'vat_rate' => 0,
             'status' => 'unpaid',
+            'validation_status' => $needsValidation ? Invoice::VALIDATION_PENDING : Invoice::VALIDATION_VALIDATED,
             'comment' => $comment,
         ]);
 
@@ -355,6 +377,22 @@ class FormationEnrollmentController extends Controller
             'quantity' => 1,
             'line_total' => $price,
         ]);
+
+        // Preuve de paiement jointe à l'inscription : si le commercial en fournit une
+        // dès la création, elle est rattachée à la facture (examinée par le caissier
+        // avant validation). Elle reste optionnelle ici : le commercial peut aussi
+        // la téléverser ensuite sur la facture en attente.
+        if ($request->hasFile('proof_file')) {
+            $path = $request->file('proof_file')->store('payment-proofs', 'public');
+
+            PaymentProof::create([
+                'invoice_id' => $invoice->id,
+                'submitted_by' => $request->user()->id,
+                'payment_method' => $validated['payment_type'] ?? 'cash',
+                'file_path' => $path,
+                'status' => PaymentProof::STATUS_PENDING,
+            ]);
+        }
 
         $this->logger->log(
             action: 'created',

@@ -55,10 +55,11 @@ class Phase5CommercialValidationTest extends TestCase
         $commercial = $this->createCommercialUser();
         Sanctum::actingAs($commercial);
 
-        $invoice = $this->postJson('/api/invoices', [
+        $invoice = $this->post('/api/invoices', [
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
         $this->assertSame(Invoice::VALIDATION_PENDING, $invoice['validation_status']);
@@ -78,21 +79,24 @@ class Phase5CommercialValidationTest extends TestCase
         $commercial = $this->createCommercialUser();
         Sanctum::actingAs($commercial);
 
-        $invoice = $this->postJson('/api/invoices', [
+        $invoice = $this->post('/api/invoices', [
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
-        // Le caissier valide la facture en attente.
+        // Le caissier accepte d'abord la preuve (→ validation automatique),
+        // puis peut encaisser.
+        $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
         $this->actingAsRole('caissier');
-        $validated = $this->postJson("/api/invoices/{$invoice['id']}/validate")
-            ->assertOk()
-            ->json();
+        $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
 
-        $this->assertSame(Invoice::VALIDATION_VALIDATED, $validated['validation_status']);
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice['id'],
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+        ]);
 
-        // Ensuite il peut encaisser.
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
             'amount' => 15000,
             'payment_method' => 'cash',
@@ -134,12 +138,13 @@ class Phase5CommercialValidationTest extends TestCase
         // 2 articles : quantités 2 et 3 → nombre de ventes attendu = 5
         // NB : commercial_id n'est PAS envoyé, comme dans l'écran réel (vente rapide) :
         // le backend doit rattacher automatiquement la facture au profil du commercial.
-        $invoice = $this->postJson('/api/invoices', [
+        $invoice = $this->post('/api/invoices', [
             'agency_id' => $agency->id,
             'items' => [
                 ['label' => 'Massage', 'unit_price' => 10000, 'quantity' => 2],
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 3],
             ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
         $total = 2 * 10000 + 3 * 15000; // 65000
@@ -155,7 +160,8 @@ class Phase5CommercialValidationTest extends TestCase
 
         // Le caissier valide : toujours pas comptabilisé (pas encore encaissé).
         $this->actingAsRole('caissier');
-        $this->postJson("/api/invoices/{$invoice['id']}/validate")->assertOk();
+        $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
+        $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
         $stats = $this->scopedStats($commercial->id);
         $this->assertSame(0, (int) $stats['sales_count']);
         $this->assertSame(0.0, (float) $stats['turnover']);
@@ -177,6 +183,31 @@ class Phase5CommercialValidationTest extends TestCase
             ->assertOk()
             ->json('invoices.data');
         $this->assertContains($invoice['id'], array_column($list, 'id'));
+    }
+
+    public function test_commercial_sale_requires_proof_file_at_creation(): void
+    {
+        $this->createCommercialUser();
+        Sanctum::actingAs($this->createCommercialUser());
+
+        // Sans preuve de paiement, la création de la facture est refusée.
+        $this->postJson('/api/invoices', [
+            'items' => [
+                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+        ])->assertStatus(422);
+    }
+
+    public function test_cashier_sale_does_not_require_proof_file(): void
+    {
+        $this->actingAsRole('caissier');
+
+        // Le caissier vend au guichet sans preuve : création directe, validée.
+        $this->postJson('/api/invoices', [
+            'items' => [
+                ['label' => 'Vente guichet', 'unit_price' => 8000, 'quantity' => 1],
+            ],
+        ])->assertStatus(201);
     }
 
     public function test_commercial_can_attach_digital_payment_proof_at_creation(): void
@@ -287,15 +318,17 @@ class Phase5CommercialValidationTest extends TestCase
         $commercial = $this->createCommercialUser();
         Sanctum::actingAs($commercial);
 
-        $invoice = $this->postJson('/api/invoices', [
+        $invoice = $this->post('/api/invoices', [
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
         // Un caissier valide puis encaisse la facture (statut paid).
         $this->actingAsRole('caissier');
-        $this->postJson("/api/invoices/{$invoice['id']}/validate")->assertOk();
+        $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
+        $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
             'amount' => 15000,
             'payment_method' => 'cash',

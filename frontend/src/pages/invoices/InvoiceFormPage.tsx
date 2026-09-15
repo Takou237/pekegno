@@ -170,6 +170,10 @@ export default function InvoiceFormPage({
       setErrors({ advance: t('invoices.advanceExceedsTotal') });
       return;
     }
+    if (isCommercial && !proofFile) {
+      setErrors({ proof_file: t('invoices.proofRequiredForSale') });
+      return;
+    }
     const freeClientName = clientId.startsWith(FREE_TEXT_PREFIX) ? clientId.slice(FREE_TEXT_PREFIX.length) : '';
     setSubmitting(true);
     setErrors({});
@@ -183,7 +187,10 @@ export default function InvoiceFormPage({
         invoice_date: invoiceDate,
         payment_type: paymentType || undefined,
         comment: comment || undefined,
-        advance: !isCommercial ? Number(advance) || undefined : undefined,
+        // L'avance est envoyée aussi par un commercial : elle est enregistrée côté
+        // backend comme avance déclarée (declared_advance), appliquée à la validation
+        // par le caissier (le commercial ne peut pas manier la caisse).
+        advance: Number(advance) || undefined,
         discount: Number(discount) || undefined,
         vat_rate: Number(vatRate) || undefined,
         items: validLines.map((l) => ({
@@ -194,7 +201,7 @@ export default function InvoiceFormPage({
           pass_tier: l.pass_tier || undefined,
         })),
       };
-      if (proofFile && paymentType) {
+      if (proofFile) {
         await invoicesApi.createWithProof(payload, proofFile);
       } else {
         await invoicesApi.create(payload);
@@ -354,10 +361,15 @@ export default function InvoiceFormPage({
                 <option value="momo">{t('invoices.paymentMomo')}</option>
               </Select>
             </div>
-            {(paymentType === 'om' || paymentType === 'momo') && (
+            {(isCommercial || paymentType === 'om' || paymentType === 'momo') && (
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('invoices.paymentProof')} <span className="font-normal text-gray-400">({t('invoices.paymentProofOptional')})</span>
+                  {t('invoices.paymentProof')}
+                  {isCommercial ? (
+                    <span className="text-error-500"> *</span>
+                  ) : (
+                    <span className="font-normal text-gray-400"> ({t('invoices.paymentProofOptional')})</span>
+                  )}
                 </label>
                 <input
                   type="file"
@@ -365,6 +377,7 @@ export default function InvoiceFormPage({
                   onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
                   className="w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-400"
                 />
+                {errors.proof_file && <p className="mt-1 text-xs text-error-500">{errors.proof_file}</p>}
                 <p className="mt-1 text-xs text-gray-400">{t('invoices.paymentProofHint')}</p>
               </div>
             )}
@@ -506,18 +519,16 @@ export default function InvoiceFormPage({
             />
           </div>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {!isCommercial && (
-              <Input
-                label={t('invoices.advance')}
-                type="number"
-                min={0}
-                step="0.01"
-                value={advance}
-                onChange={(e) => setAdvance(e.target.value)}
-                error={errors.advance}
-                hint={t('invoices.advanceHint')}
-              />
-            )}
+            <Input
+              label={t('invoices.advance')}
+              type="number"
+              min={0}
+              step="0.01"
+              value={advance}
+              onChange={(e) => setAdvance(e.target.value)}
+              error={errors.advance}
+              hint={isCommercial ? t('invoices.declaredAdvanceHint') : t('invoices.advanceHint')}
+            />
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('invoices.headerComment')}
@@ -567,7 +578,12 @@ export default function InvoiceFormPage({
                 {formatCurrency(totals.balance)}
               </span>
             </div>
-            <Button type="submit" isLoading={submitting}>
+            <Button
+              type="submit"
+              isLoading={submitting}
+              disabled={isCommercial && !proofFile}
+              title={isCommercial && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+            >
               {isCommercial ? t('invoices.createSubmitPending') : t('invoices.createSubmit')}
             </Button>
           </div>

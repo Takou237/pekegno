@@ -19,5 +19,6 @@ export function canCreateCourse(user: User | null): boolean {
 }
 
 export function canEnrollLearners(user: User | null): boolean {
-  return canCreateCourse(user) || user?.role?.name === 'commercial';
+  // Le caissier vend et inscrit des apprenants au guichet, comme le commercial.
+  return canCreateCourse(user) || ['commercial', 'caissier'].includes(user?.role?.name ?? '');
 }

@@ -260,6 +260,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])->middleware('permission:invoices.valider');
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:invoices.annuler');
 
+    Route::post('/invoices/{invoice}/payment-proof', [PaymentProofController::class, 'uploadStaffProof'])->middleware('permission:invoices.creer');
     Route::get('/payment-proofs', [PaymentProofController::class, 'index'])->middleware('permission:invoices.consulter');
     Route::post('/payment-proofs/{proof}/approve', [PaymentProofController::class, 'approve'])->middleware('permission:invoices.valider');
     Route::post('/payment-proofs/{proof}/reject', [PaymentProofController::class, 'reject'])->middleware('permission:invoices.valider');

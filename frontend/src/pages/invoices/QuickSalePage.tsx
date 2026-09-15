@@ -36,6 +36,10 @@ export default function QuickSalePage() {
   // Payment
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('cash');
   const [amountReceived, setAmountReceived] = useState('');
+  // Avance déclarée (commercial uniquement) : encaissée par le caissier à la validation.
+  const [advance, setAdvance] = useState('');
+  // Preuve de paiement (commercial uniquement) : obligatoire avant de créer la facture.
+  const [proofFile, setProofFile] = useState<File | null>(null);
 
   // Optional
   const [clientId, setClientId] = useState('');
@@ -87,26 +91,37 @@ export default function QuickSalePage() {
       setErrors({ amount_received: t('invoices.quickReceiveAmountRequired') });
       return;
     }
+    if (isCommercial && !proofFile) {
+      setErrors({ proof_file: t('invoices.proofRequiredForSale') });
+      return;
+    }
 
     setSubmitting(true);
     setErrors({});
     try {
       const freeClientName = clientId.startsWith(FREE_TEXT_PREFIX) ? clientId.slice(FREE_TEXT_PREFIX.length) : '';
-      const invoice = await invoicesApi.create({
-        client_id: freeClientName ? undefined : clientId || undefined,
-        client_name: freeClientName || undefined,
-        payment_type: paymentType || undefined,
-        comment: comment || undefined,
-        items: [
-          {
-            service_id: serviceId || undefined,
-            label: serviceLabel.trim() || undefined,
-            unit_price: Number(unitPrice) || 0,
-            quantity: Number(quantity) || 1,
-            pass_tier: passTier || undefined,
-          },
-        ],
-      });
+      const invoice = await invoicesApi.createWithProof(
+        {
+          client_id: freeClientName ? undefined : clientId || undefined,
+          client_name: freeClientName || undefined,
+          payment_type: paymentType || undefined,
+          comment: comment || undefined,
+          // L'avance d'un commercial est enregistrée comme avance déclarée
+          // (declared_advance) côté backend, appliquée à la validation par le caissier.
+          advance: isCommercial ? Number(advance) || undefined : undefined,
+          items: [
+            {
+              service_id: serviceId || undefined,
+              label: serviceLabel.trim() || undefined,
+              unit_price: Number(unitPrice) || 0,
+              quantity: Number(quantity) || 1,
+              pass_tier: passTier || undefined,
+            },
+          ],
+        },
+        // Preuve jointe à la création : le commercial doit toujours en fournir une.
+        proofFile as File,
+      );
 
       // Un commercial ne peut pas encaisser : sa facture part en attente de validation.
       // Seul un caissier / la direction valide puis encaisse.
@@ -236,28 +251,62 @@ export default function QuickSalePage() {
               onChange={(e) => setPaymentType(e.target.value as '' | PaymentMethod)}
               error={errors.payment_type}
             >
+              {isCommercial && <option value="">—</option>}
               <option value="cash">{t('invoices.paymentCash')}</option>
               <option value="om">{t('invoices.paymentOm')}</option>
               <option value="momo">{t('invoices.paymentMomo')}</option>
             </Select>
-            <Input
-              label={t('invoices.quickReceiveAmount')}
-              type="number"
-              min={0}
-              step="0.01"
-              value={amountReceived}
-              onChange={(e) => setAmountReceived(e.target.value)}
-              error={errors.amount_received}
-              hint={t('invoices.quickReceiveAmountHint')}
-            />
+            {isCommercial ? (
+              <Input
+                label={t('invoices.advance')}
+                type="number"
+                min={0}
+                step="0.01"
+                value={advance}
+                onChange={(e) => setAdvance(e.target.value)}
+                error={errors.advance}
+                hint={t('invoices.declaredAdvanceHint')}
+              />
+            ) : (
+              <Input
+                label={t('invoices.quickReceiveAmount')}
+                type="number"
+                min={0}
+                step="0.01"
+                value={amountReceived}
+                onChange={(e) => setAmountReceived(e.target.value)}
+                error={errors.amount_received}
+                hint={t('invoices.quickReceiveAmountHint')}
+              />
+            )}
             <div className="flex flex-col justify-end gap-1">
-              {Number(amountReceived) > 0 && (
+              {isCommercial && Number(advance) > 0 && (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('invoices.balanceDue')}: {formatCurrency(Math.max(0, total - Number(advance)))}
+                </span>
+              )}
+              {!isCommercial && Number(amountReceived) > 0 && (
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {t('invoices.balanceDue')}: {formatCurrency(change)}
                 </span>
               )}
             </div>
           </div>
+          {isCommercial && (
+            <div className="mt-4">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('invoices.paymentProof')} <span className="text-error-500">*</span>
+              </label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                className="w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-400"
+              />
+              {errors.proof_file && <p className="mt-1 text-xs text-error-500">{errors.proof_file}</p>}
+              <p className="mt-1 text-xs text-gray-400">{t('invoices.paymentProofHint')}</p>
+            </div>
+          )}
           {isCommercial && (
             <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">
               {t('invoices.quickPendingNote')}
@@ -313,7 +362,20 @@ export default function QuickSalePage() {
                 {formatCurrency(total)}
               </span>
             </div>
-            <Button type="submit" isLoading={submitting}>
+            {isCommercial && Number(advance) > 0 && (
+              <div className="flex flex-col gap-1 text-sm">
+                <span className="text-gray-500 dark:text-gray-400">{t('invoices.balanceDue')}</span>
+                <span className="text-lg font-semibold text-brand-600 dark:text-brand-400">
+                  {formatCurrency(Math.max(0, total - Number(advance)))}
+                </span>
+              </div>
+            )}
+            <Button
+              type="submit"
+              isLoading={submitting}
+              disabled={isCommercial && !proofFile}
+              title={isCommercial && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+            >
               {isCommercial ? t('invoices.quickSubmitPending') : t('invoices.quickSubmit')}
             </Button>
           </div>

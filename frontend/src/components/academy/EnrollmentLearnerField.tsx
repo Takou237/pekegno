@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UserPlus } from 'lucide-react';
 import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { countriesApi } from '@/api/countries.api';
 
 export type LearnerMode = 'existing' | 'new';
 
@@ -10,6 +13,7 @@ export interface NewLearnerFormState {
   last_name: string;
   email: string;
   phone: string;
+  country_id: string;
 }
 
 export const emptyNewLearnerForm: NewLearnerFormState = {
@@ -17,6 +21,7 @@ export const emptyNewLearnerForm: NewLearnerFormState = {
   last_name: '',
   email: '',
   phone: '',
+  country_id: '',
 };
 
 interface EnrollmentLearnerFieldProps {
@@ -43,6 +48,22 @@ export function EnrollmentLearnerField({
   allowCreate = true,
 }: EnrollmentLearnerFieldProps) {
   const { t } = useTranslation();
+  const [countries, setCountries] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    countriesApi
+      .list({ per_page: 100 })
+      .then((res) => {
+        if (active) setCountries(res.data.map((c) => ({ id: c.id, name: c.name })));
+      })
+      .catch(() => {
+        if (active) setCountries([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function set<K extends keyof NewLearnerFormState>(key: K, value: string) {
     onNewLearnerChange({ ...newLearner, [key]: value });
@@ -113,11 +134,23 @@ export function EnrollmentLearnerField({
             value={newLearner.email}
             onChange={(e) => set('email', e.target.value)}
           />
-          <Input
-            label={t('common.phone')}
-            value={newLearner.phone}
-            onChange={(e) => set('phone', e.target.value)}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label={t('common.phone')}
+              value={newLearner.phone}
+              onChange={(e) => set('phone', e.target.value)}
+            />
+            <Select
+              label={t('common.country')}
+              value={newLearner.country_id}
+              onChange={(e) => set('country_id', e.target.value)}
+            >
+              <option value="">—</option>
+              {countries.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </Select>
+          </div>
           <p className="text-xs text-gray-400 dark:text-gray-500">{t('academy.newLearnerHint')}</p>
           {error && <p className="text-sm text-error-500">{error}</p>}
         </div>

@@ -8,8 +8,6 @@ import { Select } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { ReportFilters, ReportStatCard, ReportBar } from '@/pages/reports/ReportFilters';
 
-const DIMENSIONS: ComparisonDimension[] = ['country', 'city', 'agency'];
-
 const DIMENSION_ICONS: Record<ComparisonDimension, typeof Globe> = {
   country: Globe,
   city: MapPin,

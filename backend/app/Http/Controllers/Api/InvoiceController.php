@@ -54,14 +54,19 @@ class InvoiceController extends Controller
             return $query->where('commercial_id', $user->commercialProfile->id);
         }
 
-        // Un caissier ne voit que les factures de ses agences affectées.
+        // Un caissier ne voit que les factures de ses agences affectées. Les factures
+        // sans agence (vente d'un commercial sans agence rattachée, formation globale,
+        // etc.) restent visibles : sinon une facture en attente pourrait devenir
+        // introuvable pour tout le monde sauf l'admin.
         if ($user->role?->name === 'caissier') {
             $agencyIds = DB::table('user_assignments')
                 ->where('user_id', $user->id)
                 ->whereNotNull('agency_id')
                 ->pluck('agency_id');
 
-            return $query->whereIn('agency_id', $agencyIds);
+            return $query->where(function ($q) use ($agencyIds) {
+                $q->whereIn('agency_id', $agencyIds)->orWhereNull('agency_id');
+            });
         }
 
         return $query;
@@ -284,26 +289,24 @@ class InvoiceController extends Controller
                 ]);
             }
 
-            // Paiement numérique (OM / MoMo) : le commercial peut joindre une
-            // preuve de paiement qui sera examinée par le caissier avant
-            // validation et encaissement.
+            // Preuve de paiement jointe à la création de la facture : le commercial
+            // doit toujours en fournir une (capture OM / MoMo, reçu, photo…).
+            // Elle sera examinée par le caissier avant validation et encaissement.
             if ($request->hasFile('proof_file')) {
                 $request->validate(['proof_file' => ['required', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120']]);
-
-                if (! in_array($data['payment_type'] ?? null, ['om', 'momo'], true)) {
-                    throw ValidationException::withMessages([
-                        'proof_file' => 'Une preuve de paiement ne peut être jointe que pour un paiement numérique (OM ou MoMo).',
-                    ]);
-                }
 
                 $path = $request->file('proof_file')->store('payment-proofs', 'public');
 
                 PaymentProof::create([
                     'invoice_id' => $invoice->id,
                     'submitted_by' => $request->user()->id,
-                    'payment_method' => $data['payment_type'],
+                    'payment_method' => $data['payment_type'] ?? 'cash',
                     'file_path' => $path,
                     'status' => PaymentProof::STATUS_PENDING,
+                ]);
+            } elseif ($needsValidation) {
+                throw ValidationException::withMessages([
+                    'proof_file' => 'Une preuve de paiement est obligatoire pour une vente effectuée par un commercial.',
                 ]);
             }
 
@@ -458,10 +461,21 @@ class InvoiceController extends Controller
         abort_if($invoice->validation_status !== Invoice::VALIDATION_PENDING, 422, 'Seule une facture en attente peut être validée.');
 
         // Le caissier doit d'abord examiner et accepter les preuves de paiement
-        // soumises (client en ligne / paiement numérique) avant de valider.
+        // soumises (client en ligne / commercial) avant de valider.
         $proofs = $invoice->paymentProofs;
         if ($proofs->isNotEmpty() && ! $proofs->contains('status', PaymentProof::STATUS_ACCEPTED)) {
             abort(422, 'Une preuve de paiement en attente doit être examinée et acceptée avant la validation.');
+        }
+
+        // Toute vente faite par un commercial doit être justifiée par une preuve
+        // de paiement acceptée : impossible de valider une facture sans preuve.
+        if ($invoice->source === 'in_person' && $proofs->isEmpty()) {
+            $seller = $invoice->seller;
+            $sellerRole = $seller?->role?->name;
+
+            if ($sellerRole === 'commercial' || $invoice->commercial_id !== null) {
+                abort(422, 'Une facture créée par un commercial doit être justifiée par une preuve de paiement avant validation.');
+            }
         }
 
         $invoice->update([

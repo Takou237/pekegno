@@ -454,6 +454,31 @@ export const academyApi = {
     return data;
   },
 
+  async createFormationEnrollmentWithProof(
+    payload: FormationEnrollmentPayload,
+    proofFile: File,
+    paymentType?: string,
+  ): Promise<FormationEnrollment> {
+    const formData = new FormData();
+    formData.append('proof_file', proofFile);
+    const append = (key: string, value: unknown) => {
+      if (value === undefined || value === null) return;
+      formData.append(key, String(value));
+    };
+    append('course_id', payload.course_id);
+    append('learner_user_id', payload.learner_user_id);
+    append('invoice_id', payload.invoice_id);
+    append('seller_user_id', payload.seller_user_id);
+    append('seller_trainer_id', payload.seller_trainer_id);
+    append('training_session_id', payload.training_session_id);
+    append('amount_paid', payload.amount_paid);
+    append('status', payload.status);
+    append('notes', payload.notes);
+    append('payment_type', paymentType);
+    const { data } = await client.post<FormationEnrollment>('/formation-enrollments', formData);
+    return data;
+  },
+
   async updateFormationEnrollment(id: string, payload: Partial<FormationEnrollmentPayload>): Promise<FormationEnrollment> {
     const { data } = await client.put<FormationEnrollment>(`/formation-enrollments/${id}`, payload);
     return data;

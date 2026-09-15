@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { Search, Plus, Pencil, Trash2, Layers, Users, CalendarDays, BookOpenCheck, Globe, Building2, Play, Tag, Eye, Check } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Layers, Users, CalendarDays, BookOpenCheck, Globe, Building2, Play, Tag, Eye, Check, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type Course, type CoursePromotion, type CoursePromotionPayload, type CoursePromotionType } from '@/api/academy.api';
 import { promotionsApi } from '@/api/promotions.api';
@@ -24,7 +24,8 @@ import { getYouTubeEmbedUrl, isYouTubeUrl } from '@/utils/video';
 import { currentLocale } from '@/i18n';
 import type { Department } from '@/types/department';
 import type { CourseCategory } from '@/types/category';
-import { canManageAcademyPromotions } from '@/utils/academyPermissions';
+import { canManageAcademyPromotions, canEnrollLearners } from '@/utils/academyPermissions';
+import FormationEnrollmentModal from '@/components/academy/FormationEnrollmentModal';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -129,6 +130,8 @@ export default function AcademyCoursesPage() {
   const [promoDeleteTarget, setPromoDeleteTarget] = useState<CoursePromotion | null>(null);
   const [promoDeleting, setPromoDeleting] = useState(false);
   const [detailCourse, setDetailCourse] = useState<Course | null>(null);
+  // Inscription depuis le catalogue : modal pré-rempli avec le cours choisi.
+  const [enrollCourse, setEnrollCourse] = useState<Course | null>(null);
 
   const fetchCourses = useCallback(async () => {
     if (!agencyId) return;
@@ -658,6 +661,19 @@ export default function AcademyCoursesPage() {
 
                   {/* Actions */}
                   <div className="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
+                    {canEnrollLearners(user) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEnrollCourse(course);
+                        }}
+                        className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-green-600 dark:hover:bg-gray-800"
+                        title={t('academy.newEnrollment')}
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1297,6 +1313,17 @@ export default function AcademyCoursesPage() {
         category={null}
         onClose={() => setCategoryFormOpen(false)}
         onSaved={handleCategorySaved}
+      />
+
+      <FormationEnrollmentModal
+        isOpen={Boolean(enrollCourse)}
+        onClose={() => setEnrollCourse(null)}
+        agencyId={agencyId}
+        presetCourseId={enrollCourse?.id}
+        onSaved={() => {
+          setEnrollCourse(null);
+          fetchCourses();
+        }}
       />
     </div>
   );

@@ -27,6 +27,7 @@ import {
   Warehouse,
   Landmark,
   CircleDollarSign,
+  DollarSign,
   ScrollText,
   Settings,
   Target,
@@ -124,6 +125,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t, unpaidBadge),
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
+      { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       catalogItem(t),
     ];
   }

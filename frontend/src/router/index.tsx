@@ -49,6 +49,7 @@ const ServiceListPage = lazy(() => import('@/pages/services/ServiceListPage'));
 const DepartmentServicesPage = lazy(() => import('@/pages/departments/DepartmentServicesPage'));
 const DepartmentProductsPage = lazy(() => import('@/pages/departments/DepartmentProductsPage'));
 const ServiceTrashPage = lazy(() => import('@/pages/services/ServiceTrashPage'));
+const ReceivablesPage = lazy(() => import('@/pages/invoices/ReceivablesPage'));
 const ClientListPage = lazy(() => import('@/pages/clients/ClientListPage'));
 const ClientDetailPage = lazy(() => import('@/pages/clients/ClientDetailPage'));
 const CommercialListPage = lazy(() => import('@/pages/commercials/CommercialListPage'));
@@ -206,6 +207,7 @@ export const router = createBrowserRouter([
           { path: '/reports/comparison', element: page(<ComparisonReportPage />, table) },
           { path: '/invoices', element: page(<InvoiceListPage />, table) },
           { path: '/invoices/pending', element: page(<PendingInvoicesPage />, table) },
+          { path: '/invoices/receivables', element: page(<ReceivablesPage />, table) },
           { path: '/invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: '/invoices/quick', element: page(<QuickSalePage />, form) },
           { path: '/invoices/:id', element: page(<InvoiceDetailPage />, detail) },

@@ -53,6 +53,7 @@ export interface FormationEnrollmentPayload {
   seller_trainer_id?: string;
   training_session_id?: string;
   amount_paid?: number;
+  payment_type?: string;
   status?: 'enrolled' | 'completed' | 'cancelled';
   notes?: string;
 }

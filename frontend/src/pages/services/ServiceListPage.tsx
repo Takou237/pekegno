@@ -49,6 +49,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [tab, setTab] = useState<'services' | 'formations'>('services');
 
   const isCommercial = user?.role?.name === 'commercial';
+  const isCaissier = user?.role?.name === 'caissier';
   const [ownAgencyId, setOwnAgencyId] = useState('');
 
   useEffect(() => {
@@ -62,8 +63,16 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
       .catch(() => {});
   }, [isCommercial, agencyId, user?.id]);
 
+  useEffect(() => {
+    if (!isCaissier || agencyId || !user?.assignments?.length) return;
+    const primary = user.assignments.find((a) => a.pivot?.is_primary === true);
+    const agency = primary ?? user.assignments[0];
+    if (agency?.id) setOwnAgencyId(agency.id);
+  }, [isCaissier, agencyId, user?.assignments]);
+
   const effectiveAgencyId = agencyId || ownAgencyId || undefined;
-  const effectiveShowAcademyTabs = showAcademyTabs || (isCommercial && Boolean(effectiveAgencyId));
+  const effectiveShowAcademyTabs =
+    showAcademyTabs || ((isCommercial || isCaissier) && Boolean(effectiveAgencyId));
 
   const servicesBase = agencyId
     ? countryId
