@@ -187,39 +187,59 @@ class TrainingSessionController extends Controller
     public function report(Request $request): JsonResponse
     {
         $agencyIds = $this->scopeService->agencyIds($request->user());
+        $from = $request->input('from');
+        $to = $request->input('to');
+
+        // Rapport ouvert depuis une agence/un département précis : uniquement les
+        // formations de cette agence (pas les formations globales ni les autres
+        // agences), à condition qu'elle soit dans le périmètre de l'utilisateur.
+        $requestedAgencyId = $request->input('agency_id');
+        if ($requestedAgencyId && $agencyIds !== null && ! in_array($requestedAgencyId, $agencyIds, true)) {
+            $requestedAgencyId = null;
+        }
 
         $courses = Course::withCount('sessions')
             ->with(['categories', 'agency'])
             ->when($request->filled('course_id'), fn ($q) => $q->where('id', $request->input('course_id')))
-            ->when($agencyIds !== null, function ($q) use ($agencyIds) {
-                return $q->where(fn ($c) => $c->whereNull('agency_id')->orWhereIn('agency_id', $agencyIds));
-            })
+            ->when(
+                $requestedAgencyId,
+                fn ($q) => $q->where('agency_id', $requestedAgencyId),
+                fn ($q) => $q->when($agencyIds !== null, function ($q) use ($agencyIds) {
+                    return $q->where(fn ($c) => $c->whereNull('agency_id')->orWhereIn('agency_id', $agencyIds));
+                })
+            )
             ->orderBy('name')
             ->get();
 
-        $courses->each(function (Course $course) {
-            $sessions = $course->sessions()->withTrashed()->get();
+        $courses->each(function (Course $course) use ($from, $to) {
+            $sessions = $course->sessions()->withTrashed()
+                ->when($from, fn ($q, $v) => $q->where('start_at', '>=', $v))
+                ->when($to, fn ($q, $v) => $q->where('start_at', '<=', $v.' 23:59:59'))
+                ->get();
             $sessionIds = $sessions->pluck('id');
 
             $activeEnrollments = FormationEnrollment::where('course_id', $course->id)
                 ->whereNot('status', 'cancelled')
+                ->when($from, fn ($q, $v) => $q->whereDate('enrolled_at', '>=', $v))
+                ->when($to, fn ($q, $v) => $q->whereDate('enrolled_at', '<=', $v))
                 ->get();
 
             $enrolled = $activeEnrollments->count();
             $completed = $activeEnrollments->where('status', 'completed')->count();
-            $present = $sessionIds->isNotEmpty()
-                ? Attendance::whereIn('training_session_id', $sessionIds)
-                    ->where('status', Attendance::STATUS_PRESENT)
-                    ->count()
-                : 0;
+            // La présence est enregistrée par (session, module) : le dénominateur du taux
+            // doit être le nombre de pointages réellement effectués (present + absent),
+            // pas enrolled × nombre de sessions (sous-évalué dès qu'un module par session).
+            $attendanceStatuses = $sessionIds->isNotEmpty()
+                ? Attendance::whereIn('training_session_id', $sessionIds)->pluck('status')
+                : collect();
+            $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
+            $marked = $attendanceStatuses->count();
 
             $revenue = $sessions->sum(function ($session) use ($enrolled, $course) {
                 $price = $session->price !== null ? (float) $session->price : (float) ($course->price ?? 0);
 
                 return $enrolled * $price;
             });
-
-            $expectedPresences = $enrolled * $sessions->count();
 
             $course->training_report = [
                 'sessions_count' => $sessions->count(),
@@ -229,7 +249,8 @@ class TrainingSessionController extends Controller
                 'enrollments_enrolled' => $enrolled,
                 'enrollments_completed' => $completed,
                 'attendance_count' => $present,
-                'attendance_rate' => $expectedPresences > 0 ? round($present / $expectedPresences * 100, 1) : 0,
+                'attendance_marked' => $marked,
+                'attendance_rate' => $marked > 0 ? round($present / $marked * 100, 1) : 0,
                 'potential_revenue' => round($revenue, 2),
             ];
         });

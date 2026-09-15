@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Http\Resources\UserResource;
 use App\Models\ActivityLog;
 use App\Models\LoginLog;
 use App\Models\User;
@@ -136,7 +137,11 @@ class AuthService
         ]);
 
         return [
-            'user' => $user->load('role', 'assignments'),
+            // UserResource (pas le modèle brut) : le login doit renvoyer le même
+            // format que GET /user, notamment le champ calculé "name" (first_name +
+            // last_name, pas une colonne réelle) utilisé partout côté front pour
+            // pré-remplir le vendeur d'une vente/inscription.
+            'user' => new UserResource($user->load('role', 'assignments')),
             'token' => $token,
         ];
     }

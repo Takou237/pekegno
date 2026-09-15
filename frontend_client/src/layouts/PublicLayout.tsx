@@ -22,11 +22,6 @@ export default function PublicLayout() {
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="text-xl font-bold text-brand-600">PEKEGNO</Link>
 
-            <nav className="hidden md:flex items-center gap-6">
-              <Link to="/" className="text-sm font-medium text-gray-600 hover:text-brand-600">{t('nav.home')}</Link>
-              <Link to="/catalogue" className="text-sm font-medium text-gray-600 hover:text-brand-600">{t('nav.catalog')}</Link>
-            </nav>
-
             <div className="hidden md:flex items-center gap-4">
               <div className="relative">
                 <button onClick={() => setLangOpen(!langOpen)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
@@ -74,8 +69,6 @@ export default function PublicLayout() {
 
         {mobileOpen && (
           <div className="md:hidden border-t border-gray-200 bg-white px-4 py-4 space-y-3">
-            <Link to="/" className="block text-sm font-medium text-gray-700" onClick={() => setMobileOpen(false)}>{t('nav.home')}</Link>
-            <Link to="/catalogue" className="block text-sm font-medium text-gray-700" onClick={() => setMobileOpen(false)}>{t('nav.catalog')}</Link>
             <Link to="/panier" className="flex items-center gap-2 text-sm font-medium text-gray-700" onClick={() => setMobileOpen(false)}>
               <ShoppingCart size={16} /> {t('nav.cart')}{count > 0 ? ` (${count})` : ''}
             </Link>

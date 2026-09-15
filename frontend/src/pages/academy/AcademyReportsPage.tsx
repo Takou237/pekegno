@@ -32,6 +32,7 @@ import { extractErrorMessage } from '@/api/errors';
 import { Alert } from '@/components/ui/Alert';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { formatCurrency, formatNumber } from '@/utils/number';
+import { ReportFilters } from '@/pages/reports/ReportFilters';
 
 interface DepartmentLayoutContext {
   department?: { id: string; agency_id?: string } | null;
@@ -55,6 +56,7 @@ interface TrainingReportRow {
     enrollments_enrolled: number;
     enrollments_completed: number;
     attendance_count: number;
+    attendance_marked: number;
     attendance_rate: number;
     potential_revenue: number;
   };
@@ -112,6 +114,8 @@ export default function AcademyReportsPage() {
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const fetchStats = useCallback(async () => {
     if (!agencyId) return;
@@ -120,7 +124,9 @@ export default function AcademyReportsPage() {
     setCards([]);
     try {
       const reportPromise = client
-        .get<TrainingReportResponse>('/reports/training')
+        .get<TrainingReportResponse>('/reports/training', {
+          params: { agency_id: agencyId, from: fromDate || undefined, to: toDate || undefined },
+        })
         .then((r) => r.data);
       const sessionsPromise = (async () => {
         const all: SessionRow[] = [];
@@ -129,7 +135,7 @@ export default function AcademyReportsPage() {
         do {
           const res = await client.get<{ data: SessionRow[]; meta: { last_page: number } }>(
             '/training-sessions',
-            { params: { agency_id: agencyId, per_page: 100, page } },
+            { params: { agency_id: agencyId, from: fromDate || undefined, to: toDate || undefined, per_page: 100, page } },
           );
           all.push(...res.data.data);
           last = res.data.meta.last_page;
@@ -145,6 +151,8 @@ export default function AcademyReportsPage() {
           const res = await invoicesApi.list({
             agency_id: agencyId,
             from_enrollments: true,
+            from: fromDate || undefined,
+            to: toDate || undefined,
             per_page: 100,
             page,
           });
@@ -196,7 +204,7 @@ export default function AcademyReportsPage() {
         return all;
       })();
 
-      const [report, sessionList, { received, outstanding }, trainersTotal, enrollments] =
+      const [report, sessionList, { received, outstanding }, trainersTotal, allEnrollments] =
         await Promise.all([
           reportPromise,
           sessionsPromise,
@@ -205,25 +213,40 @@ export default function AcademyReportsPage() {
           enrollmentsPromise,
         ]);
 
+      // Le back-office ne filtre pas /formation-enrollments par période : on applique
+      // le filtre de date côté client sur enrolled_at.
+      const enrollments = allEnrollments.filter((e) => {
+        if (!e.enrolled_at) return !fromDate && !toDate;
+        const d = e.enrolled_at.slice(0, 10);
+        if (fromDate && d < fromDate) return false;
+        if (toDate && d > toDate) return false;
+        return true;
+      });
+
       setReportRows(report.data);
       setSessions(sessionList);
       setFormationEnrollments(enrollments);
 
-      const attendanceTotal = report.data.reduce((sum, r) => sum + r.report.enrollments_enrolled, 0);
+      // Dénominateur = pointages réellement effectués (present + absent), pas le
+      // nombre d'inscrits : sinon le taux peut dépasser 100 % (présence par module)
+      // et "aucune présence prise" se confond avec "0 % de présence".
+      const attendanceMarked = report.data.reduce((sum, r) => sum + r.report.attendance_marked, 0);
       const attendancePresent = report.data.reduce((sum, r) => sum + r.report.attendance_count, 0);
       const avgAttendance =
-        attendanceTotal > 0 ? Math.round((attendancePresent / attendanceTotal) * 100) : 0;
+        attendanceMarked > 0 ? Math.round((attendancePresent / attendanceMarked) * 100) : null;
 
+      // null (pas 0) quand aucune session n'a de capacité renseignée : "0 %"
+      // laisserait croire que le remplissage est nul plutôt qu'inconnu.
       const capacitySessions = sessionList.filter((s) => s.max_capacity && s.max_capacity > 0);
       const avgFill =
         capacitySessions.length > 0
           ? Math.round(
               capacitySessions.reduce(
-                (sum, s) => sum + (s.enrollments_count ?? 0) / s.max_capacity!,
+                (sum, s) => sum + Math.min(1, (s.enrollments_count ?? 0) / s.max_capacity!),
                 0,
               ) / capacitySessions.length * 100,
             )
-          : 0;
+          : null;
 
       setCards([
         {
@@ -246,7 +269,7 @@ export default function AcademyReportsPage() {
         },
         {
           label: t('reports.avgAttendanceRate'),
-          value: `${avgAttendance}%`,
+          value: avgAttendance == null ? '—' : `${avgAttendance}%`,
           icon: UserCheck,
           color: 'bg-cyan-500',
         },
@@ -270,7 +293,7 @@ export default function AcademyReportsPage() {
         },
         {
           label: t('reports.avgFillRate'),
-          value: `${avgFill}%`,
+          value: avgFill == null ? '—' : `${avgFill}%`,
           icon: Percent,
           color: 'bg-teal-500',
         },
@@ -280,7 +303,7 @@ export default function AcademyReportsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, t]);
+  }, [agencyId, fromDate, toDate, t]);
 
   useEffect(() => {
     fetchStats();
@@ -392,6 +415,8 @@ export default function AcademyReportsPage() {
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('reports.subtitle')}</p>
       </div>
 
+      <ReportFilters from={fromDate} to={toDate} onFrom={setFromDate} onTo={setToDate} />
+
       {loadError && <Alert variant="error">{loadError}</Alert>}
 
       {isLoading ? (
@@ -413,6 +438,53 @@ export default function AcademyReportsPage() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="px-5 pt-5 text-sm font-semibold text-gray-800 dark:text-gray-100">
+              {t('reports.byFormationTitle')}
+            </h2>
+            {reportRows.length === 0 ? (
+              <p className="p-5 text-sm text-gray-500 dark:text-gray-400">{t('academy.noEnrollments')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                    <tr>
+                      <th className="px-5 py-3 font-medium">{t('academy.course')}</th>
+                      <th className="px-5 py-3 text-right font-medium">{t('reports.totalSessions')}</th>
+                      <th className="px-5 py-3 text-right font-medium">{t('academy.enrolled')}</th>
+                      <th className="px-5 py-3 text-right font-medium">{t('academy.attendanceRate')}</th>
+                      <th className="px-5 py-3 text-right font-medium">{t('academy.potentialRevenue')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {reportRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <td className="px-5 py-3">
+                          <span className="font-medium text-gray-800 dark:text-gray-100">{row.name}</span>
+                          {row.code && (
+                            <span className="ml-2 font-mono text-xs text-gray-400">{row.code}</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                          {formatNumber(row.report.sessions_count)}
+                        </td>
+                        <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                          {formatNumber(row.report.enrollments_enrolled)}
+                        </td>
+                        <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                          {row.report.attendance_rate}%
+                        </td>
+                        <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
+                          {formatCurrency(row.report.potential_revenue)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

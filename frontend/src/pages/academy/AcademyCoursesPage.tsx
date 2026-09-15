@@ -22,8 +22,10 @@ import { Pagination } from '@/components/ui/Pagination';
 import { formatCurrency } from '@/utils/number';
 import { getYouTubeEmbedUrl, isYouTubeUrl } from '@/utils/video';
 import { currentLocale } from '@/i18n';
+import { countriesApi } from '@/api/countries.api';
 import type { Department } from '@/types/department';
 import type { CourseCategory } from '@/types/category';
+import type { CountryStat } from '@/types/stats';
 import { canManageAcademyPromotions, canEnrollLearners } from '@/utils/academyPermissions';
 import FormationEnrollmentModal from '@/components/academy/FormationEnrollmentModal';
 
@@ -57,6 +59,8 @@ interface FormState {
   category_ids: string[];
   cover_image: string | null;
   presentation_video: string;
+  is_active: boolean;
+  target_country_ids: string[];
 }
 
 const emptyForm: FormState = {
@@ -72,6 +76,8 @@ const emptyForm: FormState = {
   category_ids: [],
   cover_image: null,
   presentation_video: '',
+  is_active: true,
+  target_country_ids: [],
 };
 
 interface PromotionFormState {
@@ -94,7 +100,8 @@ export default function AcademyCoursesPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const { agencyId } = useOutletContext<DepartmentLayoutContext>();
+  const { department, agencyId } = useOutletContext<DepartmentLayoutContext>();
+  const currentCountryId = department?.agency?.country_id ?? undefined;
   const { departmentId } = useParams<{ departmentId: string }>();
   const openCourseDetail = (course: Course) =>
     navigate(`/departments/${departmentId}/courses/${course.id}`);
@@ -129,6 +136,11 @@ export default function AcademyCoursesPage() {
   const [promoSubmitting, setPromoSubmitting] = useState(false);
   const [promoDeleteTarget, setPromoDeleteTarget] = useState<CoursePromotion | null>(null);
   const [promoDeleting, setPromoDeleting] = useState(false);
+
+  const [countries, setCountries] = useState<CountryStat[]>([]);
+  useEffect(() => {
+    countriesApi.list({ per_page: 100 }).then((r) => setCountries(r.data)).catch(() => {});
+  }, []);
   const [detailCourse, setDetailCourse] = useState<Course | null>(null);
   // Inscription depuis le catalogue : modal pré-rempli avec le cours choisi.
   const [enrollCourse, setEnrollCourse] = useState<Course | null>(null);
@@ -202,7 +214,7 @@ export default function AcademyCoursesPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, target_country_ids: currentCountryId ? [currentCountryId] : [] });
     setFormError(null);
     setFieldErrors({});
     setFormOpen(true);
@@ -223,6 +235,8 @@ export default function AcademyCoursesPage() {
       category_ids: course.categories?.map((c) => c.id) ?? [],
       cover_image: course.cover_image ?? null,
       presentation_video: course.presentation_video ?? '',
+      is_active: course.is_active,
+      target_country_ids: [],
     });
     setFormError(null);
     setFieldErrors({});
@@ -263,6 +277,11 @@ export default function AcademyCoursesPage() {
       cover_image: form.cover_image,
       presentation_video: form.presentation_video.trim() || null,
       agency_id: agencyId,
+      is_active: form.is_active,
+      is_public: true,
+      ...(editing
+        ? {}
+        : { target_country_ids: form.target_country_ids.length ? form.target_country_ids : undefined }),
     };
 
     try {
@@ -556,6 +575,9 @@ export default function AcademyCoursesPage() {
                           <Building2 className="h-3.5 w-3.5 text-gray-400" />
                         </span>
                       )}
+                      <span title={t('academy.isPublic')}>
+                        <Eye className="h-3.5 w-3.5 text-green-500" />
+                      </span>
                       {!course.is_active && <Badge variant="neutral">{t('common.inactive')}</Badge>}
                     </div>
                   </div>
@@ -960,6 +982,47 @@ export default function AcademyCoursesPage() {
             </label>
             {fieldErrors.cover_image && (
               <p className="text-sm text-error-500">{fieldErrors.cover_image}</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Globe className="h-4 w-4 text-brand-500" />
+              {t('academy.deployCountries')}
+            </label>
+            <p className="-mt-1 text-xs text-gray-400 dark:text-gray-500">{t('academy.deployCountriesHint')}</p>
+            {!editing && (
+              <div className="flex flex-wrap gap-2">
+                {countries.map((country) => {
+                  const selected = form.target_country_ids.includes(country.id);
+                  const isCurrent = currentCountryId === country.id;
+                  return (
+                    <button
+                      key={country.id}
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          target_country_ids: selected
+                            ? prev.target_country_ids.filter((id) => id !== country.id)
+                            : [...prev.target_country_ids, country.id],
+                        }))
+                      }
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        selected
+                          ? 'border-brand-500 bg-brand-500 text-white shadow-sm'
+                          : 'border-gray-300 text-gray-600 hover:border-brand-400 dark:border-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {selected && <Check className="h-3.5 w-3.5" />}
+                      {isCurrent ? t('academy.currentCountry', { country: country.name }) : country.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {fieldErrors.target_country_ids && (
+              <p className="text-sm text-error-500">{fieldErrors.target_country_ids}</p>
             )}
           </div>
 

@@ -81,7 +81,7 @@ export default function AccountLayout() {
             <Menu size={24} />
           </button>
           <div className="flex-1" />
-          <Link to="/catalogue" className="flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700">
+          <Link to="/" className="flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700">
             <Store size={16} /> {t('account.backToCatalog')}
           </Link>
           <div className="relative">

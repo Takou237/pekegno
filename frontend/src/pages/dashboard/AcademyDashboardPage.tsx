@@ -206,7 +206,7 @@ export default function AcademyDashboardPage({ fixedAgencyId }: { fixedAgencyId?
             />
             <StatCard
               label={t('reports.avgAttendanceRate')}
-              value={`${training.avg_attendance}%`}
+              value={training.avg_attendance == null ? '—' : `${training.avg_attendance}%`}
               icon={<UserCheck className="h-5 w-5" />}
               tone="bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-400"
             />
@@ -230,7 +230,7 @@ export default function AcademyDashboardPage({ fixedAgencyId }: { fixedAgencyId?
             />
             <StatCard
               label={t('reports.avgFillRate')}
-              value={`${training.avg_fill_rate}%`}
+              value={training.avg_fill_rate == null ? '—' : `${training.avg_fill_rate}%`}
               icon={<Percent className="h-5 w-5" />}
               tone="bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400"
             />

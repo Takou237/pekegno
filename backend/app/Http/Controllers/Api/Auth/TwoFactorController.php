@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\TwoFactorDisableRequest;
 use App\Http\Requests\Api\TwoFactorLoginRequest;
 use App\Http\Requests\Api\TwoFactorVerifyRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\TwoFactorService;
 use Illuminate\Http\JsonResponse;
@@ -243,7 +244,9 @@ class TwoFactorController extends Controller
         ]);
 
         return response()->json([
-            'user' => $user,
+            // UserResource, comme le login classique et GET /user : sinon le champ
+            // calculé "name" est absent du modèle brut (pas de colonne "name").
+            'user' => new UserResource($user->load('assignments')),
             'token' => $token,
         ]);
     }

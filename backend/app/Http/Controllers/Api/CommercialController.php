@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class CommercialController extends Controller
@@ -104,6 +105,10 @@ class CommercialController extends Controller
     {
         // Les utilisateurs « formateur » du périmètre obtiennent leur profil à la volée.
         app(TrainerController::class)->syncUserTrainers($request, $request->agency_id);
+        // Idem pour caissier/comptable : annuaire RH unifié, tout utilisateur non
+        // commercial et non dirigeant (super-admin/direction-generale) doit apparaître
+        // dans les Employés, avec un profil (points, primes) créé à la première visite.
+        $this->syncUserEmployees($request, $request->agency_id);
 
         $commercials = $commercialsQuery->orderBy('last_name')->get()
             ->map(fn (Commercial $commercial) => array_merge($commercial->toArray(), ['is_trainer' => false]));
@@ -183,6 +188,59 @@ class CommercialController extends Controller
                 'next' => $page < $lastPage ? $this->pageUrl($request, $page + 1) : null,
             ],
         ];
+    }
+
+    /**
+     * Crée à la volée un profil Commercial (kind=employe) pour les comptes
+     * caissier/comptable du périmètre qui n'en ont pas encore — même logique
+     * que syncUserTrainers pour les formateurs. Sans ce profil, ces employés
+     * n'apparaissent pas dans l'annuaire et ne peuvent pas être crédités en
+     * points lors d'une vente de guichet.
+     */
+    private function syncUserEmployees(Request $request, ?string $agencyId): void
+    {
+        $roleIds = DB::table('roles')->whereIn('name', ['caissier', 'comptable'])->pluck('id');
+
+        if ($roleIds->isEmpty()) {
+            return;
+        }
+
+        $usersQuery = DB::table('users')
+            ->join('user_assignments', 'user_assignments.user_id', '=', 'users.id')
+            ->whereIn('users.role_id', $roleIds)
+            ->whereNotIn('users.id', function ($q) {
+                $q->select('user_id')->from('commercials')->whereNotNull('user_id');
+            })
+            ->select('users.id', 'users.first_name', 'users.last_name', 'users.email', 'users.phone', 'users.is_active', 'user_assignments.agency_id');
+
+        if ($agencyId) {
+            $usersQuery->where('user_assignments.agency_id', $agencyId);
+        } else {
+            $agencyScope = $this->trainerAgencyScope($request);
+
+            if ($agencyScope !== null) {
+                $usersQuery->whereIn('user_assignments.agency_id', $agencyScope);
+            }
+        }
+
+        foreach ($usersQuery->get()->unique('id') as $user) {
+            $now = now();
+
+            DB::table('commercials')->insert([
+                'id' => (string) Str::uuid(),
+                'user_id' => $user->id,
+                'agency_id' => $user->agency_id,
+                'kind' => 'employe',
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'points_balance' => 0,
+                'is_active' => $user->is_active,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
     }
 
     /**

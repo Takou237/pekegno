@@ -41,7 +41,7 @@ class AcademyReportService
 
         $reportRows = [];
         $summary = ['courses' => 0, 'sessions' => 0, 'enrollments' => 0, 'potential_revenue' => 0.0];
-        $attendanceTotal = 0;
+        $attendanceMarked = 0;
         $attendancePresent = 0;
 
         foreach ($courses as $course) {
@@ -53,11 +53,16 @@ class AcademyReportService
                 ->get();
 
             $enrolled = $activeEnrollments->count();
-            $present = $sessionIds->isNotEmpty()
-                ? Attendance::whereIn('training_session_id', $sessionIds)
-                    ->where('status', Attendance::STATUS_PRESENT)
-                    ->count()
-                : 0;
+            // La présence est enregistrée par (session, module) : un même apprenant peut
+            // avoir plusieurs pointages "présent" sur une seule session (un par module).
+            // Le dénominateur doit donc être le nombre de pointages réellement effectués
+            // (present + absent), pas enrolled × nombre de sessions, sous peine de taux
+            // aberrants (> 100 %) dès qu'un cours a plus d'un module par session.
+            $attendanceStatuses = $sessionIds->isNotEmpty()
+                ? Attendance::whereIn('training_session_id', $sessionIds)->pluck('status')
+                : collect();
+            $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
+            $marked = $attendanceStatuses->count();
 
             $revenue = $courseSessions->sum(function ($session) use ($enrolled, $course) {
                 $price = $session->price !== null ? (float) $session->price : (float) ($course->price ?? 0);
@@ -65,10 +70,9 @@ class AcademyReportService
                 return $enrolled * $price;
             });
 
-            $expectedPresences = $enrolled * $courseSessions->count();
-            $rate = $expectedPresences > 0 ? round($present / $expectedPresences * 100, 1) : 0;
+            $rate = $marked > 0 ? round($present / $marked * 100, 1) : 0;
 
-            $attendanceTotal += $enrolled;
+            $attendanceMarked += $marked;
             $attendancePresent += $present;
 
             $reportRows[] = [
@@ -97,7 +101,9 @@ class AcademyReportService
             ])
             ->all();
 
-        $avgAttendance = $attendanceTotal > 0 ? round($attendancePresent / $attendanceTotal * 100) : 0;
+        // null (pas 0) quand aucune présence n'a été pointée : distinct de "tout le
+        // monde était absent".
+        $avgAttendance = $attendanceMarked > 0 ? round($attendancePresent / $attendanceMarked * 100) : null;
 
         // Répartition par mode : comptée sur le catalogue de formations actives
         // (pas sur les sessions ni les inscriptions) — c'est le mix de formations
@@ -118,10 +124,16 @@ class AcademyReportService
         }
         $sessionsByStatus = array_map(fn ($status, $value) => ['status' => $status, 'value' => $value], array_keys($statusCounts), $statusCounts);
 
+        // Une session en surbooking (plus d'inscrits que la capacité) a un taux de
+        // remplissage individuel borné à 100 % avant moyenne, pour éviter un taux
+        // de remplissage moyen aberrant (ex. 125 %).
         $capacitySessions = $sessions->filter(fn ($s) => $s->max_capacity && $s->max_capacity > 0);
+        // null (pas 0) quand aucune session n'a de capacité renseignée : "0 %"
+        // laisserait croire que le remplissage est nul, alors qu'il n'y a simplement
+        // pas de donnée (personne n'a saisi de capacité max sur les sessions).
         $avgFill = $capacitySessions->isNotEmpty()
-            ? round($capacitySessions->sum(fn ($s) => ($s->enrollments_count ?? 0) / $s->max_capacity) / $capacitySessions->count() * 100)
-            : 0;
+            ? round($capacitySessions->sum(fn ($s) => min(1, ($s->enrollments_count ?? 0) / $s->max_capacity)) / $capacitySessions->count() * 100)
+            : null;
 
         $byMonth = [];
         $courseCounts = [];

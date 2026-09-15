@@ -162,12 +162,14 @@ class Phase3OrganizationTest extends TestCase
 
     public function test_user_without_countries_permission_gets_403(): void
     {
+        // Un commercial a countries.consulter (nécessaire au sélecteur de pays du
+        // formulaire "nouvel apprenant"), mais pas countries.creer.
         $commercial = User::factory()->create([
             'role_id' => Role::where('name', 'commercial')->value('id'),
         ]);
         Sanctum::actingAs($commercial);
 
-        $this->getJson('/api/countries')->assertForbidden();
+        $this->getJson('/api/countries')->assertOk();
         $this->postJson('/api/countries', ['name' => 'X', 'code' => 'XX', 'currency_code' => 'XAF'])->assertForbidden();
     }
 

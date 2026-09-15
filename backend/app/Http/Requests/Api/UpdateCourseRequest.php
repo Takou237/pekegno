@@ -31,6 +31,7 @@ class UpdateCourseRequest extends FormRequest
             'presentation_video' => ['sometimes', 'nullable', 'string', 'max:255'],
             'agency_id' => ['sometimes', 'nullable', 'string', Rule::exists('agencies', 'id')->whereNull('deleted_at')],
             'is_active' => ['sometimes', 'boolean'],
+            'is_public' => ['sometimes', 'boolean'],
         ];
     }
 }

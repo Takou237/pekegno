@@ -17,7 +17,9 @@ class StoreClientRequest extends FormRequest
         return [
             'first_name' => ['required', 'string', 'max:150'],
             'last_name' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            // Optionnel : un apprenant inscrit au guichet n'a pas toujours d'email.
+            // ClientController::store génère un email de connexion de secours si absent.
+            'email' => ['sometimes', 'nullable', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
             'city' => ['sometimes', 'nullable', 'string', 'max:100'],

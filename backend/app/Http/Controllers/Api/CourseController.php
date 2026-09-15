@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreCourseRequest;
 use App\Http\Requests\Api\UpdateCourseRequest;
 use App\Http\Resources\CourseResource;
+use App\Models\Agency;
 use App\Models\Course;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
@@ -102,18 +103,55 @@ class CourseController extends Controller
     public function store(StoreCourseRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $data['code'] = $data['code'] ?? Course::generateCode();
-
         $categoryIds = $data['category_ids'] ?? [];
-        unset($data['category_ids']);
+        $targetCountryIds = $data['target_country_ids'] ?? [];
+        unset($data['category_ids'], $data['target_country_ids']);
 
-        $course = Course::create($data);
+        // Agences cibles : toutes les agences des pays sélectionnés,
+        // plus l'agence courante (toujours maintenue, même si non dans la liste).
+        $agencyIds = Agency::query()
+            ->whereNull('deleted_at')
+            ->when(
+                $targetCountryIds,
+                fn ($q) => $q->whereIn('country_id', $targetCountryIds),
+                fn ($q) => $q->whereRaw('1 = 0'),
+            )
+            ->pluck('id')
+            ->push($data['agency_id'] ?? null)
+            ->filter()
+            ->unique()
+            ->values();
 
-        if (! empty($categoryIds)) {
-            $course->categories()->sync($categoryIds);
+        // Cours global (ni pays cible, ni agence précisée) : garder le comportement
+        // d'origine (une seule formation, agency_id null), sinon la liste d'agences
+        // est vide et la création plante (aucune formation créée).
+        if ($agencyIds->isEmpty()) {
+            $agencyIds = collect([$data['agency_id'] ?? null]);
         }
 
-        return (new CourseResource($course->load(['agency', 'categories'])))
+        $created = collect();
+        $primary = null;
+
+        foreach ($agencyIds as $agencyId) {
+            $row = $data;
+            $row['code'] = Course::generateCode();
+            $row['agency_id'] = $agencyId;
+
+            $course = Course::create($row);
+
+            if (! empty($categoryIds)) {
+                $course->categories()->sync($categoryIds);
+            }
+
+            $created->push($course);
+            if ($primary === null && ! empty($data['agency_id']) && $agencyId === $data['agency_id']) {
+                $primary = $course;
+            }
+        }
+
+        $primary ??= $created->first();
+
+        return (new CourseResource($primary->load(['agency', 'categories'])))
             ->response()
             ->setStatusCode(201);
     }

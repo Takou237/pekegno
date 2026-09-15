@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\RegisterRequest;
+use App\Http\Resources\UserResource;
 use App\Models\ClientCategory;
 use App\Models\Role;
 use App\Models\User;
@@ -80,7 +81,7 @@ class RegisterController extends Controller
 
         return response()->json([
             'message' => 'Compte créé avec succès.',
-            'user' => $user->load('role'),
+            'user' => new UserResource($user->load('role')),
         ], 201);
     }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, CalendarPlus } from 'lucide-react';
 import { academyApi, type Course, type Learner, type TrainingSession } from '@/api/academy.api';
@@ -68,7 +68,7 @@ export default function AcademyLearnersPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const { departmentId } = useParams<{ departmentId?: string }>();
+  const location = useLocation();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
   const [learners, setLearners] = useState<Learner[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
@@ -219,7 +219,7 @@ export default function AcademyLearnersPage() {
     try {
       let learnerUserId = enrollmentForm.learner_user_id;
       if (learnerMode === 'new') {
-        if (!newLearner.first_name || !newLearner.last_name || !newLearner.email) {
+        if (!newLearner.first_name || !newLearner.last_name) {
           setEnrollmentError(t('academy.newLearnerRequired'));
           setIsSubmittingEnrollment(false);
           return;
@@ -291,8 +291,11 @@ export default function AcademyLearnersPage() {
   }
 
   function openLearner(learner: Learner) {
-    if (!learner.learner?.id || !departmentId) return;
-    navigate(`/departments/${departmentId}/learners/${learner.learner.id}`);
+    if (!learner.learner?.id) return;
+    // Page partagée entre le layout département (/departments/:id/learners) et
+    // le layout agence (/countries/:id/agencies/:id/learners) : on dérive la
+    // base depuis l'URL courante plutôt que de supposer un contexte département.
+    navigate(`${location.pathname.replace(/\/$/, '')}/${learner.learner.id}`);
   }
 
   return (
@@ -461,7 +464,6 @@ export default function AcademyLearnersPage() {
             value={enrollmentForm.amount_paid}
             onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
             error={enrollmentFieldErrors.amount_paid}
-            hint={t('academy.amountPaidHint')}
           />
 
           {enrollmentForm.course_id && (

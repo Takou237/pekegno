@@ -37,6 +37,7 @@ class CourseResource extends JsonResource
             ]),
             'availability' => $this->agency_id ? 'agency' : 'global',
             'is_active' => $this->is_active,
+            'is_public' => (bool) $this->is_public,
             'sessions_count' => $this->whenCounted('sessions'),
             'modules_count' => $this->whenCounted('modules'),
             'formation_enrollments_count' => $this->whenCounted('formationEnrollments'),

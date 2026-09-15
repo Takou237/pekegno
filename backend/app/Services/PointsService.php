@@ -44,19 +44,38 @@ class PointsService
             } else {
                 $trainer = $this->trainerForInvoice($invoice);
 
-                if ($trainer === null) {
-                    return;
+                if ($trainer !== null) {
+                    TrainerPoint::create([
+                        'trainer_id' => $trainer->id,
+                        'points' => $points,
+                        'reason' => 'sale',
+                        'invoice_id' => $invoice->id,
+                        'created_by' => $actorUserId,
+                    ]);
+
+                    $this->recomputeTrainerBalance($trainer);
+                } else {
+                    // Vente de guichet (caissier / admin) rattachée à leur propre compte via
+                    // seller_user_id : ils ont un profil employé (Commercial kind=employe)
+                    // provisionné automatiquement, crédité comme un commercial.
+                    $employee = $invoice->seller_user_id !== null
+                        ? Commercial::where('user_id', $invoice->seller_user_id)->where('kind', 'employe')->first()
+                        : null;
+
+                    if ($employee === null) {
+                        return;
+                    }
+
+                    CommercialPoint::create([
+                        'commercial_id' => $employee->id,
+                        'points' => $points,
+                        'reason' => 'sale',
+                        'invoice_id' => $invoice->id,
+                        'created_by' => $actorUserId,
+                    ]);
+
+                    $this->recomputeBalance($employee);
                 }
-
-                TrainerPoint::create([
-                    'trainer_id' => $trainer->id,
-                    'points' => $points,
-                    'reason' => 'sale',
-                    'invoice_id' => $invoice->id,
-                    'created_by' => $actorUserId,
-                ]);
-
-                $this->recomputeTrainerBalance($trainer);
             }
 
             $invoice->update(['points_awarded' => $points]);

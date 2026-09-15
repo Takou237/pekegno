@@ -70,7 +70,7 @@ export default function CartPage() {
         <ShoppingCart size={48} className="mx-auto text-gray-300 mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('cart.title')}</h1>
         <p className="text-gray-500 mb-6">{t('cart.empty')}</p>
-        <Link to="/catalogue">
+        <Link to="/">
           <Button>{t('cart.browse')}</Button>
         </Link>
       </div>

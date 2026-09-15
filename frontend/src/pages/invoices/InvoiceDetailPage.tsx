@@ -287,8 +287,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             <Button
               variant="outline"
               onClick={() => setPrintOpen(true)}
-              disabled={isCommercial && invoice.status !== 'paid'}
-              title={isCommercial && invoice.status !== 'paid' ? t('invoices.printPendingPayment') : undefined}
+              disabled={invoice.status !== 'paid'}
+              title={invoice.status !== 'paid' ? t('invoices.printPendingPayment') : undefined}
             >
               <Printer className="h-4 w-4" />
               {t('invoices.print')}

@@ -161,8 +161,8 @@ export interface TrainingGroupStats {
   received: number;
   outstanding: number;
   trainers: number;
-  avg_attendance: number;
-  avg_fill_rate: number;
+  avg_attendance: number | null;
+  avg_fill_rate: number | null;
   monthly_trend: TrainingMonthPoint[];
   mode_breakdown: TrainingModeStat[];
   top_courses: TrainingCourseStat[];

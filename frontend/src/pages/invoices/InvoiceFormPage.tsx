@@ -49,6 +49,13 @@ export default function InvoiceFormPage({
   const [searchParams] = useSearchParams();
 
   const isCommercial = currentUser?.role?.name === 'commercial';
+  // Caissier / admin (super-admin, direction-generale) sont des validateurs :
+  // une vente de guichet qu'ils saisissent est validée directement (pas de
+  // workflow de validation), donc le vendeur par défaut est leur propre
+  // compte et aucune preuve de paiement n'est exigée pour OM/MoMo.
+  const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(
+    currentUser?.role?.name ?? ''
+  );
 
   const presetAgencyId = lockedAgencyId ?? routeAgencyId ?? searchParams.get('agency_id') ?? '';
   const [agencyLocked] = useState(Boolean(presetAgencyId));
@@ -87,6 +94,36 @@ export default function InvoiceFormPage({
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCommercial, currentUser?.id]);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    if (currentUser.role?.name === 'caissier') {
+      // Le caissier a un profil employé (Commercial kind=employe) : on le rattache
+      // via commercial_id, comme un commercial, pour que ses ventes remontent dans
+      // ses stats (CA, nombre de ventes, points) et pas seulement via seller_user_id.
+      employeesApi
+        .list({ per_page: 100, include_trainers: true })
+        .then((res) => {
+          const mine = (res.data ?? []).find((c) => c.user_id === currentUser.id) ?? null;
+          if (mine) {
+            setMyCommercial(mine);
+            setSellerId(mine.id);
+            setSellerIsTrainer(false);
+          } else {
+            setSellerId(currentUser.id);
+            setSellerIsTrainer(true);
+          }
+        })
+        .catch(() => {
+          setSellerId(currentUser.id);
+          setSellerIsTrainer(true);
+        });
+    } else if (isSelfSellerRole) {
+      setSellerId(currentUser.id);
+      setSellerIsTrainer(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSelfSellerRole, currentUser?.id]);
 
   useEffect(() => {
     if (!agencyLocked || !presetAgencyId) return;
@@ -253,13 +290,16 @@ export default function InvoiceFormPage({
               }}
               error={errors.client_id}
             />
-            {isCommercial ? (
+            {isCommercial || isSelfSellerRole ? (
               <Input
                 label={t('invoices.seller')}
                 value={
                   myCommercial
                     ? myCommercial.full_name || [myCommercial.first_name, myCommercial.last_name].filter(Boolean).join(' ')
-                    : currentUser?.name || ''
+                    : currentUser?.name?.trim() ||
+                      [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') ||
+                      currentUser?.email ||
+                      ''
                 }
                 disabled
               />
@@ -361,15 +401,11 @@ export default function InvoiceFormPage({
                 <option value="momo">{t('invoices.paymentMomo')}</option>
               </Select>
             </div>
-            {(isCommercial || paymentType === 'om' || paymentType === 'momo') && (
+            {isCommercial && (
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('invoices.paymentProof')}
-                  {isCommercial ? (
-                    <span className="text-error-500"> *</span>
-                  ) : (
-                    <span className="font-normal text-gray-400"> ({t('invoices.paymentProofOptional')})</span>
-                  )}
+                  <span className="text-error-500"> *</span>
                 </label>
                 <input
                   type="file"

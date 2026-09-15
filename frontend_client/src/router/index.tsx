@@ -1,12 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import PublicLayout from '@/layouts/PublicLayout';
 import AccountLayout from '@/layouts/AccountLayout';
 import { ProtectedRoute, GuestRoute } from './guards';
 import { FullPageSpinner } from '@/components/ui/Spinner';
 
 const HomePage = lazy(() => import('@/pages/public/HomePage'));
-const CatalogPage = lazy(() => import('@/pages/public/CatalogPage'));
 const ProductDetailPage = lazy(() => import('@/pages/public/ProductDetailPage'));
 const CartPage = lazy(() => import('@/pages/public/CartPage'));
 const PaymentPage = lazy(() => import('@/pages/public/PaymentPage'));
@@ -32,7 +31,7 @@ export const router = createBrowserRouter([
     element: <PublicLayout />,
     children: [
       { index: true, element: <SuspenseWrapper><HomePage /></SuspenseWrapper> },
-      { path: 'catalogue', element: <SuspenseWrapper><CatalogPage /></SuspenseWrapper> },
+      { path: 'catalogue', element: <Navigate to="/" replace /> },
       { path: 'produits/:slug', element: <SuspenseWrapper><ProductDetailPage /></SuspenseWrapper> },
       { path: 'panier', element: <SuspenseWrapper><CartPage /></SuspenseWrapper> },
       { path: 'paiement/:orderId', element: <SuspenseWrapper><PaymentPage /></SuspenseWrapper> },

@@ -104,7 +104,7 @@ export default function ProductDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Link to="/catalogue" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 mb-6">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 mb-6">
         <ArrowLeft size={16} /> {t('common.back')}
       </Link>
 

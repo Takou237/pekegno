@@ -33,6 +33,7 @@ export interface Course {
   agency?: { id: string; name: string; code: string } | null;
   availability: 'agency' | 'global';
   is_active: boolean;
+  is_public: boolean;
   sessions_count?: number;
   modules_count?: number;
   formation_enrollments_count?: number;
@@ -80,6 +81,8 @@ export interface CoursePayload {
   agency_id?: string | null;
   category_ids?: string[];
   is_active?: boolean;
+  is_public?: boolean;
+  target_country_ids?: string[];
 }
 
 export interface CourseListParams {

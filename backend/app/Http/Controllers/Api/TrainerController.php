@@ -332,11 +332,15 @@ class TrainerController extends Controller
         $enrolled = $enrollments->filter($notCancelled)->count();
         $completed = $enrollments->where('status', 'completed')->count();
         $cancelled = $enrollments->where('status', 'cancelled')->count();
-        $present = $sessionIds->isNotEmpty()
-            ? Attendance::whereIn('training_session_id', $sessionIds)
-                ->where('status', Attendance::STATUS_PRESENT)
-                ->count()
-            : 0;
+        // La présence est enregistrée par (session, module) : le dénominateur du taux doit
+        // être le nombre de pointages réellement effectués (present + absent), pas le
+        // nombre d'inscrits attendus par session, sous peine de taux > 100 % dès qu'un
+        // cours a plusieurs modules pointés par session.
+        $attendanceStatuses = $sessionIds->isNotEmpty()
+            ? Attendance::whereIn('training_session_id', $sessionIds)->pluck('status')
+            : collect();
+        $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
+        $expectedPresences = $attendanceStatuses->count();
 
         // Revenus potentiels : inscrits (non annulés) au cours × prix effectif de chaque session.
         $revenue = $sessions->sum(function ($session) use ($enrollments, $notCancelled) {
@@ -347,12 +351,6 @@ class TrainerController extends Controller
 
             return $count * $session->effective_price;
         });
-
-        // Présences attendues : un apprenant inscrit est attendu à chaque session de son cours.
-        $expectedPresences = $sessions->sum(fn ($session) => $enrollments
-            ->where('course_id', $session->course_id)
-            ->filter($notCancelled)
-            ->count());
 
         // Heures enseignées : durée du cours des sessions terminées ou en cours.
         $hoursTaught = $sessions
@@ -513,7 +511,7 @@ class TrainerController extends Controller
                 'learners_unique' => $enrollments->pluck('learner_user_id')->unique()->count(),
                 'attendance_count' => $present,
                 'attendance_rate' => $expectedPresences > 0
-                    ? round($present / $expectedPresences * 100, 1)
+                    ? min(100, round($present / $expectedPresences * 100, 1))
                     : 0.0,
                 'completion_rate' => $enrolled > 0
                     ? round($completed / $enrolled * 100, 1)

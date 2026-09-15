@@ -17,7 +17,11 @@ type CatalogItem =
 
 const PER_PAGE_OPTIONS = [8, 12, 24];
 
-export default function CatalogPage() {
+interface CatalogSectionProps {
+  title?: string;
+}
+
+export default function CatalogSection({ title }: CatalogSectionProps) {
   const { t } = useTranslation();
   const { addItem } = useCart();
   const { showToast } = useToast();
@@ -117,19 +121,21 @@ export default function CatalogPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">{t('catalog.title')}</h1>
-        <div className="relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder={t('common.search') + '...'}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm w-full md:w-64 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-          />
+      {title && (
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+          <div className="relative">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder={t('common.search') + '...'}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm w-full md:w-64 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 mb-6">
         {types.map(({ key, label }) => (

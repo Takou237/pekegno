@@ -400,7 +400,7 @@ export default function CourseDetailPage() {
     try {
       let learnerUserId = enrollForm.learner_user_id;
       if (learnerMode === 'new') {
-        if (!newLearner.first_name || !newLearner.last_name || !newLearner.email) {
+        if (!newLearner.first_name || !newLearner.last_name) {
           setEnrollError(t('academy.newLearnerRequired'));
           setEnrollFieldErrors({});
           setEnrollSubmitting(false);
@@ -938,7 +938,6 @@ export default function CourseDetailPage() {
             value={enrollForm.amount_paid}
             onChange={(e) => setEnrollForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
             error={enrollFieldErrors.amount_paid}
-            hint={t('academy.amountPaidHint')}
           />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">

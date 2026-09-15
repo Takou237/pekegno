@@ -30,7 +30,10 @@ class StoreCourseRequest extends FormRequest
             'cover_image' => ['sometimes', 'nullable', 'string', 'max:255'],
             'presentation_video' => ['sometimes', 'nullable', 'string', 'max:255'],
             'agency_id' => ['sometimes', 'nullable', 'string', Rule::exists('agencies', 'id')->whereNull('deleted_at')],
+            'target_country_ids' => ['sometimes', 'array'],
+            'target_country_ids.*' => ['string', 'exists:countries,id'],
             'is_active' => ['sometimes', 'boolean'],
+            'is_public' => ['sometimes', 'boolean'],
         ];
     }
 }

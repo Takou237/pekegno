@@ -130,7 +130,6 @@ export function EnrollmentLearnerField({
           <Input
             label={t('common.email')}
             type="email"
-            required
             value={newLearner.email}
             onChange={(e) => set('email', e.target.value)}
           />

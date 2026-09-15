@@ -109,6 +109,9 @@ class RoleSeeder extends Seeder
                 $p('products', ['consulter']),
                 $p('categories', ['consulter']),
                 $p('promotions', ['consulter']),
+                // countries.consulter sert au sélecteur de pays du formulaire apprenant
+                // (formulaire "Nouvelle inscription" côté commercial).
+                $p('countries', ['consulter']),
                 $p('invoices', ['consulter', 'creer', 'imprimer', 'annuler']),
                 $p('stats', ['consulter']),
                 $p('orders', ['consulter', 'creer', 'modifier']),

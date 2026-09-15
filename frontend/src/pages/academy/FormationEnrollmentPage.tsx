@@ -318,7 +318,7 @@ export default function FormationEnrollmentPage() {
 
       let learnerUserId = form.learner_user_id;
       if (learnerMode === 'new') {
-        if (!newLearner.first_name || !newLearner.last_name || !newLearner.email) {
+        if (!newLearner.first_name || !newLearner.last_name) {
           setFormError(t('academy.newLearnerRequired'));
           setIsSubmitting(false);
           return;
@@ -656,7 +656,12 @@ export default function FormationEnrollmentPage() {
           {isSellerUser ? (
             <Input
               label={t('academy.seller')}
-              value={currentUser?.name || ''}
+              value={
+                currentUser?.name?.trim() ||
+                [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') ||
+                currentUser?.email ||
+                ''
+              }
               disabled
             />
           ) : (
@@ -688,7 +693,6 @@ export default function FormationEnrollmentPage() {
               value={form.amount_paid}
               onChange={(e) => setForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
               error={fieldErrors.amount_paid}
-              hint={t('academy.amountPaidHint')}
             />
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">

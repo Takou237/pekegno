@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreClientRequest;
 use App\Http\Requests\Api\UpdateClientRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Country;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use App\Models\Role;
@@ -21,6 +22,26 @@ use OpenApi\Attributes as OA;
 
 class ClientController extends Controller
 {
+    /**
+     * Dérive le texte "country" affiché partout dans l'app (liste, fiche client)
+     * depuis le country_id sélectionné, quand seul l'identifiant est fourni
+     * (ex. formulaire "nouvel apprenant" de l'inscription formation, qui n'envoie
+     * que country_id). Sans cette dérivation, sélectionner un pays n'a aucun
+     * effet visible : rien ne lit country_id ailleurs que ce champ lui-même.
+     */
+    private function resolveCountryName(array $data): ?string
+    {
+        if (! empty($data['country'])) {
+            return $data['country'];
+        }
+
+        if (empty($data['country_id'])) {
+            return $data['country'] ?? null;
+        }
+
+        return Country::find($data['country_id'])?->name ?? ($data['country'] ?? null);
+    }
+
     public function __construct(
         private readonly ActivityLogger $activityLogger,
         private readonly ScopeService $scopeService,
@@ -126,6 +147,13 @@ class ClientController extends Controller
     {
         $clientRole = Role::where('name', 'client')->firstOrFail();
         $data = $request->validated();
+        $data['country'] = $this->resolveCountryName($data);
+
+        // Apprenant inscrit au guichet sans email : email de connexion généré (unique,
+        // jamais montré comme "le sien"), modifiable plus tard depuis sa fiche.
+        if (empty($data['email'])) {
+            $data['email'] = Str::uuid().'@sans-email.pekegno.local';
+        }
 
         $hasPassword = ! empty($data['password']);
 
@@ -299,6 +327,9 @@ class ClientController extends Controller
         }
 
         $data = $request->validated();
+        if (array_key_exists('country_id', $data)) {
+            $data['country'] = $this->resolveCountryName($data) ?? $data['country'] ?? null;
+        }
         $tracked = [
             'first_name', 'last_name', 'email', 'phone', 'city', 'country', 'address',
             'is_active', 'client_category_id', 'status', 'country_id', 'city_id',

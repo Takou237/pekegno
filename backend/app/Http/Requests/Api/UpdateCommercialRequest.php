@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api;
 use App\Models\Commercial;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateCommercialRequest extends FormRequest
@@ -22,7 +23,15 @@ class UpdateCommercialRequest extends FormRequest
             'kind' => ['sometimes', 'in:commercial,employe'],
             'first_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'last_name' => ['sometimes', 'nullable', 'string', 'max:150'],
-            'email' => ['sometimes', 'nullable', 'email', 'max:255', 'unique:commercials,email,'.$this->route('commercial')],
+            'email' => [
+                'sometimes', 'nullable', 'email', 'max:255',
+                // La liaison implicite de route donne ici le modèle Commercial, pas son id :
+                // concaténer directement dans une règle string ('unique:...,'.$model) appelle
+                // Model::__toString() (= le JSON complet de la ligne), ce qui corrompt le
+                // parsing de la règle unique (erreur "Undefined array key"). Rule::unique()
+                // gère nativement un modèle passé à ignore().
+                Rule::unique('commercials', 'email')->ignore($this->route('commercial')),
+            ],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'commission_type' => ['sometimes', 'in:none,percent,fixed'],
             'commission_value' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999999'],
