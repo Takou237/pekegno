@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateServiceRequest extends FormRequest
 {
@@ -16,7 +17,10 @@ class UpdateServiceRequest extends FormRequest
         $isSeminar = (bool) $this->boolean('is_seminar');
 
         return [
-            'code' => ['sometimes', 'nullable', 'string', 'max:50', 'unique:services,code,'.$this->route('service')],
+            // Rule::unique()->ignore() gère nativement le modèle donné par la liaison
+            // de route ; concaténer '.$this->route(...)' appelle Model::__toString()
+            // (le JSON de la ligne), ce qui corrompt la règle unique.
+            'code' => ['sometimes', 'nullable', 'string', 'max:50', Rule::unique('services', 'code')->ignore($this->route('service'))],
             'category_id' => ['sometimes', 'required', 'uuid', 'exists:categories,id'],
             'agency_id' => ['sometimes', 'required', 'uuid', 'exists:agencies,id'],
             'name' => ['sometimes', 'required', 'string', 'max:255'],

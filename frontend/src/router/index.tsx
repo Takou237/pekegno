@@ -55,6 +55,7 @@ const ClientDetailPage = lazy(() => import('@/pages/clients/ClientDetailPage'));
 const CommercialListPage = lazy(() => import('@/pages/commercials/CommercialListPage'));
 const CommercialDetailPage = lazy(() => import('@/pages/commercials/CommercialDetailPage'));
 const CommercialSelfDashboardPage = lazy(() => import('@/pages/commercials/CommercialSelfDashboardPage'));
+const CommercialCommissionsPage = lazy(() => import('@/pages/commercials/CommercialCommissionsPage'));
 const AgencyCommercialsPage = lazy(() => import('@/pages/commercials/AgencyCommercialsPage'));
 const AgencyCommercialDetailPage = lazy(
   () => import('@/pages/commercials/AgencyCommercialDetailPage')
@@ -189,6 +190,7 @@ export const router = createBrowserRouter([
           { path: '/clients/:id', element: page(<ClientDetailPage />, detail) },
           { path: '/commercials', element: page(<CommercialListPage />, table) },
           { path: '/commercial/dashboard', element: page(<CommercialSelfDashboardPage />, dashboard) },
+          { path: '/commercial/commissions', element: page(<CommercialCommissionsPage />, dashboard) },
           { path: '/commercials/report', element: page(<CommercialReportPage />, table) },
           { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },
           { path: '/employees', element: page(<EmployeeListPage />, table) },

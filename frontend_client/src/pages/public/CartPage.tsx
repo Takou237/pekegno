@@ -25,9 +25,22 @@ export default function CartPage() {
 
   const hasUnavailable = items.some((i) => i.available === false);
 
+  // Chaque article du panier porte déjà l'agence à laquelle il appartient : pas
+  // besoin de redemander à choisir si tous les articles sont de la même agence
+  // (cas courant), on l'affiche directement au lieu d'un sélecteur vide.
+  const itemAgencyIds = Array.from(new Set(items.map((i) => i.agencyId).filter((id): id is string => Boolean(id))));
+  const resolvedAgencyId = itemAgencyIds.length === 1 ? itemAgencyIds[0] : '';
+  const resolvedAgencyName = items.find((i) => i.agencyId === resolvedAgencyId)?.agencyName;
+  const needsAgencyChoice = !resolvedAgencyId;
+
   useEffect(() => {
-    publicApi.getAgencies().then(setAgencies).catch(() => {});
-  }, []);
+    if (resolvedAgencyId) {
+      setSelectedAgency(resolvedAgencyId);
+    } else if (needsAgencyChoice) {
+      publicApi.getAgencies().then(setAgencies).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedAgencyId, needsAgencyChoice]);
 
   const handleCheckout = async () => {
     if (!isAuthenticated) {
@@ -163,12 +176,19 @@ export default function CartPage() {
           </div>
 
           <div className="space-y-4">
-            <Select label={t('cart.selectAgency')} value={selectedAgency} onChange={(e) => setSelectedAgency(e.target.value)}>
-              <option value="">{t('cart.selectAgency')}</option>
-              {agencies.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}{a.city ? ` - ${a.city}` : ''}</option>
-              ))}
-            </Select>
+            {resolvedAgencyId ? (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">{t('cart.selectAgency')}</p>
+                <p className="font-medium text-gray-900">{resolvedAgencyName}</p>
+              </div>
+            ) : (
+              <Select label={t('cart.selectAgency')} value={selectedAgency} onChange={(e) => setSelectedAgency(e.target.value)}>
+                <option value="">{t('cart.selectAgency')}</option>
+                {agencies.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}{a.city ? ` - ${a.city}` : ''}</option>
+                ))}
+              </Select>
+            )}
 
             {!isAuthenticated ? (
               <Alert variant="info">{t('product.loginToBuy')}</Alert>

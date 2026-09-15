@@ -29,6 +29,14 @@ class LearnerController extends Controller
 
         $this->applyAgencyScope($query, $agencyIds);
 
+        // Fiche apprenant ouverte depuis une formation précise (onglet Apprenants
+        // d'un cours) : ne montrer que ce qui concerne cette formation, pas tout
+        // l'historique de l'apprenant.
+        if ($request->filled('course_id')) {
+            $courseId = $request->input('course_id');
+            $query->whereHas('session', fn ($q) => $q->where('course_id', $courseId));
+        }
+
         return $query;
     }
 
@@ -133,6 +141,30 @@ class LearnerController extends Controller
                 )
                 ->where('status', $request->status)
                 ->select('learner_user_id'));
+        }
+
+        // Filtre "Apprenants" par formation : inscrit via une inscription directe
+        // (formation_enrollments.course_id) ou via une session de ce cours
+        // (session_participants -> training_sessions.course_id).
+        if ($request->filled('course_id')) {
+            $courseId = $request->input('course_id');
+            $query->where(function ($q) use ($courseId, $participantQuery) {
+                $q->whereIn('id', \App\Models\FormationEnrollment::where('course_id', $courseId)->select('learner_user_id'))
+                    ->orWhereIn('id', $participantQuery()
+                        ->join('formation_enrollments', 'formation_enrollments.id', '=', 'session_participants.formation_enrollment_id')
+                        ->join('training_sessions', 'training_sessions.id', '=', 'session_participants.training_session_id')
+                        ->where('training_sessions.course_id', $courseId)
+                        ->select('formation_enrollments.learner_user_id'));
+            });
+        }
+
+        // Filtre par session précise (feuille de présence, rappel de session…).
+        if ($request->filled('session_id')) {
+            $sessionId = $request->input('session_id');
+            $query->whereIn('id', $participantQuery()
+                ->join('formation_enrollments', 'formation_enrollments.id', '=', 'session_participants.formation_enrollment_id')
+                ->where('session_participants.training_session_id', $sessionId)
+                ->select('formation_enrollments.learner_user_id'));
         }
 
         $learners = $query->orderByDesc('created_at')->paginate(min((int) $request->input('per_page', 15), 100));
@@ -255,6 +287,10 @@ class LearnerController extends Controller
         $completed = $participants->filter(fn ($p) => $p->formationEnrollment?->status === 'completed')->count();
         $attended = \App\Models\Attendance::where('learner_user_id', $learner->id)
             ->where('status', 'present')
+            ->when(
+                $request->filled('course_id'),
+                fn ($q) => $q->whereHas('trainingSession', fn ($sq) => $sq->where('course_id', $request->input('course_id'))),
+            )
             ->count();
 
         // Total investi : prix effectif des sessions non annulées.
@@ -274,6 +310,10 @@ class LearnerController extends Controller
         // lorsqu'un créneau horaire équivalent était validé via la session).
         $hoursCompleted = \App\Models\Attendance::where('learner_user_id', $learner->id)
             ->where('status', 'present')
+            ->when(
+                $request->filled('course_id'),
+                fn ($q) => $q->whereHas('trainingSession', fn ($sq) => $sq->where('course_id', $request->input('course_id'))),
+            )
             ->with(['courseModule', 'trainingSession.course'])
             ->get()
             ->sum(function ($attendance) {
@@ -340,6 +380,7 @@ class LearnerController extends Controller
                 'last_name' => $learner->last_name,
                 'email' => $learner->email,
                 'phone' => $learner->phone,
+                'country' => $learner->country,
                 'client_number' => $learner->client_number,
                 'is_active' => $learner->is_active,
                 'created_at' => $learner->created_at?->toISOString(),

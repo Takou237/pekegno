@@ -26,6 +26,7 @@ import {
   Undo2,
   Warehouse,
   Landmark,
+  Coins,
   CircleDollarSign,
   DollarSign,
   ScrollText,
@@ -158,6 +159,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       ...baseItems,
       { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
       invoiceItem(t, unpaidBadge),
+      { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
       catalogItem(t),
     ];
   }
@@ -178,6 +180,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
       return [
         { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
         { to: 'prospects', label: t('nav.prospects'), icon: Users, end: false },
+        { to: 'learners', label: t('nav.learners'), icon: UserCheck, end: false },
         { to: 'products', label: t('nav.services'), icon: Package, end: false },
         { to: 'courses', label: t('nav.courses'), icon: BookOpen, end: false },
         { to: 'sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },

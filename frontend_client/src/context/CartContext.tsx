@@ -14,6 +14,7 @@ export interface CartItem {
   quantity: number;
   slug?: string | null;
   coverImage?: string | null;
+  agencyId?: string;
   agencyName?: string;
   categoryName?: string | null;
   available?: boolean;
@@ -72,6 +73,8 @@ function fromServerCart(cart: ServerCart): CartItem[] {
       quantity: item.quantity,
       slug: item.slug ?? undefined,
       coverImage: item.cover_image,
+      agencyId: item.agency_id ?? undefined,
+      agencyName: item.agency_name ?? undefined,
       categoryName: item.category_name,
       available: item.available,
       reason: item.reason ?? null,

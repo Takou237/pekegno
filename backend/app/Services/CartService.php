@@ -25,7 +25,15 @@ class CartService
      */
     public function payload(Cart $cart): array
     {
-        $cart->loadMissing(['agency:id,name,city', 'items.service:id,name,price,is_public,is_seminar,cover_image,slug,category_id', 'items.product:id,name,selling_price,tax_rate,is_public,is_active,cover_image,slug,category_id', 'items.service.category:id,name', 'items.product.category:id,name']);
+        $cart->loadMissing([
+            'agency:id,name,city',
+            'items.service:id,name,price,is_public,is_seminar,cover_image,slug,category_id,agency_id',
+            'items.product:id,name,selling_price,tax_rate,is_public,is_active,cover_image,slug,category_id,agency_id',
+            'items.service.category:id,name',
+            'items.product.category:id,name',
+            'items.service.agency:id,name,city',
+            'items.product.agency:id,name,city',
+        ]);
 
         $lines = $cart->items->map(function ($item) {
             $service = $item->service;
@@ -40,6 +48,7 @@ class CartService
             $slug = null;
             $categoryName = null;
             $reason = null;
+            $agency = null;
 
             if ($service) {
                 $type = 'service';
@@ -50,6 +59,7 @@ class CartService
                 $slug = $service->slug;
                 $categoryName = $service->category->name ?? null;
                 $available = (bool) $service->is_public;
+                $agency = $service->agency;
                 if (! $service->is_public) {
                     $reason = 'indisponible';
                 }
@@ -62,6 +72,7 @@ class CartService
                 $slug = $product->slug;
                 $categoryName = $product->category->name ?? null;
                 $available = (bool) ($product->is_public && $product->is_active);
+                $agency = $product->agency;
                 if (! $available) {
                     $reason = 'indisponible';
                 }
@@ -75,6 +86,11 @@ class CartService
                 'service' => $item->service_id ? ['id' => $item->service_id] : null,
                 'product' => $item->product_id ? ['id' => $item->product_id] : null,
                 'name' => $name,
+                // Agence propriétaire de l'article (service/produit) : permet au front
+                // d'afficher directement l'agence de commande sans redemander de
+                // sélectionner, tant que tous les articles du panier partagent la même.
+                'agency_id' => $agency?->id,
+                'agency_name' => $agency?->name,
                 'unit_price' => $service ? (float) $service->price : ($product ? (float) $product->selling_price : 0.0),
                 'effective_price' => $effectivePrice,
                 'quantity' => $item->quantity,

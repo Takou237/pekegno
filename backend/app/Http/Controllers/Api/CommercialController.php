@@ -707,11 +707,75 @@ class CommercialController extends Controller
             ->orderByDesc('total')
             ->get();
 
-        $earnedCommissions = (float) (clone $base)->sum('commission_amount');
-        $paidCommissions = (float) \App\Models\CommissionPayment::query()
+        // Source unique de vérité : CommissionEntry / CommissionPayment (le système qui
+        // pilote réellement les versements en Comptabilité). Le champ invoices.commission_amount
+        // est un champ hérité qui peut diverger (taux figé à la création, etc.) — l'utiliser
+        // ici désynchronisait "Mes commissions" du solde réellement payable en Comptabilité.
+        $commissionEntries = \App\Models\CommissionEntry::query()
+            ->where('beneficiary_commercial_id', $commercial->id)
+            ->whereIn('status', [
+                \App\Models\CommissionEntry::STATUS_CALCULATED,
+                \App\Models\CommissionEntry::STATUS_VALIDATED,
+                \App\Models\CommissionEntry::STATUS_PAID,
+            ])
+            ->with('invoice:id,number')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $owedCommissions = (float) $commissionEntries
+            ->whereIn('status', [\App\Models\CommissionEntry::STATUS_CALCULATED, \App\Models\CommissionEntry::STATUS_VALIDATED])
+            ->sum('amount');
+        $earnedCommissions = (float) $commissionEntries->sum('amount');
+
+        $commissionPayments = \App\Models\CommissionPayment::query()
             ->where('commercial_id', $commercial->id)
             ->where('rule', 'commission_payment')
-            ->sum('amount');
+            ->with('invoice:id,number')
+            ->orderByDesc('created_at')
+            ->get();
+        $paidCommissions = (float) $commissionPayments->sum('amount');
+
+        // Historique : entrées de commission générées + versements effectués,
+        // triés du plus récent au plus ancien.
+        $earnedHistory = $commissionEntries->take(50)->map(fn ($entry) => [
+            'type' => 'earned',
+            'date' => $entry->created_at?->toISOString(),
+            'amount' => round((float) $entry->amount, 2),
+            'reference' => $entry->invoice?->number,
+        ]);
+        $paidHistory = $commissionPayments->take(50)->map(fn ($p) => [
+            'type' => 'paid',
+            'date' => $p->created_at?->toISOString(),
+            'amount' => round((float) $p->amount, 2),
+            'reference' => $p->invoice?->number,
+        ]);
+        $commissionHistory = $earnedHistory->concat($paidHistory)
+            ->sortByDesc('date')
+            ->take(50)
+            ->values();
+
+        // Rang par chiffre d'affaires parmi les commerciaux de la même agence
+        // (ou toute l'organisation si l'agence n'est pas renseignée).
+        $peers = Commercial::query()
+            ->kind('commercial')
+            ->where('is_active', true)
+            ->when($commercial->agency_id, fn ($q) => $q->where('agency_id', $commercial->agency_id))
+            ->addSelect([
+                'turnover' => Invoice::query()
+                    ->selectRaw('coalesce(sum(total_amount), 0)')
+                    ->whereColumn('commercial_id', 'commercials.id')
+                    ->where('status', 'paid')
+                    ->where('validation_status', \App\Models\Invoice::VALIDATION_VALIDATED)
+                    ->whereNull('cancelled_at'),
+            ])
+            ->get(['id'])
+            ->sortByDesc(fn ($c) => (float) $c->turnover)
+            ->values();
+        $rankPosition = $peers->search(fn ($c) => $c->id === $commercial->id);
+        $rank = [
+            'position' => $rankPosition === false ? null : $rankPosition + 1,
+            'total' => $peers->count(),
+        ];
 
         // Nombre de ventes = somme des quantités de services vendus (pas le nombre de factures).
         $salesCount = (int) DB::table('invoice_items')
@@ -729,7 +793,11 @@ class CommercialController extends Controller
             'turnover' => round((float) (clone $base)->sum('total_amount'), 2),
             'sales_count' => $salesCount,
             // Solde restant : commissions gagnées sur factures payées − versements effectués.
-            'commissions' => round(max($earnedCommissions - $paidCommissions, 0), 2),
+            'commissions' => round($owedCommissions, 2),
+            'commissions_earned' => round($earnedCommissions, 2),
+            'commissions_paid' => round($paidCommissions, 2),
+            'commission_history' => $commissionHistory,
+            'rank' => $rank,
             'points_balance' => $commercial->points_balance,
             'services_sold' => $servicesSold,
             'monthly' => $monthly,

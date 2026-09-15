@@ -7,7 +7,7 @@ import { SkeletonCards } from '@/components/ui/Skeleton';
 import Pagination from '@/components/ui/Pagination';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
-import { Search, SlidersHorizontal, ShoppingCart, GraduationCap } from 'lucide-react';
+import { Search, SlidersHorizontal, ShoppingCart, GraduationCap, MapPin } from 'lucide-react';
 import type { Country, Agency, Service, Product, PublicCourse } from '@/types';
 
 type CatalogItem =
@@ -108,6 +108,7 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
       quantity: 1,
       slug: item.slug,
       coverImage: item.cover_image,
+      agencyId: item.agency ? item.agency.id : undefined,
       agencyName: item.agency ? item.agency.name : undefined,
       categoryName: item.category ? item.category.name : undefined,
     });
@@ -221,6 +222,12 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
                       : item.category && <span className="text-xs text-gray-400">{item.category.name}</span>}
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-brand-600 transition-colors">{item.name}</h3>
+                  {item.type === 'course' && item.available_at && item.available_at.length > 1 && (
+                    <p className="flex items-center gap-1 text-xs text-gray-400 mb-1">
+                      <MapPin size={12} />
+                      {t('catalog.availableAt', { count: item.available_at.length })}
+                    </p>
+                  )}
                   {item.description && <p className="text-sm text-gray-500 line-clamp-2 mb-3">{item.description}</p>}
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-brand-600">{formatCurrency(displayPrice(item))}</span>

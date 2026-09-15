@@ -67,6 +67,7 @@ export default function ProductDetailPage() {
       quantity,
       slug,
       coverImage: item.cover_image,
+      agencyId: item.agency && typeof item.agency === 'object' ? item.agency.id : undefined,
       agencyName: item.agency && typeof item.agency === 'object' ? item.agency.name : undefined,
       categoryName: 'category' in item && item.category && typeof item.category === 'object' ? item.category.name : undefined,
     });
@@ -146,6 +147,25 @@ export default function ProductDetailPage() {
               </div>
             )}
           </div>
+
+          {course && course.available_at && course.available_at.length > 1 && (
+            <div className="mb-8">
+              <p className="text-sm text-gray-500 mb-2">{t('catalog.alsoAvailableAt')}</p>
+              <div className="flex flex-wrap gap-2">
+                {course.available_at
+                  .filter((a) => a.course_id !== course.id)
+                  .map((a) => (
+                    <Link
+                      key={a.course_id}
+                      to={`/produits/${a.slug}`}
+                      className="rounded-full border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:border-brand-400 hover:text-brand-600 transition-colors"
+                    >
+                      {a.agency_name}
+                    </Link>
+                  ))}
+              </div>
+            </div>
+          )}
 
           {course ? (
             <div className="bg-gray-50 rounded-lg p-6 flex flex-col gap-4">

@@ -146,14 +146,34 @@ class InvoiceController extends Controller
 
         $perPage = min((int) $request->input('per_page', 15), 100);
 
-        $invoices = $base
+        $paginator = $base
             ->with(['client:id,first_name,last_name,email,client_number,phone', 'commercial:id,first_name,last_name,email,phone', 'agency:id,name,code,city,address,phone,email'])
             ->withCount(['paymentProofs' => fn ($q) => $q->where('status', PaymentProof::STATUS_PENDING)])
             ->orderByDesc('invoice_date')
             ->paginate($perPage);
 
+        // Le paginateur brut sérialise ses champs à plat (total, current_page, ... au
+        // premier niveau), pas sous "meta" comme les autres endpoints paginés de l'app
+        // (AnonymousResourceCollection). Les nombreux consommants front (badge de
+        // notification, pagination des listes de factures...) lisent tous
+        // res.invoices.meta.total : sans cet enveloppe, ce champ est undefined et ces
+        // compteurs restent bloqués à 0 silencieusement.
         return response()->json([
-            'invoices' => $invoices,
+            'invoices' => [
+                'data' => $paginator->items(),
+                'meta' => [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                ],
+                'links' => [
+                    'first' => $paginator->url(1),
+                    'last' => $paginator->url($paginator->lastPage()),
+                    'prev' => $paginator->previousPageUrl(),
+                    'next' => $paginator->nextPageUrl(),
+                ],
+            ],
             'totals' => [
                 'revenue' => (float) $totals->revenue,
                 'outstanding' => (float) $totals->outstanding,

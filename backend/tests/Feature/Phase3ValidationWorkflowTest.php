@@ -86,7 +86,7 @@ class Phase3ValidationWorkflowTest extends TestCase
 
         $this->getJson('/api/invoices?validation_status=pending')
             ->assertOk()
-            ->assertJsonPath('invoices.total', 1);
+            ->assertJsonPath('invoices.meta.total', 1);
 
         $validated = $this->postJson("/api/invoices/{$invoice->id}/validate")
             ->assertOk()
@@ -99,8 +99,8 @@ class Phase3ValidationWorkflowTest extends TestCase
         $this->assertNotNull($invoice->validated_by);
         $this->assertNotNull($invoice->validated_at);
 
-        $this->getJson('/api/invoices?validation_status=pending')->assertJsonPath('invoices.total', 0);
-        $this->getJson('/api/invoices?validation_status=validated')->assertJsonPath('invoices.total', 1);
+        $this->getJson('/api/invoices?validation_status=pending')->assertJsonPath('invoices.meta.total', 0);
+        $this->getJson('/api/invoices?validation_status=validated')->assertJsonPath('invoices.meta.total', 1);
     }
 
     public function test_reject_requires_a_reason_and_records_it(): void

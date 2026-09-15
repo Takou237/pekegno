@@ -545,7 +545,10 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
             <option value=""></option>
             {payableBeneficiaries.map((b) => (
               <option key={`${b.type}-${b.id}`} value={b.id}>
-                {b.name} — {formatCurrency(Number(b.balance ?? 0))}
+                {b.name}
+                {b.kind === 'employe' || b.kind === 'employee' ? ` (${t('nav.employees')})` : ''}
+                {' — '}
+                {formatCurrency(Number(b.balance ?? 0))}
               </option>
             ))}
           </Select>

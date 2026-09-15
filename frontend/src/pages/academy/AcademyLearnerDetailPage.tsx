@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   CalendarDays,
@@ -11,6 +11,7 @@ import {
   BadgeCheck,
   Mail,
   Phone,
+  Globe,
   Users,
   Award,
   CalendarCheck,
@@ -121,6 +122,10 @@ export default function AcademyLearnerDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { learnerId } = useParams<{ learnerId: string }>();
+  const [searchParams] = useSearchParams();
+  // Fiche ouverte depuis l'onglet Apprenants d'une formation précise
+  // (?course_id=...) : tout ce qui suit ne concerne que cette formation.
+  const courseId = searchParams.get('course_id') || '';
   const [data, setData] = useState<LearnerStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -132,8 +137,10 @@ export default function AcademyLearnerDetailPage() {
     setIsLoading(true);
     setLoadError(null);
     Promise.all([
-      academyApi.learnerStats(learnerId),
-      certificatesApi.list({ per_page: 50 }).catch(() => ({ data: [] as Certificate[], current_page: 1, last_page: 1, per_page: 50, total: 0 })),
+      academyApi.learnerStats(learnerId, courseId),
+      certificatesApi
+        .list({ learner_user_id: learnerId, course_id: courseId || undefined, per_page: 50 })
+        .catch(() => ({ data: [] as Certificate[], current_page: 1, last_page: 1, per_page: 50, total: 0 })),
     ])
       .then(([statsRes, certRes]) => {
         if (!active) return;
@@ -145,7 +152,7 @@ export default function AcademyLearnerDetailPage() {
       })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
-  }, [learnerId, t]);
+  }, [learnerId, courseId, t]);
 
   if (isLoading) return <SkeletonDashboard />;
 
@@ -192,6 +199,14 @@ export default function AcademyLearnerDetailPage() {
         {t('nav.learners')}
       </button>
 
+      {courseId && (
+        <div className="rounded-xl border border-brand-100 bg-brand-50 px-4 py-2.5 text-sm text-brand-700 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-300">
+          {t('academy.scopedToCourse', {
+            course: stats.courses_progress?.[0]?.course_name ?? '',
+          })}
+        </div>
+      )}
+
       {/* Profil apprenant */}
       <div className="rounded-2xl border border-gray-100 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex flex-wrap items-center gap-4">
@@ -222,6 +237,12 @@ export default function AcademyLearnerDetailPage() {
                 <span className="flex items-center gap-1.5">
                   <Phone className="h-3.5 w-3.5" />
                   {learner.phone}
+                </span>
+              )}
+              {learner.country && (
+                <span className="flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5" />
+                  {learner.country}
                 </span>
               )}
               {learner.created_at && (

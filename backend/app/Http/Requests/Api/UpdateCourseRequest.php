@@ -15,7 +15,7 @@ class UpdateCourseRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => ['sometimes', 'nullable', 'string', 'max:50', 'unique:courses,code,'.$this->route('course')],
+            'code' => ['sometimes', 'nullable', 'string', 'max:50', Rule::unique('courses', 'code')->ignore($this->route('course'))],
             'name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'description' => ['sometimes', 'nullable', 'string'],
             'objective' => ['sometimes', 'nullable', 'string'],

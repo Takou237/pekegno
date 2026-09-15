@@ -699,7 +699,7 @@ export default function CourseDetailPage() {
                             <li key={item.learner_user_id || item.formation_enrollment_id} className="flex items-center justify-between py-2 text-sm">
                               {item.learner_user_id ? (
                                 <Link
-                                  to={`/departments/${departmentId}/learners/${item.learner_user_id}`}
+                                  to={`/departments/${departmentId}/learners/${item.learner_user_id}?course_id=${courseId}`}
                                   className="text-gray-700 hover:text-brand-600 hover:underline dark:text-gray-300 dark:hover:text-brand-400"
                                 >
                                   {[item.learner?.first_name, item.learner?.last_name].filter(Boolean).join(' ') ||
@@ -748,7 +748,7 @@ export default function CourseDetailPage() {
                     <td className="px-5 py-3 text-gray-700 dark:text-gray-300">
                       {learnerId ? (
                         <Link
-                          to={`/departments/${departmentId}/learners/${learnerId}`}
+                          to={`/departments/${departmentId}/learners/${learnerId}?course_id=${courseId}`}
                           className="font-medium text-gray-800 hover:text-brand-600 hover:underline dark:text-gray-100 dark:hover:text-brand-400"
                         >
                           {[enrollment.learner?.first_name, enrollment.learner?.last_name].filter(Boolean).join(' ') ||

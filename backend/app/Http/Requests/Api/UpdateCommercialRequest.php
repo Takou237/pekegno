@@ -56,7 +56,7 @@ class UpdateCommercialRequest extends FormRequest
                 }
 
                 if ($user && Commercial::where('user_id', $userId)
-                    ->where('id', '!=', $this->route('commercial'))
+                    ->where('id', '!=', $this->route('commercial')?->id)
                     ->exists()) {
                     $validator->errors()->add('user_id', 'Ce compte est déjà lié à un autre profil commercial.');
                 }

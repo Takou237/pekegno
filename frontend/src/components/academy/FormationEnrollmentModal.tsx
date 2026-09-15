@@ -257,7 +257,7 @@ export default function FormationEnrollmentModal({
           last_name: newLearner.last_name,
           email: newLearner.email,
           phone: newLearner.phone || null,
-          country_id: newLearner.country_id || undefined,
+          country: newLearner.country || undefined,
           registered_agency_id: agencyId,
         });
         learnerUserId = created.id;

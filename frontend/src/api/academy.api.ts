@@ -293,6 +293,7 @@ export interface LearnerStats {
     last_name: string | null;
     email: string;
     phone: string | null;
+    country: string | null;
     client_number: string | null;
     is_active: boolean;
     created_at: string | null;
@@ -385,7 +386,7 @@ export const academyApi = {
     return data.data ?? (data as unknown as Trainer);
   },
 
-  async learners(params: { agency_id?: string; status?: string; search?: string; per_page?: number; page?: number } = {}): Promise<Paginated<Learner>> {
+  async learners(params: { agency_id?: string; status?: string; search?: string; course_id?: string; session_id?: string; per_page?: number; page?: number } = {}): Promise<Paginated<Learner>> {
     const { data } = await client.get<Paginated<Learner>>('/learners', { params });
     return data;
   },
@@ -416,8 +417,10 @@ export const academyApi = {
     return data;
   },
 
-  async learnerStats(learnerId: string): Promise<LearnerStats> {
-    const { data } = await client.get<LearnerStats>(`/learners/${learnerId}/stats`);
+  async learnerStats(learnerId: string, courseId?: string): Promise<LearnerStats> {
+    const { data } = await client.get<LearnerStats>(`/learners/${learnerId}/stats`, {
+      params: { course_id: courseId || undefined },
+    });
     return data;
   },
 

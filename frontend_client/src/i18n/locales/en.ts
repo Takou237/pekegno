@@ -41,6 +41,8 @@ export default {
     viewDetails: 'View Details',
     from: 'From',
     sessions: 'upcoming sessions',
+    availableAt: 'Available in {{count}} locations',
+    alsoAvailableAt: 'Also available at:',
   },
   product: {
     description: 'Description',

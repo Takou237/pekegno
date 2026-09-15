@@ -98,6 +98,10 @@ export interface CommercialStats {
   turnover: number;
   sales_count: number;
   commissions: number;
+  commissions_earned: number;
+  commissions_paid: number;
+  commission_history: { type: 'earned' | 'paid'; date: string | null; amount: number; reference: string | null }[];
+  rank: { position: number | null; total: number };
   points_balance: number;
   monthly: { month: string; total: string | number; count: number }[];
   services_sold: { label: string; quantity: number; total: number }[];

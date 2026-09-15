@@ -157,7 +157,7 @@ class PublicCatalogController extends Controller
 
     public function courses(Request $request): JsonResponse
     {
-        $courses = Course::query()
+        $models = Course::query()
             ->with(['categories', 'agency'])
             ->withCount(['sessions' => fn ($q) => $q->where(fn ($w) => $w->whereNull('end_at')->orWhere('end_at', '>=', now()))])
             ->public()
@@ -170,8 +170,23 @@ class PublicCatalogController extends Controller
                 });
             })
             ->orderBy('name')
-            ->get()
-            ->map(fn (Course $course) => $this->serializeCourse($course));
+            ->get();
+
+        // Vue "tous pays" (ni country_id ni agency_id) : une formation créée à la fois
+        // dans plusieurs agences/pays produit une ligne par agence. On les regroupe par
+        // nom pour éviter les doublons visuels du catalogue, avec la liste des lieux
+        // où elle est disponible.
+        if (! $request->filled('country_id') && ! $request->filled('agency_id')) {
+            $courses = $models->groupBy('name')
+                ->map(function ($group) {
+                    $representative = $group->sortBy(fn (Course $c) => (float) $c->effective_price)->first();
+
+                    return $this->serializeCourse($representative, $group);
+                })
+                ->values();
+        } else {
+            $courses = $models->map(fn (Course $course) => $this->serializeCourse($course));
+        }
 
         return response()->json($courses);
     }
@@ -190,7 +205,15 @@ class PublicCatalogController extends Controller
             })
             ->firstOrFail();
 
-        $payload = $this->serializeCourse($model);
+        // Autres agences où la même formation (même nom) est aussi proposée, pour
+        // permettre de basculer vers son agence locale depuis la fiche.
+        $siblings = Course::query()
+            ->with('agency')
+            ->public()
+            ->where('name', $model->name)
+            ->get();
+
+        $payload = $this->serializeCourse($model, $siblings->count() > 1 ? $siblings : null);
         $payload['objective'] = $model->objective;
         $payload['prerequisites'] = $model->prerequisites;
         $payload['presentation_video'] = $model->presentation_video;
@@ -286,7 +309,11 @@ class PublicCatalogController extends Controller
         ];
     }
 
-    private function serializeCourse(Course $course): array
+    /**
+     * @param \Illuminate\Support\Collection<int, Course>|null $group Toutes les lignes
+     *        (une par agence) de la même formation, quand regroupée pour la vue "tous pays".
+     */
+    private function serializeCourse(Course $course, ?\Illuminate\Support\Collection $group = null): array
     {
         return [
             'id' => $course->id,
@@ -310,6 +337,15 @@ class PublicCatalogController extends Controller
                 'city' => $course->agency->city,
                 'country' => $course->agency->country,
             ] : null,
+            'available_at' => $group && $group->count() > 1
+                ? $group->map(fn (Course $c) => $c->agency ? [
+                    'course_id' => $c->id,
+                    'slug' => $c->slug ?? $c->id,
+                    'agency_id' => $c->agency->id,
+                    'agency_name' => $c->agency->name,
+                    'country' => $c->agency->country,
+                ] : null)->filter()->values()
+                : null,
         ];
     }
 }

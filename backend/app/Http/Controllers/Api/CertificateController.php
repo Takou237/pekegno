@@ -36,6 +36,10 @@ class CertificateController extends Controller
             $query->whereHas('enrollment.course', fn ($q) => $q->where('id', $request->input('course_id')));
         }
 
+        if ($request->filled('learner_user_id')) {
+            $query->whereHas('enrollment', fn ($q) => $q->where('learner_user_id', $request->input('learner_user_id')));
+        }
+
         if ($request->filled('search')) {
             $s = $request->input('search');
             $query->where(function ($q) use ($s) {

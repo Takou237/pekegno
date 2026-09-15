@@ -74,6 +74,10 @@ export default function AcademyLearnersPage() {
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [statusFilter, setStatusFilter] = useState<'' | (typeof STATUSES)[number]>('');
   const [searchFilter, setSearchFilter] = useState('');
+  const [courseFilter, setCourseFilter] = useState('');
+  const [sessionFilter, setSessionFilter] = useState('');
+  const [filterCourses, setFilterCourses] = useState<Course[]>([]);
+  const [filterSessions, setFilterSessions] = useState<TrainingSession[]>([]);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,6 +110,8 @@ export default function AcademyLearnersPage() {
         agency_id: agencyId,
         status: statusFilter || undefined,
         search: searchFilter || undefined,
+        course_id: courseFilter || undefined,
+        session_id: sessionFilter || undefined,
         page,
         per_page: 15,
       });
@@ -116,11 +122,48 @@ export default function AcademyLearnersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, statusFilter, searchFilter, page, t]);
+  }, [agencyId, statusFilter, searchFilter, courseFilter, sessionFilter, page, t]);
 
   useEffect(() => {
     fetchLearners();
   }, [fetchLearners]);
+
+  // Filtre "Formation" du tableau : liste des cours de l'agence, indépendante
+  // de la modale d'inscription.
+  useEffect(() => {
+    if (!agencyId) return;
+    let active = true;
+    academyApi
+      .courses({ agency_id: agencyId, per_page: 100 })
+      .then((res) => {
+        if (active) setFilterCourses(res.data);
+      })
+      .catch(() => {
+        if (active) setFilterCourses([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [agencyId]);
+
+  useEffect(() => {
+    if (!courseFilter || !agencyId) {
+      setFilterSessions([]);
+      return;
+    }
+    let active = true;
+    academyApi
+      .sessions({ agency_id: agencyId, course_id: courseFilter, per_page: 100 })
+      .then((res) => {
+        if (active) setFilterSessions(res.data);
+      })
+      .catch(() => {
+        if (active) setFilterSessions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [courseFilter, agencyId]);
 
   useEffect(() => {
     if (!enrollmentOpen || !agencyId) return;
@@ -295,7 +338,8 @@ export default function AcademyLearnersPage() {
     // Page partagée entre le layout département (/departments/:id/learners) et
     // le layout agence (/countries/:id/agencies/:id/learners) : on dérive la
     // base depuis l'URL courante plutôt que de supposer un contexte département.
-    navigate(`${location.pathname.replace(/\/$/, '')}/${learner.learner.id}`);
+    const base = `${location.pathname.replace(/\/$/, '')}/${learner.learner.id}`;
+    navigate(courseFilter ? `${base}?course_id=${courseFilter}` : base);
   }
 
   return (
@@ -347,6 +391,37 @@ export default function AcademyLearnersPage() {
               </option>
             ))}
           </select>
+          <select
+            value={courseFilter}
+            onChange={(e) => {
+              setPage(1);
+              setCourseFilter(e.target.value);
+              setSessionFilter('');
+            }}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          >
+            <option value="">{t('academy.allCourses')}</option>
+            {filterCourses.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          {courseFilter && (
+            <select
+              value={sessionFilter}
+              onChange={(e) => {
+                setPage(1);
+                setSessionFilter(e.target.value);
+              }}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="">{t('academy.allSessions')}</option>
+              {filterSessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {new Date(s.start_at).toLocaleDateString(currentLocale())}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

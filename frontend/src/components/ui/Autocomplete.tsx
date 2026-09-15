@@ -82,13 +82,23 @@ export function Autocomplete({
   useEffect(() => {
     if (value && !selectedLabel) {
       if (isFreeTextValue(value)) {
-        setSelectedLabel(value.slice(FREE_TEXT_PREFIX.length));
+        const label = value.slice(FREE_TEXT_PREFIX.length);
+        setSelectedLabel(label);
+        setInputValue(label);
         return;
       }
       fetchOptions('')
         .then((all) => {
           const found = (Array.isArray(all) ? all : []).find((o) => o.id === value);
-          if (found) setSelectedLabel(found.label);
+          // Sans ce setInputValue, la valeur résolue ne s'affichait qu'en placeholder
+          // (texte grisé, disparaît au focus) : le champ semblait vide alors qu'une
+          // valeur valide était bien sélectionnée — au moindre ré-enregistrement du
+          // formulaire, ce faux "vide" pouvait écraser la valeur existante (ex. compte
+          // utilisateur lié effacé silencieusement).
+          if (found) {
+            setSelectedLabel(found.label);
+            setInputValue(found.label);
+          }
         })
         .catch(() => {});
     }

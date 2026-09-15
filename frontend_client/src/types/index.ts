@@ -107,6 +107,8 @@ export interface PublicCourse {
   sessions?: PublicCourseSession[];
   categories: { id: string; name: string; color: string | null }[];
   agency?: Agency;
+  /** Présent uniquement en vue "tous pays" : autres agences où cette même formation est proposée. */
+  available_at?: { course_id: string; slug: string; agency_id: string; agency_name: string; country: string | null }[] | null;
 }
 
 export interface AgencyPaymentMethod {
@@ -349,6 +351,8 @@ export interface CartItem {
   cover_image: string | null;
   slug: string | null;
   category_name: string | null;
+  agency_id?: string | null;
+  agency_name?: string | null;
 }
 
 export interface Cart {

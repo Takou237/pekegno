@@ -17,7 +17,7 @@ class UpdateClientRequest extends FormRequest
         return [
             'first_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'last_name' => ['sometimes', 'nullable', 'string', 'max:150'],
-            'email' => ['sometimes', 'nullable', 'email', 'max:255', 'unique:users,email,'.$this->route('client')],
+            'email' => ['sometimes', 'nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->route('client'))],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
             'city' => ['sometimes', 'nullable', 'string', 'max:100'],
