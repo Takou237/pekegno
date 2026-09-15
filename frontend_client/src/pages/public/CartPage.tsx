@@ -23,6 +23,8 @@ export default function CartPage() {
   const [selectedAgency, setSelectedAgency] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const hasUnavailable = items.some((i) => i.available === false);
+
   useEffect(() => {
     publicApi.getAgencies().then(setAgencies).catch(() => {});
   }, []);
@@ -30,6 +32,10 @@ export default function CartPage() {
   const handleCheckout = async () => {
     if (!isAuthenticated) {
       navigate('/connexion?redirect=/panier');
+      return;
+    }
+    if (hasUnavailable) {
+      showToast(t('cart.unavailableItems'), 'warning');
       return;
     }
     if (!selectedAgency) {
@@ -48,7 +54,7 @@ export default function CartPage() {
           quantity: item.quantity,
         })),
       });
-      clear();
+      await clear();
       showToast(t('checkout.success'), 'success');
       navigate(`/paiement/${result.order.id}`);
     } catch {
@@ -110,6 +116,12 @@ export default function CartPage() {
                   </button>
                 </div>
 
+                {item.available === false && (
+                  <p className="mt-2 text-xs font-medium text-error-600 bg-error-50 rounded-lg px-2.5 py-1.5">
+                    {item.reason === 'indisponible' ? t('cart.itemUnavailable') : (item.reason ?? t('cart.itemUnavailable'))}
+                  </p>
+                )}
+
                 <div className="flex items-end justify-between mt-3">
                   <div className="flex items-center gap-2">
                     <button
@@ -162,7 +174,11 @@ export default function CartPage() {
               <Alert variant="info">{t('product.loginToBuy')}</Alert>
             ) : null}
 
-            <Button onClick={handleCheckout} isLoading={submitting} fullWidth disabled={!items.length}>
+            {hasUnavailable ? (
+              <Alert variant="error">{t('cart.unavailableItems')}</Alert>
+            ) : null}
+
+            <Button onClick={handleCheckout} isLoading={submitting} fullWidth disabled={!items.length || hasUnavailable}>
               {t('cart.checkout')} — {formatCurrency(subtotal)}
             </Button>
           </div>

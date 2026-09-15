@@ -67,7 +67,7 @@ class Phase4ClientPortalTest extends TestCase
 
     private function orderPayload(): array
     {
-        $service = Service::factory()->create(['price' => 10000]);
+        $service = Service::factory()->create(['price' => 10000, 'is_public' => true]);
         return [
             'agency_id' => Agency::factory()->create()->id,
             'lines' => [

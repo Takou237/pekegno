@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Product;
+use App\Models\Service;
 use App\Services\ActivityLogger;
 use App\Services\OrderInvoicingService;
 use App\Services\OrderNumberGenerator;
@@ -45,7 +47,7 @@ class ClientCheckoutController extends Controller
                 throw ValidationException::withMessages(['agency_id' => 'Veuillez sélectionner une agence.']);
             }
 
-            $lines = $this->invoicing->buildLines($data['lines']);
+            $lines = $this->invoicing->buildLines($data['lines'], lockCatalogPrices: true);
             $subtotal = round(collect($lines)->sum('line_total'), 2);
             $total = round(max(0, $subtotal - (float) ($data['discount'] ?? 0)), 2);
 
@@ -116,6 +118,26 @@ class ClientCheckoutController extends Controller
                 throw ValidationException::withMessages([
                     'lines' => 'Une ligne catalogue ne peut pas référencer un service et un produit en même temps.',
                 ]);
+            }
+
+            if (($line['line_type'] ?? 'catalog') === 'catalog') {
+                if (! empty($line['service_id'])) {
+                    $service = Service::find($line['service_id']);
+                    if ($service && ! $service->is_public) {
+                        throw ValidationException::withMessages([
+                            'lines' => "Le service « {$service->name} » n'est pas disponible en ligne.",
+                        ]);
+                    }
+                }
+
+                if (! empty($line['product_id'])) {
+                    $product = Product::find($line['product_id']);
+                    if ($product && (! $product->is_public || ! $product->is_active)) {
+                        throw ValidationException::withMessages([
+                            'lines' => "Le produit « {$product->name} » n'est pas disponible en ligne.",
+                        ]);
+                    }
+                }
             }
         }
 

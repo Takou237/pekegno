@@ -98,7 +98,7 @@ class Phase6ClientSiteTest extends TestCase
     public function test_checkout_with_catalog_lines_returns_order_and_pending_invoice(): void
     {
         $token = $this->registerAndLogin();
-        $service = Service::factory()->create(['price' => 10000]);
+        $service = Service::factory()->create(['price' => 10000, 'is_public' => true]);
 
         $result = $this->withToken($token)
             ->postJson('/api/client/checkout', [
@@ -122,7 +122,7 @@ class Phase6ClientSiteTest extends TestCase
     public function test_checkout_accepts_multiple_lines_with_service_and_product(): void
     {
         $token = $this->registerAndLogin();
-        $service = Service::factory()->create(['price' => 10000]);
+        $service = Service::factory()->create(['price' => 10000, 'is_public' => true]);
         $product = Product::factory()->create(['selling_price' => 5000, 'is_public' => true]);
 
         $result = $this->withToken($token)

@@ -1,5 +1,5 @@
 import { client } from './client';
-import type { Order, Invoice, FormationEnrollment, Attendance, LearnerObservation, LearnerProfile, PaginatedResponse, PaymentProof } from '@/types';
+import type { Order, Invoice, FormationEnrollment, Attendance, LearnerObservation, LearnerProfile, PaginatedResponse, PaymentProof, Cart } from '@/types';
 
 export interface CheckoutLine {
   line_type?: 'catalog' | 'manual';
@@ -11,6 +11,12 @@ export interface CheckoutLine {
   quantity?: number;
 }
 
+export interface CartItemPayload {
+  service_id?: string;
+  product_id?: string;
+  quantity?: number;
+}
+
 export const clientApi = {
   async getOrders(): Promise<PaginatedResponse<Order>> {
     const { data } = await client.get('/client/orders');
@@ -19,6 +25,36 @@ export const clientApi = {
 
   async getOrder(id: string): Promise<Order> {
     const { data } = await client.get(`/client/orders/${id}`);
+    return data;
+  },
+
+  async getCart(): Promise<Cart> {
+    const { data } = await client.get('/client/cart');
+    return data;
+  },
+
+  async syncCart(payload: { agency_id?: string | null; items: CartItemPayload[] }): Promise<Cart> {
+    const { data } = await client.put('/client/cart', payload);
+    return data;
+  },
+
+  async addToCart(payload: CartItemPayload): Promise<Cart> {
+    const { data } = await client.post('/client/cart/items', payload);
+    return data;
+  },
+
+  async updateCartItem(itemId: string, quantity: number): Promise<Cart> {
+    const { data } = await client.put(`/client/cart/items/${itemId}`, { quantity });
+    return data;
+  },
+
+  async removeCartItem(itemId: string): Promise<Cart> {
+    const { data } = await client.delete(`/client/cart/items/${itemId}`);
+    return data;
+  },
+
+  async clearCart(): Promise<Cart> {
+    const { data } = await client.delete('/client/cart');
     return data;
   },
 

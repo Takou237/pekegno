@@ -127,6 +127,8 @@ export default {
     addToCart: 'Add to Cart',
     selectAgency: 'Order agency',
     selectAgencyRequired: 'Please select an agency to place your order.',
+    unavailableItems: 'Some items in your cart are no longer available. Remove them to continue.',
+    itemUnavailable: 'This item is no longer available.',
   },
   account: {
     backToCatalog: 'Back to catalog',

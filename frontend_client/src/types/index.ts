@@ -331,3 +331,31 @@ export interface PaymentProof {
   notes: string | null;
   created_at: string;
 }
+
+export interface CartItem {
+  id: string;
+  type: 'service' | 'product' | null;
+  service_id: string | null;
+  product_id: string | null;
+  service?: { id: string } | null;
+  product?: { id: string } | null;
+  name: string;
+  unit_price: number;
+  effective_price: number;
+  quantity: number;
+  line_total: number;
+  available: boolean;
+  reason?: string | null;
+  cover_image: string | null;
+  slug: string | null;
+  category_name: string | null;
+}
+
+export interface Cart {
+  id: string;
+  agency_id: string | null;
+  agency: { id: string; name: string; city: string | null } | null;
+  items: CartItem[];
+  total: number;
+  count: number;
+}

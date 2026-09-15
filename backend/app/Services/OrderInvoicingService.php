@@ -20,14 +20,20 @@ class OrderInvoicingService
     ) {}
 
     /**
-     * Construit les lignes avec snapshot du prix : catalogue = prix du service
-     * ou du produit (surchargeable), manuel = prix saisi. Les occurrences
-     * multiples d'un même article sont autorisées.
+     * Construit les lignes avec snapshot du prix.
+     *
+     * Mode par défaut (back-office) : le prix catalogue est surchargeable via
+     * unit_price (remise caissier/commercial).
+     *
+     * Mode verrouillé ($lockCatalogPrices = true, espace client) : le prix
+     * envoyé par le client est ignoré pour les lignes catalogue — on utilise
+     * toujours le prix officiel serveur (effective_price pour un service,
+     * selling_price pour un produit).
      *
      * @param  array<int, array<string, mixed>>  $lines
      * @return array<int, array<string, mixed>>
      */
-    public function buildLines(array $lines): array
+    public function buildLines(array $lines, bool $lockCatalogPrices = false): array
     {
         $result = [];
 
@@ -44,16 +50,24 @@ class OrderInvoicingService
                 $service = Service::findOrFail($line['service_id']);
                 $serviceId = $service->id;
                 $label = $service->name;
-                $unitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
-                    ? (float) $line['unit_price']
-                    : (float) $service->price;
+                if ($lockCatalogPrices) {
+                    $unitPrice = (float) $service->effective_price;
+                } else {
+                    $unitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
+                        ? (float) $line['unit_price']
+                        : (float) $service->price;
+                }
             } elseif ($type === 'catalog' && ! empty($line['product_id'])) {
                 $product = Product::findOrFail($line['product_id']);
                 $productId = $product->id;
                 $label = $product->name;
-                $unitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
-                    ? (float) $line['unit_price']
-                    : (float) $product->selling_price;
+                if ($lockCatalogPrices) {
+                    $unitPrice = (float) $product->selling_price;
+                } else {
+                    $unitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
+                        ? (float) $line['unit_price']
+                        : (float) $product->selling_price;
+                }
             } else {
                 $label = $line['label'];
                 $unitPrice = (float) ($line['unit_price'] ?? 0);

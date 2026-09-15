@@ -127,6 +127,8 @@ export default {
     addToCart: 'Ajouter au panier',
     selectAgency: 'Agence de commande',
     selectAgencyRequired: 'Veuillez sélectionner une agence pour passer commande.',
+    unavailableItems: 'Certains articles de votre panier ne sont plus disponibles. Retirez-les pour continuer.',
+    itemUnavailable: 'Cet article n\u2019est plus disponible.',
   },
   account: {
     backToCatalog: 'Retour au catalogue',
