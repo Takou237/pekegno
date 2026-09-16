@@ -11,6 +11,7 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
 import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
@@ -337,10 +338,10 @@ export default function ProspectsList({ agencyId, hideCommercialField = false }:
               value={form.city}
               onChange={(e) => setForm({ ...form, city: e.target.value })}
             />
-            <Input
+            <CountryAutocomplete
               label={t('prospects.country')}
               value={form.country}
-              onChange={(e) => setForm({ ...form, country: e.target.value })}
+              onChange={(value) => setForm({ ...form, country: value })}
             />
           </div>
           <Input

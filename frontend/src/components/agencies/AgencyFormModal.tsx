@@ -5,6 +5,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import type { Agency, AgencyPayload } from '@/types/agency';
@@ -114,11 +115,11 @@ export function AgencyFormModal({ isOpen, agency, defaultCountry, onClose, onSav
             error={fieldErrors.name}
             placeholder={t('agencies.namePlaceholder')}
           />
-          <Input
+          <CountryAutocomplete
             label={t('agencies.country')}
             required
             value={form.country}
-            onChange={(e) => update('country', e.target.value)}
+            onChange={(value) => update('country', value)}
             error={fieldErrors.country}
             placeholder={t('agencies.countryPlaceholder')}
           />

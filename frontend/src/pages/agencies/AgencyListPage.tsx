@@ -18,7 +18,7 @@ import { extractErrorMessage } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { Input } from '@/components/ui/Input';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -181,10 +181,10 @@ export default function AgencyListPage() {
           </div>
         </div>
         <div className="sm:w-48">
-          <Input
+          <CountryAutocomplete
             label={t('agencies.country')}
             value={country}
-            onChange={(e) => setCountry(e.target.value)}
+            onChange={setCountry}
             placeholder={t('agencies.countryPlaceholder')}
           />
         </div>

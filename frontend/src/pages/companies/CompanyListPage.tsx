@@ -5,6 +5,7 @@ import { companiesApi } from '@/api/companies.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Pagination } from '@/components/ui/Pagination';
@@ -346,11 +347,11 @@ export default function CompanyListPage() {
               onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
               error={formErrors.city}
             />
-            <Input
+            <CountryAutocomplete
               label={t('companies.fieldCountry')}
               name="country"
               value={form.country}
-              onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
+              onChange={(value) => setForm((p) => ({ ...p, country: value }))}
               error={formErrors.country}
             />
           </div>

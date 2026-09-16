@@ -5,6 +5,7 @@ import { useToast } from '@/context/ToastContext';
 import { authApi } from '@/api/auth.api';
 import { extractErrorMessage } from '@/api/client';
 import { Input } from '@/components/ui/Input';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Button } from '@/components/ui/Button';
 import { UserCircle, Mail, Lock } from 'lucide-react';
 
@@ -94,7 +95,7 @@ export default function ProfilePage() {
             <Input label={t('account.city')} value={form.city} onChange={setField('city')} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label={t('account.country')} value={form.country} onChange={setField('country')} />
+            <CountryAutocomplete label={t('account.country')} value={form.country} onChange={(value) => setForm((prev) => ({ ...prev, country: value }))} />
             <Input label={t('account.address')} value={form.address} onChange={setField('address')} />
           </div>
           <Button type="submit" isLoading={saving}>{t('account.saveProfile')}</Button>

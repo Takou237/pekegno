@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { Pagination } from '@/components/ui/Pagination';
@@ -655,10 +656,10 @@ export default function AcademyLearnersPage() {
               onChange={(e) => setLearnerForm((prev) => ({ ...prev, city: e.target.value }))}
               error={learnerFieldErrors.city}
             />
-            <Input
+            <CountryAutocomplete
               label={t('clients.country')}
               value={learnerForm.country}
-              onChange={(e) => setLearnerForm((prev) => ({ ...prev, country: e.target.value }))}
+              onChange={(value) => setLearnerForm((prev) => ({ ...prev, country: value }))}
               error={learnerFieldErrors.country}
             />
           </div>

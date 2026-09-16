@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { UserPlus } from 'lucide-react';
 import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Input } from '@/components/ui/Input';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 
 export type LearnerMode = 'existing' | 'new';
 
@@ -120,10 +121,10 @@ export function EnrollmentLearnerField({
               value={newLearner.phone}
               onChange={(e) => set('phone', e.target.value)}
             />
-            <Input
+            <CountryAutocomplete
               label={t('common.country')}
               value={newLearner.country}
-              onChange={(e) => set('country', e.target.value)}
+              onChange={(value) => set('country', value)}
             />
           </div>
           <p className="text-xs text-gray-400 dark:text-gray-500">{t('academy.newLearnerHint')}</p>

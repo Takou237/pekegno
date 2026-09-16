@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
@@ -766,10 +767,10 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
               value={prospectForm.city}
               onChange={(e) => setProspectForm((p) => ({ ...p, city: e.target.value }))}
             />
-            <Input
+            <CountryAutocomplete
               label={t('prospects.country')}
               value={prospectForm.country}
-              onChange={(e) => setProspectForm((p) => ({ ...p, country: e.target.value }))}
+              onChange={(value) => setProspectForm((p) => ({ ...p, country: value }))}
             />
           </div>
           <Input

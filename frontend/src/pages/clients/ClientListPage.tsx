@@ -8,6 +8,7 @@ import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -439,11 +440,11 @@ export default function ClientListPage() {
               onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
               error={formErrors.city}
             />
-            <Input
+            <CountryAutocomplete
               label={t('clients.country')}
               name="country"
               value={form.country}
-              onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
+              onChange={(value) => setForm((p) => ({ ...p, country: value }))}
               error={formErrors.country}
             />
           </div>

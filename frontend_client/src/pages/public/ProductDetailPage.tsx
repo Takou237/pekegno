@@ -6,10 +6,10 @@ import { clientApi } from '@/api/client.api';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
-import { formatCurrency, displayPrice } from '@/utils';
+import { formatCurrency, displayPrice, isYouTubeUrl, getYouTubeEmbedUrl } from '@/utils';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, ShoppingCart, GraduationCap } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, GraduationCap, Clock, Play, X } from 'lucide-react';
 import type { Service, Product, PublicCourse } from '@/types';
 
 type ItemType = 'service' | 'product' | 'course';
@@ -27,10 +27,12 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [sessionId, setSessionId] = useState('');
   const [enrolling, setEnrolling] = useState(false);
+  const [playVideo, setPlayVideo] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
     setLoading(true);
+    setPlayVideo(false);
     publicApi.getService(slug)
       .then((s) => {
         setItem(s);
@@ -110,11 +112,64 @@ export default function ProductDetailPage() {
       </Link>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {item.cover_image && (
-          <div className="h-64 md:h-80 bg-gray-100">
-            <img src={item.cover_image} alt={item.name} className="w-full h-full object-cover" />
+        {playVideo && course?.presentation_video ? (
+          <div className="relative aspect-video bg-black">
+            {isYouTubeUrl(course.presentation_video) ? (
+              <iframe
+                src={`${getYouTubeEmbedUrl(course.presentation_video) ?? ''}?autoplay=1`}
+                title="Vidéo de présentation"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="h-full w-full"
+              />
+            ) : (
+              <video
+                src={course.presentation_video}
+                controls
+                autoPlay
+                playsInline
+                className="h-full w-full"
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setPlayVideo(false)}
+              aria-label={t('common.close')}
+              className="absolute right-3 top-3 z-10 rounded-full bg-black/50 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+            >
+              <X size={18} />
+            </button>
           </div>
-        )}
+        ) : item.cover_image ? (
+          <div className="relative h-64 md:h-80 bg-gray-100">
+            <img src={item.cover_image} alt={item.name} className="w-full h-full object-cover" />
+            {course?.presentation_video && (
+              <button
+                type="button"
+                onClick={() => setPlayVideo(true)}
+                aria-label={t('academy.playVideo')}
+                className="group absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/45"
+              >
+                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-brand-600 shadow-lg transition-transform group-hover:scale-105">
+                  <Play className="ml-1 h-7 w-7" />
+                </span>
+              </button>
+            )}
+          </div>
+        ) : course?.presentation_video ? (
+          <div className="aspect-video bg-gray-100">
+            <div className="flex h-full items-center justify-center">
+              <button
+                type="button"
+                onClick={() => setPlayVideo(true)}
+                aria-label={t('academy.playVideo')}
+                className="group flex h-16 w-16 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg transition-transform hover:scale-105"
+              >
+                <Play className="ml-1 h-7 w-7" />
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="p-6 md:p-8">
           <div className="flex items-center gap-2 mb-3">
@@ -127,6 +182,46 @@ export default function ProductDetailPage() {
 
           {item.description && (
             <p className="text-gray-600 mb-6 whitespace-pre-wrap">{item.description}</p>
+          )}
+
+          {course && (
+            <div className="mb-8 space-y-6">
+              {(course.objective || course.prerequisites || course.duration_type) && (
+                <>
+                  {course.duration_type && (
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={16} className="text-gray-400" />
+                        <span className="text-gray-500">{t('academy.duration')} :</span>
+                        <span className="font-medium text-gray-900">
+                          {course.duration_type === 'unlimited'
+                            ? t('academy.durationUnlimited')
+                            : course.duration_months
+                              ? `${course.duration_months} ${t('academy.months')}`
+                              : course.duration_hours
+                                ? `${course.duration_hours} ${t('academy.hours')}`
+                                : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {course.objective && (
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900 mb-1.5">{t('academy.objective')}</h2>
+                      <p className="text-gray-600 whitespace-pre-wrap">{course.objective}</p>
+                    </div>
+                  )}
+
+                  {course.prerequisites && (
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900 mb-1.5">{t('academy.prerequisites')}</h2>
+                      <p className="text-gray-600 whitespace-pre-wrap">{course.prerequisites}</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
 
           <div className="flex flex-col sm:flex-row sm:items-end gap-6 mb-8">
