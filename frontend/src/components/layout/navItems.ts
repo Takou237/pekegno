@@ -53,7 +53,7 @@ function catalogItem(t: TranslateFn): NavItem {
   return { to: '/catalog', label: t('nav.catalog'), icon: Package, end: false };
 }
 
-export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-departement', 'caissier', 'comptable', 'commercial']);
+export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-departement', 'comptable']);
 
 // « Factures » ne doit pas rester actif sur la page des validations (/invoices/pending),
 // sinon il serait surligné en même temps que « Validations ».
@@ -124,7 +124,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     return [
       { to: '/caissier/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
-      invoiceItem(t, unpaidBadge),
+      invoiceItem(t),
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       catalogItem(t),
@@ -158,7 +158,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     return [
       ...baseItems,
       { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
-      invoiceItem(t, unpaidBadge),
+      invoiceItem(t),
       { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
       catalogItem(t),
     ];

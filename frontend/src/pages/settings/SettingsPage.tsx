@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, type FormEvent } from 'react';
+import { useEffect, useState, useCallback, lazy, Suspense, type FormEvent } from 'react';
 import { Save, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { settingsApi } from '@/api/settings.api';
@@ -13,12 +13,15 @@ import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Badge } from '@/components/ui/Badge';
-import { SkeletonDetail } from '@/components/ui/Skeleton';
+import { SkeletonDetail, SkeletonTable } from '@/components/ui/Skeleton';
 import type { CommissionType } from '@/types/settings';
 import type { AccountingCategory, AccountingType } from '@/types/accounting';
 import type { Category } from '@/types/category';
 
-type Tab = 'general' | 'accounting-cats' | 'service-cats';
+const UserListPage = lazy(() => import('@/pages/users/UserListPage'));
+const RolesPrivilegesPage = lazy(() => import('@/pages/RolesPrivilegesPage'));
+
+type Tab = 'general' | 'accounting-cats' | 'service-cats' | 'users' | 'privileges';
 
 interface SettingsForm {
   sales_points_per_sale: string;
@@ -46,23 +49,27 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
+  const isWideTab = activeTab === 'users' || activeTab === 'privileges';
+
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
+    <div className={`mx-auto flex w-full flex-col gap-6 ${isWideTab ? '' : 'max-w-4xl'}`}>
       <div>
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settingsPage.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('settingsPage.subtitle')}</p>
       </div>
 
-      <div className="flex gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
         {([
           ['general', t('settingsPage.tabGeneral')],
           ['accounting-cats', t('settingsPage.tabAccountingCategories')],
           ['service-cats', t('settingsPage.tabServiceCategories')],
+          ['users', t('settingsPage.tabUsers')],
+          ['privileges', t('settingsPage.tabPrivileges')],
         ] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === key
                 ? 'bg-white text-brand-700 shadow-sm dark:bg-gray-900 dark:text-brand-300'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
@@ -76,6 +83,16 @@ export default function SettingsPage() {
       {activeTab === 'general' && <GeneralSettingsTab />}
       {activeTab === 'accounting-cats' && <AccountingCategoriesTab />}
       {activeTab === 'service-cats' && <ServiceCategoriesTab />}
+      {activeTab === 'users' && (
+        <Suspense fallback={<SkeletonTable rows={5} />}>
+          <UserListPage />
+        </Suspense>
+      )}
+      {activeTab === 'privileges' && (
+        <Suspense fallback={<SkeletonTable rows={5} />}>
+          <RolesPrivilegesPage />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -11,6 +11,11 @@ import { Spinner } from '@/components/ui/Spinner';
 import type { Invoice } from '@/types/invoice';
 
 const CAN_VALIDATE_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence', 'caissier']);
+const COMMERCIAL_ROLE = 'commercial';
+
+function seenValidatedKey(userId: string) {
+  return `pekegno.invoices.validatedSeenAt.${userId}`;
+}
 
 interface Option {
   value: string;
@@ -92,8 +97,11 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   const showOrgSelectors = !['commercial', 'caissier'].includes(user?.role?.name ?? '');
 
   const canValidate = CAN_VALIDATE_ROLES.has(user?.role?.name ?? '');
+  const isCommercial = user?.role?.name === COMMERCIAL_ROLE;
   const [pendingInvoices, setPendingInvoices] = useState<Invoice[]>([]);
   const [pendingTotal, setPendingTotal] = useState(0);
+  const [validatedInvoices, setValidatedInvoices] = useState<Invoice[]>([]);
+  const [validatedUnseenTotal, setValidatedUnseenTotal] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -112,6 +120,41 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
       cancelled = true;
     };
   }, [canValidate, location.pathname]);
+
+  // Un commercial n'a pas de compteur "en attente" (il ne valide rien) : on le notifie
+  // plutôt dès que l'une de ses factures vient d'être validée par un caissier/admin.
+  // Comme il n'existe pas de table de notifications persistées côté backend, on
+  // compare les factures validées à la dernière consultation de la cloche (stockée
+  // en localStorage) pour ne compter que les nouveautés.
+  useEffect(() => {
+    if (!isCommercial || !user) return;
+    let cancelled = false;
+    invoicesApi
+      .list({ validation_status: 'validated', per_page: 20 })
+      .then((res) => {
+        if (cancelled) return;
+        const sorted = [...res.invoices.data].sort(
+          (a, b) => new Date(b.validated_at ?? 0).getTime() - new Date(a.validated_at ?? 0).getTime(),
+        );
+        let lastSeen = localStorage.getItem(seenValidatedKey(user.id));
+        if (lastSeen === null) {
+          // Premier passage : on ne notifie pas rétroactivement tout l'historique,
+          // seulement les factures validées à partir de maintenant.
+          lastSeen = new Date().toISOString();
+          localStorage.setItem(seenValidatedKey(user.id), lastSeen);
+        }
+        const lastSeenTime = new Date(lastSeen).getTime();
+        const unseen = sorted.filter(
+          (inv) => inv.validated_at && new Date(inv.validated_at).getTime() > lastSeenTime,
+        );
+        setValidatedInvoices(sorted.slice(0, 5));
+        setValidatedUnseenTotal(unseen.length);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isCommercial, user, location.pathname]);
 
   useEffect(() => {
     if (!notifOpen) return;
@@ -319,23 +362,36 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
 
       <div className="ml-auto flex items-center gap-1">
         {rightSlot}
-        {canValidate && (
+        {(canValidate || isCommercial) && (
           <div className="relative" ref={notifRef}>
             <button
               type="button"
-              onClick={() => setNotifOpen((v) => !v)}
+              onClick={() =>
+                setNotifOpen((v) => {
+                  const next = !v;
+                  if (next && isCommercial && user) {
+                    localStorage.setItem(seenValidatedKey(user.id), new Date().toISOString());
+                    setValidatedUnseenTotal(0);
+                  }
+                  return next;
+                })
+              }
               className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
               aria-label={t('contextBar.notifications')}
             >
               <Bell className="h-4.5 w-4.5" />
-              {pendingTotal > 0 && (
+              {(canValidate ? pendingTotal : validatedUnseenTotal) > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                  {pendingTotal > 99 ? '99+' : pendingTotal}
+                  {(canValidate ? pendingTotal : validatedUnseenTotal) > 99
+                    ? '99+'
+                    : canValidate
+                      ? pendingTotal
+                      : validatedUnseenTotal}
                 </span>
               )}
             </button>
 
-            {notifOpen && (
+            {notifOpen && canValidate && (
               <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
                 <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
                   {t('contextBar.pendingValidations')}
@@ -374,6 +430,45 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                   className="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-medium text-brand-600 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
                 >
                   {t('contextBar.seeAllPending', { count: pendingTotal })}
+                </Link>
+              </div>
+            )}
+
+            {notifOpen && !canValidate && isCommercial && (
+              <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
+                  {t('contextBar.validatedInvoices')}
+                </div>
+                {validatedInvoices.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-gray-400">{t('contextBar.noValidated')}</p>
+                ) : (
+                  <ul className="max-h-80 overflow-y-auto">
+                    {validatedInvoices.map((inv) => (
+                      <li key={inv.id}>
+                        <Link
+                          to={`/invoices/${inv.id}`}
+                          onClick={() => setNotifOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                        >
+                          <FileText className="h-4 w-4 shrink-0 text-green-500" />
+                          <span className="flex-1 truncate">
+                            <span className="font-medium text-gray-800 dark:text-gray-100">{inv.number}</span>
+                            <span className="ml-1.5 text-gray-500 dark:text-gray-400">{inv.client_label ?? ''}</span>
+                          </span>
+                          <span className="shrink-0 font-medium text-gray-700 dark:text-gray-200">
+                            {formatCurrency(inv.total_amount)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link
+                  to="/invoices"
+                  onClick={() => setNotifOpen(false)}
+                  className="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-medium text-brand-600 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
+                >
+                  {t('contextBar.seeAllInvoices')}
                 </Link>
               </div>
             )}
