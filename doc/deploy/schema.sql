@@ -32,7 +32,6 @@ SET row_security = off;
 
 SET default_tablespace = '';
 
-SET default_table_access_method = heap;
 
 --
 -- Name: accounting_categories; Type: TABLE; Schema: public; Owner: -
