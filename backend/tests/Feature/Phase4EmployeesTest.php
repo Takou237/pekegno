@@ -221,12 +221,16 @@ class Phase4EmployeesTest extends TestCase
         $this->assertStringNotContainsString('export1@example.com', $content);
     }
 
-    public function test_caissier_role_cannot_access_employees_endpoint(): void
+    public function test_caissier_role_cannot_create_employees(): void
     {
         $caissier = $this->createUserWithRole('caissier');
         Sanctum::actingAs($caissier);
 
-        $this->getJson('/api/employees')
+        $this->postJson('/api/employees', [
+            'first_name' => 'Vendeur',
+            'last_name' => 'Interdit',
+            'email' => 'interdit-caissier@example.com',
+        ])
             ->assertForbidden()
             ->assertJsonPath('message', 'Action non autorisée.');
     }

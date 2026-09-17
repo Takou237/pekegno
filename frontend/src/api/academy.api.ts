@@ -87,6 +87,7 @@ export interface CoursePayload {
 
 export interface CourseListParams {
   agency_id?: string;
+  country_id?: string;
   search?: string;
   per_page?: number;
   page?: number;

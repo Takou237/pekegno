@@ -21,7 +21,8 @@ import type { CourseCategory } from '@/types/category';
 import type { FormationEnrollment } from '@/types/formation';
 
 interface AgencyAcademyFormationsProps {
-  agencyId: string;
+  agencyId?: string;
+  countryId?: string;
 }
 
 function modeLabel(mode: Course['mode'], t: ReturnType<typeof useTranslation>['t']): string {
@@ -51,7 +52,7 @@ const emptyCourseForm: CourseFormState = {
   description: '',
 };
 
-export default function AgencyAcademyFormations({ agencyId }: AgencyAcademyFormationsProps) {
+export default function AgencyAcademyFormations({ agencyId, countryId }: AgencyAcademyFormationsProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -85,7 +86,8 @@ export default function AgencyAcademyFormations({ agencyId }: AgencyAcademyForma
     setLoadError(null);
     try {
       const response = await academyApi.courses({
-        agency_id: agencyId,
+        agency_id: agencyId ?? undefined,
+        country_id: countryId ?? undefined,
         search: search || undefined,
         mode: filterMode ? (filterMode as Course['mode']) : undefined,
         categories: filterCategory ? [filterCategory] : undefined,
@@ -99,7 +101,7 @@ export default function AgencyAcademyFormations({ agencyId }: AgencyAcademyForma
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, search, filterMode, filterCategory, page, t]);
+  }, [agencyId, countryId, search, filterMode, filterCategory, page, t]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -134,7 +136,8 @@ export default function AgencyAcademyFormations({ agencyId }: AgencyAcademyForma
         category_ids: courseForm.category_ids.length > 0 ? courseForm.category_ids : undefined,
         price: courseForm.price ? Number(courseForm.price) : null,
         description: courseForm.description || null,
-        agency_id: agencyId,
+        agency_id: agencyId ?? undefined,
+        target_country_ids: countryId ? [countryId] : undefined,
       });
       showToast(t('academy.saved'), 'success');
       setCourses((prev) => [saved, ...prev]);
