@@ -48,6 +48,7 @@ class CourseController extends Controller
             new OA\Parameter(name: 'categories', in: 'query', description: 'Filtrer par catégories (un ou plusieurs ids)', schema: new OA\Schema(type: 'array', items: new OA\Schema(type: 'string', format: 'uuid'))),
             new OA\Parameter(name: 'promotion', in: 'query', description: 'Filtre promotion : "active" (promotion en cours) ou "none" (aucune promotion en cours)', schema: new OA\Schema(type: 'string', enum: ['active', 'none'])),
             new OA\Parameter(name: 'agency_id', in: 'query', description: 'Disponibilité : cours de l\'agence + cours globaux', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'country_id', in: 'query', description: 'Pays : cours des agences du pays + cours globaux', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'sort_by', in: 'query', schema: new OA\Schema(type: 'string', enum: ['name', 'price', 'created_at'])),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
         ],
@@ -74,7 +75,11 @@ class CourseController extends Controller
                 }
             })
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
-            ->when($request->agency_id, fn ($q, $v) => $q->availableIn($v));
+            ->when($request->agency_id, fn ($q, $v) => $q->availableIn($v))
+            ->when($request->country_id, function ($q, $v) {
+                $q->where(fn ($cq) => $cq->whereNull('agency_id')
+                    ->orWhereHas('agency', fn ($a) => $a->where('country_id', $v)));
+            });
 
         $this->scopeQuery($request, $query);
 

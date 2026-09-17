@@ -72,7 +72,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
 
   const effectiveAgencyId = agencyId || ownAgencyId || undefined;
   const effectiveShowAcademyTabs =
-    showAcademyTabs || ((isCommercial || isCaissier) && Boolean(effectiveAgencyId));
+    showAcademyTabs || Boolean(countryId) || ((isCommercial || isCaissier) && Boolean(effectiveAgencyId));
 
   const servicesBase = agencyId
     ? countryId
@@ -274,7 +274,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     return null;
   };
 
-  if (effectiveShowAcademyTabs && effectiveAgencyId && tab === 'formations') {
+  if (effectiveShowAcademyTabs && tab === 'formations') {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -299,7 +299,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             {t('nav.academy')}
           </button>
         </div>
-        <AgencyAcademyFormations agencyId={effectiveAgencyId} />
+        <AgencyAcademyFormations agencyId={effectiveAgencyId} countryId={countryId} />
       </div>
     );
   }
@@ -345,7 +345,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         </div>
       </div>
 
-      {effectiveShowAcademyTabs && effectiveAgencyId && (
+      {effectiveShowAcademyTabs && (
         <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
           <button
             type="button"
