@@ -87,7 +87,6 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
-      { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
     ];
   }
