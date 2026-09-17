@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Download, History } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { activityLogsApi } from '@/api/activityLogs.api';
+import { agenciesApi } from '@/api/agencies.api';
+import { countriesApi } from '@/api/countries.api';
 import { usersApi } from '@/api/users.api';
 import { extractErrorMessage } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
@@ -15,7 +17,8 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Select } from '@/components/ui/Select';
 import { canExportData } from '@/utils/exportPermissions';
 import type { ActivityLog } from '@/types/activityLog';
-import type { PaginationMeta } from '@/types/agency';
+import type { PaginationMeta, Agency } from '@/types/agency';
+import type { CountryStat } from '@/types/stats';
 import type { UserListItem } from '@/types/user';
 
 const ENTITY_TYPES = [
@@ -59,10 +62,14 @@ export default function ActivityLogPage() {
   const [entityFilter, setEntityFilter] = useState('all');
   const [actionFilter, setActionFilter] = useState('all');
   const [userFilter, setUserFilter] = useState('all');
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [agencyFilter, setAgencyFilter] = useState('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
   const [users, setUsers] = useState<UserListItem[]>([]);
+  const [countries, setCountries] = useState<CountryStat[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
@@ -70,18 +77,40 @@ export default function ActivityLogPage() {
       .list({ per_page: 100 })
       .then((response) => setUsers(response.data))
       .catch(() => {});
+    countriesApi
+      .list({ per_page: 100 })
+      .then((response) => setCountries(response.data))
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    agenciesApi
+      .list({
+        per_page: 100,
+        country_id: countryFilter === 'all' ? undefined : countryFilter,
+      })
+      .then((response) => setAgencies(response.data))
+      .catch(() => {});
+  }, [countryFilter]);
+
+  function handleCountryChange(value: string) {
+    setCountryFilter(value);
+    setAgencyFilter('all');
+    setPage(1);
+  }
 
   const fetchParams = useMemo(
     () => ({
       entity_type: entityFilter === 'all' ? undefined : entityFilter,
       action: actionFilter === 'all' ? undefined : actionFilter,
       user_id: userFilter === 'all' ? undefined : userFilter,
+      country_id: countryFilter === 'all' ? undefined : countryFilter,
+      agency_id: agencyFilter === 'all' ? undefined : agencyFilter,
       from: from || undefined,
       to: to || undefined,
       page,
     }),
-    [entityFilter, actionFilter, userFilter, from, to, page]
+    [entityFilter, actionFilter, userFilter, countryFilter, agencyFilter, from, to, page]
   );
 
   async function fetchLogs() {
@@ -106,7 +135,7 @@ export default function ActivityLogPage() {
   useEffect(() => {
     const timeout = setTimeout(() => setPage(1), 350);
     return () => clearTimeout(timeout);
-  }, [entityFilter, actionFilter, userFilter, from, to]);
+  }, [entityFilter, actionFilter, userFilter, countryFilter, agencyFilter, from, to]);
 
   function entityLabel(entity: string): string {
     const key = `audit.entity${entity.charAt(0).toUpperCase()}${entity.slice(1)}`;
@@ -169,7 +198,7 @@ export default function ActivityLogPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <Select
           label={t('audit.filterEntity')}
           value={entityFilter}
@@ -203,6 +232,30 @@ export default function ActivityLogPage() {
           {users.map((u) => (
             <option key={u.id} value={u.id}>
               {[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}
+            </option>
+          ))}
+        </Select>
+        <Select
+          label={t('audit.filterCountry')}
+          value={countryFilter}
+          onChange={(e) => handleCountryChange(e.target.value)}
+        >
+          <option value="all">{t('audit.allCountries')}</option>
+          {countries.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          label={t('audit.filterAgency')}
+          value={agencyFilter}
+          onChange={(e) => setAgencyFilter(e.target.value)}
+        >
+          <option value="all">{t('audit.allAgencies')}</option>
+          {agencies.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
             </option>
           ))}
         </Select>
@@ -243,6 +296,8 @@ export default function ActivityLogPage() {
                 <tr>
                   <th className="px-5 py-3 font-medium">{t('audit.colDate')}</th>
                   <th className="px-5 py-3 font-medium">{t('audit.colUser')}</th>
+                  <th className="px-5 py-3 font-medium">{t('audit.colCountry')}</th>
+                  <th className="px-5 py-3 font-medium">{t('audit.colAgency')}</th>
                   <th className="px-5 py-3 font-medium">{t('audit.colAction')}</th>
                   <th className="px-5 py-3 font-medium">{t('audit.colEntity')}</th>
                   <th className="px-5 py-3 font-medium">{t('audit.colDescription')}</th>
@@ -259,9 +314,12 @@ export default function ActivityLogPage() {
                     </td>
                     <td className="px-5 py-3">
                       <p className="font-medium text-gray-800 dark:text-gray-100">{userName(log)}</p>
-                      {log.agency && (
-                        <p className="text-xs text-gray-400">{log.agency.name}</p>
-                      )}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {log.country?.name ?? '—'}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {log.agency?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3">
                       <Badge variant={actionVariant(log.action)}>{actionLabel(log.action)}</Badge>

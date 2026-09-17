@@ -79,7 +79,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
       ? `/countries/${countryId}/agencies/${agencyId}/services`
       : `/agencies/${agencyId}/services`
     : countryId
-      ? `/countries/${countryId}/catalog/services`
+      ? `/countries/${countryId}/services`
       : '/catalog/services';
 
   const [services, setServices] = useState<Service[]>([]);

@@ -95,6 +95,7 @@ export interface InvoiceListParams {
   status?: InvoiceStatus | `${InvoiceStatus},${InvoiceStatus}`;
   validation_status?: InvoiceValidationStatus | `${InvoiceValidationStatus},${InvoiceValidationStatus}`;
   agency_id?: string;
+  country_id?: string;
   client_id?: string;
   commercial_id?: string;
   from?: string;

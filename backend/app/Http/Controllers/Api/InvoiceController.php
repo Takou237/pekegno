@@ -82,6 +82,7 @@ class InvoiceController extends Controller
             new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut', schema: new OA\Schema(type: 'string', enum: ['unpaid', 'partial', 'paid'])),
             new OA\Parameter(name: 'validation_status', in: 'query', description: 'Filtrer par statut de validation (séparable par virgule)', schema: new OA\Schema(type: 'string', enum: ['pending', 'validated', 'rejected'])),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'country_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'client_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'commercial_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'from', in: 'query', description: 'Date début (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
@@ -127,6 +128,7 @@ class InvoiceController extends Controller
                 $q->whereIn('validation_status', $statuses);
             })
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
+            ->when($request->country_id, fn ($q, $id) => $q->whereHas('agency', fn ($a) => $a->where('country_id', $id)))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))
             ->when($request->commercial_id, fn ($q, $id) => $q->where('commercial_id', $id))
             ->when($request->from, fn ($q, $d) => $q->whereDate('invoice_date', '>=', $d))
@@ -340,6 +342,7 @@ class InvoiceController extends Controller
                 $invoice->id,
                 "Facture {$invoice->number} créée ({$total} FCFA)",
                 newValues: $invoice->only(['number', 'total_amount', 'status']),
+                agencyId: $invoice->agency_id,
             );
 
             return $invoice;
@@ -402,6 +405,7 @@ class InvoiceController extends Controller
             "Facture {$invoice->number} modifiée",
             oldValues: $old,
             newValues: $invoice->only(['client_id', 'client_name', 'commercial_id', 'payment_type', 'comment']),
+            agencyId: $invoice->agency_id,
         );
 
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
@@ -457,6 +461,7 @@ class InvoiceController extends Controller
             'invoice',
             $invoice->id,
             "Paiement de {$amount} FCFA ({$request->input('payment_method')}) sur la facture {$invoice->number}",
+            agencyId: $invoice->agency_id,
         );
 
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
@@ -518,7 +523,7 @@ class InvoiceController extends Controller
             );
         }
 
-        $this->logger->log('validated', 'invoice', $invoice->id, "Facture {$invoice->number} validée");
+        $this->logger->log('validated', 'invoice', $invoice->id, "Facture {$invoice->number} validée", agencyId: $invoice->agency_id);
 
         $this->sendStatusNotification($invoice);
 
@@ -573,7 +578,7 @@ class InvoiceController extends Controller
                 'notes' => 'Facture rejetée : '.$reason,
             ]);
 
-        $this->logger->log('rejected', 'invoice', $invoice->id, "Facture {$invoice->number} rejetée : {$reason}");
+        $this->logger->log('rejected', 'invoice', $invoice->id, "Facture {$invoice->number} rejetée : {$reason}", agencyId: $invoice->agency_id);
 
         $this->sendStatusNotification($invoice);
 
@@ -609,7 +614,7 @@ class InvoiceController extends Controller
         $invoice->refreshStatus();
         $invoice->save();
 
-        $this->logger->log('cancelled', 'invoice', $invoice->id, "Facture {$invoice->number} annulée");
+        $this->logger->log('cancelled', 'invoice', $invoice->id, "Facture {$invoice->number} annulée", agencyId: $invoice->agency_id);
 
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
     }

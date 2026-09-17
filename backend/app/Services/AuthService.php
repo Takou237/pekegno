@@ -219,6 +219,7 @@ class AuthService
             ActivityLog::create([
                 'user_id' => $user->id,
                 'agency_id' => $user->primaryAgency()->value('agencies.id'),
+                'country_id' => $user->country_id,
                 'action' => $action,
                 'entity_type' => 'auth',
                 'entity_id' => $user->id,

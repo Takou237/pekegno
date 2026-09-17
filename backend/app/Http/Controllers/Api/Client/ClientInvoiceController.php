@@ -126,6 +126,7 @@ class ClientInvoiceController extends Controller
             description: "Preuve de paiement ({$data['payment_method']}) soumise pour la facture {$invoice->number}",
             newValues: ['payment_proof' => $proof->id, 'method' => $data['payment_method']],
             request: $request,
+            agencyId: $invoice->agency_id,
         );
 
         return response()->json([
@@ -170,6 +171,7 @@ class ClientInvoiceController extends Controller
             entityId: $invoice->id,
             description: "Le client a supprimé la facture rejetée {$number}",
             request: $request,
+            agencyId: $invoice->agency_id,
         );
 
         return response()->json(['message' => "Facture {$number} supprimée."]);
@@ -205,6 +207,7 @@ class ClientInvoiceController extends Controller
             entityId: $invoice->id,
             description: "Reçu PDF de la facture {$invoice->number} téléchargé",
             request: $request,
+            agencyId: $invoice->agency_id,
         );
 
         return $pdf->download("facture-{$invoice->number}.pdf");

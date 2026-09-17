@@ -27,7 +27,7 @@ export default function ServiceTrashPage({ agencyId }: ServiceTrashPageProps) {
       ? `/countries/${countryId}/agencies/${agencyId}/services`
       : `/agencies/${agencyId}/services`
     : countryId
-      ? `/countries/${countryId}/catalog/services`
+      ? `/countries/${countryId}/services`
       : '/catalog/services';
 
   const [services, setServices] = useState<Service[]>([]);

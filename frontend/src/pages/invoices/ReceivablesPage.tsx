@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Search, DollarSign } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
@@ -17,6 +17,7 @@ import { formatCurrency } from '@/utils/number';
  */
 export default function ReceivablesPage() {
   const { t } = useTranslation();
+  const { countryId } = useParams<{ countryId?: string }>();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
@@ -33,6 +34,7 @@ export default function ReceivablesPage() {
       const response = await invoicesApi.list({
         status: 'unpaid,partial',
         search: search || undefined,
+        country_id: countryId || undefined,
         page,
         per_page: 15,
       });
@@ -44,7 +46,7 @@ export default function ReceivablesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, page, t]);
+  }, [search, countryId, page, t]);
 
   useEffect(() => {
     fetchInvoices();
@@ -117,7 +119,10 @@ export default function ReceivablesPage() {
                   {invoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <td className="px-5 py-3">
-                        <Link to={`/invoices/${inv.id}`} className="font-medium text-brand-600 hover:underline dark:text-brand-400">
+                        <Link
+                          to={countryId ? `/countries/${countryId}/invoices/${inv.id}` : `/invoices/${inv.id}`}
+                          className="font-medium text-brand-600 hover:underline dark:text-brand-400"
+                        >
                           {inv.number}
                         </Link>
                       </td>

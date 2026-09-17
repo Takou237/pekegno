@@ -2,6 +2,7 @@ export interface ActivityLog {
   id: string;
   user_id: string | null;
   agency_id: string | null;
+  country_id: string | null;
   action: string;
   entity_type: string;
   entity_id: string | null;
@@ -12,7 +13,8 @@ export interface ActivityLog {
   user_agent: string | null;
   created_at: string;
   user?: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
-  agency?: { id: string; name: string; code: string } | null;
+  agency?: { id: string; name: string; code: string; country?: string | null } | null;
+  country?: { id: string; name: string; code: string } | null;
 }
 
 export interface ActivityLogParams {
@@ -20,6 +22,7 @@ export interface ActivityLogParams {
   entity_type?: string;
   action?: string;
   agency_id?: string;
+  country_id?: string;
   from?: string;
   to?: string;
   per_page?: number;

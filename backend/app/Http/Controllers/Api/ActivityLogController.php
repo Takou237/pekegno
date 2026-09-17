@@ -20,6 +20,7 @@ class ActivityLogController extends Controller
             new OA\Parameter(name: 'entity_type', in: 'query', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'action', in: 'query', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'country_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'from', in: 'query', description: 'Date début (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
             new OA\Parameter(name: 'to', in: 'query', description: 'Date fin (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
@@ -32,11 +33,12 @@ class ActivityLogController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = ActivityLog::query()
-            ->with('user:id,first_name,last_name,email', 'agency:id,name,code')
+            ->with('user:id,first_name,last_name,email', 'agency:id,name,code,country', 'country:id,name,code')
             ->when($request->user_id, fn ($q, $id) => $q->where('user_id', $id))
             ->when($request->entity_type, fn ($q, $t) => $q->where('entity_type', $t))
             ->when($request->action, fn ($q, $a) => $q->where('action', $a))
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
+            ->when($request->country_id, fn ($q, $id) => $q->where('activity_logs.country_id', $id))
             ->when($request->from, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
             ->when($request->to, fn ($q, $d) => $q->whereDate('created_at', '<=', $d));
 

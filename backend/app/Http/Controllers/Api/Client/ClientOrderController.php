@@ -95,6 +95,7 @@ class ClientOrderController extends Controller
                 description: "Commande client {$order->number} créée ({$total} FCFA)",
                 newValues: ['number' => $order->number, 'total' => $total, 'channel' => 'client_self'],
                 request: $request,
+                agencyId: $order->agency_id,
             );
 
             return $order;

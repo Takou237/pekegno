@@ -22,6 +22,8 @@ class AgencyResource extends JsonResource
             'phone' => $this->phone,
             'email' => $this->email,
             'type' => $this->type,
+            'revenue' => (float) ($this->revenue ?? 0),
+            'expenses' => (float) ($this->expenses ?? 0),
             'activities' => $this->whenLoaded('activities', fn () => $this->activities
                 ->map(fn ($activity) => [
                     'id' => $activity->id,

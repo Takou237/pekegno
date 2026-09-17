@@ -26,6 +26,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
 import { canCreateAgency, canManageTrash } from '@/utils/agencyPermissions';
 import { canExportData } from '@/utils/exportPermissions';
+import { formatCurrency } from '@/utils/number';
 import type { Agency, AgencyListParams, PaginationMeta } from '@/types/agency';
 import type { CountryStat } from '@/types/stats';
 
@@ -258,6 +259,21 @@ export default function AgencyListPage() {
                       <span className="truncate">{agency.email}</span>
                     </span>
                   )}
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4 text-center dark:border-gray-800">
+                  <div>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(agency.revenue)}
+                    </p>
+                    <p className="text-xs text-gray-400">{t('dashboard.revenue')}</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(agency.expenses)}
+                    </p>
+                    <p className="text-xs text-gray-400">{t('dashboard.expenses')}</p>
+                  </div>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">

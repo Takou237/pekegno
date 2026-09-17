@@ -79,6 +79,7 @@ class ClientCheckoutController extends Controller
                 description: "Commande {$order->number} (checkout client) facturée {$invoice->number}",
                 newValues: ['order' => $order->number, 'invoice' => $invoice->number, 'total' => $total],
                 request: $request,
+                agencyId: $order->agency_id,
             );
 
             return [$order, $invoice];

@@ -165,6 +165,11 @@ class Agency extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    public function accountingTransactions(): HasMany
+    {
+        return $this->hasMany(AccountingTransaction::class);
+    }
+
     public function paymentMethods(): HasMany
     {
         return $this->hasMany(AgencyPaymentMethod::class);

@@ -141,6 +141,7 @@ class OrderController extends Controller
                 description: "Commande {$order->number} créée ({$order->lines()->count()} lignes, {$total} FCFA)",
                 newValues: ['number' => $order->number, 'total' => $total],
                 request: $request,
+                agencyId: $order->agency_id,
             );
 
             return $order;
@@ -224,6 +225,7 @@ class OrderController extends Controller
                 entityId: $order->id,
                 description: "Commande {$order->number} modifiée",
                 request: $request,
+                agencyId: $order->agency_id,
             );
 
             return $order;
@@ -255,6 +257,7 @@ class OrderController extends Controller
             entityId: $order->id,
             description: "Commande {$number} supprimée",
             request: $request,
+            agencyId: $order->agency_id,
         );
 
         return response()->json(null, 204);
@@ -286,6 +289,7 @@ class OrderController extends Controller
             entityId: $order->id,
             description: "Commande {$order->number} confirmée",
             request: $request,
+            agencyId: $order->agency_id,
         );
 
         return response()->json($order->fresh()->load(['client', 'agency', 'lines']));
@@ -324,6 +328,7 @@ class OrderController extends Controller
                 description: "Facture {$invoice->number} générée depuis la commande {$order->number}",
                 newValues: ['invoice' => $invoice->number],
                 request: $request,
+                agencyId: $order->agency_id,
             );
 
             return $invoice;
@@ -361,6 +366,7 @@ class OrderController extends Controller
             entityId: $order->id,
             description: "Commande {$order->number} annulée",
             request: $request,
+            agencyId: $order->agency_id,
         );
 
         return response()->json($order->fresh()->load(['client', 'agency', 'lines']));

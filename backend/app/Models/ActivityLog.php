@@ -15,6 +15,7 @@ class ActivityLog extends Model
     protected $fillable = [
         'user_id',
         'agency_id',
+        'country_id',
         'action',
         'entity_type',
         'entity_id',
@@ -41,5 +42,10 @@ class ActivityLog extends Model
     public function agency(): BelongsTo
     {
         return $this->belongsTo(Agency::class);
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class);
     }
 }

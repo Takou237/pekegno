@@ -38,6 +38,8 @@ export interface Agency {
   phone: string | null;
   email: string | null;
   type: 'agency' | 'academy' | 'mixed';
+  revenue?: number;
+  expenses?: number;
   activities?: AgencyActivity[];
   created_at: string;
   updated_at: string;

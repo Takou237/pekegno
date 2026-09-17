@@ -15,6 +15,7 @@ import {
   Contact,
   GraduationCap,
   Receipt,
+  DollarSign,
 } from 'lucide-react';
 import { countriesApi } from '@/api/countries.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -28,8 +29,9 @@ function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
     { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
     { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
     { to: 'agencies', label: t('nav.agencies'), icon: FolderTree, end: false },
-    { to: 'catalog', label: t('nav.catalog'), icon: Package, end: false },
+    { to: 'services', label: t('nav.services'), icon: Package, end: false },
     { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
+    { to: 'receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
     { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
     { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
     { to: 'subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
