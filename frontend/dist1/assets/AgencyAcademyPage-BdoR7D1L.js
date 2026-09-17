@@ -1,1 +1,0 @@
-import{j as n}from"./react-1yNWuiU1.js";import o from"./AcademyDashboardPage-rM5n_wnM.js";import{an as s,ay as r}from"./vendor-DO28MCzg.js";import"./index-Dwj2lPgY.js";function g(){const a=s(),{agencyId:e}=r(),t=a.agencyId??e??"";return n.jsx(o,{fixedAgencyId:t})}export{g as default};

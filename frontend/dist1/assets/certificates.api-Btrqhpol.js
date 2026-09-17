@@ -1,1 +1,0 @@
-import{g as r}from"./index-Dwj2lPgY.js";const i={list(t){return r.get("/certificates",{params:t}).then(e=>e.data)},get(t){return r.get(`/certificates/${t}`).then(e=>e.data)},create(t){return r.post("/certificates",t).then(e=>e.data)},revoke(t,e){return r.post(`/certificates/${t}/revoke`,{revoked_reason:e}).then(a=>a.data)}};export{i as c};

@@ -1,1 +1,0 @@
-import{g as a}from"./index-Dwj2lPgY.js";const r={async list(t={}){const{data:o}=await a.get("/promotions",{params:t});return o},async create(t,o){const{data:s}=await a.post(`/services/${t}/promotions`,o);return s},async update(t,o){const{data:s}=await a.put(`/promotions/${t}`,o);return s},async remove(t){await a.delete(`/promotions/${t}`)}};export{r as p};

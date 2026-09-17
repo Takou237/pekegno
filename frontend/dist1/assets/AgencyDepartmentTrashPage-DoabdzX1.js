@@ -1,1 +1,0 @@
-import{j as t}from"./react-1yNWuiU1.js";import m from"./DepartmentTrashPage-DcjGPOXe.js";import{an as o}from"./vendor-DO28MCzg.js";import"./index-Dwj2lPgY.js";import"./Pagination-ZF4FMTdY.js";import"./ConfirmDialog-axiWIPe6.js";import"./Modal-DnvF3u1E.js";import"./Button-DG7G8UeJ.js";function c(){const{agencyId:r}=o();return t.jsx(m,{agencyId:r})}export{c as default};

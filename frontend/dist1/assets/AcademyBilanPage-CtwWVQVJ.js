@@ -1,1 +1,0 @@
-import{j as o}from"./react-1yNWuiU1.js";import r from"./DailyBilanPage-JMTdHduF.js";import{ay as i}from"./vendor-DO28MCzg.js";import"./index-Dwj2lPgY.js";import"./exportPermissions-Dgn-yiju.js";import"./Button-DG7G8UeJ.js";import"./Input-BvWxuKPP.js";import"./Select-LyouGBmG.js";function x(){const{agencyId:t}=i();return o.jsx(r,{fixedAgencyId:t})}export{x as default};

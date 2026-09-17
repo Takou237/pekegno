@@ -1,1 +1,0 @@
-import{g as e}from"./index-Dwj2lPgY.js";const d={list(n,t){return e.get(`/training-sessions/${n}/attendances`,{params:t?{course_module_id:t}:void 0}).then(a=>a.data.attendances)},bulkUpdate(n,t,a){return e.put(`/training-sessions/${n}/attendances`,{attendances:t,course_module_id:a??null}).then(s=>s.data)}};export{d as a};
