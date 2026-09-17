@@ -32,6 +32,10 @@ class AccountingController extends Controller
         $base = AccountingTransaction::query()
             ->with(['agency:id,name,code', 'category:id,name,type', 'client:id,first_name,last_name', 'operator:id,first_name,last_name'])
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
+            ->when(
+                ! $request->agency_id && $request->country_id,
+                fn ($q) => $q->whereHas('agency', fn ($a) => $a->where('country_id', $request->country_id))
+            )
             ->when($request->type, fn ($q, $type) => $q->where('type', $type))
             ->when($request->category_id, fn ($q, $id) => $q->where('category_id', $id))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))

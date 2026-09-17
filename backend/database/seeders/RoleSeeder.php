@@ -136,6 +136,10 @@ class RoleSeeder extends Seeder
                 $p('services', ['consulter']),
                 $p('products', ['consulter']),
                 $p('categories', ['consulter']),
+                // employes.consulter : la vente au guichet rattache la facture au profil
+                // employé du caissier (commercial_id) pour que ses ventes remontent dans
+                // ses stats — le formulaire cherche ce profil via GET /employees.
+                $p('employes', ['consulter']),
                 $p('invoices', ['consulter', 'creer', 'imprimer', 'encaisser', 'valider']),
                 $p('comptabilite', ['consulter']),
                 $p('bilans', ['consulter', 'exporter']),

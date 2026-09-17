@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { reportsApi } from '@/api/reports.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { commercialsApi } from '@/api/commercials.api';
+import { employeesApi } from '@/api/employees.api';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -18,10 +19,11 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import type { CommercialReportResponse, CommercialReportRankingEntry } from '@/api/reports.api';
 import type { Agency } from '@/types/agency';
 
-export default function CommercialReportPage({ fixedAgencyId }: { fixedAgencyId?: string } = {}) {
+export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial' }: { fixedAgencyId?: string; mode?: 'commercial' | 'employee' } = {}) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
+  const isEmployee = mode === 'employee';
 
   const [report, setReport] = useState<CommercialReportResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,22 +42,23 @@ export default function CommercialReportPage({ fixedAgencyId }: { fixedAgencyId?
   }, []);
 
   const fetchCommercialOptions = useCallback(async (query: string): Promise<AutocompleteOption[]> => {
-    const results = await commercialsApi.search(query);
+    const results = await (isEmployee ? employeesApi.search(query) : commercialsApi.search(query));
     return results.map((c) => ({
       id: c.id,
       label: [c.first_name, c.last_name].filter(Boolean).join(' '),
       subtitle: c.agency?.name ?? '',
     }));
-  }, []);
+  }, [isEmployee]);
 
   const params = useMemo(
     () => ({
       agency_id: agencyFilter || undefined,
       commercial_id: commercialFilter || undefined,
+      kind: isEmployee ? 'employe' : undefined,
       from: fromDate || undefined,
       to: toDate || undefined,
     }),
-    [agencyFilter, commercialFilter, fromDate, toDate],
+    [agencyFilter, commercialFilter, isEmployee, fromDate, toDate],
   );
 
   useEffect(() => {
@@ -80,7 +83,7 @@ export default function CommercialReportPage({ fixedAgencyId }: { fixedAgencyId?
   async function handleExport() {
     setIsExporting(true);
     try {
-      await downloadExport('commercial-report');
+      await downloadExport('commercial-report', { kind: isEmployee ? 'employe' : undefined });
     } catch (error) {
       showToast(t('common.exportFailed'), 'error');
     } finally {
@@ -125,10 +128,10 @@ export default function CommercialReportPage({ fixedAgencyId }: { fixedAgencyId?
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {t('reports.commercialTitle')}
+            {t(isEmployee ? 'reports.employeeTitle' : 'reports.commercialTitle')}
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {t('reports.commercialSubtitle')}
+            {t(isEmployee ? 'reports.employeeSubtitle' : 'reports.commercialSubtitle')}
           </p>
         </div>
         {canExportData(currentUser) && (
@@ -158,8 +161,8 @@ export default function CommercialReportPage({ fixedAgencyId }: { fixedAgencyId?
         )}
         <div className="w-full sm:w-64">
           <Autocomplete
-            label={t('reports.commercial')}
-            placeholder={t('reports.searchCommercial')}
+            label={t(isEmployee ? 'reports.employee' : 'reports.commercial')}
+            placeholder={t(isEmployee ? 'reports.searchEmployee' : 'reports.searchCommercial')}
             value={commercialFilter}
             onChange={setCommercialFilter}
             fetchOptions={fetchCommercialOptions}

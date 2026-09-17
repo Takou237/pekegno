@@ -57,6 +57,7 @@ const CommercialDetailPage = lazy(() => import('@/pages/commercials/CommercialDe
 const CommercialSelfDashboardPage = lazy(() => import('@/pages/commercials/CommercialSelfDashboardPage'));
 const CommercialCommissionsPage = lazy(() => import('@/pages/commercials/CommercialCommissionsPage'));
 const AgencyCommercialsPage = lazy(() => import('@/pages/commercials/AgencyCommercialsPage'));
+const CountryCommercialsPage = lazy(() => import('@/pages/commercials/CountryCommercialsPage'));
 const AgencyCommercialDetailPage = lazy(
   () => import('@/pages/commercials/AgencyCommercialDetailPage')
 );
@@ -84,6 +85,8 @@ const EmployeeListPage = lazy(() => import('@/pages/employees/EmployeeListPage')
 const EmployeeDetailPage = lazy(() => import('@/pages/employees/EmployeeDetailPage'));
 const AgencyEmployeeListPage = lazy(() => import('@/pages/employees/AgencyEmployeeListPage'));
 const AgencyEmployeeDetailPage = lazy(() => import('@/pages/employees/AgencyEmployeeDetailPage'));
+const AgencyEmployeeReportPage = lazy(() => import('@/pages/employees/AgencyEmployeeReportPage'));
+const CountryEmployeeListPage = lazy(() => import('@/pages/employees/CountryEmployeeListPage'));
 const ActivityLogPage = lazy(() => import('@/pages/audit/ActivityLogPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const CountryListPage = lazy(() => import('@/pages/CountryListPage'));
@@ -145,6 +148,7 @@ const agencyChildren = [
   { path: 'commercials/report', element: page(<AgencyCommercialReportPage />, table) },
   { path: 'commercials/:commercialId', element: page(<AgencyCommercialDetailPage />, detail) },
   { path: 'employees', element: page(<AgencyEmployeeListPage />, table) },
+  { path: 'employees/report', element: page(<AgencyEmployeeReportPage />, table) },
   { path: 'employees/:id', element: page(<AgencyEmployeeDetailPage />, detail) },
   { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
   { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
@@ -194,6 +198,7 @@ export const router = createBrowserRouter([
           { path: '/commercials/report', element: page(<CommercialReportPage />, table) },
           { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },
           { path: '/employees', element: page(<EmployeeListPage />, table) },
+          { path: '/employees/report', element: page(<CommercialReportPage mode="employee" />, table) },
           { path: '/employees/:id', element: page(<EmployeeDetailPage />, detail) },
           { path: '/trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
           { path: '/accounting', element: page(<AccountingPage />, table) },
@@ -237,9 +242,10 @@ export const router = createBrowserRouter([
           { path: 'agencies/trash', element: page(<AgencyTrashPage />, table) },
           { path: 'departments', element: page(<DepartmentListPage />, cards) },
           { path: 'departments/trash', element: page(<DepartmentTrashPage />, table) },
-          { path: 'commercials', element: page(<CommercialListPage />, table) },
+          { path: 'commercials', element: page(<CountryCommercialsPage />, table) },
           { path: 'commercials/report', element: page(<CommercialReportPage />, table) },
-          { path: 'employees', element: page(<EmployeeListPage />, table) },
+          { path: 'employees', element: page(<CountryEmployeeListPage />, table) },
+          { path: 'employees/report', element: page(<CommercialReportPage mode="employee" />, table) },
           { path: 'accounting', element: page(<AccountingPage />, table) },
           { path: 'bilans', element: page(<DailyBilanPage />, table) },
           { path: 'subscriptions', element: page(<SubscriptionListPage />, table) },

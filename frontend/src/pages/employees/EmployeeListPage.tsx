@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import CommercialListPage from '@/pages/commercials/CommercialListPage';
 import { employeesApi } from '@/api/employees.api';
 
-export default function EmployeeListPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
+export default function EmployeeListPage({ fixedAgencyId, reportPath }: { fixedAgencyId?: string; reportPath?: string }) {
   const { t } = useTranslation();
   const detailBasePath = fixedAgencyId ? `/agencies/${fixedAgencyId}/employees` : '/employees';
   return (
@@ -14,6 +14,7 @@ export default function EmployeeListPage({ fixedAgencyId }: { fixedAgencyId?: st
       detailBasePath={detailBasePath}
       mode="employee"
       exportKind="employees"
+      reportPath={reportPath}
     />
   );
 }

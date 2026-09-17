@@ -147,6 +147,17 @@ export interface TrainingAttendanceStat {
   enrolled: number;
 }
 
+export interface TrainingFormationStat {
+  id: string;
+  code: string | null;
+  name: string;
+  sessions_count: number;
+  enrollments_enrolled: number;
+  attendance_count: number;
+  attendance_rate: number;
+  potential_revenue: number;
+}
+
 export interface TrainingUpcomingSession {
   id: string;
   course: string | null;
@@ -169,6 +180,7 @@ export interface TrainingGroupStats {
   sessions_by_status: TrainingStatusStat[];
   revenue_by_course: TrainingCourseStat[];
   attendance_by_course: TrainingAttendanceStat[];
+  by_formation: TrainingFormationStat[];
   upcoming: TrainingUpcomingSession[];
 }
 

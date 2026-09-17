@@ -121,6 +121,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
         search: search || undefined,
         type: (typeFilter as AccountingType) || undefined,
         agency_id: agencyId || agencyFilter || undefined,
+        country_id: agencyId || agencyFilter ? undefined : countryFilter || undefined,
         category_id: categoryFilter || undefined,
         from: from || undefined,
         to: to || undefined,
@@ -137,7 +138,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
     } finally {
       setIsLoading(false);
     }
-  }, [search, typeFilter, agencyId, agencyFilter, categoryFilter, from, to, page, t]);
+  }, [search, typeFilter, agencyId, agencyFilter, countryFilter, categoryFilter, from, to, page, t]);
 
   useEffect(() => {
     fetchTransactions();

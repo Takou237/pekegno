@@ -37,7 +37,7 @@ function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType?: 
     { to: '', label: t('nav.overview'), icon: LayoutDashboard, end: true },
     { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
     { to: 'services', label: t('nav.services'), icon: Package, end: false },
-    { to: 'academy', label: t('nav.academy'), icon: GraduationCap, end: false },
+    { to: 'academy', label: t('nav.statAca'), icon: GraduationCap, end: false },
     ...(agencyType === 'academy' || agencyType === 'mixed'
       ? [
           { to: 'learners', label: t('nav.learners'), icon: UserCheck, end: false },

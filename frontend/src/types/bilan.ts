@@ -59,4 +59,5 @@ export type BilanPeriodParams = {
   from?: string;
   to?: string;
   agency_id?: string;
+  country_id?: string;
 };

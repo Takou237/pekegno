@@ -142,7 +142,7 @@ export default function AcademyDashboardPage({ fixedAgencyId }: { fixedAgencyId?
         <div className="flex items-center gap-2">
           <GraduationCap className="h-6 w-6 text-brand-500" />
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            {t('nav.academy')}
+            {t('nav.statAca')}
           </h1>
         </div>
 
@@ -234,6 +234,53 @@ export default function AcademyDashboardPage({ fixedAgencyId }: { fixedAgencyId?
               icon={<Percent className="h-5 w-5" />}
               tone="bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400"
             />
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="px-5 pt-5 text-sm font-semibold text-gray-800 dark:text-gray-100">
+              {t('reports.byFormationTitle')}
+            </h2>
+            {training.by_formation.length === 0 ? (
+              <p className="p-5 text-sm text-gray-500 dark:text-gray-400">{t('academy.noEnrollments')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                    <tr>
+                      <th className="px-5 py-3 font-medium">{t('academy.course')}</th>
+                      <th className="px-5 py-3 text-right font-medium">{t('reports.totalSessions')}</th>
+                      <th className="px-5 py-3 text-right font-medium">{t('academy.enrolled')}</th>
+                      <th className="px-5 py-3 text-right font-medium">{t('academy.attendanceRate')}</th>
+                      <th className="px-5 py-3 text-right font-medium">{t('academy.potentialRevenue')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {training.by_formation.map((row) => (
+                      <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <td className="px-5 py-3">
+                          <span className="font-medium text-gray-800 dark:text-gray-100">{row.name}</span>
+                          {row.code && (
+                            <span className="ml-2 font-mono text-xs text-gray-400">{row.code}</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                          {formatNumber(row.sessions_count)}
+                        </td>
+                        <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                          {formatNumber(row.enrollments_enrolled)}
+                        </td>
+                        <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                          {row.attendance_rate}%
+                        </td>
+                        <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
+                          {formatCurrency(row.potential_revenue)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

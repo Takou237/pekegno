@@ -76,11 +76,14 @@ class AcademyReportService
             $attendancePresent += $present;
 
             $reportRows[] = [
+                'id' => $course->id,
+                'code' => $course->code,
                 'name' => $course->name,
                 'sessions_count' => $courseSessions->count(),
                 'enrollments_enrolled' => $enrolled,
                 'attendance_count' => $present,
                 'attendance_rate' => $rate,
+                'potential_revenue' => round($revenue, 2),
             ];
 
             $summary['courses']++;
@@ -218,6 +221,7 @@ class AcademyReportService
             'sessions_by_status' => $sessionsByStatus,
             'revenue_by_course' => $revenueByCourse,
             'attendance_by_course' => $attendanceByCourse,
+            'by_formation' => $reportRows,
             'upcoming' => $upcoming,
         ];
     }

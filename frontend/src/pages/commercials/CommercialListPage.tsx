@@ -265,12 +265,10 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
               {t(`${ns}.export`)}
             </Button>
           )}
-          {!isEmployee && (
-            <Button variant="outline" onClick={() => navigate(reportPath ?? (fixedAgencyId ? `/agencies/${fixedAgencyId}/commercials/report` : '/commercials/report'))}>
-              <BarChart3 className="h-4 w-4" />
-              {t('reports.commercialReport')}
-            </Button>
-          )}
+          <Button variant="outline" onClick={() => navigate(reportPath ?? (fixedAgencyId ? `/agencies/${fixedAgencyId}/${ns}/report` : `/${ns}/report`))}>
+            <BarChart3 className="h-4 w-4" />
+            {t(isEmployee ? 'reports.employeeReport' : 'reports.commercialReport')}
+          </Button>
           <Button variant="outline" onClick={openRanking}>
             <Trophy className="h-4 w-4" />
             {t(`${ns}.rankingPoints`)}

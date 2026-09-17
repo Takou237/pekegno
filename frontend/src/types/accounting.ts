@@ -37,6 +37,7 @@ export interface AccountingListParams {
   search?: string;
   type?: AccountingType;
   agency_id?: string;
+  country_id?: string;
   category_id?: string;
   from?: string;
   to?: string;

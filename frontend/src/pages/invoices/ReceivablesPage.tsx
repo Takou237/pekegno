@@ -9,6 +9,7 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Pagination } from '@/components/ui/Pagination';
 import { formatCurrency } from '@/utils/number';
+import { useOrgContext } from '@/context/OrgContext';
 
 /**
  * Page « Créances » : toutes les factures non soldées (validées, donc entrées en
@@ -17,12 +18,14 @@ import { formatCurrency } from '@/utils/number';
  */
 export default function ReceivablesPage() {
   const { t } = useTranslation();
-  const { countryId } = useParams<{ countryId?: string }>();
+const { countryId } = useParams<{ countryId?: string }>();
+  const { countries } = useOrgContext();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [totalReceivable, setTotalReceivable] = useState(0);
   const [search, setSearch] = useState('');
+  const [agencyId, setAgencyId] = useState('');
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -34,7 +37,8 @@ export default function ReceivablesPage() {
       const response = await invoicesApi.list({
         status: 'unpaid,partial',
         search: search || undefined,
-        country_id: countryId || undefined,
+country_id: countryId || undefined,
+        agency_id: agencyId || undefined,
         page,
         per_page: 15,
       });
@@ -46,7 +50,7 @@ export default function ReceivablesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, countryId, page, t]);
+}, [search, countryId, agencyId, page, t]);
 
   useEffect(() => {
     fetchInvoices();
@@ -81,17 +85,38 @@ export default function ReceivablesPage() {
         )}
       </div>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          value={search}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
+            placeholder={t('invoices.searchPlaceholder')}
+            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+        </div>
+        <select
+          value={agencyId}
           onChange={(e) => {
             setPage(1);
-            setSearch(e.target.value);
+            setAgencyId(e.target.value);
           }}
-          placeholder={t('invoices.searchPlaceholder')}
-          className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        />
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 sm:w-64"
+        >
+          <option value="">{t('common.selectAllAgencies')}</option>
+          {countries.map((country) => (
+            <optgroup key={country.id} label={country.name}>
+              {country.agencies.map((agency) => (
+                <option key={agency.id} value={agency.id}>
+                  {agency.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
