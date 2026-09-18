@@ -98,11 +98,22 @@ que l'OPcache n'est pas vidé. Après tout remplacement de `vendor/` ou
 modification de fichier PHP, **si le comportement de l'appli ne change pas
 alors que le code/vendor a bien changé, c'est presque toujours l'OPcache**.
 
-**Fix sans terminal** : uploader `doc/deploy/reset-opcache.php` dans
-`backend/public/`, le visiter une fois dans le navigateur (il appelle
-`opcache_reset()`), puis le supprimer immédiatement.
+**Fix sans terminal — procédure exacte :**
+1. Gestionnaire de fichiers → ouvrir `repositories/pekegno/backend/public/`.
+2. Uploader `doc/deploy/reset-opcache.php` dans **ce dossier `public/`**
+   (pas ailleurs — il doit être accessible depuis le navigateur).
+3. Ouvrir `https://pekegnogroup.com/reset-opcache.php` dans le navigateur.
+4. Vérifier le message **"OPcache vidé avec succès"**.
+5. **Supprimer immédiatement** `reset-opcache.php` du Gestionnaire de
+   fichiers (ne jamais le laisser en ligne).
+
 Alternative : dans cPanel → MultiPHP Manager, changer la version PHP du
 domaine puis revenir sur 8.3 (force un redémarrage du pool PHP-FPM).
+
+⚠️ Cette étape doit être refaite **à chaque déploiement backend** (nouveau
+`git pull`, nouveau `vendor/`...), même pour un seul fichier PHP modifié —
+sinon le code déployé peut sembler ignoré alors qu'il est bien sur le
+serveur.
 
 ### 3.5 "Tiger Protect" (pare-feu applicatif o2switch)
 Visible via le header de réponse `tiger-protect-security` et un cookie
@@ -139,8 +150,11 @@ concerné avant de dire "ça devrait marcher".
 ## 4. Comment déployer une mise à jour
 
 ### Backend (Laravel)
-1. Le code arrive sur le serveur via **cPanel → Git Version Control → Pull**
-   (après un `git push` sur GitHub depuis la machine de dev).
+1. Le code arrive sur le serveur via **cPanel → Git Version Control** :
+   trouver le dépôt `repositories/pekegno`, cliquer sur **Manage**, puis
+   **Update from Remote** (le libellé exact peut varier selon la version du
+   cPanel — c'est l'équivalent d'un `git pull`). À faire après chaque
+   `git push` sur GitHub depuis la machine de dev.
 2. Si `composer.json`/`composer.lock` ont changé : reconstruire `vendor/`
    **en local** (le serveur n'a pas accès composer facilement) :
    ```bash
