@@ -48,7 +48,12 @@ class UpdateCommercialRequest extends FormRequest
                     return;
                 }
 
-                $allowedRoles = $this->input('kind') === 'employe' ? ['commercial', 'caissier'] : ['commercial'];
+                // "kind" est optionnel dans une requete de mise a jour (le formulaire
+                // ne le renvoie pas forcement) : se rabattre sur le kind existant en
+                // base plutot que de supposer "commercial" par defaut, sinon un compte
+                // caissier lie a un profil employe est rejete a tort.
+                $kind = $this->input('kind') ?? $this->route('commercial')?->kind;
+                $allowedRoles = $kind === 'employe' ? ['commercial', 'caissier'] : ['commercial'];
                 $user = User::with('role')->find($userId);
 
                 if (! $user || ! in_array($user->role?->name, $allowedRoles, true)) {

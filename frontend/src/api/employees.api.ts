@@ -23,7 +23,7 @@ export const employeesApi = {
   },
 
   async update(id: string, payload: Partial<CommercialPayload>): Promise<Commercial> {
-    const { data } = await client.put<Commercial>(`/employees/${id}`, payload);
+    const { data } = await client.put<Commercial>(`/employees/${id}`, { ...payload, kind: 'employe' });
     return data;
   },
 
