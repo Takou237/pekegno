@@ -72,6 +72,7 @@ const InvoiceDetailPage = lazy(() => import('@/pages/invoices/InvoiceDetailPage'
 const AgencyInvoicesPage = lazy(() => import('@/pages/invoices/AgencyInvoicesPage'));
 const AgencyPendingInvoicesPage = lazy(() => import('@/pages/invoices/AgencyPendingInvoicesPage'));
 const AgencyInvoiceDetailPage = lazy(() => import('@/pages/invoices/AgencyInvoiceDetailPage'));
+const AgencyReceivablesPage = lazy(() => import('@/pages/invoices/AgencyReceivablesPage'));
 const AccountingPage = lazy(() => import('@/pages/accounting/AccountingPage'));
 const AgencyAccountingPage = lazy(() => import('@/pages/accounting/AgencyAccountingPage'));
 const DailyBilanPage = lazy(() => import('@/pages/bilans/DailyBilanPage'));
@@ -153,6 +154,7 @@ const agencyChildren = [
   { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
   { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
   { path: 'invoices/pending', element: page(<AgencyPendingInvoicesPage />, table) },
+  { path: 'invoices/receivables', element: page(<AgencyReceivablesPage />, table) },
   { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
   { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },
   { path: 'accounting', element: page(<AgencyAccountingPage />, table) },

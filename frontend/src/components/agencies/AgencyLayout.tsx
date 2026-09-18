@@ -16,6 +16,7 @@ import {
   BarChart3,
   GraduationCap,
   ClipboardCheck,
+  DollarSign,
 } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -48,6 +49,7 @@ function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType?: 
     { to: 'employees', label: t('nav.employees'), icon: UserCheck, end: false },
     { to: 'invoices', label: t('nav.invoices'), icon: FileText, end: false },
     { to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
+    { to: 'invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
     { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
     { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
     { to: 'subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },

@@ -21,6 +21,15 @@ class DatabaseSeeder extends Seeder
             TreasuryAccountSeeder::class,
             UserSeeder::class,
             SettingSeeder::class,
+            AgencyPaymentMethodSeeder::class,
+            CommercialTestDataSeeder::class,
+            PublicCatalogSeeder::class,
+            TrainingSessionSeeder::class,
+            ExpenseAndTreasurySeeder::class,
+            DemoExtrasSeeder::class,
+            BackfillFinancialsSeeder::class,
+            DemoExtras2Seeder::class,
+            DemoExtras3Seeder::class,
         ]);
     }
 }

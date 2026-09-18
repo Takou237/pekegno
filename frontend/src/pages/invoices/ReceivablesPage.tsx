@@ -16,7 +16,7 @@ import { useOrgContext } from '@/context/OrgContext';
  * comptabilité) avec leur reste à payer. Pensée pour le caissier (relances et
  * encaissements) mais utilisable par tout rôle autorisé à consulter les factures.
  */
-export default function ReceivablesPage() {
+export default function ReceivablesPage({ fixedAgencyId }: { fixedAgencyId?: string } = {}) {
   const { t } = useTranslation();
 const { countryId } = useParams<{ countryId?: string }>();
   const { countries } = useOrgContext();
@@ -25,7 +25,7 @@ const { countryId } = useParams<{ countryId?: string }>();
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [totalReceivable, setTotalReceivable] = useState(0);
   const [search, setSearch] = useState('');
-  const [agencyId, setAgencyId] = useState('');
+  const [agencyId, setAgencyId] = useState(fixedAgencyId ?? '');
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -98,25 +98,27 @@ country_id: countryId || undefined,
             className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
           />
         </div>
-        <select
-          value={agencyId}
-          onChange={(e) => {
-            setPage(1);
-            setAgencyId(e.target.value);
-          }}
-          className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 sm:w-64"
-        >
-          <option value="">{t('common.selectAllAgencies')}</option>
-          {countries.map((country) => (
-            <optgroup key={country.id} label={country.name}>
-              {country.agencies.map((agency) => (
-                <option key={agency.id} value={agency.id}>
-                  {agency.name}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        {!fixedAgencyId && (
+          <select
+            value={agencyId}
+            onChange={(e) => {
+              setPage(1);
+              setAgencyId(e.target.value);
+            }}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 sm:w-64"
+          >
+            <option value="">{t('common.selectAllAgencies')}</option>
+            {countries.map((country) => (
+              <optgroup key={country.id} label={country.name}>
+                {country.agencies.map((agency) => (
+                  <option key={agency.id} value={agency.id}>
+                    {agency.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">

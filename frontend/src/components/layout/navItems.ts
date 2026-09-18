@@ -100,6 +100,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
         ? [{ to: `/users?agency_id=${agencyId}`, label: t('nav.myTeam'), icon: Users, end: false as const }]
         : []),
       catalogItem(t),
+      { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
       { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
