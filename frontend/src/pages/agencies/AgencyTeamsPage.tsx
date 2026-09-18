@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/useToast';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { CreateUserModal } from '@/components/users/CreateUserModal';
 import { AssignMemberModal } from '@/components/users/AssignMemberModal';
 import type { Agency } from '@/types/agency';
@@ -33,6 +34,8 @@ export default function AgencyTeamsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState<{ id: string; name: string } | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
+  const [removeSubmitting, setRemoveSubmitting] = useState(false);
 
   const canCreateUsers = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
     currentUser?.role?.name ?? ''
@@ -69,15 +72,18 @@ export default function AgencyTeamsPage() {
     setAssignOpen(true);
   }
 
-  async function handleRemove(userId: string, userName: string) {
-    if (!agencyId) return;
-    if (!window.confirm(t('users.removeConfirm', { name: userName }))) return;
+  async function handleRemove() {
+    if (!agencyId || !removeTarget) return;
+    setRemoveSubmitting(true);
     try {
-      await client.delete(`/agencies/${agencyId}/users/${userId}`);
+      await client.delete(`/agencies/${agencyId}/users/${removeTarget.id}`);
       showToast(t('users.removed'), 'success');
+      setRemoveTarget(null);
       fetchUsers();
     } catch (error) {
       showToast(extractErrorMessage(error, t('users.removeFailed')), 'error');
+    } finally {
+      setRemoveSubmitting(false);
     }
   }
 
@@ -165,7 +171,7 @@ export default function AgencyTeamsPage() {
                       <td className="px-5 py-3 text-right">
                         <button
                           type="button"
-                          onClick={() => handleRemove(user.id, user.name ?? user.username)}
+                          onClick={() => setRemoveTarget({ id: user.id, name: user.name ?? user.username })}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
                           title={t('users.remove')}
                         >
@@ -196,6 +202,16 @@ export default function AgencyTeamsPage() {
         targetType="agency"
         targetId={assignTarget?.id ?? ''}
         targetName={assignTarget?.name ?? ''}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(removeTarget)}
+        title={t('users.remove')}
+        message={removeTarget ? t('users.removeConfirm', { name: removeTarget.name }) : ''}
+        variant="danger"
+        isLoading={removeSubmitting}
+        onConfirm={handleRemove}
+        onCancel={() => setRemoveTarget(null)}
       />
     </div>
   );
