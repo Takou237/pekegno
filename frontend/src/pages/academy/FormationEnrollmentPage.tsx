@@ -8,6 +8,7 @@ import { employeesApi } from '@/api/employees.api';
 import { clientsApi } from '@/api/clients.api';
 import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
+import { courseBasePrice, resolveEnrollmentDiscount } from '@/utils/enrollmentDiscount';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/hooks/useAuth';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -19,6 +20,7 @@ import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
 import type {
+  EnrollmentDiscountType,
   FormationEnrollment,
   FormationEnrollmentPayload,
 } from '@/types/formation';
@@ -59,6 +61,8 @@ interface FormState {
   amount_paid: string;
   payment_type: '' | PaymentMethod;
   notes: string;
+  discount_type: '' | EnrollmentDiscountType;
+  discount_value: string;
 }
 
 const SELLER_TRAINER_PREFIX = 'trainer:';
@@ -72,6 +76,8 @@ const emptyForm: FormState = {
   amount_paid: '',
   payment_type: 'cash',
   notes: '',
+  discount_type: '',
+  discount_value: '',
 };
 
 export default function FormationEnrollmentPage() {
@@ -187,6 +193,12 @@ export default function FormationEnrollmentPage() {
     [courses],
   );
 
+  // Remise saisie et montant net réellement dû (création uniquement : la remise
+  // est figée à l'inscription, elle ne se modifie pas ensuite).
+  const basePrice = courseBasePrice(selectedCourse(form.course_id));
+  const discountAmount = resolveEnrollmentDiscount(basePrice, form);
+  const netPrice = Math.round((basePrice - discountAmount) * 100) / 100;
+
   // Règle métier : tout client est un apprenant, mais tout apprenant n'est pas
   // un client. L'inscription exige un client (compte « client »), donc
   // l'autocomplete propose les clients enregistrés.
@@ -293,6 +305,9 @@ export default function FormationEnrollmentPage() {
       amount_paid: '',
       payment_type: 'cash',
       notes: enrollment.notes ?? '',
+      // La remise est figée à la création : elle n'est pas rééditable ici.
+      discount_type: '',
+      discount_value: '',
     });
     setFormError(null);
     setFieldErrors({});
@@ -348,6 +363,9 @@ export default function FormationEnrollmentPage() {
         ...(form.amount_paid ? { amount_paid: Number(form.amount_paid) } : {}),
         payment_type: form.payment_type || 'cash',
         notes: form.notes || undefined,
+        ...(!editing && form.discount_type && form.discount_value
+          ? { discount_type: form.discount_type, discount_value: Number(form.discount_value) }
+          : {}),
       };
 
       if (editing) {
@@ -598,15 +616,58 @@ export default function FormationEnrollmentPage() {
               {fieldErrors.course_id && (
                 <p className="mt-1 text-sm text-error-500">{fieldErrors.course_id}</p>
               )}
-              {(selectedCourse(form.course_id)?.effective_price != null || selectedCourse(form.course_id)?.price != null) && (
-                <p className="mt-2 rounded-lg bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
-                  {t('academy.priceToPay', {
-                    amount: Number(
-                      selectedCourse(form.course_id)?.effective_price ?? selectedCourse(form.course_id)?.price,
-                    ).toLocaleString(),
-                  })}
-                </p>
+              {(basePrice > 0 || discountAmount > 0) && (
+                <div className="mt-2 rounded-lg bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                  {discountAmount > 0 ? (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-normal opacity-80">
+                        {t('invoices.discountLabel')} : −{discountAmount.toLocaleString()}
+                      </span>
+                      <span>{t('academy.priceToPay', { amount: netPrice.toLocaleString() })}</span>
+                    </div>
+                  ) : (
+                    <span>{t('academy.priceToPay', { amount: basePrice.toLocaleString() })}</span>
+                  )}
+                </div>
               )}
+            </div>
+          )}
+
+          {!editing && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('academy.discountType')}
+                </label>
+                <select
+                  value={form.discount_type}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      discount_type: e.target.value as '' | EnrollmentDiscountType,
+                      discount_value: '',
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                >
+                  <option value="">{t('academy.discountNone')}</option>
+                  <option value="percent">{t('academy.discountPercent')}</option>
+                  <option value="amount">{t('academy.discountAmount')}</option>
+                </select>
+              </div>
+              <Input
+                label={`${t('academy.discountValue')}${form.discount_type === 'percent' ? ' (%)' : ' (FCFA)'}`}
+                type="number"
+                min={0}
+                max={form.discount_type === 'percent' ? 100 : basePrice || undefined}
+                step={form.discount_type === 'percent' ? 0.01 : 1}
+                placeholder="0"
+                value={form.discount_value}
+                onChange={(e) => setForm((prev) => ({ ...prev, discount_value: e.target.value }))}
+                disabled={!form.discount_type}
+                hint={form.discount_type ? t('academy.discountHint') : undefined}
+                error={fieldErrors.discount_value}
+              />
             </div>
           )}
 

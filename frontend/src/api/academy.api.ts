@@ -481,6 +481,8 @@ export const academyApi = {
     append('amount_paid', payload.amount_paid);
     append('status', payload.status);
     append('notes', payload.notes);
+    append('discount_type', payload.discount_type);
+    append('discount_value', payload.discount_value);
     append('payment_type', paymentType);
     const { data } = await client.post<FormationEnrollment>('/formation-enrollments', formData);
     return data;

@@ -89,6 +89,105 @@ class EnrollmentValidationWorkflowTest extends TestCase
         $this->assertSame($commercial->id, $invoice->seller_user_id);
     }
 
+    public function test_enrollment_applies_percent_discount(): void
+    {
+        $this->userWithRole('caissier');
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $response = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course->id,
+            'learner_user_id' => $client->id,
+            'discount_type' => 'percent',
+            'discount_value' => 10,
+        ])->assertCreated()->json();
+
+        // La saisie est tracée sur l'inscription…
+        $this->assertSame('percent', $response['discount_type']);
+        $this->assertSame(10.0, (float) $response['discount_value']);
+
+        // …et la facture porte la remise en montant, comme une facture au guichet.
+        $invoice = Invoice::find($response['invoice_id']);
+        $this->assertSame(5000.0, (float) $invoice->discount);
+        $this->assertSame(45000.0, (float) $invoice->total_amount);
+        $this->assertSame(45000.0, $invoice->balance_due);
+        // La ligne conserve le prix catalogue.
+        $this->assertSame(50000.0, (float) $invoice->items()->first()->line_total);
+    }
+
+    public function test_enrollment_applies_fixed_amount_discount_and_caps_payment(): void
+    {
+        $this->userWithRole('caissier');
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $response = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course->id,
+            'learner_user_id' => $client->id,
+            'discount_type' => 'amount',
+            'discount_value' => 15000,
+            // Le vendeur annonce le prix catalogue : le trop-perçu est borné au net.
+            'amount_paid' => 50000,
+        ])->assertCreated()->json();
+
+        $invoice = Invoice::find($response['invoice_id']);
+
+        $this->assertSame(15000.0, (float) $invoice->discount);
+        $this->assertSame(35000.0, (float) $invoice->total_amount);
+        $this->assertSame(35000.0, (float) $invoice->amount_paid);
+        $this->assertSame('paid', $invoice->status);
+        $this->assertStringContainsString('Remise', $invoice->comment);
+    }
+
+    public function test_enrollment_rejects_discount_above_course_price(): void
+    {
+        $this->userWithRole('caissier');
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course->id,
+            'learner_user_id' => $client->id,
+            'discount_type' => 'amount',
+            'discount_value' => 60000,
+        ])->assertStatus(422)->assertJsonValidationErrors('discount_value');
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course->id,
+            'learner_user_id' => $client->id,
+            'discount_type' => 'percent',
+            'discount_value' => 120,
+        ])->assertStatus(422)->assertJsonValidationErrors('discount_value');
+
+        $this->assertDatabaseMissing('formation_enrollments', [
+            'course_id' => $course->id,
+            'learner_user_id' => $client->id,
+        ]);
+    }
+
+    public function test_commercial_enrollment_discount_applies_to_pending_invoice_advance(): void
+    {
+        $this->createCommercialUser();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $response = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course->id,
+            'learner_user_id' => $client->id,
+            'discount_type' => 'percent',
+            'discount_value' => 20,
+            'amount_paid' => 40000,
+        ])->assertCreated()->json();
+
+        $invoice = Invoice::find($response['invoice_id']);
+
+        $this->assertSame(Invoice::VALIDATION_PENDING, $invoice->validation_status);
+        $this->assertSame(10000.0, (float) $invoice->discount);
+        $this->assertSame(40000.0, (float) $invoice->total_amount);
+        $this->assertSame(0.0, (float) $invoice->amount_paid);
+        $this->assertSame(40000.0, (float) $invoice->declared_advance);
+    }
+
     public function test_commercial_can_attach_payment_proof_at_enrollment_creates_proof(): void
     {
         Storage::fake('public');

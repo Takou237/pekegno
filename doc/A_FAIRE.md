@@ -290,7 +290,8 @@ Source : `doc/test.pdf` (cahier de recette PEKEGNO Academy du 28 septembre 2026)
 
 ### 🟠 P1 — Important (flux de vente & administration)
 
-- [ ] **T5 — Nouvelle inscription : réduction % ou montant fixe** — Permettre d'appliquer une remise (pourcentage ou montant fixe) à un apprenant lors d'une inscription, quel que soit le rôle (commercial, caissière, autre).
+- [x] **T5 — Nouvelle inscription : réduction % ou montant fixe** — Permettre d'appliquer une remise (pourcentage ou montant fixe) à un apprenant lors d'une inscription, quel que soit le rôle (commercial, caissière, autre).
+  > ✅ Corrigé le 2026-09-28 : `discount_type` (`amount`/`percent`) + `discount_value` sur `formation_enrollments`, résolus en montant par `resolveDiscountAmount()` et plafonnés au prix de la formation. La facture générée porte la remise dans `invoices.discount` et `total_amount` = net (ligne conservée au prix catalogue, cohérent avec une facture saisie au guichet) ; le plafond d'encaissement suit le montant net et la remise est tracée dans le journal d'activité. Formulaire de remise ajouté aux deux points d'entrée (modale + page liste), montant net affiché avant validation. Aucune permission ajoutée : `enrollments.creer` couvre déjà commercial et caissier.
 - [ ] **T6 — Nouvelle inscription : formations en ligne + type affiché** — Lister aussi les formations en ligne (pas seulement présentiel) et afficher le type à côté du nom : « Nom de la formation – Type (ligne/présentiel) ».
 - [ ] **T7 — Annulation d'une facture : formulaire non réinitialisé + mauvaise redirection** — Après annulation, réinitialiser le formulaire et rester au plus près de l'endroit où on était (redirection contextuelle).
 - [ ] **T8 — Création d'utilisateur : email automatique** — À la création d'un utilisateur, lui envoyer un email avec ses paramètres de connexion et son mot de passe par défaut.

@@ -18,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class FormationEnrollmentController extends Controller
 {
@@ -69,12 +70,14 @@ class FormationEnrollmentController extends Controller
             'amount_paid' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'payment_type' => 'nullable|string|in:cash,om,momo,mobile',
+            'discount_type' => 'nullable|required_with:discount_value|in:amount,percent',
+            'discount_value' => 'nullable|required_with:discount_type|numeric|min:0',
             'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
         ]);
 
         if (! User::whereKey($validated['learner_user_id'])->whereHas('role', fn ($q) => $q->where('name', 'client'))->exists()) {
             return response()->json([
-                'message' => "Le bénéficiaire doit être un apprenant (client).",
+                'message' => 'Le bénéficiaire doit être un apprenant (client).',
                 'errors' => ['learner_user_id' => ['Sélectionnez un apprenant valide.']],
             ], 422);
         }
@@ -111,6 +114,11 @@ class FormationEnrollmentController extends Controller
             }
         }
 
+        // La remise est libre (pourcentage ou montant fixe) et accessible à tout
+        // rôle disposant d'enrollments.creer : elle est plafonnée au prix de la
+        // formation pour que la facture ne devienne jamais négative.
+        $discountAmount = $this->resolveDiscountAmount($validated);
+
         $validated['enrolled_at'] = now();
         $validated['status'] = 'enrolled';
 
@@ -120,11 +128,11 @@ class FormationEnrollmentController extends Controller
             $validated['seller_user_id'] = $request->user()?->id;
         }
 
-        $enrollment = DB::transaction(function () use ($validated, $request, $existing, $requestedSessionId) {
+        $enrollment = DB::transaction(function () use ($validated, $request, $existing, $requestedSessionId, $discountAmount) {
             $invoiceId = $validated['invoice_id'] ?? null;
 
             if (! $invoiceId) {
-                $invoiceId = $this->generateInvoiceForEnrollment($validated, $request) ?? null;
+                $invoiceId = $this->generateInvoiceForEnrollment($validated, $request, $discountAmount) ?? null;
                 $validated['invoice_id'] = $invoiceId;
             }
 
@@ -134,6 +142,8 @@ class FormationEnrollmentController extends Controller
                     'enrolled_at' => $validated['enrolled_at'],
                     'invoice_id' => $invoiceId ?? $existing->invoice_id,
                     'notes' => $validated['notes'] ?? $existing->notes,
+                    'discount_type' => $validated['discount_type'] ?? null,
+                    'discount_value' => $validated['discount_value'] ?? null,
                 ]);
 
                 $enrollment = $existing;
@@ -273,8 +283,52 @@ class FormationEnrollmentController extends Controller
     }
 
     /**
+     * Résout la remise saisie sur l'inscription en montant (pas en pourcentage).
+     *
+     * La remise est plafonnée au prix de la formation : au-delà, la facture
+     * deviendrait négative. Une remise de 100 % est admise (inscription offerte),
+     * elle produit une facture à 0 avec la ligne conservée au prix catalogue.
+     */
+    private function resolveDiscountAmount(array $validated): float
+    {
+        $type = $validated['discount_type'] ?? null;
+        $value = $validated['discount_value'] ?? null;
+
+        if ($type === null || $value === null) {
+            return 0.0;
+        }
+
+        $value = (float) $value;
+        $price = (float) (Course::find($validated['course_id'])?->effective_price);
+
+        if ($type === FormationEnrollment::DISCOUNT_TYPE_PERCENT) {
+            if ($value <= 0 || $value > 100) {
+                throw ValidationException::withMessages([
+                    'discount_value' => 'Le pourcentage de remise doit être compris entre 0 et 100.',
+                ]);
+            }
+
+            return round($price * ($value / 100), 2);
+        }
+
+        if ($value > $price) {
+            throw ValidationException::withMessages([
+                'discount_value' => 'La remise ne peut pas dépasser le prix de la formation.',
+            ]);
+        }
+
+        return round($value, 2);
+    }
+
+    /**
      * Génère automatiquement la facture d'inscription à partir du prix de la formation
      * (et du commercial/employé vendeur sélectionné, le cas échéant).
+     *
+     * La remise éventuelle est appliquée comme sur une facture saisie au guichet :
+     * la ligne garde le prix catalogue, `discount` porte la remise en montant et
+     * `total_amount` le montant net réellement dû. Attention : si l'appelant
+     * fournit lui-même `invoice_id`, aucune facture n'est générée et la remise
+     * reste uniquement tracée sur l'inscription.
      *
      * Créée par un commercial : la facture naît en attente de validation (validation_status
      * = pending, hors comptabilité) et le montant annoncé comme payé est conservé comme
@@ -282,7 +336,7 @@ class FormationEnrollmentController extends Controller
      * C'est le caissier / la direction qui valide, applique l'avance et encaisse le reste.
      * Créée par un autre rôle (guichet) : la facture est directement validée.
      */
-    private function generateInvoiceForEnrollment(array $validated, Request $request): ?string
+    private function generateInvoiceForEnrollment(array $validated, Request $request, float $discountAmount = 0.0): ?string
     {
         $course = Course::find($validated['course_id']);
 
@@ -296,7 +350,11 @@ class FormationEnrollmentController extends Controller
             return null;
         }
 
-        $amountPaid = min((float) ($validated['amount_paid'] ?? 0), $price);
+        $total = round(max(0, $price - $discountAmount), 2);
+
+        // Le plafond d'encaissement suit le montant net : payer le prix catalogue
+        // alors qu'une remise a été accordée ferait un trop-perçu sur la facture.
+        $amountPaid = min((float) ($validated['amount_paid'] ?? 0), $total);
 
         $learner = User::find($validated['learner_user_id']);
 
@@ -343,6 +401,10 @@ class FormationEnrollmentController extends Controller
             $comment .= " — Vendeur : {$sellerTrainerName}";
         }
 
+        if ($discountAmount > 0) {
+            $comment .= ' — Remise : '.number_format($discountAmount, 0, ',', ' ');
+        }
+
         // Un commercial ne peut pas encaisser : le montant saisi comme « payé » devient
         // une avance déclarée, appliquée à la validation par le caissier, et la facture
         // part en attente de validation au lieu d'entrer directement en comptabilité.
@@ -357,10 +419,10 @@ class FormationEnrollmentController extends Controller
             'seller_user_id' => $sellerUserId,
             'invoice_date' => now(),
             'payment_type' => $validated['payment_type'] ?? null,
-            'total_amount' => $price,
+            'total_amount' => $total,
             'amount_paid' => $needsValidation ? 0 : $amountPaid,
             'declared_advance' => $needsValidation && $amountPaid > 0 ? $amountPaid : null,
-            'discount' => 0,
+            'discount' => $discountAmount,
             'vat_rate' => 0,
             'status' => 'unpaid',
             'validation_status' => $needsValidation ? Invoice::VALIDATION_PENDING : Invoice::VALIDATION_VALIDATED,
@@ -399,7 +461,11 @@ class FormationEnrollmentController extends Controller
             entityType: 'invoice',
             entityId: $invoice->id,
             description: "Facture {$invoice->number} générée automatiquement pour l'inscription à la formation {$course->name}",
-            newValues: ['invoice' => $invoice->number, 'total_amount' => $price],
+            newValues: array_filter([
+                'invoice' => $invoice->number,
+                'total_amount' => $total,
+                'discount' => $discountAmount ?: null,
+            ]),
             request: $request,
         );
 
