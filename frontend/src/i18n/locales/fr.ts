@@ -564,6 +564,13 @@ export default {
     deleteUserMessage:
       'Êtes-vous sûr de vouloir supprimer définitivement {{name}} ? Cette action est irréversible.',
     yesDelete: 'Oui, supprimer',
+    resetPassword: 'Réinitialiser le mot de passe',
+    resetPasswordTitle: 'Réinitialiser le mot de passe ?',
+    resetPasswordMessage:
+      'Un nouveau mot de passe sera généré pour {{name}} et envoyé à son adresse email. Ses sessions actives seront fermées. Confirmez-vous ?',
+    resetPasswordConfirm: 'Oui, réinitialiser',
+    passwordResetDone: 'Mot de passe réinitialisé, un email a été envoyé à l\'utilisateur.',
+    passwordResetFailed: 'Impossible de réinitialiser le mot de passe.',
     createTitle: 'Créer un utilisateur',
     optionalAgency: 'Agence (optionnel)',
     optionalDepartment: 'Département (optionnel)',

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Search, Pencil, Eye, Trash2, UserPlus, Download } from 'lucide-react';
+import { Search, Pencil, Eye, Trash2, UserPlus, Download, KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { usersApi } from '@/api/users.api';
@@ -79,6 +79,8 @@ export default function UserListPage() {
   const [confirmRoleRemove, setConfirmRoleRemove] = useState<(() => Promise<void>) | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<UserListItem | null>(null);
+  const [resetPasswordSubmitting, setResetPasswordSubmitting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [createForm, setCreateForm] = useState<CreateUserPayload>({
@@ -103,6 +105,15 @@ export default function UserListPage() {
   const canCreateUsers = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
     currentUser?.role?.name ?? ''
   );
+
+  // La direction générale ne peut pas réinitialiser un super-administrateur
+  // (même règle que côté API), et personne ne réinitialise son propre mot de
+  // passe depuis cette page.
+  function canResetPasswordOf(user: UserListItem): boolean {
+    if (!canManageUsers || user.id === currentUser?.id) return false;
+
+    return user.role?.name !== 'super-admin' || currentUser?.role?.name === 'super-admin';
+  }
 
   const fetchUsers = useCallback(async (filters: {
     search?: string;
@@ -396,6 +407,20 @@ export default function UserListPage() {
     }
   }
 
+  async function handleResetPassword() {
+    if (!resetPasswordTarget) return;
+    setResetPasswordSubmitting(true);
+    try {
+      await usersApi.resetPassword(resetPasswordTarget.id);
+      showToast(t('users.passwordResetDone'), 'success');
+      setResetPasswordTarget(null);
+    } catch (err) {
+      showToast(extractErrorMessage(err, t('users.passwordResetFailed')), 'error');
+    } finally {
+      setResetPasswordSubmitting(false);
+    }
+  }
+
   async function handleCreateUser() {
     setCreateErrors({});
     setCreateSubmitting(true);
@@ -611,6 +636,16 @@ export default function UserListPage() {
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
+                          {canResetPasswordOf(u) && (
+                            <button
+                              type="button"
+                              onClick={() => setResetPasswordTarget(u)}
+                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                              title={t('users.resetPassword')}
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setDeleteTarget(u)}
@@ -835,6 +870,22 @@ export default function UserListPage() {
         isLoading={deleteSubmitting}
         onConfirm={handleDeleteUser}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Confirmation réinitialisation du mot de passe */}
+      <ConfirmDialog
+        isOpen={Boolean(resetPasswordTarget)}
+        title={t('users.resetPasswordTitle')}
+        message={
+          resetPasswordTarget
+            ? t('users.resetPasswordMessage', { name: resetPasswordTarget.name })
+            : ''
+        }
+        confirmLabel={t('users.resetPasswordConfirm')}
+        variant="danger"
+        isLoading={resetPasswordSubmitting}
+        onConfirm={handleResetPassword}
+        onCancel={() => setResetPasswordTarget(null)}
       />
 
       {/* Modal création utilisateur */}

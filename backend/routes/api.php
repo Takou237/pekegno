@@ -366,6 +366,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::get('/users/{user}/role', [UserRoleController::class, 'show']);
     Route::put('/users/{user}/role', [UserRoleController::class, 'update']);
+    Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
 
     Route::get('/roles', [RoleController::class, 'index']);
     Route::post('/roles', [RoleController::class, 'store']);

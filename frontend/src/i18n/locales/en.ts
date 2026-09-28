@@ -558,6 +558,13 @@ export default {
     deleteUserMessage:
       'Are you sure you want to permanently delete {{name}}? This action is irreversible.',
     yesDelete: 'Yes, delete',
+    resetPassword: 'Reset password',
+    resetPasswordTitle: 'Reset the password?',
+    resetPasswordMessage:
+      'A new password will be generated for {{name}} and emailed to them. Their active sessions will be closed. Do you confirm?',
+    resetPasswordConfirm: 'Yes, reset',
+    passwordResetDone: 'Password reset, an email was sent to the user.',
+    passwordResetFailed: 'Unable to reset the password.',
     createTitle: 'Create user',
     optionalAgency: 'Agency (optional)',
     optionalDepartment: 'Department (optional)',
