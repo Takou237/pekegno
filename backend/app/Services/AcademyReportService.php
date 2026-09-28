@@ -8,8 +8,8 @@ use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Service;
-use App\Models\TrainingSession;
 use App\Models\Trainer;
+use App\Models\TrainingSession;
 use Illuminate\Support\Carbon;
 
 class AcademyReportService
@@ -192,6 +192,7 @@ class AcademyReportService
         $enrollmentInvoiceIds = FormationEnrollment::whereNotNull('invoice_id')->pluck('invoice_id');
         $enrollmentInvoices = Invoice::whereIn('id', $enrollmentInvoiceIds)
             ->whereNull('cancelled_at')
+            ->validated()
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
         $received = (float) (clone $enrollmentInvoices)->sum('amount_paid');
         $outstanding = (float) (clone $enrollmentInvoices)
@@ -242,6 +243,7 @@ class AcademyReportService
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->whereNotNull('invoice_items.service_id')
             ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds));
 
         $aggregate = (clone $linesQuery)

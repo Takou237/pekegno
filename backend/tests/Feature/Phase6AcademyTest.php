@@ -3,18 +3,25 @@
 namespace Tests\Feature;
 
 use App\Models\Agency;
+use App\Models\City;
+use App\Models\CommissionPayment;
+use App\Models\Country;
 use App\Models\Course;
 use App\Models\CourseCategory;
+use App\Models\CourseModule;
+use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\Promotion;
 use App\Models\Role;
 use App\Models\SellerProfile;
-use App\Models\TrainingSession;
 use App\Models\Trainer;
+use App\Models\TrainingSession;
 use App\Models\TreasuryAccount;
+use App\Models\TreasuryTransaction;
 use App\Models\User;
 use App\Services\PointsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -53,7 +60,7 @@ class Phase6AcademyTest extends TestCase
         $user = User::factory()->create([
             'role_id' => Role::where('name', 'responsable-agence')->value('id'),
         ]);
-        \Illuminate\Support\Facades\DB::table('user_assignments')->insert([
+        DB::table('user_assignments')->insert([
             'user_id' => $user->id,
             'agency_id' => $agency->id,
             'department_id' => null,
@@ -69,8 +76,8 @@ class Phase6AcademyTest extends TestCase
 
     private function agencyIn(string $countryCode): Agency
     {
-        $country = \App\Models\Country::where('code', $countryCode)->firstOrFail();
-        $city = \App\Models\City::whereIn('country_id', [$country->id])->firstOrFail();
+        $country = Country::where('code', $countryCode)->firstOrFail();
+        $city = City::whereIn('country_id', [$country->id])->firstOrFail();
 
         return Agency::create([
             'code' => Agency::generateNextCode(),
@@ -145,7 +152,7 @@ class Phase6AcademyTest extends TestCase
         $this->getJson('/api/courses')
             ->assertJsonPath('data.0.formation_enrollments_count', 1);
 
-        $enrollment = \App\Models\FormationEnrollment::where('course_id', $course['id'])->first();
+        $enrollment = FormationEnrollment::where('course_id', $course['id'])->first();
 
         $this->deleteJson("/api/formation-enrollments/{$enrollment->id}")->assertNoContent();
 
@@ -477,6 +484,78 @@ class Phase6AcademyTest extends TestCase
             ->assertJsonPath('attendances.0.status', 'present');
     }
 
+    public function test_online_course_is_listed_and_enrollable_without_session(): void
+    {
+        $this->admin();
+
+        $online = $this->createCourse(['name' => 'Excel en ligne', 'mode' => 'online']);
+        $this->createCourse(['name' => 'Comptabilité présentielle', 'mode' => 'in_person']);
+        $client = $this->createClient();
+
+        // Le catalogue renvoie bien les deux modes, avec le type sur chaque ligne.
+        $listed = $this->getJson('/api/courses')->assertOk()->json('data');
+        $modes = collect($listed)->pluck('mode');
+        $this->assertTrue($modes->contains('online'), 'Les formations en ligne doivent être listées.');
+        $this->assertTrue($modes->contains('in_person'));
+
+        // Et le filtre dedicated fonctionne.
+        $onlyOnline = $this->getJson('/api/courses?mode=online')->assertOk()->json('data');
+        $this->assertSame(['online'], collect($onlyOnline)->pluck('mode')->unique()->values()->all());
+
+        // Une formation en ligne n'a pas de session : elle reste inscriptible.
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $online['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201)
+            ->assertJsonPath('status', 'enrolled')
+            ->json();
+
+        $this->assertSame('online', $enrollment['course']['mode'] ?? null);
+        $this->assertDatabaseMissing('session_participants', [
+            'formation_enrollment_id' => $enrollment['id'],
+        ]);
+    }
+
+    public function test_enrollment_without_session_does_not_join_every_session(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $first = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertStatus(201)->json();
+
+        $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(14)->toISOString(),
+        ])->assertStatus(201)->json();
+
+        // Aucune session choisie : le choix est ambigu, on n'affecte rien plutôt
+        // que d'inscrire l'apprenant aux deux.
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201)->json();
+
+        $this->assertDatabaseMissing('session_participants', [
+            'formation_enrollment_id' => $enrollment['id'],
+        ]);
+
+        // Une session explicitement demandée est bien prise en compte.
+        $scoped = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $this->createClient()->id,
+            'training_session_id' => $first['id'],
+        ])->assertStatus(201)->json();
+
+        $this->assertDatabaseHas('session_participants', [
+            'training_session_id' => $first['id'],
+            'formation_enrollment_id' => $scoped['id'],
+        ]);
+    }
+
     public function test_enrollment_rejects_non_client_learner(): void
     {
         $this->admin();
@@ -536,7 +615,7 @@ class Phase6AcademyTest extends TestCase
         // L'inscription reste valide, mais n'occupe pas la session au complet.
         $this->assertSame(
             1,
-            \Illuminate\Support\Facades\DB::table('session_participants')->where('training_session_id', $session['id'])->count()
+            DB::table('session_participants')->where('training_session_id', $session['id'])->count()
         );
     }
 
@@ -759,7 +838,7 @@ class Phase6AcademyTest extends TestCase
 
         $this->assertSame(
             0,
-            \Illuminate\Support\Facades\DB::table('session_participants')->where('training_session_id', $session['id'])->count()
+            DB::table('session_participants')->where('training_session_id', $session['id'])->count()
         );
     }
 
@@ -767,7 +846,7 @@ class Phase6AcademyTest extends TestCase
     {
         $this->admin();
         $course = $this->createCourse();
-        $module = \App\Models\CourseModule::create([
+        $module = CourseModule::create([
             'course_id' => $course['id'],
             'name' => 'Module hérité',
             'order_index' => 1,
@@ -784,7 +863,7 @@ class Phase6AcademyTest extends TestCase
 
         $this->assertArrayNotHasKey('module', $session);
         $this->assertNull(
-            \Illuminate\Support\Facades\DB::table('training_sessions')->where('id', $session['id'])->value('module_id')
+            DB::table('training_sessions')->where('id', $session['id'])->value('module_id')
         );
     }
 
@@ -821,12 +900,12 @@ class Phase6AcademyTest extends TestCase
         $course = $this->createCourse();
         $client = $this->createClient();
 
-        $moduleA = \App\Models\CourseModule::create([
+        $moduleA = CourseModule::create([
             'course_id' => $course['id'],
             'name' => 'Module A',
             'order_index' => 1,
         ]);
-        $moduleB = \App\Models\CourseModule::create([
+        $moduleB = CourseModule::create([
             'course_id' => $course['id'],
             'name' => 'Module B',
             'order_index' => 2,
@@ -981,7 +1060,7 @@ class Phase6AcademyTest extends TestCase
         $this->assertDatabaseHas('invoices', [
             'id' => $invoiceId,
             'seller_user_id' => null,
-            'comment' => "Inscription à la formation Cours de comptabilité — Vendeur : rap poo",
+            'comment' => 'Inscription à la formation Cours de comptabilité — Vendeur : rap poo',
         ]);
 
         // Un vendeur utilisateur et un formateur ne peuvent pas être envoyés ensemble.
@@ -1110,7 +1189,7 @@ class Phase6AcademyTest extends TestCase
             'amount' => 2000.00,
         ]);
 
-        $payment = \App\Models\CommissionPayment::where('commission_entry_id', $entry['id'])->firstOrFail();
+        $payment = CommissionPayment::where('commission_entry_id', $entry['id'])->firstOrFail();
 
         // Sortie de trésorerie enregistrée (source = paiement de commission).
         $this->assertDatabaseHas('treasury_transactions', [
@@ -1123,7 +1202,7 @@ class Phase6AcademyTest extends TestCase
         ]);
 
         // Écriture comptable (dépense) partageant la même référence que la sortie.
-        $movement = \App\Models\TreasuryTransaction::where('source_type', 'commission_payment')
+        $movement = TreasuryTransaction::where('source_type', 'commission_payment')
             ->where('source_id', $payment->id)
             ->firstOrFail();
 
@@ -1133,6 +1212,61 @@ class Phase6AcademyTest extends TestCase
             'amount' => 2000.00,
             'beneficiary' => $profile->full_name,
             'reference' => $movement->reference,
+        ]);
+    }
+
+    public function test_cashier_can_pay_commission_entry(): void
+    {
+        $caissier = $this->userWithRole('caissier');
+        $agency = $this->agencyIn('CMR');
+        $trainer = $this->createTrainer();
+
+        $profile = SellerProfile::create([
+            'user_id' => $trainer->user_id,
+            'agency_id' => $agency->id,
+            'kind' => SellerProfile::KIND_TRAINER,
+            'commission_type' => 'percent',
+            'commission_value' => 10,
+            'is_active' => true,
+        ]);
+
+        TreasuryAccount::create([
+            'agency_id' => $agency->id,
+            'name' => 'Caisse Caissier',
+            'type' => 'cash',
+            'opening_balance' => 0,
+            'currency_code' => 'XAF',
+            'is_active' => true,
+        ]);
+
+        // Création d'entrée manuelle : toujours réservée à commissions.valider
+        $this->postJson('/api/commissions/entries', [
+            'seller_profile_id' => $profile->id,
+            'category' => 'training',
+            'amount' => 2000,
+        ])->assertStatus(403);
+
+        // Un valideur (super-admin) crée l'entrée...
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'super-admin')->value('id'),
+        ]));
+
+        $entry = $this->postJson('/api/commissions/entries', [
+            'seller_profile_id' => $profile->id,
+            'category' => 'training',
+            'amount' => 2000,
+        ])->assertStatus(201)->json();
+
+        // ...la caissière peut ensuite l'encaisser.
+        Sanctum::actingAs($caissier);
+
+        $this->postJson('/api/commissions/entries/'.$entry['id'].'/pay')
+            ->assertOk();
+
+        $this->assertDatabaseHas('commission_entries', [
+            'id' => $entry['id'],
+            'status' => 'paid',
+            'paid_by' => $caissier->id,
         ]);
     }
 

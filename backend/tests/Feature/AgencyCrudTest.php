@@ -2,13 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\Agency;
+use App\Models\Country;
 use App\Models\Department;
+use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -204,6 +208,78 @@ class AgencyCrudTest extends TestCase
         ]);
     }
 
+    public function test_update_country_id_reassigns_agency_elements(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $cameroon = Country::create(['name' => 'Cameroun', 'code' => 'CM', 'currency_code' => 'XAF']);
+        $ivoryCoast = Country::create(['name' => "Côte d'Ivoire", 'code' => 'CI', 'currency_code' => 'XOF']);
+
+        $agency = Agency::factory()->create([
+            'country_id' => $cameroon->id,
+            'country' => 'Cameroun',
+        ]);
+
+        // Utilisateur affecté à l'agence (affectation principale)
+        $assignedUser = User::factory()->create(['country_id' => $cameroon->id]);
+        DB::table('user_assignments')->insert([
+            'user_id' => $assignedUser->id,
+            'agency_id' => $agency->id,
+            'is_primary' => true,
+        ]);
+
+        // Utilisateur affecté ici mais affecté PRINCIPALEMENT ailleurs : ne doit pas bouger
+        $otherAgency = Agency::factory()->create(['country_id' => $cameroon->id]);
+        $otherUser = User::factory()->create(['country_id' => $cameroon->id]);
+        DB::table('user_assignments')->insert([
+            ['user_id' => $otherUser->id, 'agency_id' => $agency->id, 'is_primary' => false],
+            ['user_id' => $otherUser->id, 'agency_id' => $otherAgency->id, 'is_primary' => true],
+        ]);
+
+        // Logs rattachés à l'agence
+        ActivityLog::create(['agency_id' => $agency->id, 'country_id' => $cameroon->id, 'action' => 'test', 'entity_type' => 'test']);
+        ActivityLog::create(['agency_id' => $agency->id, 'country_id' => $cameroon->id, 'action' => 'test', 'entity_type' => 'test']);
+        // Log d'une autre agence : ne doit pas bouger
+        ActivityLog::create(['agency_id' => $otherAgency->id, 'country_id' => $cameroon->id, 'action' => 'test', 'entity_type' => 'test']);
+
+        $response = $this->putJson("/api/agencies/{$agency->id}", [
+            'country' => "Côte d'Ivoire",
+            'country_id' => $ivoryCoast->id,
+        ]);
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('agencies', [
+            'id' => $agency->id,
+            'country_id' => $ivoryCoast->id,
+            'country' => "Côte d'Ivoire",
+        ]);
+
+        // L'utilisateur affecté (principal) bascule avec son agence
+        $this->assertDatabaseHas('users', [
+            'id' => $assignedUser->id,
+            'country_id' => $ivoryCoast->id,
+        ]);
+
+        // L'utilisateur affecté principalement ailleurs garde son pays d'origine
+        $this->assertDatabaseHas('users', [
+            'id' => $otherUser->id,
+            'country_id' => $cameroon->id,
+        ]);
+
+        // Les logs préexistants de l'agence suivent le nouveau pays (l'update
+        // génère aussi ses propres logs, d'où le filtre sur l'action 'test')
+        $this->assertSame(0, ActivityLog::where('agency_id', $agency->id)->where('country_id', $cameroon->id)->count());
+        $this->assertSame(2, ActivityLog::where('agency_id', $agency->id)->where('country_id', $ivoryCoast->id)->where('action', 'test')->count());
+
+        // Le log de l'autre agence garde le pays d'origine
+        $this->assertDatabaseHas('activity_logs', [
+            'agency_id' => $otherAgency->id,
+            'action' => 'test',
+            'country_id' => $cameroon->id,
+        ]);
+    }
+
     public function test_cannot_update_agency_code_to_duplicate(): void
     {
         Sanctum::actingAs($this->admin);
@@ -354,6 +430,41 @@ class AgencyCrudTest extends TestCase
         $response = $this->deleteJson("/api/agencies/{$agency->id}/force-delete");
 
         $response->assertNoContent();
+        $this->assertDatabaseMissing('agencies', ['id' => $agency->id]);
+    }
+
+    public function test_force_delete_blocked_when_agency_has_invoices(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $agency = Agency::factory()->create(['deleted_at' => now()]);
+        $invoice = Invoice::create([
+            'agency_id' => $agency->id,
+            'number' => 'FAC-FD-001',
+            'invoice_date' => now(),
+            'total_amount' => 10000,
+        ]);
+
+        $response = $this->deleteJson("/api/agencies/{$agency->id}/force-delete");
+
+        $response->assertStatus(409);
+
+        // L'agence (en corbeille) et sa facture sont intactes
+        $this->assertDatabaseHas('agencies', ['id' => $agency->id]);
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id]);
+    }
+
+    public function test_force_delete_purges_activity_logs(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $agency = Agency::factory()->create(['deleted_at' => now()]);
+        ActivityLog::create(['agency_id' => $agency->id, 'action' => 'test', 'entity_type' => 'test']);
+
+        $response = $this->deleteJson("/api/agencies/{$agency->id}/force-delete");
+
+        $response->assertNoContent();
+        $this->assertDatabaseMissing('activity_logs', ['agency_id' => $agency->id]);
         $this->assertDatabaseMissing('agencies', ['id' => $agency->id]);
     }
 }

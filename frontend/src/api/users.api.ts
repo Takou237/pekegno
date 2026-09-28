@@ -33,6 +33,10 @@ export const usersApi = {
     await client.delete(`/users/${id}`);
   },
 
+  async resetPassword(id: string): Promise<void> {
+    await client.post(`/users/${id}/reset-password`);
+  },
+
   async listRoles(): Promise<RoleListItem[]> {
     const { data } = await client.get<RoleListItem[]>('/roles');
     return data;

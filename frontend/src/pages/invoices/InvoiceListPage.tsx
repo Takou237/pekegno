@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/Input';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import { canExportData } from '@/utils/exportPermissions';
 import { canViewAgencies } from '@/utils/catalogPermissions';
+import { invoiceListPath, invoiceOrigin } from '@/utils/invoiceNavigation';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Invoice, InvoiceStatus } from '@/types/invoice';
 import type { Agency, PaginationMeta } from '@/types/agency';
@@ -57,7 +58,6 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
 
   const [search, setSearch] = useState('');
   const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [page, setPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
 
   const status = searchParams.get('status') ?? '';
@@ -66,6 +66,11 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
   const commercialId = searchParams.get('commercial_id') ?? '';
   const from = searchParams.get('from') ?? '';
   const to = searchParams.get('to') ?? '';
+  // La page vit dans l'URL comme les autres filtres : revenir d'un détail de
+  // facture restitue la page affichée, pas la première.
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  // Origine mémorisée pour que le détail d'une facture sache d'où l'on venait.
+  const origin = invoiceOrigin(invoiceListPath(fixedAgencyId), searchParams);
 
   useEffect(() => {
     if (!canViewAgencies(currentUser)) return;
@@ -103,11 +108,22 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
   }, [fetchInvoices]);
 
   function setFilter(key: string, value: string) {
-    setPage(1);
     const params = new URLSearchParams(searchParams);
     if (value) params.set(key, value);
     else params.delete(key);
+    params.delete('page');
     setSearchParams(params, { replace: true });
+  }
+
+  function goToPage(next: number) {
+    const params = new URLSearchParams(searchParams);
+    if (next > 1) params.set('page', String(next));
+    else params.delete('page');
+    setSearchParams(params, { replace: true });
+  }
+
+  function openInvoice(invoiceId: string) {
+    navigate(invoiceDetailPath(invoiceId, fixedAgencyId), { state: origin });
   }
 
   async function handleExport() {
@@ -137,7 +153,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
               {t('invoices.export')}
             </Button>
           )}
-          <Button onClick={() => navigate(newInvoicePath ?? (fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/new` : '/invoices/new'))}>
+          <Button onClick={() => navigate(newInvoicePath ?? (fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/new` : '/invoices/new'), { state: origin })}>
             <Plus className="h-4 w-4" />
             {t('invoices.newInvoice')}
           </Button>
@@ -246,7 +262,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
                 {invoices.map((inv) => (
                   <tr
                     key={inv.id}
-                    onClick={() => navigate(invoiceDetailPath(inv.id, fixedAgencyId))}
+                    onClick={() => openInvoice(inv.id)}
                     className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
                   >
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
@@ -298,7 +314,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(invoiceDetailPath(inv.id, fixedAgencyId));
+                          openInvoice(inv.id);
                         }}
                         className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
                         title={t('invoices.detailTitle', { number: inv.number })}
@@ -320,7 +336,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
               lastPage={meta.last_page}
               total={meta.total}
               perPage={meta.per_page}
-              onPageChange={setPage}
+              onPageChange={goToPage}
             />
           </div>
         )}

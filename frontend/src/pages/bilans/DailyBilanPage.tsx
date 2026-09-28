@@ -50,7 +50,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
   const [agencyBilan, setAgencyBilan] = useState<BilanAgency | null>(null);
   const [consolidated, setConsolidated] = useState<{
     agencies: BilanAgency[];
-    totals: { total_ventes: number; total_ventes_amount: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
+    totals: { total_ventes: number; total_ventes_amount: number; total_formations: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
     expenses_by_category: { name: string; total: number }[];
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -295,10 +295,26 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
                   <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(line.total)}</td>
                 </tr>
               ))}
+              {(bilan.formation_count ?? 0) > 0 && (
+                <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <td className="px-5 py-3 text-gray-500 dark:text-gray-400">Formations</td>
+                  <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.formationsCol')}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{bilan.formation_count}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(bilan.formation_total ?? 0)}</td>
+                </tr>
+              )}
+              {(bilan.products_by_category ?? []).map((line, idx) => (
+                <tr key={`product-${line.label}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{line.category}</td>
+                  <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{line.label}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{line.count}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(line.total)}</td>
+                </tr>
+              ))}
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 text-gray-800 dark:text-gray-100">{t('bilans.totalVentes')}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{bilan.total_ventes}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(bilan.services_by_category.reduce((s, l) => s + l.total, 0))}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(bilan.total_ventes_amount)}</td>
               </tr>
 
               <tr className="border-t-2 border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30">
@@ -359,7 +375,7 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
 function ConsolidatedView({ consolidated, t }: {
   consolidated: {
     agencies: BilanAgency[];
-    totals: { total_ventes: number; total_ventes_amount: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
+    totals: { total_ventes: number; total_ventes_amount: number; total_formations: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
     expenses_by_category: { name: string; total: number }[];
   };
   t: (key: string) => string;
@@ -374,6 +390,7 @@ function ConsolidatedView({ consolidated, t }: {
             <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
               <tr>
                 <th className="px-5 py-3 font-medium">{t('bilans.agency')}</th>
+                <th className="px-5 py-3 text-right font-medium">{t('bilans.formationsCol')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.cashTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.omTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.momoTotal')}</th>
@@ -387,6 +404,7 @@ function ConsolidatedView({ consolidated, t }: {
               {agencies.map((ab) => (
                 <tr key={ab.agency_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{ab.agency?.name ?? '—'}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.formation_total ?? 0)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.cash_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.om_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.momo_total)}</td>
@@ -398,6 +416,7 @@ function ConsolidatedView({ consolidated, t }: {
               ))}
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
                 <td className="px-5 py-3 text-gray-800 dark:text-gray-100">{t('bilans.totalGeneral')}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_formations)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_cash)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_om)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_momo)}</td>
@@ -436,6 +455,14 @@ function buildCategoryColumns(days: BilanAgency[]): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
+function buildProductColumns(days: BilanAgency[]): string[] {
+  const set = new Set<string>();
+  for (const d of days) {
+    for (const p of d.products_by_category ?? []) set.add(p.category);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
 function buildExpenseColumns(days: BilanAgency[]): string[] {
   const set = new Set<string>();
   for (const d of days) {
@@ -448,6 +475,14 @@ function categoryTotal(day: BilanAgency, category: string): number {
   return day.services_by_category.filter((s) => s.category === category).reduce((sum, s) => sum + s.total, 0);
 }
 
+function productCategoryTotal(day: BilanAgency, category: string): number {
+  return (day.products_by_category ?? []).filter((p) => p.category === category).reduce((sum, p) => sum + p.total, 0);
+}
+
+function formationTotal(day: BilanAgency): number {
+  return day.formation_total ?? 0;
+}
+
 function expenseCategoryTotal(day: BilanAgency, name: string): number {
   return day.expenses_by_category.filter((e) => e.name === name).reduce((sum, e) => sum + e.total, 0);
 }
@@ -458,6 +493,7 @@ function expenseCategoryTotal(day: BilanAgency, name: string): number {
 // Solde final — répété par agence quand plusieurs sont affichées.
 function PeriodTable({ title, days, t }: { title: string; days: BilanAgency[]; t: (key: string, opts?: Record<string, unknown>) => string }) {
   const saleCols = useMemo(() => buildCategoryColumns(days), [days]);
+  const productCols = useMemo(() => buildProductColumns(days), [days]);
   const expenseCols = useMemo(() => buildExpenseColumns(days), [days]);
 
   if (days.length === 0) return null;
@@ -472,7 +508,11 @@ function PeriodTable({ title, days, t }: { title: string; days: BilanAgency[]; t
           <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
             <tr>
               <th className="sticky left-0 z-10 bg-white px-4 py-3 font-medium dark:bg-gray-900">{t('bilans.date')}</th>
+              <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.formationsCol')}</th>
               {saleCols.map((c) => (
+                <th key={c} className="whitespace-nowrap px-4 py-3 text-right font-medium">{c}</th>
+              ))}
+              {productCols.map((c) => (
                 <th key={c} className="whitespace-nowrap px-4 py-3 text-right font-medium">{c}</th>
               ))}
               <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.totalVentesCol')}</th>
@@ -494,8 +534,19 @@ function PeriodTable({ title, days, t }: { title: string; days: BilanAgency[]; t
                 <td className="sticky left-0 z-10 bg-white px-4 py-2.5 font-medium text-gray-700 dark:bg-gray-900 dark:text-gray-200">
                   {new Date(d.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                 </td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
+                  {formationTotal(d) > 0 ? formatCurrency(formationTotal(d)) : '—'}
+                </td>
                 {saleCols.map((c) => {
                   const v = categoryTotal(d, c);
+                  return (
+                    <td key={c} className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
+                      {v > 0 ? formatCurrency(v) : '—'}
+                    </td>
+                  );
+                })}
+                {productCols.map((c) => {
+                  const v = productCategoryTotal(d, c);
                   return (
                     <td key={c} className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
                       {v > 0 ? formatCurrency(v) : '—'}
@@ -526,8 +577,12 @@ function PeriodTable({ title, days, t }: { title: string; days: BilanAgency[]; t
           <tfoot>
             <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold dark:border-gray-700 dark:bg-gray-800/50">
               <td className="sticky left-0 z-10 bg-gray-50 px-4 py-3 dark:bg-gray-800/50">{t('bilans.periodTotalRow')}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => formationTotal(d)))}</td>
               {saleCols.map((c) => (
                 <td key={c} className="px-4 py-3 text-right">{formatCurrency(sum((d) => categoryTotal(d, c)))}</td>
+              ))}
+              {productCols.map((c) => (
+                <td key={c} className="px-4 py-3 text-right">{formatCurrency(sum((d) => productCategoryTotal(d, c)))}</td>
               ))}
               <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.total_ventes_amount))}</td>
               <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.cash_total))}</td>
@@ -559,13 +614,16 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
   const perBlock = blocks.map((block) => ({
     block,
     saleCols: buildCategoryColumns(block.days),
+    productCols: buildProductColumns(block.days),
     expenseCols: buildExpenseColumns(block.days),
     byDate: Object.fromEntries(block.days.map((d) => [d.date, d])) as Record<string, BilanAgency>,
   }));
 
   const header: string[] = [t('bilans.date')];
-  for (const { block, saleCols, expenseCols } of perBlock) {
+  for (const { block, saleCols, productCols, expenseCols } of perBlock) {
+    header.push(`${block.title} - ${t('bilans.formationsCol')}`);
     for (const c of saleCols) header.push(`${block.title} - ${c}`);
+    for (const c of productCols) header.push(`${block.title} - ${c}`);
     header.push(`${block.title} - ${t('bilans.totalVentesCol')}`);
     header.push(`${block.title} - ${t('bilans.cashTotal')}`);
     header.push(`${block.title} - ${t('bilans.omTotal')}`);
@@ -581,9 +639,11 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
 
   for (const date of allDates) {
     const row: (string | number)[] = [new Date(date).toLocaleDateString('fr-FR')];
-    for (const { saleCols, expenseCols, byDate } of perBlock) {
+    for (const { saleCols, productCols, expenseCols, byDate } of perBlock) {
       const day = byDate[date];
+      row.push(day ? formationTotal(day) : 0);
       for (const c of saleCols) row.push(day ? categoryTotal(day, c) : 0);
+      for (const c of productCols) row.push(day ? productCategoryTotal(day, c) : 0);
       row.push(day ? day.total_ventes_amount : 0);
       row.push(day ? day.cash_total : 0);
       row.push(day ? day.om_total : 0);
@@ -598,8 +658,10 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
   }
 
   const totalRow: (string | number)[] = [t('bilans.periodTotalRow')];
-  for (const { block, saleCols, expenseCols } of perBlock) {
+  for (const { block, saleCols, productCols, expenseCols } of perBlock) {
+    totalRow.push(block.days.reduce((s, d) => s + formationTotal(d), 0));
     for (const c of saleCols) totalRow.push(block.days.reduce((s, d) => s + categoryTotal(d, c), 0));
+    for (const c of productCols) totalRow.push(block.days.reduce((s, d) => s + productCategoryTotal(d, c), 0));
     totalRow.push(block.days.reduce((s, d) => s + d.total_ventes_amount, 0));
     totalRow.push(block.days.reduce((s, d) => s + d.cash_total, 0));
     totalRow.push(block.days.reduce((s, d) => s + d.om_total, 0));

@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatRelativeDate } from '@/utils/date';
 import { formatCurrency } from '@/utils/number';
 import { canViewAgencies } from '@/utils/catalogPermissions';
+import { withInvoiceFilters } from '@/utils/invoiceNavigation';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -198,6 +199,8 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
   }
 
   const backPath = fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices` : '/invoices';
+  // Liste de validations d'origine : y revenir après avoir ouvert une facture.
+  const pendingListPath = fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/pending` : '/invoices/pending';
 
   return (
     <div className="flex flex-col gap-6">
@@ -259,6 +262,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                     <td className="px-5 py-3">
                       <Link
                         to={fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/${inv.id}` : `/invoices/${inv.id}`}
+                        state={{ from: withInvoiceFilters(pendingListPath, searchParams) }}
                         className="inline-flex items-center gap-1.5 font-medium text-gray-800 hover:text-brand-600 dark:text-gray-100"
                       >
                         <FileText className="h-4 w-4 text-gray-400" />

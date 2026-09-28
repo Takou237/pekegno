@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\AccountingTransaction;
 use App\Models\Agency;
 use App\Models\DailyBalance;
 use App\Models\TreasuryAccount;
@@ -55,6 +54,7 @@ class BilanService
         $totals = [
             'total_ventes' => 0,
             'total_ventes_amount' => 0,
+            'total_formations' => 0,
             'total_encaisse' => 0,
             'total_cash' => 0,
             'total_om' => 0,
@@ -72,6 +72,7 @@ class BilanService
 
             $totals['total_ventes'] += $b['total_ventes'];
             $totals['total_ventes_amount'] += $b['total_ventes_amount'];
+            $totals['total_formations'] += $b['formation_total'];
             $totals['total_encaisse'] += $b['total_received'];
             $totals['total_cash'] += $b['cash_total'];
             $totals['total_om'] += $b['om_total'];
@@ -105,6 +106,8 @@ class BilanService
     private function buildSingleDay(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
         $servicesByCategory = $this->servicesByCategory($date, $agencyId, $agencyIds);
+        $productsByCategory = $this->productsByCategory($date, $agencyId, $agencyIds);
+        $formationSales = $this->formationSales($date, $agencyId, $agencyIds);
         $received = $this->receivedByMode($date, $agencyId, $agencyIds);
 
         $cash = (float) ($received['cash'] ?? 0);
@@ -113,8 +116,17 @@ class BilanService
         $mobile = (float) ($received['mobile'] ?? 0);
 
         $totalReceived = $cash + $om + $momo + $mobile;
-        $totalVentes = (int) collect($servicesByCategory)->sum('count');
-        $totalVentesAmount = round((float) collect($servicesByCategory)->sum('total'), 2);
+        $totalVentes = (int) (
+            collect($servicesByCategory)->sum('count')
+            + collect($productsByCategory)->sum('count')
+            + $formationSales['count']
+        );
+        $totalVentesAmount = round(
+            (float) collect($servicesByCategory)->sum('total')
+            + (float) collect($productsByCategory)->sum('total')
+            + $formationSales['total'],
+            2
+        );
 
         $expensesByCategory = $this->expensesByCategory($date, $agencyId, $agencyIds);
         $expenseTotal = collect($expensesByCategory)->sum('total');
@@ -142,6 +154,9 @@ class BilanService
             'agency_id' => $agencyId,
             'agency' => $agency,
             'services_by_category' => $servicesByCategory,
+            'products_by_category' => $productsByCategory,
+            'formation_count' => $formationSales['count'],
+            'formation_total' => $formationSales['total'],
             'total_ventes' => $totalVentes,
             'total_ventes_amount' => $totalVentesAmount,
             'cash_total' => $cash,
@@ -192,6 +207,10 @@ class BilanService
 
     /**
      * Ventes groupées par catégorie de service (dynamique).
+     *
+     * Les lignes liées à une inscription de formation (service_id null + rattachement
+     * via formation_enrollments) sont exclues : elles sont comptées séparément
+     * dans la colonne « Formations ».
      */
     private function servicesByCategory(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
@@ -199,6 +218,47 @@ class BilanService
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')
             ->leftJoin('categories', 'categories.id', '=', 'services.category_id')
+            ->leftJoin('formation_enrollments', function ($join) {
+                $join->on('formation_enrollments.invoice_id', '=', 'invoice_items.invoice_id')
+                    ->whereNull('invoice_items.service_id')
+                    ->whereNull('invoice_items.product_id');
+            })
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', 'validated')
+            ->whereNull('invoice_items.product_id')
+            ->whereNull('formation_enrollments.id')
+            ->whereDate('invoices.invoice_date', $date->toDateString())
+            ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
+            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->selectRaw("
+                coalesce(categories.name, 'Autres') as category,
+                coalesce(invoice_items.label, '') as label,
+                sum(invoice_items.quantity) as count,
+                sum(invoice_items.line_total) as total
+            ")
+            ->groupBy('category', 'label')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($row) => [
+                'category' => $row->category,
+                'label' => $row->label,
+                'count' => (int) $row->count,
+                'total' => round((float) $row->total, 2),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Ventes de produits groupées par catégorie (dynamique).
+     */
+    private function productsByCategory(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
+    {
+        return DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('products', 'products.id', '=', 'invoice_items.product_id')
+            ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+            ->whereNotNull('invoice_items.product_id')
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
             ->whereDate('invoices.invoice_date', $date->toDateString())
@@ -221,6 +281,52 @@ class BilanService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Ventes de formations (inscriptions) du jour.
+     *
+     * Le montant vient de la facture générée par l'inscription (hors lignes de
+     * la facture pour éviter le double comptage avec produits/services éventuels).
+     */
+    private function formationSales(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
+    {
+        $rows = DB::table('formation_enrollments')
+            ->join('invoices', 'invoices.id', '=', 'formation_enrollments.invoice_id')
+            ->leftJoin('courses', 'courses.id', '=', 'formation_enrollments.course_id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', 'validated')
+            ->whereDate('invoices.invoice_date', $date->toDateString())
+            ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
+            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->selectRaw('coalesce(courses.mode, ?) as mode, count(distinct formation_enrollments.id) as count', ['in_person'])
+            ->groupBy('mode')
+            ->get();
+
+        $total = (float) DB::table('formation_enrollments')
+            ->join('invoices', 'invoices.id', '=', 'formation_enrollments.invoice_id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', 'validated')
+            ->whereDate('invoices.invoice_date', $date->toDateString())
+            ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
+            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->selectRaw(
+                'sum(case when invoices.total_amount - coalesce((select sum(ii.line_total) from invoice_items ii where ii.invoice_id = invoices.id and (ii.service_id is not null or ii.product_id is not null)), 0) > 0
+                    then invoices.total_amount - coalesce((select sum(ii.line_total) from invoice_items ii where ii.invoice_id = invoices.id and (ii.service_id is not null or ii.product_id is not null)), 0)
+                    else 0 end) as total'
+            )
+            ->value('total');
+
+        $count = (int) $rows->sum('count');
+
+        return [
+            'count' => $count,
+            'total' => round($total, 2),
+            'by_mode' => $rows->map(fn ($row) => [
+                'mode' => $row->mode,
+                'count' => (int) $row->count,
+            ])->values()->all(),
+        ];
     }
 
     /**

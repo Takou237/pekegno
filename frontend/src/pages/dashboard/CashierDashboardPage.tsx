@@ -252,6 +252,7 @@ export default function CashierDashboardPage() {
 
       <Link
         to="/invoices/quick"
+        state={{ from: '/caissier/dashboard' }}
         className="inline-flex w-fit items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-brand-500/40"
       >
         <ShoppingCart className="h-4 w-4 text-amber-500" />

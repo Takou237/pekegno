@@ -5,6 +5,11 @@ export interface BilanServiceLine {
   total: number;
 }
 
+export interface BilanFormationMode {
+  mode: string;
+  count: number;
+}
+
 export interface BilanExpenseLine {
   name: string;
   total: number;
@@ -15,6 +20,10 @@ export interface BilanAgency {
   agency_id: string | null;
   agency: { id: string; name: string } | null;
   services_by_category: BilanServiceLine[];
+  products_by_category?: BilanServiceLine[];
+  formation_count?: number;
+  formation_total?: number;
+  formation_by_mode?: BilanFormationMode[];
   total_ventes: number;
   total_ventes_amount: number;
   cash_total: number;
@@ -32,6 +41,7 @@ export interface DailyBilan extends BilanAgency {
   totals?: {
     total_ventes: number;
     total_ventes_amount: number;
+    total_formations: number;
     total_encaisse: number;
     total_cash: number;
     total_om: number;

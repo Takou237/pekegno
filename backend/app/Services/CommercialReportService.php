@@ -59,6 +59,7 @@ class CommercialReportService
 
         $invoices = Invoice::query()
             ->whereNull('invoices.cancelled_at')
+            ->validated()
             ->whereIn('invoices.commercial_id', $ids)
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->join('invoice_items', 'invoice_items.invoice_id', '=', 'invoices.id')
@@ -75,6 +76,7 @@ class CommercialReportService
             ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
             ->whereIn('invoices.commercial_id', $ids)
             ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereBetween('invoice_payments.paid_at', [$from, $to])
             ->selectRaw('invoices.commercial_id, count(*) as payments_count, sum(invoice_payments.amount) as revenue_received')
             ->groupBy('invoices.commercial_id')

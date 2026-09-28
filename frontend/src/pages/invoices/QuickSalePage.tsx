@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { ArrowLeft, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
@@ -9,6 +9,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/utils/number';
+import { invoiceBackPath, invoiceListPath } from '@/utils/invoiceNavigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -21,9 +22,13 @@ export default function QuickSalePage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
-  const navigate = useNavigate();
+  const location = useLocation();
 
   const isCommercial = currentUser?.role?.name === 'commercial';
+
+  // Retour contextuel : on revient à l'écran d'origine (tableau de bord
+  // caissier, liste filtrée…) plutôt qu'à une liste de factures sans rapport.
+  const backPath = invoiceBackPath(location.state, invoiceListPath());
 
   // Service
   const [serviceId, setServiceId] = useState('');
@@ -48,6 +53,10 @@ export default function QuickSalePage() {
   // Form state
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  // Facture de la vente qui vient d'être enregistrée : on reste sur l'écran
+  // d'encaissement, prêt pour le client suivant, avec un lien pour la revoir.
+  const [lastInvoice, setLastInvoice] = useState<{ id: string; number: string } | null>(null);
+  const [proofInputKey, setProofInputKey] = useState(0);
   const serviceResultsRef = useRef<ServiceSearchItem[]>([]);
 
   const total = useMemo(
@@ -59,6 +68,30 @@ export default function QuickSalePage() {
     () => Math.max(0, (Number(amountReceived) || 0) - total),
     [amountReceived, total],
   );
+
+  /**
+   * Vide le formulaire. Appelé après chaque vente enregistrée : le guichet
+   * enchaîne les clients, et une saisie restante (client, montant, ou pire la
+   * preuve de paiement d'une autre vente) repartirait sur la facture suivante.
+   */
+  function resetForm() {
+    setServiceId('');
+    setServiceLabel('');
+    setUnitPrice('');
+    setQuantity('1');
+    setPassTier('');
+    setSeminarTiers([]);
+    setPaymentType('cash');
+    setAmountReceived('');
+    setAdvance('');
+    setProofFile(null);
+    // Le champ fichier n'est pas contrôlé : on le remonte pour vider son libellé.
+    setProofInputKey((key) => key + 1);
+    setClientId('');
+    setComment('');
+    setErrors({});
+    serviceResultsRef.current = [];
+  }
 
   function handleServiceSelect(id: string) {
     const service = serviceResultsRef.current.find((s) => s.id === id);
@@ -133,7 +166,10 @@ export default function QuickSalePage() {
       }
 
       showToast(isCommercial ? t('invoices.quickSuccessPending') : t('invoices.quickSuccess'), 'success');
-      navigate(`/invoices/${invoice.id}`);
+      setLastInvoice({ id: invoice.id, number: invoice.number });
+      // On reste sur l'écran d'encaissement : la vente suivante peut être
+      // saisie immédiatement, et l'origine n'est pas quittée pour autant.
+      resetForm();
     } catch (error) {
       setErrors(extractFieldErrors(error));
       const msg = extractErrorMessage(error, t('invoices.saveFailed'));
@@ -147,7 +183,7 @@ export default function QuickSalePage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to="/invoices"
+          to={backPath}
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -160,6 +196,24 @@ export default function QuickSalePage() {
           {t('invoices.quickSubtitle')}
         </p>
       </div>
+
+      {lastInvoice && (
+        <Alert variant="success">
+          <span className="inline-flex flex-wrap items-center gap-1.5">
+            <FileText className="h-4 w-4" />
+            {t('invoices.quickLastInvoice')}{' '}
+            <Link
+              to={`/invoices/${lastInvoice.id}`}
+              state={{ from: backPath }}
+              className="font-semibold underline"
+            >
+              {lastInvoice.number}
+            </Link>
+            {' — '}
+            {t('invoices.quickFormReset')}
+          </span>
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
         {Object.keys(errors).length > 0 && (
@@ -298,6 +352,7 @@ export default function QuickSalePage() {
                 {t('invoices.paymentProof')} <span className="text-error-500">*</span>
               </label>
               <input
+                key={proofInputKey}
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/webp"
                 onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}

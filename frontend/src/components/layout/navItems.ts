@@ -84,6 +84,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/academy', label: t('nav.statAca'), icon: GraduationCap, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: FileText, end: false },
+      { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },

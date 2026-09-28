@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+﻿import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { Search, Plus, Pencil, Trash2, Layers, Users, CalendarDays, BookOpenCheck, Globe, Building2, Play, Tag, Eye, Check, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -27,23 +27,13 @@ import type { Department } from '@/types/department';
 import type { CourseCategory } from '@/types/category';
 import type { CountryStat } from '@/types/stats';
 import { canManageAcademyPromotions, canEnrollLearners } from '@/utils/academyPermissions';
+import { courseModeLabel } from '@/utils/courseMode';
 import FormationEnrollmentModal from '@/components/academy/FormationEnrollmentModal';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
   departmentId?: string;
   agencyId?: string;
-}
-
-function modeLabel(mode: Course['mode'], t: ReturnType<typeof useTranslation>['t']): string {
-  switch (mode) {
-    case 'online':
-      return t('academy.modeOnline');
-    case 'mixed':
-      return t('academy.modeMixed');
-    default:
-      return t('academy.modeInPerson');
-  }
 }
 
 interface FormState {
@@ -635,7 +625,7 @@ export default function AcademyCoursesPage() {
 
                   {/* Mode + Durée */}
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <Badge variant="brand">{modeLabel(course.mode, t)}</Badge>
+                    <Badge variant="brand">{courseModeLabel(course.mode, t)}</Badge>
                     {course.duration_hours != null && (
                       <span className="inline-flex items-center gap-1">
                         {course.duration_hours} {t('academy.hours')}
@@ -798,7 +788,7 @@ export default function AcademyCoursesPage() {
             >
               {(['in_person', 'online', 'mixed'] as const).map((m) => (
                 <option key={m} value={m}>
-                  {modeLabel(m, t)}
+                  {courseModeLabel(m, t)}
                 </option>
               ))}
             </select>

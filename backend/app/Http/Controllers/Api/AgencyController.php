@@ -7,9 +7,14 @@ use App\Http\Requests\Api\StoreAgencyRequest;
 use App\Http\Requests\Api\UpdateAgencyRequest;
 use App\Http\Resources\AgencyResource;
 use App\Models\Agency;
+use App\Models\City;
+use App\Models\Department;
+use App\Models\User;
+use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 class AgencyController extends Controller
@@ -24,8 +29,11 @@ class AgencyController extends Controller
     private function parseWith(Request $request): array
     {
         $with = $request->input('with');
-        if (!$with) return [];
+        if (! $with) {
+            return [];
+        }
         $relations = array_map('trim', explode(',', $with));
+
         return array_intersect($relations, self::ALLOWED_WITH);
     }
 
@@ -49,7 +57,7 @@ class AgencyController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Agency::with(array_merge(['departments', 'activities'], $this->parseWith($request)))
-            ->withSum(['invoices as revenue' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')], 'total_amount')
+            ->withSum(['invoices as revenue' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()], 'total_amount')
             ->withSum(['accountingTransactions as expenses' => fn ($q) => $q->where('type', 'expense')], 'amount')
             ->search($request->input('search'))
             ->byCountry($request->input('country'));
@@ -62,7 +70,7 @@ class AgencyController extends Controller
             $query->where('country_id', $request->input('country_id'));
         }
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         if ($agencyIds !== null) {
             $query->whereIn('id', $agencyIds);
@@ -141,6 +149,7 @@ class AgencyController extends Controller
     public function show(Request $request, Agency $agency): AgencyResource
     {
         $with = array_unique(array_merge(['departments', 'assignedUsers', 'activities'], $this->parseWith($request)));
+
         return new AgencyResource($agency->load($with));
     }
 
@@ -183,9 +192,59 @@ class AgencyController extends Controller
             $agency->syncActivities($activities);
         }
 
+        $countryChanged = array_key_exists('country_id', $data)
+            && $data['country_id'] !== null
+            && $data['country_id'] !== $agency->country_id;
+
         $agency->update($data);
 
+        if ($countryChanged) {
+            $this->reassignCountryElements($agency, $data['country_id']);
+        }
+
         return new AgencyResource($agency->fresh()->load(['departments', 'activities']));
+    }
+
+    /**
+     * Réaffecte au nouveau pays tous les éléments rattachés à l'agence :
+     *  - villes rattachées à l'ancien pays qui dépendaient de cette agence ;
+     *  - country_id dénormalisé des utilisateurs affectés à l'agence ;
+     *  - country_id dénormalisé du journal d'activité.
+     *
+     * Le reste (factures, commandes, cours, stats...) hérite du pays via
+     * l'agence elle-même : rien d'autre à déplacer.
+     */
+    private function reassignCountryElements(Agency $agency, string $newCountryId): void
+    {
+        DB::transaction(function () use ($agency, $newCountryId) {
+            // La ville rattachée appartient à l'ancien pays : on la détache plutôt
+            // que de la déplacer (une ville est une donnée partagée entre agences).
+            if ($agency->city_id) {
+                $cityCountryId = City::query()->whereKey($agency->city_id)->value('country_id');
+                if ($cityCountryId !== null && (string) $cityCountryId !== (string) $newCountryId) {
+                    $agency->forceFill(['city_id' => null])->save();
+                }
+            }
+
+            // Utilisateurs affectés à cette agence (affectation principale d'abord,
+            // sinon toute affectation) : ils basculent avec leur agence.
+            $agency->assignedUsers()->each(function (User $user) use ($agency, $newCountryId) {
+                $hasPrimaryElsewhere = DB::table('user_assignments')
+                    ->where('user_id', $user->id)
+                    ->where('is_primary', true)
+                    ->where('agency_id', '<>', $agency->id)
+                    ->exists();
+
+                if ($hasPrimaryElsewhere) {
+                    return;
+                }
+
+                $user->forceFill(['country_id' => $newCountryId])->save();
+            });
+
+            // Journal d'activité : on dénormalise le nouveau pays.
+            $agency->activityLogs()->update(['country_id' => $newCountryId]);
+        });
     }
 
     #[OA\Delete(
@@ -282,8 +341,60 @@ class AgencyController extends Controller
 
         $agency = Agency::onlyTrashed()->findOrFail($id);
 
-        $agency->assignedUsers()->detach();
-        $agency->forceDelete();
+        // Garde-fou : certaines FK sont en cascade (commandes, dépenses,
+        // contrats...) — supprimer l'agence effacerait silencieusement ses
+        // données métier. On refuse tant qu'elles existent.
+        $blockingCounts = [
+            'invoices' => $agency->invoices()->count(),
+            'orders' => DB::table('orders')->where('agency_id', $agency->id)->count(),
+            'expenses' => DB::table('expenses')->where('agency_id', $agency->id)->count(),
+            'contracts' => DB::table('contracts')->where('agency_id', $agency->id)->count(),
+            'opportunities' => DB::table('opportunities')->where('agency_id', $agency->id)->count(),
+            'subscriptions' => DB::table('subscriptions')->where('agency_id', $agency->id)->count(),
+        ];
+
+        $blocking = array_filter($blockingCounts);
+        if ($blocking !== []) {
+            $labels = collect([
+                'invoices' => 'facture(s)',
+                'orders' => 'commande(s)',
+                'expenses' => 'dépense(s)',
+                'contracts' => 'contrat(s)',
+                'opportunities' => 'opportunité(s)',
+                'subscriptions' => 'abonnement(s)',
+            ])
+                ->filter(fn ($_, $table) => isset($blocking[$table]))
+                ->map(fn ($label, $table) => "{$blocking[$table]} $label")
+                ->implode(', ');
+
+            return response()->json([
+                'message' => "Impossible de supprimer définitivement cette agence : {$labels} lui sont encore rattachés.",
+            ], 409);
+        }
+
+        DB::transaction(function () use ($agency) {
+            // Sans events : les observers loggueraient après la suppression des
+            // parents (force_deleted...) et créeraient des logs orphelins qui
+            // violeraient la FK activity_logs.agency_id.
+            Agency::withoutEvents(function () use ($agency) {
+                // Départements (y compris ceux en corbeille) et leurs affectations
+                $departmentIds = $agency->departments()->withTrashed()->pluck('id');
+
+                if ($departmentIds->isNotEmpty()) {
+                    DB::table('user_assignments')->whereIn('department_id', $departmentIds)->delete();
+                    DB::table('department_chiefs')->whereIn('department_id', $departmentIds)->delete();
+                    Department::withTrashed()->whereIn('id', $departmentIds)->forceDelete();
+                }
+
+                // Journal d'activité, lignes de métier, moyens de paiement
+                $agency->activityLogs()->delete();
+                $agency->activities()->delete();
+                $agency->paymentMethods()->delete();
+
+                $agency->assignedUsers()->detach();
+                $agency->forceDelete();
+            });
+        });
 
         return response()->json(null, 204);
     }

@@ -19,6 +19,8 @@ export interface CourseModulePayload {
   trainer_id?: string;
 }
 
+export type EnrollmentDiscountType = 'amount' | 'percent';
+
 export interface FormationEnrollment {
   id: string;
   course_id: string;
@@ -29,6 +31,8 @@ export interface FormationEnrollment {
   enrolled_at: string;
   status: 'enrolled' | 'completed' | 'cancelled';
   notes: string | null;
+  discount_type: EnrollmentDiscountType | null;
+  discount_value: string | null;
   course?: {
     id: string;
     name: string;
@@ -56,6 +60,8 @@ export interface FormationEnrollmentPayload {
   payment_type?: string;
   status?: 'enrolled' | 'completed' | 'cancelled';
   notes?: string;
+  discount_type?: EnrollmentDiscountType;
+  discount_value?: number;
 }
 
 export interface LearnerObservation {

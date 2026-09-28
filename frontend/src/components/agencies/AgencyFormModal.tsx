@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { agenciesApi } from '@/api/agencies.api';
+import { countriesApi } from '@/api/countries.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { Modal } from '@/components/ui/Modal';
@@ -63,6 +64,19 @@ export function AgencyFormModal({ isOpen, agency, defaultCountry, onClose, onSav
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  // Résout l'id d'un pays à partir de son nom. Retourne null si introuvable
+  // (le backend conservera l'ancien pays, seul le libellé changera).
+  async function resolveCountryId(name: string): Promise<string | null> {
+    const query = name.trim();
+    if (!query) return null;
+    try {
+      const { data } = await countriesApi.list({ search: query, per_page: 1 });
+      return data[0]?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setFormError(null);
@@ -73,8 +87,17 @@ export function AgencyFormModal({ isOpen, agency, defaultCountry, onClose, onSav
     // le choix se fait à l'intérieur de l'agence, pas à la création.
     const payload: AgencyPayload = { ...form };
 
+    // À la création : pays du contexte. À la modification : on résout l'id du pays
+    // à partir du nom saisi, pour que le changement de pays soit réellement
+    // appliqué (stats, bilan, etc. filtrent via agencies.country_id).
+    // Si le nom ne correspond à aucun pays connu, on n'envoie pas country_id :
+    // l'ancien pays est conservé plutôt qu'écrasé par null.
     if (!isEditing) {
-      payload.country_id = defaultCountry?.id ?? null;
+      const countryId = defaultCountry?.id ?? (await resolveCountryId(form.country));
+      if (countryId) payload.country_id = countryId;
+    } else {
+      const countryId = await resolveCountryId(form.country);
+      if (countryId) payload.country_id = countryId;
     }
 
     try {

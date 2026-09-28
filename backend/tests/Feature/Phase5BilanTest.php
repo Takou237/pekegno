@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Agency;
+use App\Models\Course;
 use App\Models\DailyBalance;
+use App\Models\Product;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\AccountingCategorySeeder;
@@ -287,5 +289,58 @@ class Phase5BilanTest extends TestCase
         ]);
 
         $this->assertSame(1, DailyBalance::count());
+    }
+
+    public function test_daily_bilan_counts_products_separately(): void
+    {
+        $this->actingAsAdmin();
+
+        $agency = $this->createAgency();
+        $product = Product::factory()->create(['name' => 'Sacoche']);
+
+        $this->postJson('/api/invoices', [
+            'agency_id' => $agency->id,
+            'items' => [
+                ['label' => 'Sacoche', 'product_id' => $product->id, 'unit_price' => 5000, 'quantity' => 2],
+            ],
+            'advance' => 10000,
+            'payment_type' => 'cash',
+        ])->assertStatus(201);
+
+        $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
+
+        $this->assertCount(1, $bilan['products_by_category']);
+        $this->assertEquals(2, $bilan['products_by_category'][0]['count']);
+        $this->assertEquals(10000, $bilan['products_by_category'][0]['total']);
+        $this->assertSame([], $bilan['services_by_category']);
+        $this->assertEquals(0, $bilan['formation_count']);
+        $this->assertEquals(2, $bilan['total_ventes']);
+        $this->assertEquals(10000, $bilan['total_ventes_amount']);
+    }
+
+    public function test_daily_bilan_counts_formations_from_enrollments(): void
+    {
+        $this->actingAsAdmin();
+
+        $agency = $this->createAgency();
+        $learner = User::factory()->create([
+            'role_id' => Role::where('name', 'client')->value('id'),
+        ]);
+        $course = Course::factory()->create(['price' => 30000, 'agency_id' => $agency->id]);
+
+        $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course->id,
+            'learner_user_id' => $learner->id,
+            'payment_type' => 'cash',
+            'amount_paid' => 30000,
+        ])->assertStatus(201);
+
+        $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
+
+        $this->assertEquals(1, $bilan['formation_count']);
+        $this->assertEquals(30000, $bilan['formation_total']);
+        $this->assertSame([], $bilan['services_by_category']);
+        $this->assertEquals(1, $bilan['total_ventes']);
+        $this->assertEquals(30000, $bilan['total_ventes_amount']);
     }
 }

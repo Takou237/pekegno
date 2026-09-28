@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Api\AccountingCategoryController;
 use App\Http\Controllers\Api\AccountingController;
+use App\Http\Controllers\Api\ActivityController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AgencyController;
+use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\Auth\ChangePasswordController;
 use App\Http\Controllers\Api\Auth\ClientLoginController;
 use App\Http\Controllers\Api\Auth\ClientLogoutController;
@@ -18,34 +20,42 @@ use App\Http\Controllers\Api\Auth\StaffLoginController;
 use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\BilanController;
 use App\Http\Controllers\Api\CategoryController;
-use App\Http\Controllers\Api\CourseCategoryController;
+use App\Http\Controllers\Api\CertificateController;
 use App\Http\Controllers\Api\CityController;
-use App\Http\Controllers\Api\ClientController;
-use App\Http\Controllers\Api\Client\ClientAttendanceController;
 use App\Http\Controllers\Api\Client\CartController;
+use App\Http\Controllers\Api\Client\ClientAttendanceController;
 use App\Http\Controllers\Api\Client\ClientCheckoutController;
 use App\Http\Controllers\Api\Client\ClientEnrollmentController;
 use App\Http\Controllers\Api\Client\ClientInvoiceController;
 use App\Http\Controllers\Api\Client\ClientLearnerController;
 use App\Http\Controllers\Api\Client\ClientLearnerObservationController;
 use App\Http\Controllers\Api\Client\ClientOrderController;
+use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CommercialController;
 use App\Http\Controllers\Api\CommercialReportController;
+use App\Http\Controllers\Api\CommissionController;
+use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\ContractController;
+use App\Http\Controllers\Api\CountryController;
+use App\Http\Controllers\Api\CourseCategoryController;
 use App\Http\Controllers\Api\CourseController;
 use App\Http\Controllers\Api\CourseModuleController;
-use App\Http\Controllers\Api\CountryController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
-
+use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ExportController;
+use App\Http\Controllers\Api\FormationEnrollmentController;
 use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\LearnerController;
+use App\Http\Controllers\Api\LearnerObservationController;
+use App\Http\Controllers\Api\OpportunityController;
+use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentProofController;
 use App\Http\Controllers\Api\PermissionController;
-use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\ProspectController;
-use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\Public\PublicCatalogController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
@@ -57,19 +67,8 @@ use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\SubscriptionNotificationController;
 use App\Http\Controllers\Api\TrainerController;
-use App\Http\Controllers\Api\TreasuryController;
-use App\Http\Controllers\Api\LearnerController;
-use App\Http\Controllers\Api\ExpenseController;
-use App\Http\Controllers\Api\ActivityController;
-use App\Http\Controllers\Api\CommissionController;
-use App\Http\Controllers\Api\AttendanceController;
-use App\Http\Controllers\Api\CertificateController;
-use App\Http\Controllers\Api\CompanyController;
-use App\Http\Controllers\Api\ContractController;
-use App\Http\Controllers\Api\FormationEnrollmentController;
-use App\Http\Controllers\Api\LearnerObservationController;
-use App\Http\Controllers\Api\OpportunityController;
 use App\Http\Controllers\Api\TrainingSessionController;
+use App\Http\Controllers\Api\TreasuryController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserAssignmentController;
 use App\Http\Controllers\Api\UserController;
@@ -208,8 +207,6 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/training-sessions/{trainingSession}/restore', [TrainingSessionController::class, 'restore'])->middleware('permission:sessions.modifier');
     Route::delete('/training-sessions/{trainingSession}/force-delete', [TrainingSessionController::class, 'forceDelete'])->middleware('permission:sessions.supprimer');
     Route::get('/training-sessions', [TrainingSessionController::class, 'index'])->middleware('permission:sessions.consulter');
-
-
 
     Route::get('/services/trash', [ServiceController::class, 'trash']);
     Route::get('/services/search', [ServiceController::class, 'search'])->middleware('permission:services.consulter');
@@ -369,6 +366,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::get('/users/{user}/role', [UserRoleController::class, 'show']);
     Route::put('/users/{user}/role', [UserRoleController::class, 'update']);
+    Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
 
     Route::get('/roles', [RoleController::class, 'index']);
     Route::post('/roles', [RoleController::class, 'store']);
@@ -401,11 +399,11 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/commissions/entries', [CommissionController::class, 'storeEntry'])->middleware('permission:commissions.valider');
     Route::put('/commissions/entries/{entry}', [CommissionController::class, 'updateEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/entries/{entry}/validate', [CommissionController::class, 'validateEntry'])->middleware('permission:commissions.valider');
-    Route::post('/commissions/entries/{entry}/pay', [CommissionController::class, 'payEntry'])->middleware('permission:commissions.valider');
+    Route::post('/commissions/entries/{entry}/pay', [CommissionController::class, 'payEntry'])->middleware('permission:commissions.valider,commissions.encaisser');
     Route::post('/commissions/entries/{entry}/cancel', [CommissionController::class, 'cancelEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/seller-profiles/{sellerProfile}/recalculate', [CommissionController::class, 'recalculateSeller'])->middleware('permission:commissions.valider');
-Route::get('/commission-payments/summary', [CommissionController::class, 'summary'])->middleware('permission:commissions.consulter');
-Route::post('/commission-payments', [CommissionController::class, 'storePayment'])->middleware('permission:commissions.valider');
+    Route::get('/commission-payments/summary', [CommissionController::class, 'summary'])->middleware('permission:commissions.consulter');
+    Route::post('/commission-payments', [CommissionController::class, 'storePayment'])->middleware('permission:commissions.valider');
 
     // === Sprint 4 : CRM — Entreprises ===
     Route::get('/companies/search', [CompanyController::class, 'search'])->middleware('permission:entreprises.consulter');

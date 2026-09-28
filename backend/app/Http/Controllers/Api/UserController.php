@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreUserRequest;
 use App\Http\Requests\Api\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Mail\AdminPasswordResetMail;
+use App\Mail\UserWelcomeMail;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\ActivityLogger;
@@ -13,11 +15,20 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class UserController extends Controller
 {
     private const ALLOWED_WITH = ['role', 'assignments'];
+
+    /**
+     * Mot de passe attribué quand l'administrateur n'en fournit pas.
+     * Il est transmis au nouvel utilisateur par email (UserWelcomeMail).
+     */
+    private const DEFAULT_PASSWORD = 'password';
 
     public function __construct(
         private readonly ActivityLogger $logger,
@@ -100,7 +111,11 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $data['password'] = Hash::make($data['password'] ?? 'password');
+
+        // Le mot de passe est conservé en clair pour être transmis par email :
+        // l'administrateur ne le saisit pas dans le formulaire de création.
+        $plainPassword = (string) ($data['password'] ?? self::DEFAULT_PASSWORD);
+        $data['password'] = Hash::make($plainPassword);
 
         $creator = $request->user();
 
@@ -156,9 +171,34 @@ class UserController extends Controller
             request: $request,
         );
 
+        $this->sendWelcomeEmail($user, $plainPassword);
+
         return (new UserResource($user->fresh()->load('role', 'assignments')))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * Envoie les paramètres de connexion au nouvel utilisateur.
+     *
+     * L'envoi a lieu après la transaction : un serveur SMTP indisponible ne doit
+     * pas faire échouer la création du compte. L'administrateur reste responsable
+     * de communiquer les identifiants en cas d'échec (le journal d'activité et le
+     * journal applicatif tracent l'incident).
+     */
+    private function sendWelcomeEmail(User $user, string $plainPassword): void
+    {
+        $frontendUrl = rtrim((string) config('app.frontend_url'), '/');
+
+        try {
+            Mail::to($user->email)->send(new UserWelcomeMail(
+                user: $user->loadMissing('role'),
+                plainPassword: $plainPassword,
+                loginUrl: $frontendUrl !== '' ? $frontendUrl.'/login' : null,
+            ));
+        } catch (\Throwable $e) {
+            Log::error("Échec de l'envoi de l'email de bienvenue à l'utilisateur {$user->id} : ".$e->getMessage());
+        }
     }
 
     #[OA\Get(
@@ -232,6 +272,76 @@ class UserController extends Controller
         );
 
         return new UserResource($user->fresh()->load('role', 'assignments'));
+    }
+
+    /**
+     * Réinitialise le mot de passe d'un utilisateur à la demande d'un
+     * administrateur : un mot de passe provisoire est généré puis transmis par
+     * email. Les liens de réinitialisation en cours sont invalidés et les
+     * sessions actives révoquées, l'ancien mot de passe ne devant plus servir.
+     */
+    #[OA\Post(
+        path: '/api/users/{user}/reset-password',
+        summary: 'Réinitialiser le mot de passe d\'un utilisateur',
+        tags: ['Utilisateurs'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Mot de passe réinitialisé, le nouveau mot de passe a été envoyé par email'),
+            new OA\Response(response: 403, description: 'Rôle non autorisé'),
+        ]
+    )]
+    public function resetPassword(Request $request, User $user): JsonResponse
+    {
+        $actorRole = $request->user()?->role?->name;
+
+        abort_unless(in_array($actorRole, ['super-admin', 'direction-generale'], true), 403, 'Vous n\'êtes pas autorisé à réinitialiser un mot de passe.');
+
+        // La direction générale ne peut pas réinitialiser un super-administrateur.
+        abort_if($user->role?->name === 'super-admin' && $actorRole !== 'super-admin', 403, 'Vous ne pouvez pas réinitialiser le mot de passe d\'un super-administrateur.');
+
+        $plainPassword = Str::password(16);
+
+        $user->update([
+            'password' => Hash::make($plainPassword),
+            'is_password_change_required' => true,
+        ]);
+
+        // Les demandes de réinitialisation et les sessions précédentes ne
+        // doivent plus donner accès au compte.
+        DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+        $user->tokens()->delete();
+
+        $this->logger->log(
+            action: 'password_reset',
+            entityType: 'user',
+            entityId: $user->id,
+            description: "Mot de passe de {$user->first_name} {$user->last_name} réinitialisé par un administrateur",
+            request: $request,
+        );
+
+        $this->sendAdminPasswordResetEmail($user, $plainPassword);
+
+        return response()->json([
+            'message' => 'Mot de passe réinitialisé. Un email avec les nouveaux accès a été envoyé à l\'utilisateur.',
+        ]);
+    }
+
+    private function sendAdminPasswordResetEmail(User $user, string $plainPassword): void
+    {
+        $frontendUrl = rtrim((string) config('app.frontend_url'), '/');
+
+        try {
+            Mail::to($user->email)->send(new AdminPasswordResetMail(
+                user: $user->loadMissing('role'),
+                plainPassword: $plainPassword,
+                loginUrl: $frontendUrl !== '' ? $frontendUrl.'/login' : null,
+            ));
+        } catch (\Throwable $e) {
+            Log::error("Échec de l'envoi de l'email de réinitialisation à l'utilisateur {$user->id} : ".$e->getMessage());
+        }
     }
 
     #[OA\Delete(
