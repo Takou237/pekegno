@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreUserRequest;
 use App\Http\Requests\Api\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Mail\UserWelcomeMail;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\ActivityLogger;
@@ -13,11 +14,19 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use OpenApi\Attributes as OA;
 
 class UserController extends Controller
 {
     private const ALLOWED_WITH = ['role', 'assignments'];
+
+    /**
+     * Mot de passe attribué quand l'administrateur n'en fournit pas.
+     * Il est transmis au nouvel utilisateur par email (UserWelcomeMail).
+     */
+    private const DEFAULT_PASSWORD = 'password';
 
     public function __construct(
         private readonly ActivityLogger $logger,
@@ -100,7 +109,11 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $data['password'] = Hash::make($data['password'] ?? 'password');
+
+        // Le mot de passe est conservé en clair pour être transmis par email :
+        // l'administrateur ne le saisit pas dans le formulaire de création.
+        $plainPassword = (string) ($data['password'] ?? self::DEFAULT_PASSWORD);
+        $data['password'] = Hash::make($plainPassword);
 
         $creator = $request->user();
 
@@ -156,9 +169,34 @@ class UserController extends Controller
             request: $request,
         );
 
+        $this->sendWelcomeEmail($user, $plainPassword);
+
         return (new UserResource($user->fresh()->load('role', 'assignments')))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * Envoie les paramètres de connexion au nouvel utilisateur.
+     *
+     * L'envoi a lieu après la transaction : un serveur SMTP indisponible ne doit
+     * pas faire échouer la création du compte. L'administrateur reste responsable
+     * de communiquer les identifiants en cas d'échec (le journal d'activité et le
+     * journal applicatif tracent l'incident).
+     */
+    private function sendWelcomeEmail(User $user, string $plainPassword): void
+    {
+        $frontendUrl = rtrim((string) config('app.frontend_url'), '/');
+
+        try {
+            Mail::to($user->email)->send(new UserWelcomeMail(
+                user: $user->loadMissing('role'),
+                plainPassword: $plainPassword,
+                loginUrl: $frontendUrl !== '' ? $frontendUrl.'/login' : null,
+            ));
+        } catch (\Throwable $e) {
+            Log::error("Échec de l'envoi de l'email de bienvenue à l'utilisateur {$user->id} : ".$e->getMessage());
+        }
     }
 
     #[OA\Get(
