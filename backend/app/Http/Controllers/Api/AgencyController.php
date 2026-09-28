@@ -7,10 +7,13 @@ use App\Http\Requests\Api\StoreAgencyRequest;
 use App\Http\Requests\Api\UpdateAgencyRequest;
 use App\Http\Resources\AgencyResource;
 use App\Models\Agency;
+use App\Models\City;
+use App\Models\User;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 class AgencyController extends Controller
@@ -188,9 +191,59 @@ class AgencyController extends Controller
             $agency->syncActivities($activities);
         }
 
+        $countryChanged = array_key_exists('country_id', $data)
+            && $data['country_id'] !== null
+            && $data['country_id'] !== $agency->country_id;
+
         $agency->update($data);
 
+        if ($countryChanged) {
+            $this->reassignCountryElements($agency, $data['country_id']);
+        }
+
         return new AgencyResource($agency->fresh()->load(['departments', 'activities']));
+    }
+
+    /**
+     * Réaffecte au nouveau pays tous les éléments rattachés à l'agence :
+     *  - villes rattachées à l'ancien pays qui dépendaient de cette agence ;
+     *  - country_id dénormalisé des utilisateurs affectés à l'agence ;
+     *  - country_id dénormalisé du journal d'activité.
+     *
+     * Le reste (factures, commandes, cours, stats...) hérite du pays via
+     * l'agence elle-même : rien d'autre à déplacer.
+     */
+    private function reassignCountryElements(Agency $agency, string $newCountryId): void
+    {
+        DB::transaction(function () use ($agency, $newCountryId) {
+            // La ville rattachée appartient à l'ancien pays : on la détache plutôt
+            // que de la déplacer (une ville est une donnée partagée entre agences).
+            if ($agency->city_id) {
+                $cityCountryId = City::query()->whereKey($agency->city_id)->value('country_id');
+                if ($cityCountryId !== null && (string) $cityCountryId !== (string) $newCountryId) {
+                    $agency->forceFill(['city_id' => null])->save();
+                }
+            }
+
+            // Utilisateurs affectés à cette agence (affectation principale d'abord,
+            // sinon toute affectation) : ils basculent avec leur agence.
+            $agency->assignedUsers()->each(function (User $user) use ($agency, $newCountryId) {
+                $hasPrimaryElsewhere = DB::table('user_assignments')
+                    ->where('user_id', $user->id)
+                    ->where('is_primary', true)
+                    ->where('agency_id', '<>', $agency->id)
+                    ->exists();
+
+                if ($hasPrimaryElsewhere) {
+                    return;
+                }
+
+                $user->forceFill(['country_id' => $newCountryId])->save();
+            });
+
+            // Journal d'activité : on dénormalise le nouveau pays.
+            $agency->activityLogs()->update(['country_id' => $newCountryId]);
+        });
     }
 
     #[OA\Delete(
