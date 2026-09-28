@@ -150,7 +150,7 @@ class RoleSeeder extends Seeder
                 $p('orders', ['consulter']),
                 $p('reports', ['consulter']),
                 $p('depenses', ['consulter', 'creer', 'encaisser']),
-                $p('commissions', ['consulter']),
+                $p('commissions', ['consulter', 'encaisser']),
                 $p('stats', ['consulter']),
             ),
             'comptable' => array_merge(
