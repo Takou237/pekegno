@@ -796,6 +796,7 @@ INSERT INTO role_permission (role_id, permission_id) SELECT r.id, p.id FROM role
 INSERT INTO role_permission (role_id, permission_id) SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'caissier' AND p.name = 'depenses.creer' ON CONFLICT DO NOTHING;
 INSERT INTO role_permission (role_id, permission_id) SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'caissier' AND p.name = 'depenses.encaisser' ON CONFLICT DO NOTHING;
 INSERT INTO role_permission (role_id, permission_id) SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'caissier' AND p.name = 'commissions.consulter' ON CONFLICT DO NOTHING;
+INSERT INTO role_permission (role_id, permission_id) SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'caissier' AND p.name = 'commissions.encaisser' ON CONFLICT DO NOTHING;
 INSERT INTO role_permission (role_id, permission_id) SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'caissier' AND p.name = 'stats.consulter' ON CONFLICT DO NOTHING;
 INSERT INTO role_permission (role_id, permission_id) SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'comptable' AND p.name = 'clients.consulter' ON CONFLICT DO NOTHING;
 INSERT INTO role_permission (role_id, permission_id) SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'comptable' AND p.name = 'clients.exporter' ON CONFLICT DO NOTHING;

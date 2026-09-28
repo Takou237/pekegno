@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { getDisplayCurrency } from '@/utils/number';
 import { useOutletContext } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Tag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +24,7 @@ interface AgencyLayoutContext {
 function formatPrice(value: string): string {
   return new Intl.NumberFormat(currentLocale(), {
     style: 'currency',
-    currency: 'XAF',
+    currency: getDisplayCurrency(),
     maximumFractionDigits: 0,
   }).format(Number(value));
 }

@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { scopeApi, type ScopeCountry, type ScopeAgency, type ScopeDepartment, type ContextSelection } from '@/api/scope.api';
 
 const STORAGE_KEY = 'pekegno_context';
 
 export interface OrgContextState {
   countries: ScopeCountry[];
+  groupCurrency: string;
   selectedCountry: ScopeCountry | null;
   selectedAgency: ScopeAgency | null;
   selectedDepartment: ScopeDepartment | null;
@@ -31,6 +33,7 @@ function persistSelection(sel: ContextSelection) {
 
 export function OrgProvider({ children }: { children: React.ReactNode }) {
   const [countries, setCountries] = useState<ScopeCountry[]>([]);
+  const [groupCurrency, setGroupCurrency] = useState('XAF');
   const [selection, setSelectionState] = useState<ContextSelection>(loadPersistedSelection);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +44,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await scopeApi.getContext();
       setCountries(res.countries);
+      setGroupCurrency(res.group_currency || 'XAF');
 
       // Répare la sélection persistée contre le référentiel frais : tout id de
       // pays/agence/département qui n'existe plus (ex. après une réinitialisation
@@ -79,9 +83,19 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Le périmètre dépend de l'utilisateur connecté : on le (re)charge à chaque
+  // connexion / changement de compte. Charger une seule fois au montage de
+  // l'app (avant le login) laissait les listes du header vides (401).
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   useEffect(() => {
+    if (!userId) {
+      setCountries([]);
+      setLoading(false);
+      return;
+    }
     fetchContext();
-  }, [fetchContext]);
+  }, [fetchContext, userId]);
 
   const setSelection = useCallback((patch: Partial<ContextSelection>) => {
     setSelectionState((prev) => {
@@ -124,6 +138,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const value: OrgContextState = useMemo(
     () => ({
       countries,
+      groupCurrency,
       selectedCountry,
       selectedAgency,
       selectedDepartment,
@@ -133,7 +148,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       setSelection,
       refresh: fetchContext,
     }),
-    [countries, selectedCountry, selectedAgency, selectedDepartment, selection, loading, error, setSelection, fetchContext],
+    [countries, groupCurrency, selectedCountry, selectedAgency, selectedDepartment, selection, loading, error, setSelection, fetchContext],
   );
 
   return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>;

@@ -46,6 +46,46 @@ class UserController extends Controller
     }
 
     #[OA\Get(
+        path: '/api/users/username-suggestion',
+        summary: 'Proposer un nom d\'utilisateur libre à partir du prénom et du nom',
+        tags: ['Utilisateurs'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'first_name', in: 'query', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'last_name', in: 'query', schema: new OA\Schema(type: 'string')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Nom d\'utilisateur proposé'),
+        ]
+    )]
+    public function suggestUsername(Request $request): JsonResponse
+    {
+        abort_unless(in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'responsable-agence'], true), 403);
+
+        $data = $request->validate([
+            'first_name' => ['nullable', 'string', 'max:100'],
+            'last_name' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        // « Jean-Marc Élé » + « N'Diaye » → « jeanmarc.ele.ndiaye » puis suffixe
+        // numérique tant que le nom est déjà pris.
+        $slug = fn (?string $v) => Str::of((string) $v)->ascii()->lower()->replaceMatches('/[^a-z0-9]+/', '')->toString();
+        $parts = array_filter([$slug($data['first_name'] ?? null), $slug($data['last_name'] ?? null)]);
+        $base = Str::limit(implode('.', $parts), 90, '');
+
+        if ($base === '') {
+            return response()->json(['username' => null]);
+        }
+
+        $candidate = $base;
+        for ($i = 2; User::where('username', $candidate)->exists(); $i++) {
+            $candidate = $base.$i;
+        }
+
+        return response()->json(['username' => $candidate]);
+    }
+
+    #[OA\Get(
         path: '/api/users',
         summary: 'Lister les utilisateurs (admin)',
         tags: ['Utilisateurs'],

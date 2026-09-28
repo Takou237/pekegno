@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getDisplayCurrency } from '@/utils/number';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -43,7 +44,7 @@ export function ServiceDetailModal({ serviceId, initial, onClose }: ServiceDetai
     if (!value) return '—';
     return new Intl.NumberFormat(currentLocale(), {
       style: 'currency',
-      currency: 'XAF',
+      currency: getDisplayCurrency(),
       maximumFractionDigits: 0,
     }).format(Number(value));
   }

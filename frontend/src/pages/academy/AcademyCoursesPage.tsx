@@ -204,7 +204,13 @@ export default function AcademyCoursesPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ ...emptyForm, target_country_ids: currentCountryId ? [currentCountryId] : [] });
+    // Par défaut la formation est déployée dans tous les pays (ticket T12) ;
+    // l'utilisateur décoche ceux qui ne sont pas concernés.
+    const allCountryIds = countries.filter((c) => c.is_active).map((c) => c.id);
+    setForm({
+      ...emptyForm,
+      target_country_ids: allCountryIds.length ? allCountryIds : currentCountryId ? [currentCountryId] : [],
+    });
     setFormError(null);
     setFieldErrors({});
     setFormOpen(true);

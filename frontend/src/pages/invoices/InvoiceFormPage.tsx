@@ -21,6 +21,7 @@ import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem } from '@/types/service';
 import type { Commercial } from '@/types/commercial';
+import { todayLocal } from '@/utils/date';
 
 interface InvoiceLineDraft {
   key: string;
@@ -73,7 +74,7 @@ export default function InvoiceFormPage({
   const [sellerId, setSellerId] = useState('');
   const [sellerIsTrainer, setSellerIsTrainer] = useState(false);
   const [agencyId, setAgencyId] = useState(presetAgencyId);
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [invoiceDate, setInvoiceDate] = useState(todayLocal());
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('');
   const [advance, setAdvance] = useState('');
   const [discount, setDiscount] = useState('');

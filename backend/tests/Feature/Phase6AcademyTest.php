@@ -1215,6 +1215,55 @@ class Phase6AcademyTest extends TestCase
         ]);
     }
 
+    public function test_cashier_can_pay_commission_from_academy_and_accounting_screens(): void
+    {
+        $caissier = $this->userWithRole('caissier');
+        $agency = $this->agencyIn('CMR');
+        $trainer = $this->createTrainer();
+
+        $profile = SellerProfile::create([
+            'user_id' => $trainer->user_id,
+            'agency_id' => $agency->id,
+            'kind' => SellerProfile::KIND_TRAINER,
+            'commission_type' => 'percent',
+            'commission_value' => 10,
+            'is_active' => true,
+        ]);
+
+        TreasuryAccount::create([
+            'agency_id' => $agency->id,
+            'name' => 'Caisse Caissier',
+            'type' => 'cash',
+            'opening_balance' => 0,
+            'currency_code' => 'XAF',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'super-admin')->value('id'),
+        ]));
+        $this->postJson('/api/commissions/entries', [
+            'seller_profile_id' => $profile->id,
+            'category' => 'training',
+            'amount' => 3000,
+        ])->assertStatus(201);
+
+        Sanctum::actingAs($caissier);
+
+        // Écran Academy « Paiements » (profil vendeur).
+        $this->postJson('/api/seller-profiles/'.$profile->id.'/pay', ['amount' => 1000])
+            ->assertStatus(201);
+
+        // Écran Comptabilité / Commissions Academy (règlement par bénéficiaire).
+        $this->postJson('/api/commission-payments', [
+            'beneficiary_type' => 'seller_profile',
+            'beneficiary_id' => $profile->id,
+            'amount' => 2000,
+        ])->assertStatus(201);
+
+        $this->assertDatabaseCount('commission_payments', 2);
+    }
+
     public function test_cashier_can_pay_commission_entry(): void
     {
         $caissier = $this->userWithRole('caissier');

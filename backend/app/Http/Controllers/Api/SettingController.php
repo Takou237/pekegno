@@ -21,6 +21,7 @@ class SettingController extends Controller
         'default_commission_type',
         'default_commission_value',
         'invoice_prefix',
+        'group_currency',
     ];
 
     public function __construct(private readonly ActivityLogger $logger) {}
@@ -64,6 +65,7 @@ class SettingController extends Controller
                     new OA\Property(property: 'default_commission_type', type: 'string', enum: ['none', 'percent', 'fixed']),
                     new OA\Property(property: 'default_commission_value', type: 'number', example: 0),
                     new OA\Property(property: 'invoice_prefix', type: 'string', example: 'PK'),
+                    new OA\Property(property: 'group_currency', type: 'string', example: 'XAF'),
                 ]
             )
         ),
@@ -90,6 +92,7 @@ class SettingController extends Controller
             'default_commission_type' => ['sometimes', Rule::in(['none', 'percent', 'fixed'])],
             'default_commission_value' => ['sometimes', 'numeric', 'min:0'],
             'invoice_prefix' => ['sometimes', 'string', 'min:1', 'max:5'],
+            'group_currency' => ['sometimes', 'string', 'min:3', 'max:10'],
         ]);
 
         $userId = $request->user()->id;

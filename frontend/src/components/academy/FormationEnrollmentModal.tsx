@@ -22,6 +22,7 @@ import type {
   FormationEnrollmentPayload,
 } from '@/types/formation';
 import type { PaymentMethod } from '@/types/invoice';
+import { currencyLabel } from '@/utils/number';
 
 const SELLER_TRAINER_PREFIX = 'trainer:';
 
@@ -378,7 +379,7 @@ export default function FormationEnrollmentModal({
             </select>
           </div>
           <Input
-            label={`${t('academy.discountValue')}${form.discount_type === 'percent' ? ' (%)' : ' (FCFA)'}`}
+            label={`${t('academy.discountValue')}${form.discount_type === 'percent' ? ' (%)' : ` (${currencyLabel()})`}`}
             type="number"
             min={0}
             max={form.discount_type === 'percent' ? 100 : basePrice || undefined}
@@ -465,7 +466,7 @@ export default function FormationEnrollmentModal({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label={`${t('academy.amountPaid')} (FCFA)`}
+            label={`${t('academy.amountPaid')} (${currencyLabel()})`}
             type="number"
             min={0}
             placeholder="0"

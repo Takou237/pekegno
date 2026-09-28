@@ -90,7 +90,7 @@ Route::prefix('public')->group(function () {
 
 Route::post('/auth/login', LoginController::class);
 Route::post('/auth/register', RegisterController::class);
-Route::post('/auth/forgot-password', ForgotPasswordController::class);
+Route::post('/auth/forgot-password', ForgotPasswordController::class)->middleware('throttle:5,1');
 Route::post('/auth/reset-password', ResetPasswordController::class);
 Route::post('/auth/2fa/login', [TwoFactorController::class, 'login']);
 
@@ -362,6 +362,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/departments/{department}/users', [UserAssignmentController::class, 'listDepartmentUsers']);
     Route::post('/departments/{department}/users', [UserAssignmentController::class, 'assignUserToDepartment']);
     Route::delete('/departments/{department}/users/{user}', [UserAssignmentController::class, 'removeUserFromDepartment']);
+    Route::get('/users/username-suggestion', [UserController::class, 'suggestUsername']);
     Route::apiResource('users', UserController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 
     Route::get('/users/{user}/role', [UserRoleController::class, 'show']);
@@ -403,7 +404,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/commissions/entries/{entry}/cancel', [CommissionController::class, 'cancelEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/seller-profiles/{sellerProfile}/recalculate', [CommissionController::class, 'recalculateSeller'])->middleware('permission:commissions.valider');
     Route::get('/commission-payments/summary', [CommissionController::class, 'summary'])->middleware('permission:commissions.consulter');
-    Route::post('/commission-payments', [CommissionController::class, 'storePayment'])->middleware('permission:commissions.valider');
+    Route::post('/commission-payments', [CommissionController::class, 'storePayment'])->middleware('permission:commissions.valider,commissions.encaisser');
 
     // === Sprint 4 : CRM — Entreprises ===
     Route::get('/companies/search', [CompanyController::class, 'search'])->middleware('permission:entreprises.consulter');
@@ -480,5 +481,5 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::put('/seller-profiles/{sellerProfile}', [SellerProfileController::class, 'update'])->middleware('permission:commissions.modifier');
     Route::delete('/seller-profiles/{sellerProfile}', [SellerProfileController::class, 'destroy'])->middleware('permission:commissions.supprimer');
     Route::get('/seller-profiles/{sellerProfile}/commissions', [SellerProfileController::class, 'commissions'])->middleware('permission:commissions.consulter');
-    Route::post('/seller-profiles/{sellerProfile}/pay', [SellerProfileController::class, 'payCommission'])->middleware('permission:commissions.valider');
+    Route::post('/seller-profiles/{sellerProfile}/pay', [SellerProfileController::class, 'payCommission'])->middleware('permission:commissions.valider,commissions.encaisser');
 });

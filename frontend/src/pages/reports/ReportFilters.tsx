@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useOrgContext } from '@/context/OrgContext';
+import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 export function GeoFilters({
   countryId,
@@ -78,6 +79,7 @@ export function ReportFilters({
       <div className="w-full sm:w-44">
         <Input label={t('reports.to')} type="date" value={to} onChange={(e) => onTo(e.target.value)} />
       </div>
+      <PeriodPresets className="sm:pb-2" from={from} to={to} onChange={(p) => { onFrom(p.from); onTo(p.to); }} allowAll />
     </div>
   );
 }

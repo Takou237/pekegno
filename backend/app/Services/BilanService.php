@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Agency;
+use App\Models\Category;
 use App\Models\DailyBalance;
 use App\Models\TreasuryAccount;
 use App\Models\TreasuryTransaction;
@@ -37,6 +38,9 @@ class BilanService
             'to' => $to->toDateString(),
             'agency_id' => $agencyId,
             'agency' => $agencyId ? Agency::find($agencyId)?->only('id', 'name') : null,
+            // Colonnes stables du tableau : toutes les catégories du catalogue,
+            // même sans vente sur la période (sinon le tableau « disparaît »).
+            'sale_categories' => Category::query()->orderBy('name')->pluck('name')->values()->all(),
             'days' => $days,
         ];
     }

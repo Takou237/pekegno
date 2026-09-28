@@ -56,6 +56,7 @@ export interface BilanPeriod {
   to: string;
   agency_id: string | null;
   agency: { id: string; name: string } | null;
+  sale_categories?: string[];
   days: BilanAgency[];
 }
 

@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -57,6 +58,7 @@ export function DepartmentLayout() {
       to={backTo}
       className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 hover:underline dark:text-brand-400 dark:hover:bg-brand-500/10"
     >
+      <ArrowLeft className="h-4 w-4" />
       <span className="hidden sm:inline">{t('departments.backToDepartments')}</span>
     </Link>
   );

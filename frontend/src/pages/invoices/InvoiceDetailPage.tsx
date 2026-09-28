@@ -10,7 +10,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
-import { formatRelativeDate } from '@/utils/date';
+import { formatRelativeDate, todayLocal } from '@/utils/date';
 import { formatCurrency } from '@/utils/number';
 import { invoiceBackPath, invoiceListPathForDetail } from '@/utils/invoiceNavigation';
 import { Button } from '@/components/ui/Button';
@@ -117,7 +117,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   function resetPayForm() {
     setPayAmount('');
     setPayComment('');
-    setPayPaidAt(new Date().toISOString().slice(0, 10));
+    setPayPaidAt(todayLocal());
     setPayErrors({});
   }
 
@@ -365,26 +365,26 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.totalAmount')}</p>
           <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {formatCurrency(invoice.total_amount)}
+            {formatCurrency(invoice.total_amount, invoice.currency_code)}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.paidAmount')}</p>
           <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {formatCurrency(invoice.amount_paid)}
+            {formatCurrency(invoice.amount_paid, invoice.currency_code)}
           </p>
           {Number(invoice.amount_paid) === 0 &&
             invoice.validation_status === 'pending' &&
             Number(invoice.declared_advance ?? 0) > 0 && (
               <p className="mt-1 text-xs italic text-amber-600 dark:text-amber-400">
-                {formatCurrency(invoice.declared_advance)} {t('invoices.declaredAdvance')} — {t('invoices.declaredAdvanceHint')}
+                {formatCurrency(invoice.declared_advance, invoice.currency_code)} {t('invoices.declaredAdvance')} — {t('invoices.declaredAdvanceHint')}
               </p>
             )}
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.balanceDue')}</p>
           <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {formatCurrency(invoice.balance_due)}
+            {formatCurrency(invoice.balance_due, invoice.currency_code)}
           </p>
         </div>
       </div>
@@ -486,7 +486,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                       {p.treasury_account?.name ?? '—'}
                     </td>
                     <td className="py-2 pr-3 text-right font-medium text-gray-800 dark:text-gray-100">
-                      {formatCurrency(p.amount)}
+                      {formatCurrency(p.amount, invoice.currency_code)}
                     </td>
                     <td className="py-2 text-gray-600 dark:text-gray-300">
                       {p.receiver
@@ -608,10 +608,10 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                       {item.quantity}
                     </td>
                     <td className="py-2 pr-3 text-right text-gray-600 dark:text-gray-300">
-                      {formatCurrency(item.unit_price)}
+                      {formatCurrency(item.unit_price, invoice.currency_code)}
                     </td>
                     <td className="py-2 text-right font-medium text-gray-800 dark:text-gray-100">
-                      {formatCurrency(item.line_total)}
+                      {formatCurrency(item.line_total, invoice.currency_code)}
                     </td>
                   </tr>
                 ))}
@@ -633,32 +633,32 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             <div className="flex justify-between text-gray-600 dark:text-gray-300">
               <span>{t('invoices.totalAfterDiscount')}</span>
               <span>
-                {formatCurrency(Number(invoice.total_amount) + Number(invoice.discount) - Number(invoice.vat_amount))}
+                {formatCurrency(Number(invoice.total_amount) + Number(invoice.discount) - Number(invoice.vat_amount), invoice.currency_code)}
               </span>
             </div>
             {Number(invoice.discount) > 0 && (
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>{t('invoices.discountLabel')}</span>
-                <span>- {formatCurrency(invoice.discount)}</span>
+                <span>- {formatCurrency(invoice.discount, invoice.currency_code)}</span>
               </div>
             )}
             {Number(invoice.vat_rate) > 0 && (
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>{t('invoices.vatAmount')} ({invoice.vat_rate}%)</span>
-                <span>+ {formatCurrency(invoice.vat_amount)}</span>
+                <span>+ {formatCurrency(invoice.vat_amount, invoice.currency_code)}</span>
               </div>
             )}
             <div className="flex justify-between font-medium text-gray-800 dark:text-gray-100">
               <span>{t('invoices.totalAmount')}</span>
-              <span>{formatCurrency(invoice.total_amount)}</span>
+              <span>{formatCurrency(invoice.total_amount, invoice.currency_code)}</span>
             </div>
             <div className="flex justify-between text-gray-600 dark:text-gray-300">
               <span>{t('invoices.paidAmount')}</span>
-              <span>{formatCurrency(invoice.amount_paid)}</span>
+              <span>{formatCurrency(invoice.amount_paid, invoice.currency_code)}</span>
             </div>
             <div className="flex justify-between text-base font-semibold text-gray-800 dark:text-gray-100">
               <span>{t('invoices.balanceDue')}</span>
-              <span>{formatCurrency(invoice.balance_due)}</span>
+              <span>{formatCurrency(invoice.balance_due, invoice.currency_code)}</span>
             </div>
           </div>
         </div>
@@ -706,7 +706,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             value={payAmount}
             onChange={(e) => setPayAmount(e.target.value)}
             error={payErrors.amount}
-            hint={Number(payAmount) > invoice.balance_due && payAmount !== '' ? `⚠ ${t('invoices.payOverpayment')} (${formatCurrency(invoice.balance_due)})` : `${t('invoices.balanceDueShort')} : ${formatCurrency(invoice.balance_due)}`}
+            hint={Number(payAmount) > invoice.balance_due && payAmount !== '' ? `⚠ ${t('invoices.payOverpayment')} (${formatCurrency(invoice.balance_due, invoice.currency_code)})` : `${t('invoices.balanceDueShort')} : ${formatCurrency(invoice.balance_due, invoice.currency_code)}`}
           />
           <div className="grid grid-cols-2 gap-3">
             <Select

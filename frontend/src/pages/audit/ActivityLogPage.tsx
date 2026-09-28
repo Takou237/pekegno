@@ -20,6 +20,7 @@ import type { ActivityLog } from '@/types/activityLog';
 import type { PaginationMeta, Agency } from '@/types/agency';
 import type { CountryStat } from '@/types/stats';
 import type { UserListItem } from '@/types/user';
+import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 const ENTITY_TYPES = [
   'client',
@@ -278,6 +279,7 @@ export default function ActivityLogPage() {
           />
         </label>
       </div>
+      <PeriodPresets from={from} to={to} onChange={(p) => { setFrom(p.from); setTo(p.to); }} allowAll />
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (

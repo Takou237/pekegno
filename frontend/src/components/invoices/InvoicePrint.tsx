@@ -1,7 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { currentLocale } from '@/i18n';
 import { formatCurrency, formatNumber, numberToWords } from '@/utils/number';
+
+// XAF et XOF sont tous deux des francs CFA ; les autres monnaies gardent leur code.
+function currencyWords(code?: string | null): string {
+  return !code || code === 'XAF' || code === 'XOF' ? 'francs CFA' : code;
+}
 import type { Invoice } from '@/types/invoice';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 export function InvoicePrint({ invoice }: { invoice: Invoice }) {
   const { t } = useTranslation();
@@ -14,7 +20,8 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
     <div id="invoice-print" className="bg-white p-8 text-gray-900">
       <div className="flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">PEKEGNO</h1>
+          <h1 className="sr-only">PEKEGNO</h1>
+          <BrandLogo className="h-12" linkToHome={false} />
           {agency && (
             <div className="mt-1 text-sm text-gray-600">
               <p className="font-semibold">{agency.name}</p>
@@ -74,8 +81,8 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
                 )}
               </td>
               <td className="py-2 pr-3 text-right">{formatNumber(item.quantity)}</td>
-              <td className="py-2 pr-3 text-right">{formatCurrency(item.unit_price)}</td>
-              <td className="py-2 text-right">{formatCurrency(item.line_total)}</td>
+              <td className="py-2 pr-3 text-right">{formatCurrency(item.unit_price, invoice.currency_code)}</td>
+              <td className="py-2 text-right">{formatCurrency(item.line_total, invoice.currency_code)}</td>
             </tr>
           ))}
         </tbody>
@@ -84,29 +91,29 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
       <div className="mt-6 ml-auto w-64 text-sm">
         <div className="flex justify-between py-1">
           <span className="text-gray-600">{t('invoices.totalAfterDiscount')}</span>
-          <span className="text-gray-800">{formatCurrency(subtotal)}</span>
+          <span className="text-gray-800">{formatCurrency(subtotal, invoice.currency_code)}</span>
         </div>
         {Number(invoice.discount) > 0 && (
           <div className="flex justify-between py-1">
             <span className="text-gray-600">{t('invoices.discountLabel')}</span>
-            <span className="text-gray-800">{formatCurrency(invoice.discount)}</span>
+            <span className="text-gray-800">{formatCurrency(invoice.discount, invoice.currency_code)}</span>
           </div>
         )}
         <div className="flex justify-between py-1">
           <span className="text-gray-600">{t('invoices.totalTtc')}</span>
-          <span className="text-gray-800">{formatCurrency(totalTtc)}</span>
+          <span className="text-gray-800">{formatCurrency(totalTtc, invoice.currency_code)}</span>
         </div>
         {Number(invoice.vat_rate) > 0 && (
           <div className="flex justify-between py-1">
             <span className="text-gray-600">
               {t('invoices.vatAmount')} ({invoice.vat_rate}%)
             </span>
-            <span className="text-gray-800">{formatCurrency(invoice.vat_amount)}</span>
+            <span className="text-gray-800">{formatCurrency(invoice.vat_amount, invoice.currency_code)}</span>
           </div>
         )}
         <div className="flex justify-between border-t border-gray-300 py-1">
           <span className="font-semibold">{t('invoices.grandTotalTtc')}</span>
-          <span className="font-semibold">{formatCurrency(grandTotal)}</span>
+          <span className="font-semibold">{formatCurrency(grandTotal, invoice.currency_code)}</span>
         </div>
       </div>
 
@@ -117,8 +124,8 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
       )}
 
       <p className="mt-2 text-center text-sm text-gray-800">
-        {t('invoices.amountInWords')} {numberToWords(grandTotal)} francs CFA (
-        {formatCurrency(grandTotal)}).
+        {t('invoices.amountInWords')} {numberToWords(grandTotal)} {currencyWords(invoice.currency_code)} (
+        {formatCurrency(grandTotal, invoice.currency_code)}).
       </p>
     </div>
   );

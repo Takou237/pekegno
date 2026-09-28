@@ -17,6 +17,7 @@ import {
   GraduationCap,
   ClipboardCheck,
   DollarSign,
+  ArrowLeft,
 } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -114,6 +115,7 @@ export function AgencyLayout() {
       to={backToAgencies}
       className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 hover:underline dark:text-brand-400 dark:hover:bg-brand-500/10"
     >
+      <ArrowLeft className="h-4 w-4" />
       <span className="hidden sm:inline">{t('agencies.backToList')}</span>
     </Link>
   );

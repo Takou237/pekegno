@@ -5,6 +5,7 @@ import { Menu, UserRound, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getMainItems, navLinkClass, INVOICES_ROLES, type NavItem } from '@/components/layout/navItems';
 import { invoicesApi } from '@/api/invoices.api';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 interface MobileNavProps {
   contextTitle?: string;
@@ -73,9 +74,7 @@ export function MobileNav({ contextTitle, contextItems = [], contextOnly = false
           />
           <div className="absolute inset-y-0 left-0 flex w-72 max-w-[80vw] flex-col border-r border-gray-100 bg-white px-4 py-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-8 flex items-center justify-between px-2">
-              <span className="text-xl font-semibold tracking-tight text-brand-600 dark:text-brand-400">
-                PEKEGNO
-              </span>
+              <BrandLogo className="h-8" onClick={() => setIsOpen(false)} />
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}

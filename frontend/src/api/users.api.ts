@@ -19,6 +19,11 @@ export const usersApi = {
     return data;
   },
 
+  async suggestUsername(params: { first_name?: string; last_name?: string }): Promise<string | null> {
+    const { data } = await client.get<{ username: string | null }>('/users/username-suggestion', { params });
+    return data.username;
+  },
+
   async get(id: string): Promise<UserListItem> {
     const { data } = await client.get<UserListItem>(`/users/${id}`);
     return data;

@@ -27,6 +27,7 @@ import type {
 } from '@/types/formation';
 import type { Department } from '@/types/department';
 import type { PaymentMethod } from '@/types/invoice';
+import { currencyLabel } from '@/utils/number';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -515,9 +516,9 @@ export default function FormationEnrollmentPage() {
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {enrollment.course?.effective_price != null
-                        ? `${Number(enrollment.course.effective_price).toLocaleString()} FCFA`
+                        ? `${Number(enrollment.course.effective_price).toLocaleString()} ${currencyLabel()}`
                         : enrollment.course?.price != null
-                          ? `${Number(enrollment.course.price).toLocaleString()} FCFA`
+                          ? `${Number(enrollment.course.price).toLocaleString()} ${currencyLabel()}`
                           : '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
@@ -661,7 +662,7 @@ export default function FormationEnrollmentPage() {
                 </select>
               </div>
               <Input
-                label={`${t('academy.discountValue')}${form.discount_type === 'percent' ? ' (%)' : ' (FCFA)'}`}
+                label={`${t('academy.discountValue')}${form.discount_type === 'percent' ? ' (%)' : ` (${currencyLabel()})`}`}
                 type="number"
                 min={0}
                 max={form.discount_type === 'percent' ? 100 : basePrice || undefined}
@@ -755,7 +756,7 @@ export default function FormationEnrollmentPage() {
           {!editing && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-              label={`${t('academy.amountPaid')} (FCFA)`}
+              label={`${t('academy.amountPaid')} (${currencyLabel()})`}
               type="number"
               min={0}
               placeholder="0"

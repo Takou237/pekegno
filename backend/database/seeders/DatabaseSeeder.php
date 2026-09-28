@@ -21,6 +21,14 @@ class DatabaseSeeder extends Seeder
             TreasuryAccountSeeder::class,
             UserSeeder::class,
             SettingSeeder::class,
+        ]);
+
+        // Données de démo : jamais pendant les tests, elles faussent les comptages.
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $this->call([
             AgencyPaymentMethodSeeder::class,
             CommercialTestDataSeeder::class,
             PublicCatalogSeeder::class,

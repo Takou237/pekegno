@@ -34,6 +34,7 @@ import type { Service } from '@/types/service';
 import type { Category } from '@/types/category';
 import type { Agency, PaginationMeta } from '@/types/agency';
 import type { Promotion } from '@/types/promotion';
+import { currencyLabel } from '@/utils/number';
 
 interface ServiceListPageProps {
   agencyId?: string;
@@ -217,7 +218,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   }
 
   function formatPrice(value: string): string {
-    return `${new Intl.NumberFormat(currentLocale()).format(Number(value))} FCFA`;
+    return `${new Intl.NumberFormat(currentLocale()).format(Number(value))} ${currencyLabel()}`;
   }
 
   function handlePromoSaved(saved: Promotion) {

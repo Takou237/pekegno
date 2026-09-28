@@ -147,6 +147,27 @@ pourraient créer le même genre de bug silencieux plus tard.
 modifier l'un ne touche pas l'autre. Toujours vérifier lequel des deux est
 concerné avant de dire "ça devrait marcher".
 
+### 3.8 Emails : sans SMTP configuré, aucun email ne part
+Création d'utilisateur (identifiants), réinitialisation par l'admin et « mot
+de passe oublié » envoient des emails. Avec `MAIL_MAILER=log` (valeur par
+défaut de `.env.example`), les messages sont seulement écrits dans
+`storage/logs/laravel.log` : l'utilisateur ne reçoit rien. En production,
+créer une boîte mail dans cPanel (ex. `noreply@pekegnogroup.com`) puis
+renseigner dans `backend/.env` :
+```
+MAIL_MAILER=smtp
+MAIL_SCHEME=smtps
+MAIL_HOST=mail.pekegnogroup.com   # serveur SMTP indiqué par cPanel
+MAIL_PORT=465
+MAIL_USERNAME=noreply@pekegnogroup.com
+MAIL_PASSWORD="mot de passe de la boîte"
+MAIL_FROM_ADDRESS="noreply@pekegnogroup.com"
+MAIL_FROM_NAME="PEKEGNO"
+FRONTEND_URL=https://plateforme.pekegnogroup.com
+```
+Puis vider l'OPcache (#3.4). En cas d'échec SMTP, « mot de passe oublié »
+répond désormais 503 avec un message clair et l'erreur est journalisée.
+
 ## 4. Comment déployer une mise à jour
 
 ### Backend (Laravel)
@@ -185,7 +206,8 @@ concerné avant de dire "ça devrait marcher".
    ```
 3. Zipper le contenu de `dist/` (pas le dossier), uploader dans
    `/plateforme.pekegnogroup.com` sur le serveur, extraire (en ayant vidé
-   l'ancien contenu avant), vérifier qu'il y a bien un `.htaccess` avec la
+   l'ancien contenu avant), vérifier qu'il y a bien un `.htaccess` (désormais
+   fourni par `frontend/public/.htaccess`, donc copié automatiquement dans `dist/`) avec la
    règle de fallback SPA (sinon les routes React Router en direct donnent
    du 404) :
    ```apache
@@ -209,6 +231,8 @@ concerné avant de dire "ça devrait marcher".
 | `seed-admin2.sql` | Un 2ème compte super-admin |
 | `seed-roles-permissions.sql` | Les 9 rôles + 162 permissions + leurs associations (généré depuis `PermissionSeeder`/`RoleSeeder`) |
 | `env.production.example` | Modèle de `.env` de prod (à copier dans `backend/.env`, mot de passe à compléter) |
+| `DEPLOIEMENT-2026-09-28.md` | Procédure pas à pas + checklist de recette de la mise à jour du 28/09 |
+| `migration-2026-09-28.sql` | Mise à jour de la BD pour les tickets du 28/09 (remise inscription, taux de change pays, monnaie groupe, commission caissier) — à importer une fois via phpPgAdmin |
 | `reset-opcache.php` | Script à visiter une fois puis supprimer (piège #3.4) |
 | `setup-storage-link.php` | Équivalent de `php artisan storage:link` sans terminal |
 | `vendor-prod.zip` / `frontend-dist.zip` | Derniers builds prêts à uploader (peuvent être obsolètes — régénérer si le code a changé depuis) |

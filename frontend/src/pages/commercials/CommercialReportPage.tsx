@@ -18,6 +18,7 @@ import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocompl
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import type { CommercialReportResponse, CommercialReportRankingEntry } from '@/api/reports.api';
 import type { Agency } from '@/types/agency';
+import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial' }: { fixedAgencyId?: string; mode?: 'commercial' | 'employee' } = {}) {
   const { t } = useTranslation();
@@ -185,6 +186,7 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
           />
         </div>
       </div>
+      <PeriodPresets from={fromDate} to={toDate} onChange={(p) => { setFromDate(p.from); setToDate(p.to); }} allowAll />
 
       {isLoading ? (
         <SkeletonTable />

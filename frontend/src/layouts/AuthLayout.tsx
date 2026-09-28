@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 export function AuthLayout({
   title,
@@ -17,9 +18,7 @@ export function AuthLayout({
       <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16">
         <div className="mx-auto w-full max-w-md">
           <div className="mb-8">
-            <span className="text-2xl font-semibold tracking-tight text-brand-600 dark:text-brand-400">
-              PEKEGNO
-            </span>
+            <BrandLogo className="h-12" linkToHome={false} />
           </div>
 
           <div className="mb-8">

@@ -9,6 +9,7 @@ import { formatCurrency } from '@/utils/number';
 import { UserMenu } from '@/components/common/UserMenu';
 import { Spinner } from '@/components/ui/Spinner';
 import type { Invoice } from '@/types/invoice';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 const CAN_VALIDATE_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence', 'caissier']);
 const COMMERCIAL_ROLE = 'commercial';
@@ -216,13 +217,27 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
     // /countries/:countryId/...
     if (segments[0] === 'countries' && segments[1]) {
       setSelection({ countryId: segments[1], agencyId: null, departmentId: null });
+      return;
     }
-  }, [location.pathname, countries, loading, setSelection, findDepartmentContext]);
+
+    // /agencies/:agencyId/... (redirigé ensuite vers /countries/.../agencies/...)
+    if (segments[0] === 'agencies' && segments[1] && segments[1] !== 'trash') {
+      const agency = findAgency(segments[1]);
+      if (agency) setSelection({ countryId: agency.country_id, agencyId: agency.id, departmentId: null });
+      return;
+    }
+
+    // Pages globales (tableau de bord groupe, listes...) : aucune sélection.
+    // Sinon les listes restent pré-remplies (1er pays / 1re agence) et choisir
+    // cette même valeur ne déclenche rien — le header semblait « cassé ».
+    setSelection({ countryId: null, agencyId: null, departmentId: null });
+  }, [location.pathname, countries, loading, setSelection, findAgency, findDepartmentContext]);
 
   const handleCountryChange = useCallback(
     (countryId: string) => {
       setSelection({ countryId: countryId || null });
-      if (countryId) navigate(`/countries/${countryId}`);
+      // Option vide = retour au niveau PEKEGNO GROUP.
+      navigate(countryId ? `/countries/${countryId}` : '/');
     },
     [setSelection, navigate],
   );
@@ -230,7 +245,9 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   const handleAgencyChange = useCallback(
     (agencyId: string) => {
       if (!agencyId) {
+        // Option vide = retour au pays.
         setSelection({ agencyId: null });
+        navigate(selection.countryId ? `/countries/${selection.countryId}` : '/');
         return;
       }
       const agency = findAgency(agencyId);
@@ -250,7 +267,10 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   const handleDepartmentChange = useCallback(
     (departmentId: string) => {
       if (!departmentId) {
+        // Option vide = retour à l'agence (ou au pays).
         setSelection({ departmentId: null });
+        if (selection.countryId && selection.agencyId) navigate(`/countries/${selection.countryId}/agencies/${selection.agencyId}`);
+        else if (selection.countryId) navigate(`/countries/${selection.countryId}`);
         return;
       }
       const found = findDepartmentContext(departmentId);
@@ -258,7 +278,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
       else setSelection({ departmentId });
       navigate(`/departments/${departmentId}`);
     },
-    [findDepartmentContext, setSelection, navigate],
+    [findDepartmentContext, selection.countryId, selection.agencyId, setSelection, navigate],
   );
 
   const countryGroups: OptionGroup[] = useMemo(
@@ -324,8 +344,8 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
 
       {showOrgSelectors && (
         <>
-          <span className="mr-1 hidden text-sm font-bold tracking-tight text-brand-600 dark:text-brand-400 lg:block">
-            PEKEGNO
+          <span className="mr-1 hidden lg:block">
+            <BrandLogo className="h-7" />
           </span>
           <span className="mx-1 hidden text-gray-300 dark:text-gray-600 lg:inline">|</span>
 
@@ -358,7 +378,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
         </>
       )}
 
-      {leftSlot && <div className="ml-2 hidden lg:block">{leftSlot}</div>}
+      {leftSlot && <div className="ml-1 shrink-0 sm:ml-2">{leftSlot}</div>}
 
       <div className="ml-auto flex items-center gap-1">
         {rightSlot}

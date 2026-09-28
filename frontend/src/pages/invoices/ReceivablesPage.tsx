@@ -161,9 +161,9 @@ country_id: countryId || undefined,
                       <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                         {new Date(inv.invoice_date).toLocaleDateString()}
                       </td>
-                      <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{formatCurrency(Number(inv.total_amount))}</td>
+                      <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{formatCurrency(Number(inv.total_amount), inv.currency_code)}</td>
                       <td className="px-5 py-3 font-semibold text-amber-600 dark:text-amber-400">
-                        {formatCurrency(balance(inv))}
+                        {formatCurrency(balance(inv), inv.currency_code)}
                       </td>
                       <td className="px-5 py-3">{statusBadge(inv.status)}</td>
                     </tr>

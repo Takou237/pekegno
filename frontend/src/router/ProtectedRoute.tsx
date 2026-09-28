@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useInactivityLogout } from '@/hooks/useInactivityLogout';
+import { useDisplayCurrencySync } from '@/hooks/useDisplayCurrencySync';
 
 /**
  * Protège les routes nécessitant une session active.
@@ -15,6 +16,7 @@ export function ProtectedRoute() {
   const location = useLocation();
 
   useInactivityLogout();
+  useDisplayCurrencySync();
 
   if (isInitializing) {
     return (

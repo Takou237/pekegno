@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use App\Support\GroupCurrency;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
 
 class Invoice extends Model
 {
@@ -50,7 +51,7 @@ class Invoice extends Model
         'cancelled_at',
     ];
 
-    protected $appends = ['balance_due', 'vat_amount', 'agency_snapshot', 'client_label'];
+    protected $appends = ['balance_due', 'vat_amount', 'agency_snapshot', 'client_label', 'currency_code'];
 
     protected function casts(): array
     {
@@ -160,6 +161,14 @@ class Invoice extends Model
         }
 
         return trim("{$client->first_name} {$client->last_name}") ?: $client->email;
+    }
+
+    /**
+     * Monnaie de la facture : celle du pays de son agence.
+     */
+    public function getCurrencyCodeAttribute(): string
+    {
+        return GroupCurrency::currencyForCountry($this->agency?->country_id);
     }
 
     /**

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/api/users.api';
 import { agenciesApi } from '@/api/agencies.api';
@@ -14,6 +14,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { CreateUserPayload, RoleListItem } from '@/types/user';
 import { assignableRoleNames, CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
+import { useUsernameSuggestion } from '@/hooks/useUsernameSuggestion';
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -53,6 +54,8 @@ export function CreateUserModal({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const setUsername = useCallback((username: string) => setForm((p) => ({ ...p, username })), []);
+  useUsernameSuggestion(form.first_name ?? '', form.last_name ?? '', form.username, setUsername);
 
   useEffect(() => {
     if (isOpen) {

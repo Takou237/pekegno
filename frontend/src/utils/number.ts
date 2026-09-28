@@ -6,8 +6,27 @@ export function formatNumber(value: number | string | null | undefined): string 
   return formatted.replace(/[\u202f\u00a0]/g, ' ');
 }
 
-export function formatCurrency(value: number | string | null | undefined): string {
-  return `${formatNumber(value)} FCFA`;
+// Monnaie d'affichage par défaut : celle du pays consulté, ou la monnaie du
+// groupe en vue multi-pays (voir useDisplayCurrencySync). Le franc CFA
+// d'Afrique centrale garde son libellé historique « FCFA ».
+const CURRENCY_LABELS: Record<string, string> = { XAF: 'FCFA' };
+let displayCurrency = 'XAF';
+
+export function setDisplayCurrency(code: string | null | undefined): void {
+  if (code) displayCurrency = code.toUpperCase();
+}
+
+export function getDisplayCurrency(): string {
+  return displayCurrency;
+}
+
+export function currencyLabel(code?: string | null): string {
+  const c = (code || displayCurrency).toUpperCase();
+  return CURRENCY_LABELS[c] ?? c;
+}
+
+export function formatCurrency(value: number | string | null | undefined, currency?: string | null): string {
+  return `${formatNumber(value)} ${currencyLabel(currency)}`;
 }
 
 const UNITS = [

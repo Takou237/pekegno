@@ -16,6 +16,8 @@ import { canExportData } from '@/utils/exportPermissions';
 import { formatCurrency } from '@/utils/number';
 import type { Agency } from '@/types/agency';
 import type { BilanAgency } from '@/types/bilan';
+import { todayLocal } from '@/utils/date';
+import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 interface DailyBilanPageProps {
   fixedAgencyId?: string;
@@ -27,11 +29,12 @@ interface PeriodBlock {
   key: string;
   title: string;
   days: BilanAgency[];
+  saleCategories: string[];
 }
 
 function defaultPeriodFrom(): string {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  return todayLocal(new Date(now.getFullYear(), now.getMonth(), 1));
 }
 
 export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
@@ -44,7 +47,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
 
   const [viewMode, setViewMode] = useState<ViewMode>('period');
 
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todayLocal());
   const [agencyId, setAgencyId] = useState(lockedAgency ?? '');
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [agencyBilan, setAgencyBilan] = useState<BilanAgency | null>(null);
@@ -58,7 +61,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   const [periodFrom, setPeriodFrom] = useState(defaultPeriodFrom());
-  const [periodTo, setPeriodTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [periodTo, setPeriodTo] = useState(() => todayLocal());
   const [periodBlocks, setPeriodBlocks] = useState<PeriodBlock[]>([]);
   const [periodLoading, setPeriodLoading] = useState(true);
   const [periodError, setPeriodError] = useState<string | null>(null);
@@ -106,7 +109,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
         if (agencyId) {
           const res = await bilansApi.period({ from: periodFrom, to: periodTo, agency_id: agencyId });
           if (!active) return;
-          setPeriodBlocks([{ key: agencyId, title: res.agency?.name ?? t('bilans.agency'), days: res.days }]);
+          setPeriodBlocks([{ key: agencyId, title: res.agency?.name ?? t('bilans.agency'), days: res.days, saleCategories: res.sale_categories ?? [] }]);
         } else if (agencies.length > 1) {
           const [globalRes, ...agencyResList] = await Promise.all([
             bilansApi.period({ from: periodFrom, to: periodTo, country_id: routeCountryId }),
@@ -114,13 +117,13 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
           ]);
           if (!active) return;
           setPeriodBlocks([
-            { key: 'global', title: t('bilans.globalView'), days: globalRes.days },
-            ...agencies.map((a, i) => ({ key: a.id, title: a.name, days: agencyResList[i].days })),
+            { key: 'global', title: t('bilans.globalView'), days: globalRes.days, saleCategories: globalRes.sale_categories ?? [] },
+            ...agencies.map((a, i) => ({ key: a.id, title: a.name, days: agencyResList[i].days, saleCategories: agencyResList[i].sale_categories ?? [] })),
           ]);
         } else if (agencies.length === 1) {
           const res = await bilansApi.period({ from: periodFrom, to: periodTo, agency_id: agencies[0].id });
           if (!active) return;
-          setPeriodBlocks([{ key: agencies[0].id, title: agencies[0].name, days: res.days }]);
+          setPeriodBlocks([{ key: agencies[0].id, title: agencies[0].name, days: res.days, saleCategories: res.sale_categories ?? [] }]);
         } else {
           setPeriodBlocks([]);
         }
@@ -194,9 +197,12 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 lg:flex-row lg:items-end">
         {viewMode === 'day' ? (
-          <div className="sm:w-48">
-            <Input label={t('bilans.date')} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
+          <>
+            <div className="sm:w-48">
+              <Input label={t('bilans.date')} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <PeriodPresets className="lg:pb-2" only={['today', 'yesterday']} from={date} to={date} onChange={(p) => setDate(p.from)} />
+          </>
         ) : (
           <>
             <div className="sm:w-48">
@@ -205,6 +211,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
             <div className="sm:w-48">
               <Input label={t('invoices.filterTo')} type="date" value={periodTo} onChange={(e) => setPeriodTo(e.target.value)} />
             </div>
+            <PeriodPresets className="lg:pb-2" from={periodFrom} to={periodTo} onChange={(p) => { setPeriodFrom(p.from); setPeriodTo(p.to); }} />
           </>
         )}
         {!lockedAgency && (
@@ -249,7 +256,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
             </div>
           )}
           {periodBlocks.map((block) => (
-            <PeriodTable key={block.key} title={block.title} days={block.days} t={t} />
+            <PeriodTable key={block.key} title={block.title} days={block.days} saleCategories={block.saleCategories} t={t} />
           ))}
         </>
       )}
@@ -447,12 +454,20 @@ function ConsolidatedView({ consolidated, t }: {
   );
 }
 
-function buildCategoryColumns(days: BilanAgency[]): string[] {
-  const set = new Set<string>();
+// Une catégorie de service « Formations » est déjà couverte par la colonne
+// Formations : on ne la répète pas.
+function isFormationCategory(name: string): boolean {
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().startsWith('formation');
+}
+
+// Colonnes stables : toutes les catégories du catalogue (même à zéro), plus
+// celles apparues dans les ventes (ex. « Autres »).
+function buildCategoryColumns(days: BilanAgency[], baseCategories: string[] = []): string[] {
+  const set = new Set<string>(baseCategories);
   for (const d of days) {
     for (const s of d.services_by_category) set.add(s.category);
   }
-  return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+  return Array.from(set).filter((c) => !isFormationCategory(c)).sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
 function buildProductColumns(days: BilanAgency[]): string[] {
@@ -480,7 +495,10 @@ function productCategoryTotal(day: BilanAgency, category: string): number {
 }
 
 function formationTotal(day: BilanAgency): number {
-  return day.formation_total ?? 0;
+  const formationServices = day.services_by_category
+    .filter((s) => isFormationCategory(s.category))
+    .reduce((sum, s) => sum + s.total, 0);
+  return (day.formation_total ?? 0) + formationServices;
 }
 
 function expenseCategoryTotal(day: BilanAgency, name: string): number {
@@ -491,8 +509,8 @@ function expenseCategoryTotal(day: BilanAgency, name: string): number {
 // un jour par ligne, une colonne par catégorie de vente puis Cash/OM/MOMO/
 // Solde initial, une colonne par catégorie de dépense, Total dépenses et
 // Solde final — répété par agence quand plusieurs sont affichées.
-function PeriodTable({ title, days, t }: { title: string; days: BilanAgency[]; t: (key: string, opts?: Record<string, unknown>) => string }) {
-  const saleCols = useMemo(() => buildCategoryColumns(days), [days]);
+function PeriodTable({ title, days, saleCategories, t }: { title: string; days: BilanAgency[]; saleCategories: string[]; t: (key: string, opts?: Record<string, unknown>) => string }) {
+  const saleCols = useMemo(() => buildCategoryColumns(days, saleCategories), [days, saleCategories]);
   const productCols = useMemo(() => buildProductColumns(days), [days]);
   const expenseCols = useMemo(() => buildExpenseColumns(days), [days]);
 
@@ -613,7 +631,7 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
 
   const perBlock = blocks.map((block) => ({
     block,
-    saleCols: buildCategoryColumns(block.days),
+    saleCols: buildCategoryColumns(block.days, block.saleCategories),
     productCols: buildProductColumns(block.days),
     expenseCols: buildExpenseColumns(block.days),
     byDate: Object.fromEntries(block.days.map((d) => [d.date, d])) as Record<string, BilanAgency>,

@@ -11,11 +11,13 @@ use App\Models\InvoicePayment;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\ScopeService;
+use App\Support\GroupCurrency;
 use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 /**
@@ -100,9 +102,13 @@ class DashboardController extends Controller
             );
         };
 
+        // Niveau groupe (plusieurs pays) : montants convertis dans la monnaie du
+        // groupe. À partir du niveau pays, tout est dans la monnaie du pays.
+        $rateFactor = $country ? '' : ' * '.GroupCurrency::rateSql('invoices.agency_id');
+
         $paid = $invoicesBase()
             ->where('invoices.status', 'paid')
-            ->selectRaw('invoices.agency_id, sum(invoices.total_amount) as revenue, count(*) as invoices_paid')
+            ->selectRaw('invoices.agency_id, sum(invoices.total_amount'.$rateFactor.') as revenue, count(*) as invoices_paid')
             ->groupBy('invoices.agency_id')
             ->get()
             ->keyBy('agency_id');
@@ -119,12 +125,13 @@ class DashboardController extends Controller
                 ->whereBetween('invoice_payments.paid_at', [$from, $to])
                 ->whereNull('invoices.cancelled_at')
                 ->where('invoices.validation_status', 'validated')
-        )->sum('invoice_payments.amount');
+        )->sum(DB::raw('invoice_payments.amount'.$rateFactor));
 
+        $rates = $country ? [] : GroupCurrency::agencyRates();
         $outstanding = $invoicesBase()
             ->whereIn('invoices.status', ['unpaid', 'partial'])
-            ->get(['invoices.total_amount', 'invoices.amount_paid'])
-            ->sum(fn (Invoice $i) => $i->balance_due);
+            ->get(['invoices.agency_id', 'invoices.total_amount', 'invoices.amount_paid'])
+            ->sum(fn (Invoice $i) => $i->balance_due * ($rates[$i->agency_id] ?? 1));
 
         $agenciesPerNode = $agencies->map(fn (Agency $a) => [
             'agency_id' => $a->id,
@@ -137,6 +144,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'scope' => $this->scopePayload($user, $country, $city, $agency),
+            'currency_code' => $country?->currency_code ?? GroupCurrency::code(),
             'period' => [
                 'from' => $from->toISOString(),
                 'to' => $to->toISOString(),

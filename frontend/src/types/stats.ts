@@ -86,6 +86,9 @@ export interface CountryStat {
   name: string;
   code: string;
   currency_code: string;
+  exchange_rate?: number;
+  iso_code?: string | null;
+  phone_code?: string | null;
   is_active: boolean;
   agencies_count: number;
   revenue: number;

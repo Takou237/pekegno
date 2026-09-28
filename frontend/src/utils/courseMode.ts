@@ -1,5 +1,6 @@
 import type { useTranslation } from 'react-i18next';
 import type { Course } from '@/api/academy.api';
+import { currencyLabel } from '@/utils/number';
 
 type Translate = ReturnType<typeof useTranslation>['t'];
 
@@ -31,6 +32,6 @@ export function isOnlineCourse(mode: Course['mode'] | null | undefined): boolean
  */
 export function courseOptionLabel(course: Course, t: Translate): string {
   const price = course.effective_price ?? course.price;
-  const priceLabel = price != null ? `${Number(price).toLocaleString()} FCFA` : course.code;
+  const priceLabel = price != null ? `${Number(price).toLocaleString()} ${currencyLabel()}` : course.code;
   return `${course.name} — ${courseModeLabel(course.mode, t)} · ${priceLabel}`;
 }

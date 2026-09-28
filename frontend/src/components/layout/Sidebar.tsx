@@ -5,6 +5,7 @@ import { UserRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getMainItems, navLinkClass, INVOICES_ROLES } from '@/components/layout/navItems';
 import { invoicesApi } from '@/api/invoices.api';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -28,9 +29,7 @@ export function Sidebar() {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-100 bg-white px-4 py-6 dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-0 lg:flex lg:h-screen lg:overflow-y-auto">
       <div className="mb-8 px-2">
-        <span className="text-xl font-semibold tracking-tight text-brand-600 dark:text-brand-400">
-          PEKEGNO
-        </span>
+        <BrandLogo className="h-9" />
       </div>
       <nav className="flex flex-1 flex-col gap-1">
         {mainItems.map(({ to, label, icon: Icon, end, badge, isPathActive }) => (

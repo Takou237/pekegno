@@ -20,6 +20,7 @@ import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
 import type { Department } from '@/types/department';
+import { currencyLabel } from '@/utils/number';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -368,7 +369,7 @@ export default function AcademySessionsPage() {
                     <td className="px-5 py-3">
                       <span className="font-medium text-gray-800 dark:text-gray-100">
                         {session.effective_price != null
-                          ? `${Number(session.effective_price).toLocaleString()} FCFA`
+                          ? `${Number(session.effective_price).toLocaleString()} ${currencyLabel()}`
                           : '—'}
                       </span>
                       {session.effective_price != null &&

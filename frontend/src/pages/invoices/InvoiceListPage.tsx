@@ -24,6 +24,7 @@ import { invoiceListPath, invoiceOrigin } from '@/utils/invoiceNavigation';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Invoice, InvoiceStatus } from '@/types/invoice';
 import type { Agency, PaginationMeta } from '@/types/agency';
+import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 export function invoiceDetailPath(invoiceId: string, agencyId?: string): string {
   return agencyId ? `/agencies/${agencyId}/invoices/${invoiceId}` : `/invoices/${invoiceId}`;
@@ -111,6 +112,16 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
     const params = new URLSearchParams(searchParams);
     if (value) params.set(key, value);
     else params.delete(key);
+    params.delete('page');
+    setSearchParams(params, { replace: true });
+  }
+
+  function setPeriod(period: { from: string; to: string }) {
+    const params = new URLSearchParams(searchParams);
+    for (const key of ['from', 'to'] as const) {
+      if (period[key]) params.set(key, period[key]);
+      else params.delete(key);
+    }
     params.delete('page');
     setSearchParams(params, { replace: true });
   }
@@ -229,6 +240,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
             <Input label={t('invoices.filterTo')} type="date" value={to} onChange={(e) => setFilter('to', e.target.value)} />
           </div>
         </div>
+        <PeriodPresets className="mt-3" from={from} to={to} onChange={setPeriod} allowAll />
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
@@ -287,14 +299,14 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
                       inv.validation_status === 'pending' &&
                       Number(inv.declared_advance ?? 0) > 0 ? (
                         <span className="italic text-amber-600 dark:text-amber-400" title={t('invoices.declaredAdvanceHint')}>
-                          {formatCurrency(inv.declared_advance)} ({t('invoices.declaredAdvance')})
+                          {formatCurrency(inv.declared_advance, inv.currency_code)} ({t('invoices.declaredAdvance')})
                         </span>
                       ) : (
-                        formatCurrency(inv.amount_paid)
+                        formatCurrency(inv.amount_paid, inv.currency_code)
                       )}
                     </td>
                     <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
-                      {formatCurrency(inv.balance_due)}
+                      {formatCurrency(inv.balance_due, inv.currency_code)}
                     </td>
                     <td
                       className={`px-5 py-3 text-right font-medium ${
@@ -303,7 +315,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
                           : 'text-gray-800 dark:text-gray-100'
                       }`}
                     >
-                      {formatCurrency(inv.total_amount)}
+                      {formatCurrency(inv.total_amount, inv.currency_code)}
                     </td>
                     <td className="px-5 py-3">{<InvoiceStatusBadge status={inv.status} />}</td>
                     <td className="px-5 py-3">

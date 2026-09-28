@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Agency;
 use App\Models\Commercial;
+use App\Models\Country;
+use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\AccountingCategorySeeder;
@@ -99,6 +101,40 @@ class Phase7ReportingTest extends TestCase
 
         $this->assertEquals(10000, $agencyStats['revenue']);
         $this->assertEquals($agencyStats['revenue'], $groupStats['revenue'], 'Le CA agence doit correspondre au CA groupe pour une agence unique.');
+    }
+
+    /**
+     * Ticket T11 : chaque pays facture dans sa monnaie ; les agrégats
+     * PEKEGNO GROUP sont convertis via le taux d'équivalence du pays.
+     */
+    public function test_group_aggregates_convert_country_currency(): void
+    {
+        $this->actingAsAdmin();
+
+        $organizationId = Organization::query()->value('id')
+            ?? Organization::create(['name' => 'PEKEGNO GROUP', 'code' => 'PKG'])->id;
+        $cmr = Country::create(['organization_id' => $organizationId, 'name' => 'Cameroun', 'code' => 'CMX', 'currency_code' => 'XAF', 'exchange_rate' => 1]);
+        $civ = Country::create(['organization_id' => $organizationId, 'name' => 'Côte d\'Ivoire', 'code' => 'CIX', 'currency_code' => 'XOF', 'exchange_rate' => 2]);
+        $agencyCmr = Agency::factory()->create(['country_id' => $cmr->id]);
+        $agencyCiv = Agency::factory()->create(['country_id' => $civ->id]);
+        $period = ['from' => now()->startOfMonth()->toDateString(), 'to' => now()->toDateString()];
+
+        $this->createInvoice(['agency_id' => $agencyCmr->id, 'advance' => 10000, 'payment_type' => 'cash']);
+        $civInvoice = $this->createInvoice(['agency_id' => $agencyCiv->id, 'advance' => 10000, 'payment_type' => 'cash']);
+
+        $this->assertSame('XOF', $civInvoice['currency_code']);
+
+        $group = $this->getJson('/api/stats/group?'.http_build_query($period))->assertOk()->json();
+        $this->assertSame('XAF', $group['currency_code']);
+        $this->assertEquals(10000 + 10000 * 2, $group['revenue']);
+
+        $dashboard = $this->getJson('/api/dashboard?'.http_build_query($period))->assertOk()->json();
+        $this->assertEquals(30000, $dashboard['kpis']['revenue']);
+
+        // Au niveau pays : monnaie locale, aucune conversion.
+        $countryLevel = $this->getJson('/api/dashboard?'.http_build_query($period + ['country_id' => $civ->id]))->assertOk()->json();
+        $this->assertSame('XOF', $countryLevel['currency_code']);
+        $this->assertEquals(10000, $countryLevel['kpis']['revenue']);
     }
 
     public function test_report_aggregates_sales_payments_and_commissions(): void

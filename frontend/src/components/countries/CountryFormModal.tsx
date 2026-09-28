@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { useOrgContext } from '@/context/OrgContext';
 import type { CountryStat } from '@/types/stats';
 
 const emptyForm: CountryPayload = {
@@ -15,6 +16,7 @@ const emptyForm: CountryPayload = {
   iso_code: '',
   phone_code: '',
   currency_code: 'XAF',
+  exchange_rate: 1,
   is_active: true,
 };
 
@@ -22,11 +24,14 @@ interface CountryFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved: (country: CountryStat) => void;
+  /** Pays à modifier ; absent = création. */
+  country?: CountryStat | null;
 }
 
-export function CountryFormModal({ isOpen, onClose, onSaved }: CountryFormModalProps) {
+export function CountryFormModal({ isOpen, onClose, onSaved, country }: CountryFormModalProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { groupCurrency, refresh: refreshOrg } = useOrgContext();
 
   const [form, setForm] = useState<CountryPayload>(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,11 +40,21 @@ export function CountryFormModal({ isOpen, onClose, onSaved }: CountryFormModalP
 
   useEffect(() => {
     if (isOpen) {
-      setForm(emptyForm);
+      setForm(country
+        ? {
+            name: country.name,
+            code: country.code,
+            iso_code: country.iso_code ?? '',
+            phone_code: country.phone_code ?? '',
+            currency_code: country.currency_code,
+            exchange_rate: country.exchange_rate ?? 1,
+            is_active: country.is_active,
+          }
+        : emptyForm);
       setFormError(null);
       setFieldErrors({});
     }
-  }, [isOpen]);
+  }, [isOpen, country]);
 
   function update<K extends keyof CountryPayload>(field: K, value: CountryPayload[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -52,14 +67,18 @@ export function CountryFormModal({ isOpen, onClose, onSaved }: CountryFormModalP
     setIsSubmitting(true);
 
     try {
-      const saved = await countriesApi.create({
+      const payload: CountryPayload = {
         name: form.name,
         code: form.code,
         iso_code: form.iso_code || undefined,
         phone_code: form.phone_code || undefined,
-        currency_code: form.currency_code,
+        currency_code: form.currency_code.trim().toUpperCase(),
+        exchange_rate: Number(form.exchange_rate) || 1,
         is_active: form.is_active,
-      });
+      };
+      const saved = country ? await countriesApi.update(country.id, payload) : await countriesApi.create(payload);
+      // La monnaie du pays sert à l'affichage partout : on recharge le contexte.
+      void refreshOrg();
       showToast(t('countries.saved'), 'success');
       onSaved(saved);
       onClose();
@@ -72,7 +91,7 @@ export function CountryFormModal({ isOpen, onClose, onSaved }: CountryFormModalP
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('countries.createTitle')} maxWidth="max-w-xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={country ? t('countries.editTitle') : t('countries.createTitle')} maxWidth="max-w-xl">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {formError && <Alert variant="error">{formError}</Alert>}
 
@@ -121,6 +140,18 @@ export function CountryFormModal({ isOpen, onClose, onSaved }: CountryFormModalP
           />
         </div>
 
+        <Input
+          label={t('countries.exchangeRate', { country: form.currency_code || '—', group: groupCurrency })}
+          type="number"
+          min="0"
+          step="any"
+          required
+          value={String(form.exchange_rate ?? 1)}
+          onChange={(e) => update('exchange_rate', e.target.value === '' ? undefined : Number(e.target.value))}
+          error={fieldErrors.exchange_rate}
+          hint={t('countries.exchangeRateHint', { group: groupCurrency })}
+        />
+
         <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input
             type="checkbox"
@@ -136,7 +167,7 @@ export function CountryFormModal({ isOpen, onClose, onSaved }: CountryFormModalP
             {t('common.cancel')}
           </Button>
           <Button type="submit" isLoading={isSubmitting} className="flex-1">
-            {t('common.create')}
+            {country ? t('common.save') : t('common.create')}
           </Button>
         </div>
       </form>

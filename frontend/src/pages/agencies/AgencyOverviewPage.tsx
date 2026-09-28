@@ -26,6 +26,7 @@ import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import type { Agency } from '@/types/agency';
 import type { Service } from '@/types/service';
 import type { AgencyStats, MonthlyRevenuePoint } from '@/types/stats';
+import { currencyLabel } from '@/utils/number';
 
 interface AgencyLayoutContext {
   agency: Agency | null;
@@ -33,7 +34,7 @@ interface AgencyLayoutContext {
 }
 
 function formatPrice(value: string): string {
-  return `${new Intl.NumberFormat(currentLocale()).format(Number(value))} FCFA`;
+  return `${new Intl.NumberFormat(currentLocale()).format(Number(value))} ${currencyLabel()}`;
 }
 
 export default function AgencyOverviewPage() {

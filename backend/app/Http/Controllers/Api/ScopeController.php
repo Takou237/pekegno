@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agency;
-use App\Models\City;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\Organization;
 use App\Services\ScopeService;
+use App\Support\GroupCurrency;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -62,6 +62,7 @@ class ScopeController extends Controller
                 'name' => $c->name,
                 'code' => $c->code,
                 'currency_code' => $c->currency_code,
+                'exchange_rate' => (float) ($c->exchange_rate ?? 1),
                 'cities_count' => $c->cities_count,
                 'agencies_count' => $c->agencies_count,
             ]);
@@ -96,6 +97,7 @@ class ScopeController extends Controller
         // Construire l'arbre imbriqué : pays → agences
         $countriesWithAgencies = $countries->map(function ($country) use ($agencies) {
             $countryAgencies = $agencies->filter(fn ($a) => $a['country_id'] === $country['id']);
+
             return array_merge($country, [
                 'agencies' => $countryAgencies->values(),
             ]);
@@ -110,6 +112,7 @@ class ScopeController extends Controller
                     'is_primary' => $a->is_primary,
                 ]),
             ],
+            'group_currency' => GroupCurrency::code(),
             'countries' => $countriesWithAgencies,
         ]);
     }

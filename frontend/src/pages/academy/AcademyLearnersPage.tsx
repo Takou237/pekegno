@@ -17,6 +17,7 @@ import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type New
 import { courseOptionLabel } from '@/utils/courseMode';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
+import { currencyLabel } from '@/utils/number';
 
 interface DepartmentLayoutContext {
   department?: { id: string; agency_id?: string; type?: string } | null;
@@ -534,7 +535,7 @@ export default function AcademyLearnersPage() {
           )}
 
           <Input
-            label={`${t('academy.amountPaid')} (FCFA)`}
+            label={`${t('academy.amountPaid')} (${currencyLabel()})`}
             type="number"
             min={0}
             placeholder="0"

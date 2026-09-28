@@ -6,14 +6,16 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
-import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
+import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import type { Agency, AgencyPayload } from '@/types/agency';
+import type { CountryStat } from '@/types/stats';
 
 const emptyForm: AgencyPayload = {
   name: '',
   country: '',
+  country_id: '',
   city: '',
   address: '',
   phone: '',
@@ -45,6 +47,7 @@ export function AgencyFormModal({ isOpen, agency, defaultCountry, onClose, onSav
           ? {
               name: agency.name,
               country: agency.country,
+              country_id: agency.country_id ?? '',
               city: agency.city ?? '',
               address: agency.address ?? '',
               phone: agency.phone ?? '',
@@ -53,6 +56,7 @@ export function AgencyFormModal({ isOpen, agency, defaultCountry, onClose, onSav
           : {
               ...emptyForm,
               country: defaultCountry?.name ?? '',
+              country_id: defaultCountry?.id ?? '',
             }
       );
       setFormError(null);
@@ -64,17 +68,18 @@ export function AgencyFormModal({ isOpen, agency, defaultCountry, onClose, onSav
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  // Résout l'id d'un pays à partir de son nom. Retourne null si introuvable
-  // (le backend conservera l'ancien pays, seul le libellé changera).
-  async function resolveCountryId(name: string): Promise<string | null> {
-    const query = name.trim();
-    if (!query) return null;
-    try {
-      const { data } = await countriesApi.list({ search: query, per_page: 1 });
-      return data[0]?.id ?? null;
-    } catch {
-      return null;
-    }
+  // Pays de l'organisation (table countries) : l'agence est rattachée par
+  // country_id. L'ancien champ texte (liste mondiale + recherche par nom)
+  // pouvait ne rien trouver et le changement de pays échouait en silence (T3).
+  const [countries, setCountries] = useState<CountryStat[]>([]);
+  useEffect(() => {
+    if (!isOpen) return;
+    countriesApi.list({ per_page: 100 }).then((r) => setCountries(r.data)).catch(() => {});
+  }, [isOpen]);
+
+  function selectCountry(countryId: string) {
+    const country = countries.find((c) => c.id === countryId);
+    setForm((prev) => ({ ...prev, country_id: countryId, country: country?.name ?? prev.country }));
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -87,17 +92,10 @@ export function AgencyFormModal({ isOpen, agency, defaultCountry, onClose, onSav
     // le choix se fait à l'intérieur de l'agence, pas à la création.
     const payload: AgencyPayload = { ...form };
 
-    // À la création : pays du contexte. À la modification : on résout l'id du pays
-    // à partir du nom saisi, pour que le changement de pays soit réellement
-    // appliqué (stats, bilan, etc. filtrent via agencies.country_id).
-    // Si le nom ne correspond à aucun pays connu, on n'envoie pas country_id :
-    // l'ancien pays est conservé plutôt qu'écrasé par null.
-    if (!isEditing) {
-      const countryId = defaultCountry?.id ?? (await resolveCountryId(form.country));
-      if (countryId) payload.country_id = countryId;
-    } else {
-      const countryId = await resolveCountryId(form.country);
-      if (countryId) payload.country_id = countryId;
+    if (!payload.country_id) {
+      setFieldErrors({ country_id: t('agencies.countryRequired') });
+      setIsSubmitting(false);
+      return;
     }
 
     try {
@@ -138,14 +136,22 @@ export function AgencyFormModal({ isOpen, agency, defaultCountry, onClose, onSav
             error={fieldErrors.name}
             placeholder={t('agencies.namePlaceholder')}
           />
-          <CountryAutocomplete
+          <Select
             label={t('agencies.country')}
             required
-            value={form.country}
-            onChange={(value) => update('country', value)}
-            error={fieldErrors.country}
-            placeholder={t('agencies.countryPlaceholder')}
-          />
+            value={form.country_id ?? ''}
+            onChange={(e) => selectCountry(e.target.value)}
+            error={fieldErrors.country_id ?? fieldErrors.country}
+          >
+            <option value="" disabled>{t('agencies.selectCountry')}</option>
+            {/* Pays actuel absent de la liste (inactif, hors périmètre) : on le garde affiché. */}
+            {form.country_id && !countries.some((c) => c.id === form.country_id) && (
+              <option value={form.country_id}>{form.country}</option>
+            )}
+            {countries.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </Select>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

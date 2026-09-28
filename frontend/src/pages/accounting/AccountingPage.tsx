@@ -27,6 +27,8 @@ import type { CommissionBeneficiary } from '@/types/commissions';
 import type { CommissionPaymentMethod } from '@/types/commissions';
 import { COMMISSION_PAYMENT_METHODS } from '@/types/commissions';
 import type { PaginationMeta } from '@/types/agency';
+import { todayLocal } from '@/utils/date';
+import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { agencyId: routeAgencyId } = useParams<{ agencyId?: string }>();
@@ -61,7 +63,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
     label: '',
     amount: '',
     category_id: '',
-    transacted_at: new Date().toISOString().slice(0, 10),
+    transacted_at: todayLocal(),
     reference: '',
     note: '',
     beneficiary: '',
@@ -158,7 +160,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
       label: '',
       amount: '',
       category_id: '',
-      transacted_at: new Date().toISOString().slice(0, 10),
+      transacted_at: todayLocal(),
       reference: '',
       note: '',
       beneficiary: '',
@@ -421,6 +423,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
           <Input label={t('invoices.filterFrom')} type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} />
           <Input label={t('invoices.filterTo')} type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} />
         </div>
+        <PeriodPresets className="mt-3" from={from} to={to} onChange={(p) => { setFrom(p.from); setTo(p.to); setPage(1); }} allowAll />
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">

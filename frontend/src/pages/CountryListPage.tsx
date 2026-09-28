@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Globe, MapPin, ArrowRight, Plus } from 'lucide-react';
+import { Globe, MapPin, ArrowRight, Plus, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { statsApi } from '@/api/stats.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,6 +20,7 @@ export default function CountryListPage() {
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editing, setEditing] = useState<CountryStat | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -54,7 +55,7 @@ export default function CountryListPage() {
           </p>
         </div>
         {canCreateCountry(user) && (
-          <Button onClick={() => setIsModalOpen(true)}>
+          <Button onClick={() => { setEditing(null); setIsModalOpen(true); }}>
             <Plus className="h-4 w-4" />
             {t('countries.newCountry')}
           </Button>
@@ -94,6 +95,17 @@ export default function CountryListPage() {
                     </Badge>
                   </div>
                 </div>
+                {canCreateCountry(user) && (
+                  <button
+                    type="button"
+                    title={t('countries.edit')}
+                    aria-label={t('countries.edit')}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditing(c); setIsModalOpen(true); }}
+                    className="ml-auto rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-center">
@@ -105,7 +117,7 @@ export default function CountryListPage() {
                 </div>
                 <div>
                   <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(c.revenue)}
+                    {formatCurrency(c.revenue, c.currency_code)}
                   </p>
                   <p className="text-xs text-gray-400">{t('dashboard.revenue')}</p>
                 </div>
@@ -114,7 +126,7 @@ export default function CountryListPage() {
               <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
                 <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                   <MapPin className="h-3.5 w-3.5" />
-                  {formatCurrency(c.outstanding)} {t('dashboard.outstanding').toLowerCase()}
+                  {formatCurrency(c.outstanding, c.currency_code)} {t('dashboard.outstanding').toLowerCase()}
                 </span>
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 dark:text-brand-400">
                   {t('dashboard.viewCountry')}
@@ -128,6 +140,7 @@ export default function CountryListPage() {
 
       <CountryFormModal
         isOpen={isModalOpen}
+        country={editing}
         onClose={() => setIsModalOpen(false)}
         onSaved={() => setRefreshKey((k) => k + 1)}
       />

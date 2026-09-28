@@ -47,7 +47,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SkeletonTable } from '@/components/ui/Skeleton';
-import { formatCurrency } from '@/utils/number';
+import { formatCurrency, currencyLabel } from '@/utils/number';
 import { currentLocale } from '@/i18n';
 import type { Department } from '@/types/department';
 
@@ -931,7 +931,7 @@ export default function CourseDetailPage() {
             </div>
           )}
           <Input
-            label={`${t('academy.amountPaid')} (FCFA)`}
+            label={`${t('academy.amountPaid')} (${currencyLabel()})`}
             type="number"
             min={0}
             placeholder="0"

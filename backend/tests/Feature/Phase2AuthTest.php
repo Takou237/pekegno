@@ -2,14 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Mail\ResetPasswordMail;
 use App\Models\ClientCategory;
 use App\Models\Role;
 use App\Models\User;
-use App\Mail\ResetPasswordMail;
 use Database\Seeders\ClientCategorySeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -144,7 +146,7 @@ class Phase2AuthTest extends TestCase
         $this->registerClient();
         $login = $this->clientLogin();
 
-        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Auth::forgetGuards();
 
         $this->withToken($login['token'])
             ->getJson('/api/client/me')
@@ -164,7 +166,7 @@ class Phase2AuthTest extends TestCase
 
         $this->assertDatabaseCount('personal_access_tokens', 0);
 
-        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Auth::forgetGuards();
 
         $this->withToken($login['token'])
             ->getJson('/api/client/me')
@@ -199,7 +201,7 @@ class Phase2AuthTest extends TestCase
 
     public function test_account_locks_after_five_failed_attempts(): void
     {
-        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        $this->withoutMiddleware(ThrottleRequests::class);
 
         $staff = $this->createStaff();
 
@@ -267,6 +269,25 @@ class Phase2AuthTest extends TestCase
         });
     }
 
+    public function test_forgot_password_sends_nothing_for_unknown_email(): void
+    {
+        Mail::fake();
+
+        $this->postJson('/api/auth/forgot-password', ['email' => 'inconnu@example.com'])->assertOk();
+
+        Mail::assertNothingSent();
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'inconnu@example.com']);
+    }
+
+    public function test_forgot_password_reports_smtp_failure_instead_of_500(): void
+    {
+        $staff = $this->createStaff();
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('Connection refused'));
+
+        $this->postJson('/api/auth/forgot-password', ['email' => $staff->email])
+            ->assertStatus(503);
+    }
+
     public function test_reset_password_updates_password_and_revokes_tokens(): void
     {
         $this->registerClient();
@@ -309,7 +330,7 @@ class Phase2AuthTest extends TestCase
         $this->registerClient();
         $login = $this->clientLogin();
 
-        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Auth::forgetGuards();
 
         $this->withToken($login['token'])
             ->putJson('/api/client/me', [
@@ -346,7 +367,7 @@ class Phase2AuthTest extends TestCase
             ])
             ->assertOk();
 
-        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Auth::forgetGuards();
 
         $this->postJson('/api/client/login', [
             'email' => 'claire@example.com',

@@ -18,6 +18,7 @@ class Country extends Model
         'iso_code',
         'phone_code',
         'currency_code',
+        'exchange_rate',
         'is_active',
     ];
 
@@ -25,6 +26,7 @@ class Country extends Model
     {
         return [
             'is_active' => 'boolean',
+            'exchange_rate' => 'float',
         ];
     }
 

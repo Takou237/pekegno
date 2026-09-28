@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
 import { formatCurrency } from '@/utils/number';
+import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 interface DepartmentLayoutContext {
   department?: { id: string; agency_id?: string } | null;
@@ -178,6 +179,7 @@ export default function AcademyReceivablesPage() {
           />
         </label>
       </div>
+      <PeriodPresets from={filterFrom} to={filterTo} onChange={(p) => { setFilterFrom(p.from); setFilterTo(p.to); setPage(1); }} allowAll />
 
       {loadError && <Alert variant="error">{loadError}</Alert>}
 

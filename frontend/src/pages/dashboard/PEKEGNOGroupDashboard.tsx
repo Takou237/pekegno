@@ -459,7 +459,7 @@ export default function PEKEGNOGroupDashboard() {
                         {c.name}
                       </span>
                       <span className="font-medium text-gray-800 dark:text-gray-100">
-                        {formatCurrency(c.revenue)}
+                        {formatCurrency(c.revenue, c.currency_code)}
                       </span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">

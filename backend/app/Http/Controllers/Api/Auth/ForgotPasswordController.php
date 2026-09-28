@@ -8,9 +8,11 @@ use App\Mail\ResetPasswordMail;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
+use Throwable;
 
 class ForgotPasswordController extends Controller
 {
@@ -38,6 +40,14 @@ class ForgotPasswordController extends Controller
     public function __invoke(ForgotPasswordRequest $request): JsonResponse
     {
         $email = $request->validated('email');
+        $message = 'Si un compte est associé à cette adresse email, vous recevrez un lien de réinitialisation.';
+
+        // Aucun email envoyé à une adresse inconnue (réponse identique : on ne
+        // révèle pas quels comptes existent).
+        $user = User::where('email', $email)->first();
+        if (! $user) {
+            return response()->json(['message' => $message]);
+        }
 
         DB::table('password_reset_tokens')->where('email', $email)->delete();
 
@@ -49,17 +59,26 @@ class ForgotPasswordController extends Controller
             'created_at' => now(),
         ]);
 
-        $user = User::where('email', $email)->first();
-
-        $resetUrl = ($user?->role?->name === 'client'
+        $resetUrl = ($user->role?->name === 'client'
             ? config('app.client_frontend_url', 'http://localhost:5174')
             : config('app.frontend_url', 'http://localhost:5173'))
-            . "/reset-password?token={$token}&email={$email}";
+            .'/reset-password?'.http_build_query(['token' => $token, 'email' => $email]);
 
-        Mail::to($email)->send(new ResetPasswordMail($resetUrl));
+        try {
+            Mail::to($email)->send(new ResetPasswordMail($resetUrl));
+        } catch (Throwable $e) {
+            // SMTP mal configuré ou injoignable : on le trace au lieu de renvoyer
+            // une erreur 500 opaque à l'utilisateur.
+            Log::error('Échec d\'envoi de l\'email de réinitialisation', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
 
-        return response()->json([
-            'message' => 'Si un compte est associé à cette adresse email, vous recevrez un lien de réinitialisation.',
-        ]);
+            return response()->json([
+                'message' => 'L\'email de réinitialisation n\'a pas pu être envoyé. Réessayez plus tard ou contactez un administrateur.',
+            ], 503);
+        }
+
+        return response()->json(['message' => $message]);
     }
 }

@@ -13,6 +13,7 @@ export interface CountryPayload {
   iso_code?: string;
   phone_code?: string;
   currency_code: string;
+  exchange_rate?: number;
   is_active?: boolean;
 }
 
@@ -29,6 +30,11 @@ export const countriesApi = {
 
   async create(payload: CountryPayload): Promise<CountryStat> {
     const { data } = await client.post<CountryStat>('/countries', payload);
+    return data;
+  },
+
+  async update(id: string, payload: Partial<CountryPayload>): Promise<CountryStat> {
+    const { data } = await client.put<CountryStat>(`/countries/${id}`, payload);
     return data;
   },
 };

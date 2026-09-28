@@ -44,6 +44,7 @@ export interface InvoicePayment {
 export interface Invoice {
   id: string;
   number: string;
+  currency_code?: string;
   agency_id: string | null;
   client_id: string | null;
   client_name: string | null;

@@ -285,10 +285,10 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                       <ValidationBadge status={inv.validation_status} />
                     </td>
                     <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
-                      {Number(inv.declared_advance ?? 0) > 0 ? formatCurrency(inv.declared_advance) : '—'}
+                      {Number(inv.declared_advance ?? 0) > 0 ? formatCurrency(inv.declared_advance, inv.currency_code) : '—'}
                     </td>
                     <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
-                      {formatCurrency(inv.total_amount)}
+                      {formatCurrency(inv.total_amount, inv.currency_code)}
                     </td>
                     {canValidateInvoice && (
                     <td className="px-5 py-3">
@@ -373,7 +373,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                   </div>
                   <div>
                     <p className="text-xs uppercase text-gray-400">{t('invoices.colTotal')}</p>
-                    <p className="font-medium text-gray-800 dark:text-gray-100">{formatCurrency(proofModalInvoice.total_amount)}</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{formatCurrency(proofModalInvoice.total_amount, proofModalInvoice.currency_code)}</p>
                   </div>
                   <div>
                     <p className="text-xs uppercase text-gray-400">{t('invoices.paymentType')}</p>

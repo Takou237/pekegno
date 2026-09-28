@@ -24,6 +24,7 @@ import { canExportData } from '@/utils/exportPermissions';
 import type { CreateUserPayload, UserListItem, RoleListItem } from '@/types/user';
 import type { Agency, AssignedUser, Department, PaginationMeta } from '@/types/agency';
 import { assignableRoleNames, CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
+import { useUsernameSuggestion } from '@/hooks/useUsernameSuggestion';
 
 interface AssignableUser {
   id: string;
@@ -95,6 +96,8 @@ export default function UserListPage() {
     agency_id: '',
     department_id: '',
   });
+  const setCreateUsername = useCallback((username: string) => setCreateForm((p) => ({ ...p, username })), []);
+  useUsernameSuggestion(createForm.first_name ?? '', createForm.last_name ?? '', createForm.username, setCreateUsername);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [createSubmitting, setCreateSubmitting] = useState(false);
 

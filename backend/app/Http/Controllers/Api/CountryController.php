@@ -4,14 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CountryResource;
-use App\Models\Agency;
-use App\Models\City;
 use App\Models\Country;
 use App\Models\Organization;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use OpenApi\Attributes as OA;
 
@@ -76,6 +73,7 @@ class CountryController extends Controller
             'iso_code' => ['nullable', 'string', 'max:3', 'unique:countries,iso_code'],
             'phone_code' => ['nullable', 'string', 'max:10'],
             'currency_code' => ['required', 'string', 'max:10'],
+            'exchange_rate' => ['nullable', 'numeric', 'gt:0'],
             'is_active' => ['boolean'],
             'organization_id' => ['nullable', 'string', 'exists:organizations,id'],
         ], [
@@ -84,10 +82,12 @@ class CountryController extends Controller
             'code.unique' => 'Ce code de pays est déjà utilisé.',
             'iso_code.unique' => 'Ce code ISO est déjà utilisé.',
             'currency_code.required' => 'Le code monétaire est obligatoire.',
+            'exchange_rate.gt' => 'Le taux d\'équivalence doit être strictement positif.',
         ]);
 
         $data['organization_id'] ??= $this->defaultOrganizationId();
         $data['is_active'] = $data['is_active'] ?? true;
+        $data['exchange_rate'] = $data['exchange_rate'] ?? 1;
 
         $country = Country::create($data);
 
@@ -128,6 +128,7 @@ class CountryController extends Controller
             'iso_code' => ['nullable', 'string', 'max:3', Rule::unique('countries', 'iso_code')->ignore($country->id)],
             'phone_code' => ['nullable', 'string', 'max:10'],
             'currency_code' => ['sometimes', 'string', 'max:10'],
+            'exchange_rate' => ['sometimes', 'numeric', 'gt:0'],
             'is_active' => ['boolean'],
             'organization_id' => ['nullable', 'string', 'exists:organizations,id'],
         ], [

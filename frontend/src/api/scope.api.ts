@@ -20,6 +20,7 @@ export interface ScopeCountry {
   name: string;
   code: string;
   currency_code: string;
+  exchange_rate?: number;
   cities_count: number;
   agencies_count: number;
   agencies: ScopeAgency[];
@@ -34,6 +35,7 @@ export interface ScopeContextResponse {
       is_primary: boolean;
     }[];
   };
+  group_currency?: string;
   countries: ScopeCountry[];
 }
 

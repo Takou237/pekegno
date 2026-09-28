@@ -14,10 +14,14 @@ use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\AcademyReportService;
+use App\Services\ScopeService;
+use App\Support\GroupCurrency;
 use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 class StatsController extends Controller
@@ -36,7 +40,7 @@ class StatsController extends Controller
         $from = Period::from($request, Carbon::now()->startOfMonth());
         $to = Period::to($request);
 
-        $scope = app(\App\Services\ScopeService::class);
+        $scope = app(ScopeService::class);
         $agencyIds = $scope->agencyIds($request->user());
         $countryIds = $scope->countryIds($request->user());
 
@@ -45,21 +49,25 @@ class StatsController extends Controller
             ->validated()
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
-        $revenue = (clone $invoices)->where('status', 'paid')->sum('total_amount');
+        // Montants multi-pays : convertis dans la monnaie du groupe.
+        $rateSql = GroupCurrency::rateSql('invoices.agency_id');
+        $rates = GroupCurrency::agencyRates();
+
+        $revenue = (clone $invoices)->where('status', 'paid')->sum(DB::raw('total_amount * '.$rateSql));
         $outstanding = (clone $invoices)
             ->whereIn('status', ['unpaid', 'partial'])
-            ->get(['total_amount', 'amount_paid'])
-            ->sum(fn (Invoice $i) => $i->balance_due);
+            ->get(['agency_id', 'total_amount', 'amount_paid'])
+            ->sum(fn (Invoice $i) => $i->balance_due * ($rates[$i->agency_id] ?? 1));
         $invoiceCount = (clone $invoices)->count();
         $paidCount = (clone $invoices)->where('status', 'paid')->count();
 
         $payments = InvoicePayment::whereBetween('paid_at', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->validated()->whereIn('agency_id', $agencyIds)))
-            ->sum('amount');
+            ->sum(DB::raw('amount * '.GroupCurrency::rateSql('(select invoices.agency_id from invoices where invoices.id = invoice_payments.invoice_id)')));
         $advances = InvoicePayment::whereBetween('paid_at', [$from, $to])
             ->where('is_advance', true)
             ->whereHas('invoice', fn ($q) => $q->whereNull('cancelled_at')->validated()->whereIn('status', ['unpaid', 'partial'])->when($agencyIds !== null, fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
-            ->sum('amount');
+            ->sum(DB::raw('amount * '.GroupCurrency::rateSql('(select invoices.agency_id from invoices where invoices.id = invoice_payments.invoice_id)')));
 
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
             ->when($countryIds !== null, fn ($q) => $q->whereIn('country_id', $countryIds))
@@ -124,7 +132,7 @@ class StatsController extends Controller
     )]
     public function agency(Agency $agency, Request $request): JsonResponse
     {
-        $scope = app(\App\Services\ScopeService::class);
+        $scope = app(ScopeService::class);
         $agencyIds = $scope->agencyIds($request->user());
 
         if ($agencyIds !== null && ! in_array($agency->id, $agencyIds, true)) {
@@ -202,7 +210,7 @@ class StatsController extends Controller
 
         $start = Carbon::now()->subMonths($months - 1)->startOfMonth();
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         $query = Invoice::whereNull('cancelled_at')
             ->where('invoice_date', '>=', $start)
@@ -216,15 +224,21 @@ class StatsController extends Controller
             ))
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
-        $dateExpr = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql'
+        // Vue multi-pays (sans filtre pays/agence) : montants convertis dans la
+        // monnaie du groupe ; sinon on reste dans la monnaie locale.
+        $amountExpr = ($request->country_id || $request->agency_id)
+            ? 'total_amount'
+            : 'total_amount * '.GroupCurrency::rateSql('invoices.agency_id');
+
+        $dateExpr = DB::getDriverName() === 'pgsql'
             ? "to_char(invoice_date, 'YYYY-MM')"
             : "strftime('%Y-%m', invoice_date)";
 
         $rows = (clone $query)
             ->select(
-                \Illuminate\Support\Facades\DB::raw($dateExpr.' as month'),
-                \Illuminate\Support\Facades\DB::raw('sum(total_amount) as total'),
-                \Illuminate\Support\Facades\DB::raw('count(*) as count'),
+                DB::raw($dateExpr.' as month'),
+                DB::raw('sum('.$amountExpr.') as total'),
+                DB::raw('count(*) as count'),
             )
             ->groupBy('month')
             ->orderBy('month')
@@ -264,12 +278,12 @@ class StatsController extends Controller
 
         $from = $request->date('from') ?? Carbon::now()->startOfYear();
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         $commercials = Commercial::with('agency:id,name,code')
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
             ->whereHas('invoices', fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()->where('invoice_date', '>=', $from))
-            ->withSum(['invoices as turnover' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()->where('invoice_date', '>=', $from)], 'total_amount')
+            ->withSum(['invoices as turnover' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()->where('invoice_date', '>=', $from)], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
             ->withCount(['invoices as sales_count' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()->where('invoice_date', '>=', $from)])
             ->orderByDesc('turnover')
             ->limit($limit)
@@ -300,7 +314,7 @@ class StatsController extends Controller
         $from = Period::from($request, Carbon::now()->startOfYear());
         $to = Period::to($request);
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         $rows = InvoiceItem::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
@@ -310,7 +324,7 @@ class StatsController extends Controller
             ->where('invoices.validation_status', 'validated')
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->selectRaw('categories.name, sum(invoice_items.line_total) as total, count(*) as items')
+            ->selectRaw('categories.name, sum(invoice_items.line_total * '.GroupCurrency::rateSql('invoices.agency_id').') as total, count(*) as items')
             ->groupBy('categories.name')
             ->orderByDesc('total')
             ->get()
@@ -337,14 +351,14 @@ class StatsController extends Controller
         $from = Period::from($request, Carbon::now()->startOfYear());
         $to = Period::to($request);
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         $rows = InvoicePayment::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
             ->whereBetween('invoice_payments.paid_at', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->where('invoices.validation_status', 'validated')
-            ->selectRaw('invoice_payments.payment_method, sum(invoice_payments.amount) as total, count(*) as count')
+            ->selectRaw('invoice_payments.payment_method, sum(invoice_payments.amount * '.GroupCurrency::rateSql('invoices.agency_id').') as total, count(*) as count')
             ->groupBy('invoice_payments.payment_method')
             ->orderByDesc('total')
             ->get()
@@ -366,7 +380,7 @@ class StatsController extends Controller
         $from = Period::from($request, Carbon::now()->startOfYear());
         $to = Period::to($request);
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         $rows = InvoiceItem::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
@@ -375,7 +389,7 @@ class StatsController extends Controller
             ->where('invoices.validation_status', 'validated')
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->selectRaw('coalesce(invoice_items.label, services.name) as label, sum(invoice_items.quantity) as quantity, sum(invoice_items.line_total) as revenue, count(*) as transactions')
+            ->selectRaw('coalesce(invoice_items.label, services.name) as label, sum(invoice_items.quantity) as quantity, sum(invoice_items.line_total * '.GroupCurrency::rateSql('invoices.agency_id').') as revenue, count(*) as transactions')
             ->groupByRaw('coalesce(invoice_items.label, services.name)')
             ->orderByRaw('sum(invoice_items.quantity) desc')
             ->limit($limit)
@@ -399,7 +413,7 @@ class StatsController extends Controller
         $from = Period::from($request, Carbon::now()->startOfYear());
         $to = Period::to($request);
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         $rows = Agency::query()
             ->whereNull('deleted_at')
@@ -409,7 +423,7 @@ class StatsController extends Controller
                     ->whereNull('cancelled_at')
                     ->validated()
                     ->whereBetween('invoice_date', [$from, $to]),
-            ], 'total_amount')
+            ], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
             ->withCount([
                 'invoices as invoices_count' => fn ($q) => $q->whereNull('cancelled_at')
                     ->validated()
@@ -440,7 +454,7 @@ class StatsController extends Controller
         $from = Period::from($request, Carbon::now()->startOfYear());
         $to = Period::to($request);
 
-        $scope = app(\App\Services\ScopeService::class);
+        $scope = app(ScopeService::class);
         $agencyIds = $scope->agencyIds($request->user());
 
         // Global aggregates
@@ -449,22 +463,26 @@ class StatsController extends Controller
             ->validated()
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
-        $revenue = (clone $invoices)->where('status', 'paid')->sum('total_amount');
+        // Montants multi-pays : convertis dans la monnaie du groupe.
+        $rateSql = GroupCurrency::rateSql('invoices.agency_id');
+        $rates = GroupCurrency::agencyRates();
+
+        $revenue = (clone $invoices)->where('status', 'paid')->sum(DB::raw('total_amount * '.$rateSql));
         $outstanding = (clone $invoices)
             ->whereIn('status', ['unpaid', 'partial'])
-            ->get(['total_amount', 'amount_paid'])
-            ->sum(fn (Invoice $i) => $i->balance_due);
+            ->get(['agency_id', 'total_amount', 'amount_paid'])
+            ->sum(fn (Invoice $i) => $i->balance_due * ($rates[$i->agency_id] ?? 1));
         $invoiceCount = (clone $invoices)->count();
         $paidCount = (clone $invoices)->where('status', 'paid')->count();
 
         $payments = InvoicePayment::whereBetween('paid_at', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->validated()->whereIn('agency_id', $agencyIds)))
-            ->sum('amount');
+            ->sum(DB::raw('amount * '.GroupCurrency::rateSql('(select invoices.agency_id from invoices where invoices.id = invoice_payments.invoice_id)')));
 
         $expenses = AccountingTransaction::where('type', 'expense')
             ->whereBetween('transacted_at', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
-            ->sum('amount');
+            ->sum(DB::raw('amount * '.GroupCurrency::rateSql('accounting_transactions.agency_id')));
 
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
             ->when($agencyIds !== null, function ($q) use ($agencyIds) {
@@ -509,6 +527,9 @@ class StatsController extends Controller
                     'name' => $country->name,
                     'code' => $country->code,
                     'currency_code' => $country->currency_code,
+                    'exchange_rate' => (float) ($country->exchange_rate ?? 1),
+                    'iso_code' => $country->iso_code,
+                    'phone_code' => $country->phone_code,
                     'is_active' => $country->is_active,
                     'agencies_count' => $country->agencies_count,
                     'revenue' => (float) $countryRevenue,
@@ -522,6 +543,7 @@ class StatsController extends Controller
                 'from' => $from->toISOString(),
                 'to' => $to->toISOString(),
             ],
+            'currency_code' => GroupCurrency::code(),
             'revenue' => (float) $revenue,
             'payments_total' => (float) $payments,
             'expenses_total' => (float) $expenses,
@@ -550,7 +572,7 @@ class StatsController extends Controller
      */
     public function country(Country $country, Request $request): JsonResponse
     {
-        $scope = app(\App\Services\ScopeService::class);
+        $scope = app(ScopeService::class);
         $agencyIds = $scope->agencyIds($request->user());
 
         // Verify access to this country
@@ -652,7 +674,7 @@ class StatsController extends Controller
      */
     public function trainingGroup(Request $request): JsonResponse
     {
-        $scopeService = app(\App\Services\ScopeService::class);
+        $scopeService = app(ScopeService::class);
         $agencyIds = $scopeService->agencyIds($request->user());
 
         if ($request->filled('agency_id')) {
@@ -661,7 +683,7 @@ class StatsController extends Controller
                 ? [$agencyId]
                 : array_values(array_intersect($agencyIds, [$agencyId]));
         } elseif ($request->filled('country_id')) {
-            $countryAgencyIds = \App\Models\Agency::where('country_id', $request->input('country_id'))
+            $countryAgencyIds = Agency::where('country_id', $request->input('country_id'))
                 ->pluck('id')
                 ->map(fn ($id) => (string) $id)
                 ->all();
@@ -670,7 +692,7 @@ class StatsController extends Controller
                 : array_values(array_intersect($agencyIds, $countryAgencyIds));
         }
 
-        $service = app(\App\Services\AcademyReportService::class);
+        $service = app(AcademyReportService::class);
 
         return response()->json([
             'training' => $service->groupStats($agencyIds),

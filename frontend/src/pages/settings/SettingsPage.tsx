@@ -7,6 +7,7 @@ import { categoriesApi } from '@/api/categories.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { Alert } from '@/components/ui/Alert';
+import { useOrgContext } from '@/context/OrgContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -32,6 +33,7 @@ interface SettingsForm {
   default_commission_type: CommissionType;
   default_commission_value: string;
   invoice_prefix: string;
+  group_currency: string;
 }
 
 const EMPTY_FORM: SettingsForm = {
@@ -43,6 +45,7 @@ const EMPTY_FORM: SettingsForm = {
   default_commission_type: 'none',
   default_commission_value: '',
   invoice_prefix: '',
+  group_currency: 'XAF',
 };
 
 export default function SettingsPage() {
@@ -98,6 +101,7 @@ export default function SettingsPage() {
 }
 
 function GeneralSettingsTab() {
+  const { refresh: refreshOrg } = useOrgContext();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [form, setForm] = useState<SettingsForm>(EMPTY_FORM);
@@ -120,6 +124,7 @@ function GeneralSettingsTab() {
           default_commission_type: (map.get('default_commission_type') as CommissionType) ?? 'none',
           default_commission_value: String(map.get('default_commission_value') ?? 0),
           invoice_prefix: String(map.get('invoice_prefix') ?? 'PK'),
+          group_currency: String(map.get('group_currency') ?? 'XAF'),
         });
       })
       .catch((error) => setLoadError(extractErrorMessage(error, t('settingsPage.loadFailed'))))
@@ -140,7 +145,9 @@ function GeneralSettingsTab() {
         default_commission_type: form.default_commission_type,
         default_commission_value: Number(form.default_commission_value),
         invoice_prefix: form.invoice_prefix.trim() || 'PK',
+        group_currency: form.group_currency.trim().toUpperCase() || 'XAF',
       });
+      void refreshOrg();
       showToast(t('settingsPage.saved'), 'success');
     } catch (error) {
       setFormErrors(extractFieldErrors(error));
@@ -192,6 +199,10 @@ function GeneralSettingsTab() {
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('settingsPage.invoicePrefix')}</h2>
           <Input label={t('settingsPage.invoicePrefix')} hint={t('settingsPage.invoicePrefixHint')} maxLength={5} required value={form.invoice_prefix} onChange={(e) => setForm((p) => ({ ...p, invoice_prefix: e.target.value.toUpperCase() }))} />
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('settingsPage.groupCurrency')}</h2>
+          <Input label={t('settingsPage.groupCurrency')} hint={t('settingsPage.groupCurrencyHint')} minLength={3} maxLength={10} required value={form.group_currency} onChange={(e) => setForm((p) => ({ ...p, group_currency: e.target.value.toUpperCase() }))} />
         </div>
         <div className="flex justify-end">
           <Button type="submit" isLoading={isSaving}><Save className="h-4 w-4" />{t('settingsPage.save')}</Button>

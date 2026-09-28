@@ -17,4 +17,5 @@ export interface SettingsPayload {
   default_commission_type?: CommissionType;
   default_commission_value?: number;
   invoice_prefix?: string;
+  group_currency?: string;
 }
