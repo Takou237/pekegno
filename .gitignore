@@ -6,3 +6,6 @@
 /doc/deploy/vendor-prod.zip
 /doc/deploy/env.production.example
 /doc/deploy/frontend-dist.zip
+
+# PDF de test local
+doc/test.pdf
