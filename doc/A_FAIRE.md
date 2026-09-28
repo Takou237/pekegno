@@ -274,3 +274,40 @@ Technique :
 
 - "Valider" une facture pending doit-il aussi déclencher l'encaissement (paiement) en une seule action caissier, ou rester deux étapes distinctes (valider, puis encaisser séparément) ?
 - Choix définitif : nouvelle app frontend séparée (recommandé) vs. nouvelles routes publiques dans `frontend/` existant.
+
+---
+
+## 9. Tickets — Rapport de tests Academy (2026-09-28)
+
+Source : `doc/test.pdf` (cahier de recette PEKEGNO Academy du 28 septembre 2026). Tickets triés par priorité : P0 = bloquant / impact financier, P1 = important (flux de vente ou d'administration dégradé), P2 = moyen (UX / confort), P3 = mineur / cosmétique.
+
+### 🔴 P0 — Critique (argent & données)
+
+- [x] **T1 — Bilan du jour : colonnes produits & formations à zéro** — Ajouter une colonne par produit (4 produits = 4 colonnes) + une colonne « formations » juste après la date, puis total vente et détails. Actuellement tout affiche 0 : vérifier le grand tableau Excel du système et les agrégats backend (voir `BilanController`). ✅ Corrigé le 2026-09-28 : `BilanService` agrège produits + formations (sans double comptage), colonnes ajoutées au tableau période/vue jour/CSV, `product_id` accepté et enregistré à la création de facture.
+- [x] **T2 — Chiffre d'affaires incohérent de l'agence jusqu'à PEKEGNO GROUP** — Les chiffres ne concordent pas entre les niveaux agence → pays → PEKEGNO GROUP. Auditer les agrégats (`StatsController` / `AccountingController`) et harmoniser les périmètres (factures validées uniquement ? devis exclus ?). ✅ Corrigé le 2026-09-28 : `validated()` (factures payées + validées + non annulées) désormais appliqué partout — `DashboardController` (navigation Groupe→Pays→Ville→Agence, encaissements inclus), `ReportController`, `AgencyController::index`, classements commerciaux (`CommercialController`), `CommercialReportService`, `AcademyReportService` ; test de cohérence agence = groupe ajouté (`test_agency_revenue_matches_group_aggregate`).
+- [ ] **T3 — Modification d'une agence : le changement de pays ne fonctionne pas** — Changer le pays d'une agence doit mettre à jour le pays de l'agence ET réaffecter tous ses éléments rattachés (utilisateurs, commandes, factures, catalogues...) au nouveau pays.
+- [ ] **T4 — Une caissière ne peut pas payer une commission** — Permettre l'encaissement d'une commission par le rôle caissier (vérifier les permissions et le contrôleur commissions).
+
+### 🟠 P1 — Important (flux de vente & administration)
+
+- [ ] **T5 — Nouvelle inscription : réduction % ou montant fixe** — Permettre d'appliquer une remise (pourcentage ou montant fixe) à un apprenant lors d'une inscription, quel que soit le rôle (commercial, caissière, autre).
+- [ ] **T6 — Nouvelle inscription : formations en ligne + type affiché** — Lister aussi les formations en ligne (pas seulement présentiel) et afficher le type à côté du nom : « Nom de la formation – Type (ligne/présentiel) ».
+- [ ] **T7 — Annulation d'une facture : formulaire non réinitialisé + mauvaise redirection** — Après annulation, réinitialiser le formulaire et rester au plus près de l'endroit où on était (redirection contextuelle).
+- [ ] **T8 — Création d'utilisateur : email automatique** — À la création d'un utilisateur, lui envoyer un email avec ses paramètres de connexion et son mot de passe par défaut.
+- [ ] **T9 — Admin : réinitialisation du mot de passe d'un utilisateur** — Bouton/action permettant à l'administrateur de réinitialiser le mot de passe de n'importe quel utilisateur.
+- [ ] **T10 — Menu « Validation de facture » manquant en superadmin** — Ajouter l'entrée de menu en mode superadmin (visibilité/permission à corriger).
+
+### 🟡 P2 — Moyen (UX & configuration)
+
+- [ ] **T11 — Monnaie du pays dans les factures/devis + équivalence PEKEGNO GROUP** — À la création d'un pays avec sa monnaie (ex. Côte d'Ivoire → XOF), l'utiliser dans factures, devis, etc. Ajouter un système d'équivalence pour l'affichage groupe (ex. 1 XAF = 1 XOF).
+- [ ] **T12 — Nouvelle inscription : sélectionner tous les pays par défaut**.
+- [ ] **T13 — Header : liens retour et liste déroulante cassés** — Les sous-menus ne s'affichent pas ; vérifier les composants de navigation (et les champs `select` en général).
+- [ ] **T14 — Mot de passe oublié : envoyer réellement un email** à l'utilisateur.
+- [ ] **T15 — Proposition automatique de nom d'utilisateur** à partir du nom/prénom saisis.
+- [ ] **T16 — Filtres période (aujourd'hui, hier, ce mois...)** — Les insérer partout où c'est nécessaire (listes, bilans, stats).
+
+### ⚪ P3 — Mineur / cosmétique
+
+- [ ] **T17 — Clic sur le logo PEKEGNO → dashboard général**.
+- [ ] **T18 — Changer le logo de PEKEGNO**.
+- [ ] **T19 — Vérifier l'ensemble des champs « select »** (comportement, affichage des options).
