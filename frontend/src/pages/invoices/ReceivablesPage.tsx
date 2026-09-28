@@ -67,6 +67,9 @@ country_id: countryId || undefined,
     return <Badge variant="error">{t('invoices.statusUnpaid')}</Badge>;
   }
 
+  // Retour à l'écran des créances d'origine après avoir ouvert une facture.
+  const backPath = countryId ? `/countries/${countryId}/receivables` : '/invoices/receivables';
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -146,6 +149,7 @@ country_id: countryId || undefined,
                       <td className="px-5 py-3">
                         <Link
                           to={countryId ? `/countries/${countryId}/invoices/${inv.id}` : `/invoices/${inv.id}`}
+                          state={{ from: backPath }}
                           className="font-medium text-brand-600 hover:underline dark:text-brand-400"
                         >
                           {inv.number}

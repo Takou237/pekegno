@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { useNavigate, Link, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
@@ -12,6 +12,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/utils/number';
+import { invoiceBackPath, invoiceListPath, withInvoiceFilters } from '@/utils/invoiceNavigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -45,6 +46,7 @@ export default function InvoiceFormPage({
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { agencyId: routeAgencyId } = useParams<{ agencyId?: string }>();
   const [searchParams] = useSearchParams();
 
@@ -60,6 +62,12 @@ export default function InvoiceFormPage({
   const presetAgencyId = lockedAgencyId ?? routeAgencyId ?? searchParams.get('agency_id') ?? '';
   const [agencyLocked] = useState(Boolean(presetAgencyId));
   const [lockedAgencyName, setLockedAgencyName] = useState('');
+
+  // Liste de retour : le chemin explicite s'il est fourni (en-tête academy…),
+  // sinon le niveau courant — `/countries/:id/invoices/new` ramène vers la liste
+  // du pays, pas vers la liste globale.
+  const listPath = backPath ?? (location.pathname.replace(/\/new\/?$/, '') || invoiceListPath(presetAgencyId));
+  const cancelPath = invoiceBackPath(location.state, listPath);
 
   const [clientId, setClientId] = useState('');
   const [sellerId, setSellerId] = useState('');
@@ -244,7 +252,9 @@ export default function InvoiceFormPage({
         await invoicesApi.create(payload);
       }
       showToast(t('invoices.created'), 'success');
-      navigate(successPath ?? (agencyLocked ? `/agencies/${presetAgencyId}/invoices` : '/invoices'));
+      // Retour sur la liste d'origine, filtres conservés : on reste là où l'on
+      // était plutôt que sur une liste vierge.
+      navigate(successPath ?? withInvoiceFilters(listPath, searchParams));
     } catch (error) {
       setErrors(extractFieldErrors(error));
       const msg = extractErrorMessage(error, t('invoices.saveFailed'));
@@ -258,7 +268,7 @@ export default function InvoiceFormPage({
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to={backPath ?? (agencyLocked ? `/agencies/${presetAgencyId}/invoices` : '/invoices')}
+          to={cancelPath}
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />

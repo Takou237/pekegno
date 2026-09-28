@@ -1321,6 +1321,8 @@ export default {
     quickPendingNote: 'The invoice will be recorded as pending validation by a cashier or management.',
     quickSuccess: 'Sale recorded successfully.',
     quickSuccessPending: 'Validation request sent.',
+    quickLastInvoice: 'Last invoice created:',
+    quickFormReset: 'the form has been reset, you can take the next customer.',
     quickReceiveAmount: 'Amount received',
     quickReceiveAmountHint: 'Leave empty if the client does not pay now.',
     quickSelectService: 'Select a service.',

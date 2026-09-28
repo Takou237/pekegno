@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Printer, XCircle, Wallet, Pencil, ImageIcon, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
 import { formatRelativeDate } from '@/utils/date';
 import { formatCurrency } from '@/utils/number';
+import { invoiceBackPath, invoiceListPathForDetail } from '@/utils/invoiceNavigation';
 import { Button } from '@/components/ui/Button';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
@@ -31,9 +32,17 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const backToList = fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices` : '/invoices';
+  // Retour contextuel : la liste d'origine (avec ses filtres et sa page) si elle
+  // a été mémorisée, sinon la liste du niveau courant — une facture ouverte
+  // depuis un pays ne renvoie plus vers la liste globale.
+  const backToList = invoiceBackPath(
+    location.state,
+    invoiceListPathForDetail(location.pathname, fixedAgencyId),
+    searchParams,
+  );
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -105,12 +114,37 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     fetchInvoice();
   }, [fetchInvoice]);
 
-  function openPay() {
+  function resetPayForm() {
     setPayAmount('');
     setPayComment('');
     setPayPaidAt(new Date().toISOString().slice(0, 10));
     setPayErrors({});
+  }
+
+  function resetEditForm() {
+    setEditErrors({});
+    if (!invoice) return;
+    setEditClientId(invoice.client_name ? FREE_TEXT_PREFIX + invoice.client_name : invoice.client_id ?? '');
+    setEditCommercialId(invoice.commercial_id ?? '');
+    setEditPaymentType(invoice.payment_type ?? '');
+    setEditComment(invoice.comment ?? '');
+  }
+
+  function openPay() {
+    resetPayForm();
     setPayOpen(true);
+  }
+
+  // Fermer une modale sans valider ne doit rien laisser derrière : la
+  // réouverture repart d'un formulaire vierge, aligné sur la facture.
+  function closePay() {
+    setPayOpen(false);
+    resetPayForm();
+  }
+
+  function closeEdit() {
+    setEditOpen(false);
+    resetEditForm();
   }
 
   async function handlePay(event: FormEvent) {
@@ -135,7 +169,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         comment: payComment || undefined,
       });
       showToast(t('invoices.paid'), 'success');
-      setPayOpen(false);
+      closePay();
       fetchInvoice();
     } catch (error) {
       setPayErrors(extractFieldErrors(error));
@@ -153,6 +187,18 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       await invoicesApi.cancel(invoice.id);
       showToast(t('invoices.cancelled'), 'success');
       setCancelTarget(false);
+      // Une facture annulée n'est plus modifiable ni encaissable : on referme
+      // les formulaires ouverts et on repart d'un état propre, sans quitter
+      // la page (le lien de retour ci-dessus ramène à la liste d'origine).
+      setPrintOpen(false);
+      setPayOpen(false);
+      setEditOpen(false);
+      setProofPreview(null);
+      setRejectProofTarget(null);
+      setRejectProofNotes('');
+      setProofError(null);
+      resetPayForm();
+      resetEditForm();
       fetchInvoice();
     } catch (error) {
       showToast(extractErrorMessage(error, t('invoices.cancelFailed')), 'error');
@@ -162,7 +208,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   }
 
   function openEdit() {
-    setEditErrors({});
+    resetEditForm();
     setEditOpen(true);
   }
 
@@ -181,7 +227,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         comment: editComment || undefined,
       });
       showToast(t('invoices.updated'), 'success');
-      setEditOpen(false);
+      closeEdit();
       fetchInvoice();
     } catch (error) {
       setEditErrors(extractFieldErrors(error));
@@ -642,7 +688,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
       <Modal
         isOpen={payOpen}
-        onClose={() => setPayOpen(false)}
+        onClose={closePay}
         title={t('invoices.payTitle')}
         maxWidth="max-w-md"
       >
@@ -686,7 +732,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             error={payErrors.comment}
           />
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setPayOpen(false)} className="flex-1">
+            <Button type="button" variant="outline" onClick={closePay} className="flex-1">
               {t('common.cancel')}
             </Button>
             <Button type="submit" isLoading={paySubmitting} className="flex-1" disabled={!payAmount || Number(payAmount) <= 0 || Number(payAmount) > invoice.balance_due}>
@@ -698,7 +744,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
       <Modal
         isOpen={editOpen}
-        onClose={() => setEditOpen(false)}
+        onClose={closeEdit}
         title={t('invoices.editTitle')}
         maxWidth="max-w-lg"
       >
@@ -763,7 +809,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             error={editErrors.comment}
           />
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setEditOpen(false)} className="flex-1">
+            <Button type="button" variant="outline" onClick={closeEdit} className="flex-1">
               {t('common.cancel')}
             </Button>
             <Button type="submit" isLoading={editSubmitting} className="flex-1">

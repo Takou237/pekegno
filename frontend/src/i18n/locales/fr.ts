@@ -1333,6 +1333,8 @@ export default {
     quickPendingNote: 'La facture sera enregistrée en attente de validation par un caissier ou la direction.',
     quickSuccess: 'Vente enregistrée avec succès.',
     quickSuccessPending: 'Demande de validation envoyée.',
+    quickLastInvoice: 'Dernière facture créée :',
+    quickFormReset: 'le formulaire a été réinitialisé, vous pouvez encaisser le client suivant.',
     quickReceiveAmount: 'Montant reçu',
     quickReceiveAmountHint: 'Laissez vide si le client ne paie pas maintenant.',
     quickSelectService: 'Sélectionnez un service.',
