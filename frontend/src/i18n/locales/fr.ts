@@ -1602,6 +1602,8 @@ export default {
     globalView: 'Vue consolidée — toutes agences',
     dpseJour: 'Dépense du jour',
     totalVentesCol: 'Total ventes',
+    formationsCol: 'Formations',
+    productsCol: 'Produits',
     totalEncaisseCol: 'Total encaissé',
     totalDepensesCol: 'Total dépenses',
     noPeriodData: 'Aucune donnée sur cette période.',

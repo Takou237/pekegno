@@ -1590,6 +1590,8 @@ export default {
     globalView: 'Consolidated view — all agencies',
     dpseJour: 'Daily expense',
     totalVentesCol: 'Total sales',
+    formationsCol: 'Training',
+    productsCol: 'Products',
     totalEncaisseCol: 'Total received',
     totalDepensesCol: 'Total expenses',
     noPeriodData: 'No data for this period.',

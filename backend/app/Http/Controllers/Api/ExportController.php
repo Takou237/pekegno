@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Support\Period;
 use App\Models\AccountingTransaction;
 use App\Models\ActivityLog;
 use App\Models\Agency;
@@ -13,6 +12,8 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\BilanService;
 use App\Services\CommercialReportService;
+use App\Services\ScopeService;
+use App\Support\Period;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -182,7 +183,7 @@ class ExportController extends Controller
             ->whereHas('role', fn ($q) => $q->where('name', 'client'))
             ->orderBy('last_name');
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         if ($agencyIds !== null) {
             $query->where(function ($q) use ($agencyIds) {
@@ -441,7 +442,7 @@ class ExportController extends Controller
         $agencyId = $request->input('agency_id');
         $countryId = $request->input('country_id');
 
-        $scope = app(\App\Services\ScopeService::class);
+        $scope = app(ScopeService::class);
         $agencyIds = $scope->agencyIds($request->user());
 
         if ($countryId) {
@@ -467,6 +468,12 @@ class ExportController extends Controller
 
             foreach ($bilan['services_by_category'] as $s) {
                 $rows->push([$s['category'], $s['label'], $s['count'], (float) $s['total']]);
+            }
+            foreach ($bilan['products_by_category'] as $p) {
+                $rows->push([$p['category'], $p['label'], $p['count'], (float) $p['total']]);
+            }
+            if (($bilan['formation_count'] ?? 0) > 0) {
+                $rows->push(['Formations', 'Inscriptions formation', (int) $bilan['formation_count'], (float) $bilan['formation_total']]);
             }
             $rows->push(['', 'TOTAL VENTES', (int) $bilan['total_ventes'], '']);
             $rows->push(['']);

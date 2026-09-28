@@ -27,6 +27,7 @@ class StoreInvoiceRequest extends FormRequest
             'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.service_id' => ['nullable', 'uuid', 'exists:services,id'],
+            'items.*.product_id' => ['nullable', 'uuid', 'exists:products,id'],
             'items.*.label' => ['required_without:items.*.service_id', 'nullable', 'string', 'max:255'],
             'items.*.unit_price' => ['required_if:items.*.pass_tier,null', 'numeric', 'min:0'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],

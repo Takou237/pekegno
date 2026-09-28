@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Mail\InvoiceStatusMail;
 use App\Http\Requests\Api\StoreInvoicePaymentRequest;
 use App\Http\Requests\Api\StoreInvoiceRequest;
 use App\Http\Requests\Api\UpdateInvoiceRequest;
+use App\Mail\InvoiceStatusMail;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
+use App\Models\Product;
 use App\Models\Service;
 use App\Models\SessionParticipant;
 use App\Models\User;
@@ -19,6 +20,7 @@ use App\Services\CommissionService;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\PaymentService;
 use App\Services\PointsService;
+use App\Services\SellerProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +38,7 @@ class InvoiceController extends Controller
         private readonly AccountingService $accountingService,
         private readonly PaymentService $paymentService,
         private readonly ActivityLogger $logger,
-        private readonly \App\Services\SellerProfileService $sellerProfiles,
+        private readonly SellerProfileService $sellerProfiles,
     ) {}
 
     private function scopeByRole($query, ?User $user)
@@ -201,6 +203,13 @@ class InvoiceController extends Controller
         $invoice = DB::transaction(function () use ($data, $request) {
             $items = collect($data['items'])->map(function (array $line) {
                 $service = isset($line['service_id']) ? Service::find($line['service_id']) : null;
+                $product = isset($line['product_id']) ? Product::find($line['product_id']) : null;
+
+                if ($service && $product) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Une ligne ne peut pas référencer à la fois un service et un produit.',
+                    ]);
+                }
 
                 $passTier = $line['pass_tier'] ?? null;
                 $pass = null;
@@ -223,7 +232,8 @@ class InvoiceController extends Controller
 
                 return [
                     'service_id' => $service?->id,
-                    'label' => $line['label'] ?? $service?->name,
+                    'product_id' => $product?->id,
+                    'label' => $line['label'] ?? $service?->name ?? $product?->name,
                     'unit_price' => $pass ? (float) $pass->price : (float) ($line['unit_price'] ?? $service?->effective_price ?? 0),
                     'quantity' => (int) $line['quantity'],
                     'pass_tier' => $pass?->tier,
@@ -291,7 +301,7 @@ class InvoiceController extends Controller
             // Un vendeur formateur (employé de l'agence) obtient son profil vendeur
             // à la première vente, sans inventer de taux (commission_type=none).
             if (($data['seller_user_id'] ?? null) && $data['seller_user_id'] !== $request->user()->id) {
-                $seller = \App\Models\User::find($data['seller_user_id']);
+                $seller = User::find($data['seller_user_id']);
                 if ($seller) {
                     $this->sellerProfiles->ensureForUser($seller, $invoice->agency_id);
                 }
@@ -302,6 +312,7 @@ class InvoiceController extends Controller
             foreach ($items as $line) {
                 $invoice->items()->create([
                     'service_id' => $line['service_id'],
+                    'product_id' => $line['product_id'] ?? null,
                     'label' => $line['label'],
                     'unit_price' => $line['unit_price'],
                     'quantity' => $line['quantity'],
