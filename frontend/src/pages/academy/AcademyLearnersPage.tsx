@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/Input';
 import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
+import { courseOptionLabel } from '@/utils/courseMode';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
 
@@ -517,7 +518,7 @@ export default function AcademyLearnersPage() {
               <option value="">{t('academy.selectCourse')}</option>
               {enrollmentCourses.map((course) => (
                 <option key={course.id} value={course.id}>
-                  {`${course.name} — ${course.effective_price != null ? `${Number(course.effective_price).toLocaleString()} FCFA` : course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : course.code}`}
+                  {courseOptionLabel(course, t)}
                 </option>
               ))}
             </select>

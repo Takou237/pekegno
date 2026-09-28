@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+﻿import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Search, GraduationCap, Plus, UserPlus, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type Course } from '@/api/academy.api';
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import FormationEnrollmentModal from '@/components/academy/FormationEnrollmentModal';
 import { canCreateCourse, canEnrollLearners } from '@/utils/academyPermissions';
+import { courseModeLabel } from '@/utils/courseMode';
 import { formatCurrency } from '@/utils/number';
 import type { CourseCategory } from '@/types/category';
 import type { FormationEnrollment } from '@/types/formation';
@@ -23,17 +24,6 @@ import type { FormationEnrollment } from '@/types/formation';
 interface AgencyAcademyFormationsProps {
   agencyId?: string;
   countryId?: string;
-}
-
-function modeLabel(mode: Course['mode'], t: ReturnType<typeof useTranslation>['t']): string {
-  switch (mode) {
-    case 'online':
-      return t('academy.modeOnline');
-    case 'mixed':
-      return t('academy.modeMixed');
-    default:
-      return t('academy.modeInPerson');
-  }
 }
 
 interface CourseFormState {
@@ -240,7 +230,7 @@ export default function AgencyAcademyFormations({ agencyId, countryId }: AgencyA
                       <p className="truncate font-semibold text-gray-900 dark:text-white">{course.name}</p>
                       <p className="font-mono text-xs text-gray-400">{course.code}</p>
                     </div>
-                    <Badge variant="neutral">{modeLabel(course.mode, t)}</Badge>
+                    <Badge variant="neutral">{courseModeLabel(course.mode, t)}</Badge>
                   </div>
 
                   {course.description && (
@@ -337,7 +327,7 @@ export default function AgencyAcademyFormations({ agencyId, countryId }: AgencyA
             >
               {(['in_person', 'online', 'mixed'] as const).map((m) => (
                 <option key={m} value={m}>
-                  {modeLabel(m, t)}
+                  {courseModeLabel(m, t)}
                 </option>
               ))}
             </select>

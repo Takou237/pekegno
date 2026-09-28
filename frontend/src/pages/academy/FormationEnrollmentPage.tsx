@@ -9,6 +9,7 @@ import { clientsApi } from '@/api/clients.api';
 import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { courseBasePrice, resolveEnrollmentDiscount } from '@/utils/enrollmentDiscount';
+import { courseOptionLabel, isOnlineCourse } from '@/utils/courseMode';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/hooks/useAuth';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -198,6 +199,10 @@ export default function FormationEnrollmentPage() {
   const basePrice = courseBasePrice(selectedCourse(form.course_id));
   const discountAmount = resolveEnrollmentDiscount(basePrice, form);
   const netPrice = Math.round((basePrice - discountAmount) * 100) / 100;
+
+  // Une formation en ligne n'a pas forcément de session : la rendre obligatoire
+  // empêcherait de l'inscrire. Le backend accepte une inscription sans session.
+  const selectedIsOnline = isOnlineCourse(selectedCourse(form.course_id)?.mode);
 
   // Règle métier : tout client est un apprenant, mais tout apprenant n'est pas
   // un client. L'inscription exige un client (compte « client »), donc
@@ -609,7 +614,7 @@ export default function FormationEnrollmentPage() {
                 <option value="">{t('academy.searchCoursePlaceholder')}</option>
                 {courses.map((course) => (
                   <option key={course.id} value={course.id}>
-                    {course.name} — {course.effective_price != null ? `${Number(course.effective_price).toLocaleString()} FCFA` : course.price != null ? `${Number(course.price).toLocaleString()} FCFA` : '—'}
+                    {courseOptionLabel(course, t)}
                   </option>
                 ))}
               </select>
@@ -674,10 +679,10 @@ export default function FormationEnrollmentPage() {
           {form.course_id && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                {`${t('academy.session')} *`}
+                {`${t('academy.session')}${selectedIsOnline ? '' : ' *'}`}
               </label>
               <select
-                required
+                required={!selectedIsOnline}
                 value={form.training_session_id}
                 onChange={(e) => setForm((prev) => ({ ...prev, training_session_id: e.target.value }))}
                 className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 ${
@@ -693,8 +698,11 @@ export default function FormationEnrollmentPage() {
               </select>
               {enrollSessions.length === 0 && (
                 <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                  {t('academy.noSessionsForCourse')}
+                  {selectedIsOnline ? t('academy.onlineNoSession') : t('academy.noSessionsForCourse')}
                 </p>
+              )}
+              {selectedIsOnline && enrollSessions.length > 0 && (
+                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('academy.onlineSessionOptional')}</p>
               )}
               {fieldErrors.training_session_id && (
                 <p className="mt-1 text-xs text-red-500">{fieldErrors.training_session_id}</p>

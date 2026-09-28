@@ -484,6 +484,78 @@ class Phase6AcademyTest extends TestCase
             ->assertJsonPath('attendances.0.status', 'present');
     }
 
+    public function test_online_course_is_listed_and_enrollable_without_session(): void
+    {
+        $this->admin();
+
+        $online = $this->createCourse(['name' => 'Excel en ligne', 'mode' => 'online']);
+        $this->createCourse(['name' => 'Comptabilité présentielle', 'mode' => 'in_person']);
+        $client = $this->createClient();
+
+        // Le catalogue renvoie bien les deux modes, avec le type sur chaque ligne.
+        $listed = $this->getJson('/api/courses')->assertOk()->json('data');
+        $modes = collect($listed)->pluck('mode');
+        $this->assertTrue($modes->contains('online'), 'Les formations en ligne doivent être listées.');
+        $this->assertTrue($modes->contains('in_person'));
+
+        // Et le filtre dedicated fonctionne.
+        $onlyOnline = $this->getJson('/api/courses?mode=online')->assertOk()->json('data');
+        $this->assertSame(['online'], collect($onlyOnline)->pluck('mode')->unique()->values()->all());
+
+        // Une formation en ligne n'a pas de session : elle reste inscriptible.
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $online['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201)
+            ->assertJsonPath('status', 'enrolled')
+            ->json();
+
+        $this->assertSame('online', $enrollment['course']['mode'] ?? null);
+        $this->assertDatabaseMissing('session_participants', [
+            'formation_enrollment_id' => $enrollment['id'],
+        ]);
+    }
+
+    public function test_enrollment_without_session_does_not_join_every_session(): void
+    {
+        $this->admin();
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $first = $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(7)->toISOString(),
+        ])->assertStatus(201)->json();
+
+        $this->postJson('/api/training-sessions', [
+            'course_id' => $course['id'],
+            'start_at' => now()->addDays(14)->toISOString(),
+        ])->assertStatus(201)->json();
+
+        // Aucune session choisie : le choix est ambigu, on n'affecte rien plutôt
+        // que d'inscrire l'apprenant aux deux.
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $client->id,
+        ])->assertStatus(201)->json();
+
+        $this->assertDatabaseMissing('session_participants', [
+            'formation_enrollment_id' => $enrollment['id'],
+        ]);
+
+        // Une session explicitement demandée est bien prise en compte.
+        $scoped = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course['id'],
+            'learner_user_id' => $this->createClient()->id,
+            'training_session_id' => $first['id'],
+        ])->assertStatus(201)->json();
+
+        $this->assertDatabaseHas('session_participants', [
+            'training_session_id' => $first['id'],
+            'formation_enrollment_id' => $scoped['id'],
+        ]);
+    }
+
     public function test_enrollment_rejects_non_client_learner(): void
     {
         $this->admin();

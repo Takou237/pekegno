@@ -176,13 +176,16 @@ class PublicCatalogSeeder extends Seeder
                     'name' => $data['name'],
                     'description' => "Formation certifiante : {$data['name']}.",
                     'price' => $data['price'],
-                'mode' => 'presentiel',
-                'duration_hours' => 12,
-                'duration_type' => 'hours',
-                'agency_id' => $agencyId,
-                'is_active' => true,
-                'is_public' => true,
-            ]
+                    // Valeur de la nomenclature courses.mode (online | in_person | mixed) :
+                    // 'presentiel' était hors nomenclature et n'était rattrapé que par
+                    // le repli de l'affichage.
+                    'mode' => 'in_person',
+                    'duration_hours' => 12,
+                    'duration_type' => 'hours',
+                    'agency_id' => $agencyId,
+                    'is_active' => true,
+                    'is_public' => true,
+                ]
             );
 
             if ($course->modules()->count() === 0) {

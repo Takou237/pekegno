@@ -2084,6 +2084,8 @@ export default {
     modeInPerson: 'Présentiel',
     modeOnline: 'En ligne',
     modeMixed: 'Hybride',
+    onlineNoSession: 'Formation en ligne : aucune session programmée, l\'inscription se fait directement.',
+    onlineSessionOptional: 'Formation en ligne : choisir une session est facultatif.',
     price: 'Prix (FCFA)',
     duration: 'Durée (heures)',
     description: 'Description',

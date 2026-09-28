@@ -230,6 +230,10 @@ class FormationEnrollmentController extends Controller
      * sur les sessions déjà terminées, en respectant la capacité de chaque session.
      * Le statut du participant est réactivé (upd/repère), ce qui resynchronise une
      * réinscription après annulation.
+     *
+     * Sans session explicitement demandée, l'affectation n'a lieu que si la
+     * formation n'a qu'une seule session vivante (voir T6) : une formation en
+     * ligne peut n'en avoir aucune, et en avoir plusieurs reste un choix à faire.
      */
     private function assignToAvailableSessions(FormationEnrollment $enrollment, ?string $trainingSessionId = null): void
     {
@@ -241,6 +245,14 @@ class FormationEnrollmentController extends Controller
         }
 
         $sessions = $query->get(['id', 'max_capacity']);
+
+        // Sans session choisie, on n'affecte que si le choix est évident : une seule
+        // session disponible. En présence de plusieurs, inscrire l'apprenant à
+        // toutes serait arbitraire — d'autant qu'une formation en ligne n'a pas
+        // forcément de session du tout (elle reste donc inscriptible sans).
+        if (! $trainingSessionId && $sessions->count() > 1) {
+            return;
+        }
 
         foreach ($sessions as $session) {
             $count = SessionParticipant::where('training_session_id', $session->id)

@@ -2072,6 +2072,8 @@ export default {
     modeInPerson: 'In person',
     modeOnline: 'Online',
     modeMixed: 'Hybrid',
+    onlineNoSession: 'Online course: no session scheduled, enrollment is direct.',
+    onlineSessionOptional: 'Online course: picking a session is optional.',
     price: 'Price (FCFA)',
     duration: 'Duration (hours)',
     description: 'Description',
