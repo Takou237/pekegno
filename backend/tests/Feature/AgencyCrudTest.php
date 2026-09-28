@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Models\Agency;
 use App\Models\Country;
 use App\Models\Department;
+use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -429,6 +430,41 @@ class AgencyCrudTest extends TestCase
         $response = $this->deleteJson("/api/agencies/{$agency->id}/force-delete");
 
         $response->assertNoContent();
+        $this->assertDatabaseMissing('agencies', ['id' => $agency->id]);
+    }
+
+    public function test_force_delete_blocked_when_agency_has_invoices(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $agency = Agency::factory()->create(['deleted_at' => now()]);
+        $invoice = Invoice::create([
+            'agency_id' => $agency->id,
+            'number' => 'FAC-FD-001',
+            'invoice_date' => now(),
+            'total_amount' => 10000,
+        ]);
+
+        $response = $this->deleteJson("/api/agencies/{$agency->id}/force-delete");
+
+        $response->assertStatus(409);
+
+        // L'agence (en corbeille) et sa facture sont intactes
+        $this->assertDatabaseHas('agencies', ['id' => $agency->id]);
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id]);
+    }
+
+    public function test_force_delete_purges_activity_logs(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $agency = Agency::factory()->create(['deleted_at' => now()]);
+        ActivityLog::create(['agency_id' => $agency->id, 'action' => 'test', 'entity_type' => 'test']);
+
+        $response = $this->deleteJson("/api/agencies/{$agency->id}/force-delete");
+
+        $response->assertNoContent();
+        $this->assertDatabaseMissing('activity_logs', ['agency_id' => $agency->id]);
         $this->assertDatabaseMissing('agencies', ['id' => $agency->id]);
     }
 }

@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdateAgencyRequest;
 use App\Http\Resources\AgencyResource;
 use App\Models\Agency;
 use App\Models\City;
+use App\Models\Department;
 use App\Models\User;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
@@ -340,8 +341,60 @@ class AgencyController extends Controller
 
         $agency = Agency::onlyTrashed()->findOrFail($id);
 
-        $agency->assignedUsers()->detach();
-        $agency->forceDelete();
+        // Garde-fou : certaines FK sont en cascade (commandes, dépenses,
+        // contrats...) — supprimer l'agence effacerait silencieusement ses
+        // données métier. On refuse tant qu'elles existent.
+        $blockingCounts = [
+            'invoices' => $agency->invoices()->count(),
+            'orders' => DB::table('orders')->where('agency_id', $agency->id)->count(),
+            'expenses' => DB::table('expenses')->where('agency_id', $agency->id)->count(),
+            'contracts' => DB::table('contracts')->where('agency_id', $agency->id)->count(),
+            'opportunities' => DB::table('opportunities')->where('agency_id', $agency->id)->count(),
+            'subscriptions' => DB::table('subscriptions')->where('agency_id', $agency->id)->count(),
+        ];
+
+        $blocking = array_filter($blockingCounts);
+        if ($blocking !== []) {
+            $labels = collect([
+                'invoices' => 'facture(s)',
+                'orders' => 'commande(s)',
+                'expenses' => 'dépense(s)',
+                'contracts' => 'contrat(s)',
+                'opportunities' => 'opportunité(s)',
+                'subscriptions' => 'abonnement(s)',
+            ])
+                ->filter(fn ($_, $table) => isset($blocking[$table]))
+                ->map(fn ($label, $table) => "{$blocking[$table]} $label")
+                ->implode(', ');
+
+            return response()->json([
+                'message' => "Impossible de supprimer définitivement cette agence : {$labels} lui sont encore rattachés.",
+            ], 409);
+        }
+
+        DB::transaction(function () use ($agency) {
+            // Sans events : les observers loggueraient après la suppression des
+            // parents (force_deleted...) et créeraient des logs orphelins qui
+            // violeraient la FK activity_logs.agency_id.
+            Agency::withoutEvents(function () use ($agency) {
+                // Départements (y compris ceux en corbeille) et leurs affectations
+                $departmentIds = $agency->departments()->withTrashed()->pluck('id');
+
+                if ($departmentIds->isNotEmpty()) {
+                    DB::table('user_assignments')->whereIn('department_id', $departmentIds)->delete();
+                    DB::table('department_chiefs')->whereIn('department_id', $departmentIds)->delete();
+                    Department::withTrashed()->whereIn('id', $departmentIds)->forceDelete();
+                }
+
+                // Journal d'activité, lignes de métier, moyens de paiement
+                $agency->activityLogs()->delete();
+                $agency->activities()->delete();
+                $agency->paymentMethods()->delete();
+
+                $agency->assignedUsers()->detach();
+                $agency->forceDelete();
+            });
+        });
 
         return response()->json(null, 204);
     }
