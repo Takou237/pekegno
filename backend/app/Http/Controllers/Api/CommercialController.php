@@ -8,6 +8,8 @@ use App\Http\Requests\Api\StoreCommercialRequest;
 use App\Http\Requests\Api\UpdateCommercialRequest;
 use App\Models\Commercial;
 use App\Models\CommercialPoint;
+use App\Models\CommissionEntry;
+use App\Models\CommissionPayment;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\Trainer;
@@ -508,6 +510,7 @@ class CommercialController extends Controller
 
         $paidFilter = fn ($q) => $q->where('status', 'paid')
             ->whereNull('cancelled_at')
+            ->where('validation_status', Invoice::VALIDATION_VALIDATED)
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
 
@@ -578,6 +581,7 @@ class CommercialController extends Controller
     {
         $paidFilter = fn ($q) => $q->where('status', 'paid')
             ->whereNull('cancelled_at')
+            ->where('validation_status', Invoice::VALIDATION_VALIDATED)
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
 
@@ -675,7 +679,7 @@ class CommercialController extends Controller
 
         $base = $commercial->invoices()
             ->where('status', 'paid')
-            ->where('validation_status', \App\Models\Invoice::VALIDATION_VALIDATED)
+            ->where('validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereNull('cancelled_at')
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
@@ -698,7 +702,7 @@ class CommercialController extends Controller
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->where('invoices.commercial_id', $commercial->id)
             ->where('invoices.status', 'paid')
-            ->where('invoices.validation_status', \App\Models\Invoice::VALIDATION_VALIDATED)
+            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereNull('invoices.cancelled_at')
             ->when($from, fn ($q) => $q->whereDate('invoices.invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoices.invoice_date', '<=', $to))
@@ -711,23 +715,23 @@ class CommercialController extends Controller
         // pilote réellement les versements en Comptabilité). Le champ invoices.commission_amount
         // est un champ hérité qui peut diverger (taux figé à la création, etc.) — l'utiliser
         // ici désynchronisait "Mes commissions" du solde réellement payable en Comptabilité.
-        $commissionEntries = \App\Models\CommissionEntry::query()
+        $commissionEntries = CommissionEntry::query()
             ->where('beneficiary_commercial_id', $commercial->id)
             ->whereIn('status', [
-                \App\Models\CommissionEntry::STATUS_CALCULATED,
-                \App\Models\CommissionEntry::STATUS_VALIDATED,
-                \App\Models\CommissionEntry::STATUS_PAID,
+                CommissionEntry::STATUS_CALCULATED,
+                CommissionEntry::STATUS_VALIDATED,
+                CommissionEntry::STATUS_PAID,
             ])
             ->with('invoice:id,number')
             ->orderByDesc('created_at')
             ->get();
 
         $owedCommissions = (float) $commissionEntries
-            ->whereIn('status', [\App\Models\CommissionEntry::STATUS_CALCULATED, \App\Models\CommissionEntry::STATUS_VALIDATED])
+            ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED])
             ->sum('amount');
         $earnedCommissions = (float) $commissionEntries->sum('amount');
 
-        $commissionPayments = \App\Models\CommissionPayment::query()
+        $commissionPayments = CommissionPayment::query()
             ->where('commercial_id', $commercial->id)
             ->where('rule', 'commission_payment')
             ->with('invoice:id,number')
@@ -765,7 +769,7 @@ class CommercialController extends Controller
                     ->selectRaw('coalesce(sum(total_amount), 0)')
                     ->whereColumn('commercial_id', 'commercials.id')
                     ->where('status', 'paid')
-                    ->where('validation_status', \App\Models\Invoice::VALIDATION_VALIDATED)
+                    ->where('validation_status', Invoice::VALIDATION_VALIDATED)
                     ->whereNull('cancelled_at'),
             ])
             ->get(['id'])
@@ -782,7 +786,7 @@ class CommercialController extends Controller
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->where('invoices.commercial_id', $commercial->id)
             ->where('invoices.status', 'paid')
-            ->where('invoices.validation_status', \App\Models\Invoice::VALIDATION_VALIDATED)
+            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereNull('invoices.cancelled_at')
             ->when($from, fn ($q) => $q->whereDate('invoices.invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoices.invoice_date', '<=', $to))

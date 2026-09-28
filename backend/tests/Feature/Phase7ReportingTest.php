@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\Agency;
+use App\Models\Commercial;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\AccountingCategorySeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Testing\File;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -57,6 +60,45 @@ class Phase7ReportingTest extends TestCase
             'last_name' => 'Prospect',
             'email' => 'prospect@example.com',
         ], $attributes))->assertStatus(201)->json();
+    }
+
+    /**
+     * Ticket T2 : le CA d'une agence vu depuis sa propre page doit correspondre
+     * au CA de la même agence agrégé dans les stats groupe (mêmes définitions
+     * : payée + validée + non annulée, même période).
+     */
+    public function test_agency_revenue_matches_group_aggregate(): void
+    {
+        $this->actingAsAdmin();
+
+        $agency = Agency::factory()->create();
+        $period = ['from' => now()->startOfMonth()->toDateString(), 'to' => now()->toDateString()];
+
+        // Facture validée payée : comptée partout (1 ligne × 10 000).
+        $this->createInvoice(['agency_id' => $agency->id, 'advance' => 10000, 'payment_type' => 'cash']);
+
+        // Facture créée par un commercial : reste pending, ne doit être comptée
+        // ni au niveau agence ni au niveau groupe.
+        $commercialUser = Commercial::factory()->create(['agency_id' => $agency->id]);
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'commercial')->value('id'),
+        ]));
+        $this->postJson('/api/invoices', [
+            'agency_id' => $agency->id,
+            'items' => [['label' => 'Formation', 'unit_price' => 10000, 'quantity' => 1]],
+            'payment_type' => 'cash',
+            'proof_file' => File::fake()->image('proof.png'),
+        ])->assertStatus(201);
+
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'super-admin')->value('id'),
+        ]));
+
+        $agencyStats = $this->getJson('/api/stats/agency/'.$agency->id.'?'.http_build_query($period))->assertOk()->json();
+        $groupStats = $this->getJson('/api/stats/group?'.http_build_query($period))->assertOk()->json();
+
+        $this->assertEquals(10000, $agencyStats['revenue']);
+        $this->assertEquals($agencyStats['revenue'], $groupStats['revenue'], 'Le CA agence doit correspondre au CA groupe pour une agence unique.');
     }
 
     public function test_report_aggregates_sales_payments_and_commissions(): void

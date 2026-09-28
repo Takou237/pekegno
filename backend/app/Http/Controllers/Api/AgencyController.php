@@ -7,6 +7,7 @@ use App\Http\Requests\Api\StoreAgencyRequest;
 use App\Http\Requests\Api\UpdateAgencyRequest;
 use App\Http\Resources\AgencyResource;
 use App\Models\Agency;
+use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -24,8 +25,11 @@ class AgencyController extends Controller
     private function parseWith(Request $request): array
     {
         $with = $request->input('with');
-        if (!$with) return [];
+        if (! $with) {
+            return [];
+        }
         $relations = array_map('trim', explode(',', $with));
+
         return array_intersect($relations, self::ALLOWED_WITH);
     }
 
@@ -49,7 +53,7 @@ class AgencyController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Agency::with(array_merge(['departments', 'activities'], $this->parseWith($request)))
-            ->withSum(['invoices as revenue' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')], 'total_amount')
+            ->withSum(['invoices as revenue' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()], 'total_amount')
             ->withSum(['accountingTransactions as expenses' => fn ($q) => $q->where('type', 'expense')], 'amount')
             ->search($request->input('search'))
             ->byCountry($request->input('country'));
@@ -62,7 +66,7 @@ class AgencyController extends Controller
             $query->where('country_id', $request->input('country_id'));
         }
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         if ($agencyIds !== null) {
             $query->whereIn('id', $agencyIds);
@@ -141,6 +145,7 @@ class AgencyController extends Controller
     public function show(Request $request, Agency $agency): AgencyResource
     {
         $with = array_unique(array_merge(['departments', 'assignedUsers', 'activities'], $this->parseWith($request)));
+
         return new AgencyResource($agency->load($with));
     }
 

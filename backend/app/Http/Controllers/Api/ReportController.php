@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Commercial;
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\ScopeService;
 use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,7 +36,7 @@ class ReportController extends Controller
         $from = Period::from($request, Carbon::now()->startOfYear());
         $to = Period::to($request);
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         $base = Subscription::query()
             ->where('subscriptions.start_date', '>=', $from)
@@ -138,7 +137,7 @@ class ReportController extends Controller
         $to = Period::to($request);
         $limit = min(max($request->integer('limit', 10), 1), 50);
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         $clients = User::whereHas('role', fn ($q) => $q->where('name', 'client'));
 
@@ -166,6 +165,7 @@ class ReportController extends Controller
 
         $invoices = Invoice::whereNull('invoices.cancelled_at')
             ->where('invoices.status', 'paid')
+            ->validated()
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('invoices.agency_id', $agencyId))
             ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('agency', fn ($inner) => $inner->where('country_id', $countryId)))
@@ -249,10 +249,11 @@ class ReportController extends Controller
         $from = Period::from($request, Carbon::now()->startOfYear());
         $to = Period::to($request);
 
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         $query = Invoice::whereNull('cancelled_at')
             ->where('status', 'paid')
+            ->validated()
             ->whereBetween('invoice_date', [$from, $to])
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
             ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('agency', fn ($inner) => $inner->where('country_id', $countryId)))

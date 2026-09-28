@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agency;
-use App\Support\Period;
 use App\Models\City;
 use App\Models\Country;
 use App\Models\Invoice;
@@ -12,6 +11,7 @@ use App\Models\InvoicePayment;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\ScopeService;
+use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -89,10 +89,14 @@ class DashboardController extends Controller
         };
 
         $invoicesBase = static function () use ($from, $to, $invoiceQuery) {
+            // Même définition du chiffre d'affaires que StatsController : factures
+            // validées uniquement (les pending/rejetées n'entrent pas en comptabilité),
+            // sinon les chiffres ne concordent pas entre les niveaux agence → groupe.
             return $invoiceQuery(
                 Invoice::query()
                     ->whereBetween('invoices.invoice_date', [$from, $to])
                     ->whereNull('invoices.cancelled_at')
+                    ->validated()
             );
         };
 
@@ -113,6 +117,8 @@ class DashboardController extends Controller
             InvoicePayment::query()
                 ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
                 ->whereBetween('invoice_payments.paid_at', [$from, $to])
+                ->whereNull('invoices.cancelled_at')
+                ->where('invoices.validation_status', 'validated')
         )->sum('invoice_payments.amount');
 
         $outstanding = $invoicesBase()
