@@ -438,7 +438,7 @@ class ExportController extends Controller
     )]
     public function dailyBilan(Request $request): StreamedResponse
     {
-        $date = $request->date('date') ?? Carbon::today();
+        $date = $request->date('date') ?? Period::businessToday();
         $agencyId = $request->input('agency_id');
         $countryId = $request->input('country_id');
 

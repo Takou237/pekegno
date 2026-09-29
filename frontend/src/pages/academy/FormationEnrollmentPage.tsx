@@ -28,6 +28,7 @@ import type {
 import type { Department } from '@/types/department';
 import type { PaymentMethod } from '@/types/invoice';
 import { currencyLabel } from '@/utils/number';
+import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -86,6 +87,7 @@ export default function FormationEnrollmentPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
+  const currency = useAgencyCurrency(agencyId);
   const { user: currentUser } = useAuth();
   const isCommercial = currentUser?.role?.name === 'commercial';
   const isSellerUser = isCommercial || currentUser?.role?.name === 'caissier';
@@ -516,9 +518,9 @@ export default function FormationEnrollmentPage() {
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {enrollment.course?.effective_price != null
-                        ? `${Number(enrollment.course.effective_price).toLocaleString()} ${currencyLabel()}`
+                        ? `${Number(enrollment.course.effective_price).toLocaleString()} ${currencyLabel(currency)}`
                         : enrollment.course?.price != null
-                          ? `${Number(enrollment.course.price).toLocaleString()} ${currencyLabel()}`
+                          ? `${Number(enrollment.course.price).toLocaleString()} ${currencyLabel(currency)}`
                           : '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
@@ -662,7 +664,7 @@ export default function FormationEnrollmentPage() {
                 </select>
               </div>
               <Input
-                label={`${t('academy.discountValue')}${form.discount_type === 'percent' ? ' (%)' : ` (${currencyLabel()})`}`}
+                label={`${t('academy.discountValue')}${form.discount_type === 'percent' ? ' (%)' : ` (${currencyLabel(currency)})`}`}
                 type="number"
                 min={0}
                 max={form.discount_type === 'percent' ? 100 : basePrice || undefined}
@@ -756,7 +758,7 @@ export default function FormationEnrollmentPage() {
           {!editing && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-              label={`${t('academy.amountPaid')} (${currencyLabel()})`}
+              label={`${t('academy.amountPaid')} (${currencyLabel(currency)})`}
               type="number"
               min={0}
               placeholder="0"

@@ -29,6 +29,7 @@ import { canExportData } from '@/utils/exportPermissions';
 import { formatCurrency } from '@/utils/number';
 import type { Agency, AgencyListParams, PaginationMeta } from '@/types/agency';
 import type { CountryStat } from '@/types/stats';
+import { useOrgContext } from '@/context/OrgContext';
 
 type TranslateFn = ReturnType<typeof useTranslation>['t'];
 
@@ -47,6 +48,7 @@ export default function AgencyListPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { countryId } = useParams<{ countryId?: string }>();
+  const { refresh: refreshOrg } = useOrgContext();
   const outletContext = useOutletContext<{ country?: CountryStat | null } | undefined>();
   const contextCountry = countryId ? outletContext?.country ?? null : null;
 
@@ -125,7 +127,13 @@ export default function AgencyListPage() {
   }
 
   function handleSaved(saved: Agency) {
+    // Nouvelle agence ou pays changé : le header (Pays / Agence) doit suivre.
+    void refreshOrg();
     setAgencies((prev) => {
+      // Agence déplacée vers un autre pays : elle quitte la liste de ce pays.
+      if (countryId && saved.country_id && saved.country_id !== countryId) {
+        return prev.filter((agency) => agency.id !== saved.id);
+      }
       const exists = prev.some((agency) => agency.id === saved.id);
       return exists
         ? prev.map((agency) => (agency.id === saved.id ? saved : agency))

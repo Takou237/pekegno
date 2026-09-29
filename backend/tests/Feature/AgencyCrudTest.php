@@ -236,6 +236,9 @@ class AgencyCrudTest extends TestCase
             ['user_id' => $otherUser->id, 'agency_id' => $otherAgency->id, 'is_primary' => true],
         ]);
 
+        // Client inscrit dans cette agence : doit suivre le pays
+        $client = User::factory()->create(['country_id' => $cameroon->id, 'registered_agency_id' => $agency->id, 'country' => 'Cameroun']);
+
         // Logs rattachés à l'agence
         ActivityLog::create(['agency_id' => $agency->id, 'country_id' => $cameroon->id, 'action' => 'test', 'entity_type' => 'test']);
         ActivityLog::create(['agency_id' => $agency->id, 'country_id' => $cameroon->id, 'action' => 'test', 'entity_type' => 'test']);
@@ -259,6 +262,12 @@ class AgencyCrudTest extends TestCase
         $this->assertDatabaseHas('users', [
             'id' => $assignedUser->id,
             'country_id' => $ivoryCoast->id,
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $client->id,
+            'country_id' => $ivoryCoast->id,
+            'country' => "Côte d'Ivoire",
         ]);
 
         // L'utilisateur affecté principalement ailleurs garde son pays d'origine

@@ -46,6 +46,24 @@ final class GroupCurrency
             ->all();
     }
 
+    /**
+     * Monnaie d'une agence (celle de son pays), résolue par requête : ne dépend
+     * pas des colonnes chargées sur la relation `agency` (souvent partielles).
+     */
+    public static function currencyForAgency(?string $agencyId): string
+    {
+        static $cache = [];
+
+        if (! $agencyId) {
+            return self::code();
+        }
+
+        return $cache[$agencyId] ??= (string) (Agency::withTrashed()
+            ->join('countries', 'countries.id', '=', 'agencies.country_id')
+            ->where('agencies.id', $agencyId)
+            ->value('countries.currency_code') ?: self::code());
+    }
+
     public static function currencyForCountry(?string $countryId): string
     {
         static $cache = [];

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Plus, Download, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
@@ -50,6 +50,11 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Liste ouverte depuis un pays (/countries/:countryId/invoices) : factures de
+  // ce pays uniquement, et détail ouvert sous le même pays.
+  const { countryId: routeCountryId } = useParams<{ countryId?: string }>();
+  const countryId = fixedAgencyId ? undefined : routeCountryId;
+  const listBase = countryId ? `/countries/${countryId}/invoices` : invoiceListPath(fixedAgencyId);
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -71,12 +76,12 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
   // facture restitue la page affichée, pas la première.
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   // Origine mémorisée pour que le détail d'une facture sache d'où l'on venait.
-  const origin = invoiceOrigin(invoiceListPath(fixedAgencyId), searchParams);
+  const origin = invoiceOrigin(listBase, searchParams);
 
   useEffect(() => {
     if (!canViewAgencies(currentUser)) return;
-    agenciesApi.list({ per_page: 100 }).then((res) => setAgencies(res.data ?? [])).catch(() => {});
-  }, [currentUser]);
+    agenciesApi.list({ per_page: 100, country_id: countryId }).then((res) => setAgencies(res.data ?? [])).catch(() => {});
+  }, [currentUser, countryId]);
 
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
@@ -86,6 +91,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
         search: search || undefined,
         status: (status as InvoiceStatus) || undefined,
         agency_id: agencyId || undefined,
+        country_id: countryId,
         client_id: clientId || undefined,
         commercial_id: commercialId || undefined,
         from: from || undefined,
@@ -102,7 +108,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
     } finally {
       setIsLoading(false);
     }
-  }, [search, status, agencyId, clientId, commercialId, from, to, enrollmentOnly, page, t]);
+  }, [search, status, agencyId, countryId, clientId, commercialId, from, to, enrollmentOnly, page, t]);
 
   useEffect(() => {
     fetchInvoices();
@@ -134,7 +140,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
   }
 
   function openInvoice(invoiceId: string) {
-    navigate(invoiceDetailPath(invoiceId, fixedAgencyId), { state: origin });
+    navigate(countryId ? `${listBase}/${invoiceId}` : invoiceDetailPath(invoiceId, fixedAgencyId), { state: origin });
   }
 
   async function handleExport() {
@@ -164,7 +170,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
               {t('invoices.export')}
             </Button>
           )}
-          <Button onClick={() => navigate(newInvoicePath ?? (fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/new` : '/invoices/new'), { state: origin })}>
+          <Button onClick={() => navigate(newInvoicePath ?? (fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/new` : `${listBase}/new`), { state: origin })}>
             <Plus className="h-4 w-4" />
             {t('invoices.newInvoice')}
           </Button>

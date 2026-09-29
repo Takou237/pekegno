@@ -31,7 +31,7 @@ import { todayLocal } from '@/utils/date';
 import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
-  const { agencyId: routeAgencyId } = useParams<{ agencyId?: string }>();
+  const { agencyId: routeAgencyId, countryId: routeCountryId } = useParams<{ agencyId?: string; countryId?: string }>();
   const agencyId = fixedAgencyId ?? routeAgencyId ?? '';
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
@@ -50,7 +50,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const isGlobalContext = !agencyId;
-  const [countryFilter, setCountryFilter] = useState('');
+  const [countryFilter, setCountryFilter] = useState(routeCountryId ?? '');
   const [agencyFilter, setAgencyFilter] = useState('');
   const [countries, setCountries] = useState<{ id: string; name: string }[]>([]);
   const [agencies, setAgencies] = useState<{ id: string; name: string }[]>([]);

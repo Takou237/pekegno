@@ -102,6 +102,7 @@ const TreasuryPage = lazy(() => import('@/pages/treasury/TreasuryPage'));
 const ExpenseListPage = lazy(() => import('@/pages/expenses/ExpenseListPage'));
 const CommissionRulesPage = lazy(() => import('@/pages/commissions/CommissionRulesPage'));
 const CommissionEntriesPage = lazy(() => import('@/pages/commissions/CommissionEntriesPage'));
+const CashierCommissionsPage = lazy(() => import('@/pages/commissions/CashierCommissionsPage'));
 const CompanyListPage = lazy(() => import('@/pages/companies/CompanyListPage'));
 const OpportunityKanbanPage = lazy(() => import('@/pages/opportunities/OpportunityKanbanPage'));
 const OpportunityDetailPage = lazy(() => import('@/pages/opportunities/OpportunityDetailPage'));
@@ -184,6 +185,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/', element: page(<HomeRedirect />, dashboard) },
           { path: '/caissier/dashboard', element: page(<CashierDashboardPage />, dashboard) },
+          { path: '/caissier/commissions', element: page(<CashierCommissionsPage />, table) },
           { path: '/profile', element: page(<ProfilePage />, detail) },
           { path: '/countries', element: page(<CountryListPage />, cards) },
           { path: '/agencies', element: page(<AgencyListPage />, cards) },

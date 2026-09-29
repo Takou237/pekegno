@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\Setting;
+use App\Support\Period;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceNumberGenerator
@@ -14,7 +15,7 @@ class InvoiceNumberGenerator
      */
     public function next(?string $date = null, ?string $prefix = null): string
     {
-        $date ??= now()->format('Ymd');
+        $date ??= Period::businessToday()->format('Ymd');
         $prefix ??= (string) Setting::get('invoice_prefix', 'PK');
 
         return DB::transaction(function () use ($date, $prefix) {

@@ -31,6 +31,7 @@ export interface Course {
   duration_type: 'limited' | 'unlimited';
   duration_months: number | null;
   agency?: { id: string; name: string; code: string } | null;
+  agency_id?: string | null;
   availability: 'agency' | 'global';
   is_active: boolean;
   is_public: boolean;

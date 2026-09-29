@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Plus, Download, Trash2, Pencil, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { subscriptionsApi } from '@/api/subscriptions.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { clientsApi } from '@/api/clients.api';
@@ -54,6 +54,8 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
   const [showPacks, setShowPacks] = useState(false);
 
   const agencyId = fixedAgencyId ?? (searchParams.get('agency_id') ?? '');
+  const { countryId: routeCountryId } = useParams<{ countryId?: string }>();
+  const countryId = fixedAgencyId ? undefined : routeCountryId;
   const clientId = searchParams.get('client_id') ?? '';
 
   const canManage = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
@@ -61,8 +63,8 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
   );
 
   useEffect(() => {
-    agenciesApi.list({ per_page: 100 }).then((res) => setAgencies(res.data ?? [])).catch(() => {});
-  }, []);
+    agenciesApi.list({ per_page: 100, country_id: countryId }).then((res) => setAgencies(res.data ?? [])).catch(() => {});
+  }, [countryId]);
 
   const fetchSubscriptions = useCallback(async () => {
     setIsLoading(true);
@@ -70,6 +72,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
     try {
       const response = await subscriptionsApi.list({
         agency_id: agencyId || undefined,
+        country_id: countryId,
         client_id: clientId || undefined,
         page,
         per_page: 15,
@@ -81,7 +84,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, clientId, page, t]);
+  }, [agencyId, countryId, clientId, page, t]);
 
   useEffect(() => {
     fetchSubscriptions();

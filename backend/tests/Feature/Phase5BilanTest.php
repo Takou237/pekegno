@@ -8,6 +8,7 @@ use App\Models\DailyBalance;
 use App\Models\Product;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Period;
 use Database\Seeders\AccountingCategorySeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -59,7 +60,7 @@ class Phase5BilanTest extends TestCase
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
-        $this->assertSame(now()->toDateString(), $bilan['date']);
+        $this->assertSame(Period::businessToday()->toDateString(), $bilan['date']);
         $this->assertCount(2, $bilan['services_by_category']);
         $this->assertEquals(1, collect($bilan['services_by_category'])->firstWhere('label', 'Formation')['count']);
         $this->assertEquals(15000, collect($bilan['services_by_category'])->firstWhere('label', 'Formation')['total']);
@@ -172,7 +173,7 @@ class Phase5BilanTest extends TestCase
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
             'amount' => 25000,
             'payment_method' => 'cash',
-            'paid_at' => now()->subDay()->toDateString(),
+            'paid_at' => Period::businessToday()->subDay()->toDateString(),
         ])->assertOk();
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
@@ -182,7 +183,7 @@ class Phase5BilanTest extends TestCase
         $this->assertEquals(25000, $bilan['solde_final']);
 
         $this->assertDatabaseHas('daily_balances', [
-            'date' => now()->toDateString(),
+            'date' => Period::businessToday()->toDateString(),
             'agency_id' => $agency->id,
             'solde_initial' => 25000,
         ]);
@@ -206,7 +207,7 @@ class Phase5BilanTest extends TestCase
         $today = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
         $this->assertEquals(22000, $today['solde_final']);
 
-        $tomorrow = $this->getJson('/api/bilans?agency_id='.$agency->id.'&date='.now()->addDay()->toDateString())->assertOk()->json();
+        $tomorrow = $this->getJson('/api/bilans?agency_id='.$agency->id.'&date='.Period::businessToday()->addDay()->toDateString())->assertOk()->json();
         $this->assertEquals(22000, $tomorrow['solde_initial']);
     }
 
@@ -228,7 +229,7 @@ class Phase5BilanTest extends TestCase
         $this->actingAsAdmin();
 
         $agency = $this->createAgency();
-        $this->createInvoice(['agency_id' => $agency->id, 'invoice_date' => now()->subDay()->toDateString()]);
+        $this->createInvoice(['agency_id' => $agency->id, 'invoice_date' => Period::businessToday()->subDay()->toDateString()]);
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
@@ -253,7 +254,7 @@ class Phase5BilanTest extends TestCase
         Sanctum::actingAs($caissier);
 
         $this->getJson('/api/bilans')->assertOk();
-        $this->getJson('/api/bilans?date='.now()->toDateString())->assertOk();
+        $this->getJson('/api/bilans?date='.Period::businessToday()->toDateString())->assertOk();
     }
 
     public function test_daily_bilan_export_csv(): void
@@ -262,9 +263,9 @@ class Phase5BilanTest extends TestCase
 
         $this->createInvoice(['advance' => 25000, 'payment_type' => 'cash']);
 
-        $this->getJson('/api/exports/bilans?date='.now()->toDateString())
+        $this->getJson('/api/exports/bilans?date='.Period::businessToday()->toDateString())
             ->assertOk()
-            ->assertDownload('bilan-global-'.now()->format('Y-m-d').'.csv');
+            ->assertDownload('bilan-global-'.Period::businessToday()->format('Y-m-d').'.csv');
     }
 
     public function test_daily_balance_model_stores_row(): void
@@ -282,7 +283,7 @@ class Phase5BilanTest extends TestCase
         $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk();
 
         $this->assertDatabaseHas('daily_balances', [
-            'date' => now()->toDateString(),
+            'date' => Period::businessToday()->toDateString(),
             'agency_id' => $agency->id,
             'solde_initial' => 0,
             'solde_final' => 10000,

@@ -6,6 +6,7 @@ use App\Models\Agency;
 use App\Models\Commercial;
 use App\Models\Course;
 use App\Models\Invoice;
+use App\Models\InvoicePayment;
 use App\Models\PaymentProof;
 use App\Models\Role;
 use App\Models\User;
@@ -396,6 +397,51 @@ class EnrollmentValidationWorkflowTest extends TestCase
         $this->assertSame(Invoice::VALIDATION_VALIDATED, $response['invoice']['validation_status']);
         // L'avance déclarée est appliquée à la validation via la preuve acceptée.
         $this->assertSame(10000.0, (float) $response['invoice']['amount_paid']);
+    }
+
+    public function test_cashier_enrollment_payment_is_recorded_as_a_real_payment(): void
+    {
+        $this->userWithRole('caissier');
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course->id,
+            'learner_user_id' => $client->id,
+            'amount_paid' => 10000,
+            'payment_type' => 'cash',
+        ])->assertCreated()->json();
+
+        // Régression : amount_paid était écrit directement, sans ligne de paiement
+        // (absent du bilan « Total encaissé », de la trésorerie et de la comptabilité).
+        $this->assertDatabaseHas('invoices', ['id' => $enrollment['invoice_id'], 'amount_paid' => 10000]);
+        $this->assertDatabaseHas('invoice_payments', ['invoice_id' => $enrollment['invoice_id'], 'amount' => 10000]);
+        $this->assertSame(1, InvoicePayment::where('invoice_id', $enrollment['invoice_id'])->count());
+    }
+
+    public function test_repair_command_records_missing_enrollment_payments(): void
+    {
+        $this->userWithRole('caissier');
+        $course = $this->createCourse();
+        $client = $this->createClient();
+        $enrollment = $this->postJson('/api/formation-enrollments', [
+            'course_id' => $course->id,
+            'learner_user_id' => $client->id,
+        ])->assertCreated()->json();
+
+        // État d'avant le correctif : montant payé sans ligne de paiement.
+        Invoice::whereKey($enrollment['invoice_id'])->update(['amount_paid' => 10000]);
+
+        $this->artisan('invoices:repair-enrollment-payments')->assertSuccessful();
+        $this->assertDatabaseMissing('invoice_payments', ['invoice_id' => $enrollment['invoice_id']]);
+
+        $this->artisan('invoices:repair-enrollment-payments', ['--apply' => true])->assertSuccessful();
+        $this->assertDatabaseHas('invoice_payments', ['invoice_id' => $enrollment['invoice_id'], 'amount' => 10000]);
+        $this->assertDatabaseHas('invoices', ['id' => $enrollment['invoice_id'], 'amount_paid' => 10000]);
+
+        // Relancer ne crée pas de doublon.
+        $this->artisan('invoices:repair-enrollment-payments', ['--apply' => true])->assertSuccessful();
+        $this->assertSame(1, InvoicePayment::where('invoice_id', $enrollment['invoice_id'])->count());
     }
 
     public function test_commercial_cannot_upload_proof_on_validated_invoice(): void

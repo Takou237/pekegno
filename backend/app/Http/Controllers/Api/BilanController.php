@@ -9,7 +9,6 @@ use App\Services\ScopeService;
 use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use OpenApi\Attributes as OA;
 
 class BilanController extends Controller
@@ -57,7 +56,7 @@ class BilanController extends Controller
     )]
     public function dailyBilan(Request $request): JsonResponse
     {
-        $date = $request->date('date') ?? Carbon::today();
+        $date = $request->date('date') ?? Period::businessToday();
         $agencyId = $request->input('agency_id');
         $agencyIds = $this->scopedAgencyIds($request, $request->input('country_id'));
 
@@ -93,7 +92,7 @@ class BilanController extends Controller
     )]
     public function period(Request $request): JsonResponse
     {
-        $from = Period::from($request, Carbon::today());
+        $from = Period::from($request, Period::businessToday());
         $to = Period::to($request, $from->copy()->endOfDay());
         $agencyId = $request->input('agency_id');
         $agencyIds = $this->scopedAgencyIds($request, $request->input('country_id'));

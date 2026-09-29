@@ -327,3 +327,18 @@ Source : `doc/test.pdf` (cahier de recette PEKEGNO Academy du 28 septembre 2026)
   > ✅ Corrigé le 2026-09-28 : logo `doc/logo.jpeg` recadré, fond rendu transparent (`frontend/src/assets/pekegno-logo.png`) et utilisé dans le header, la sidebar, le menu mobile, la page de connexion et l'impression des factures. Favicon (carré « P ») ajouté : `index.html` pointait vers un `/favicon.ico` inexistant (404).
 - [x] **T19 — Vérifier l'ensemble des champs « select »** (comportement, affichage des options).
   > ✅ Revue le 2026-09-28 : les 85 `Select` et 42 `<select>` passés en revue ; ceux sans option vide sont des énumérations avec valeur par défaut (OK). Deux vrais défauts corrigés : le header (T13) et le **pays de l'agence** (T3), qui était un champ texte sur la liste mondiale statique puis résolu par recherche `LIKE` du nom (« Niger » ↔ « Nigeria », apostrophe typographique introuvable → pays non envoyé, changement ignoré en silence) : remplacé par un vrai `select` des pays en base, `country_id` obligatoire.
+
+### Corrections après recette du 29/09
+
+- [x] **Caissière : paiement des commissions introuvable** — menu « Commissions » (`/caissier/commissions`) : bénéficiaires de son agence, solde dû, bouton Payer. Liste et paiements limités au périmètre de l'utilisateur (`ScopeService`) côté API. Permission ajoutée aussi par migration (`2026_09_29_000001`) : le RoleSeeder ne met pas à jour une base existante (cause du « Action non autorisée »).
+- [x] **Factures d'un pays** : la liste n'était pas filtrée par pays (factures de Douala sous Côte d'Ivoire) et ouvrir une facture renvoyait vers la vue groupe. Même défaut corrigé pour Comptabilité, Audit et Abonnements sous un pays.
+- [x] **T11 XOF absent des factures** : la liste charge l'agence sans `country_id` → monnaie retombait sur XAF. Monnaie résolue depuis `agency_id` ; formulaires de vente/inscription en monnaie de l'agence choisie.
+- [x] **Nouvelle inscription depuis un pays** : aucune formation listée (la modale exigeait une agence). Formations du pays proposées, agence déduite de la formation.
+- [x] **T9 sur les pages Équipes** (agence et département) : composant `ResetPasswordButton`.
+- [x] **2FA toujours « non activée »** : `GET /api/user` ne renvoyait pas `two_factor_enabled` (test `TwoFactorStatusTest`).
+- [x] **Inscription payée absente du « Total encaissé »** : `amount_paid` écrit sans paiement (ni caisse, ni compta, ni commission). Passe désormais par `PaymentService` ; commande `invoices:repair-enrollment-payments` (+ `doc/deploy/repair-enrollment-payments.php`) pour l'historique.
+- [x] **Bilan : fuseau horaire** — journées calculées en Africa/Douala (vente de 00:02 classée la veille, « aujourd'hui » faux entre minuit et 1 h ; numéros de facture idem). **Solde initial consolidé** = somme des agences (était 0).
+- [x] **Facture imprimable au format du modèle Word** — en-tête/pied/comptes/cachet par pays (`countries.invoice_settings`, saisis dans la fiche pays), description (modules / description du service) et période (dates de session) par ligne ; impression hors modale (la facture était coupée).
+- [x] **T3 complété** : clients inscrits dans l'agence et règles de commission suivent le nouveau pays ; la page bascule sous le nouveau pays.
+- [x] Formations `presentiel` (hors nomenclature) normalisées ; menu « Factures » pour le super-admin ; carte « Total encaissé » (au lieu de « Chiffre d'affaires ») sur la liste des factures.
+- [ ] **Emails en production** : code OK, envoi bloqué côté serveur — diagnostic `doc/deploy/mail-test.php` (probable blocage SMTP sortant o2switch vers Gmail → utiliser une boîte cPanel).

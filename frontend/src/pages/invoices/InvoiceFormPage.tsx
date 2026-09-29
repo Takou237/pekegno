@@ -22,6 +22,7 @@ import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem } from '@/types/service';
 import type { Commercial } from '@/types/commercial';
 import { todayLocal } from '@/utils/date';
+import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 
 interface InvoiceLineDraft {
   key: string;
@@ -74,6 +75,7 @@ export default function InvoiceFormPage({
   const [sellerId, setSellerId] = useState('');
   const [sellerIsTrainer, setSellerIsTrainer] = useState(false);
   const [agencyId, setAgencyId] = useState(presetAgencyId);
+  const currency = useAgencyCurrency(agencyId);
   const [invoiceDate, setInvoiceDate] = useState(todayLocal());
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('');
   const [advance, setAdvance] = useState('');
@@ -455,7 +457,7 @@ export default function InvoiceFormPage({
                         return res.map((s) => ({
                           id: s.id,
                           label: s.name,
-                          subtitle: `${formatCurrency(Number(s.effective_price ?? s.price))}${
+                          subtitle: `${formatCurrency(Number(s.effective_price ?? s.price), currency)}${
                             s.has_promotion ? ' · promo' : ''
                           }${s.category ? ` · ${s.category}` : ''}`,
                         }));
@@ -476,7 +478,7 @@ export default function InvoiceFormPage({
                       }}
                     >
                       {tiers.map((t) => (
-                        <option key={t.tier} value={t.tier}>{t.label} — {formatCurrency(Number(t.price))}</option>
+                        <option key={t.tier} value={t.tier}>{t.label} — {formatCurrency(Number(t.price), currency)}</option>
                       ))}
                     </Select>
                   </div>
@@ -515,7 +517,7 @@ export default function InvoiceFormPage({
                   <span className="hidden text-sm font-semibold text-gray-800 dark:text-gray-100 sm:block">
                     {formatCurrency(
                       (Number(line.unit_price) || 0) * (Number(line.quantity) || 0)
-                    )}
+                    , currency)}
                   </span>
                   <button
                     type="button"
@@ -594,14 +596,14 @@ export default function InvoiceFormPage({
             <div className="flex flex-col gap-1 text-sm">
               <span className="text-gray-500 dark:text-gray-400">{t('invoices.totalAfterDiscount')}</span>
               <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                {formatCurrency(totals.subtotal)}
+                {formatCurrency(totals.subtotal, currency)}
               </span>
             </div>
             {totals.discount > 0 && (
               <div className="flex flex-col gap-1 text-sm">
                 <span className="text-gray-500 dark:text-gray-400">- {t('invoices.discount')}</span>
                 <span className="text-lg font-semibold text-error-500">
-                  - {formatCurrency(totals.discount)}
+                  - {formatCurrency(totals.discount, currency)}
                 </span>
               </div>
             )}
@@ -609,20 +611,20 @@ export default function InvoiceFormPage({
               <div className="flex flex-col gap-1 text-sm">
                 <span className="text-gray-500 dark:text-gray-400">{t('invoices.vatAmount')}</span>
                 <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                  + {formatCurrency(totals.vat)}
+                  + {formatCurrency(totals.vat, currency)}
                 </span>
               </div>
             )}
             <div className="flex flex-col gap-1 text-sm">
               <span className="text-gray-500 dark:text-gray-400">{t('invoices.totalAmount')}</span>
               <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                {formatCurrency(totals.total)}
+                {formatCurrency(totals.total, currency)}
               </span>
             </div>
             <div className="flex flex-col gap-1 text-sm">
               <span className="text-gray-500 dark:text-gray-400">{t('invoices.balanceDue')}</span>
               <span className="text-lg font-semibold text-brand-600 dark:text-brand-400">
-                {formatCurrency(totals.balance)}
+                {formatCurrency(totals.balance, currency)}
               </span>
             </div>
             <Button

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { useOrgContext } from '@/context/OrgContext';
+import { CountryInvoiceSettings } from '@/components/countries/CountryInvoiceSettings';
 import type { CountryStat } from '@/types/stats';
 
 const emptyForm: CountryPayload = {
@@ -17,6 +18,7 @@ const emptyForm: CountryPayload = {
   phone_code: '',
   currency_code: 'XAF',
   exchange_rate: 1,
+  invoice_settings: {},
   is_active: true,
 };
 
@@ -48,6 +50,7 @@ export function CountryFormModal({ isOpen, onClose, onSaved, country }: CountryF
             phone_code: country.phone_code ?? '',
             currency_code: country.currency_code,
             exchange_rate: country.exchange_rate ?? 1,
+            invoice_settings: country.invoice_settings ?? {},
             is_active: country.is_active,
           }
         : emptyForm);
@@ -74,6 +77,11 @@ export function CountryFormModal({ isOpen, onClose, onSaved, country }: CountryF
         phone_code: form.phone_code || undefined,
         currency_code: form.currency_code.trim().toUpperCase(),
         exchange_rate: Number(form.exchange_rate) || 1,
+        // Comptes incomplets ignorés (le backend exige libellé + coordonnées).
+        invoice_settings: {
+          ...form.invoice_settings,
+          payment_accounts: (form.invoice_settings?.payment_accounts ?? []).filter((a) => a.label.trim() && a.details.trim()),
+        },
         is_active: form.is_active,
       };
       const saved = country ? await countriesApi.update(country.id, payload) : await countriesApi.create(payload);
@@ -91,7 +99,7 @@ export function CountryFormModal({ isOpen, onClose, onSaved, country }: CountryF
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={country ? t('countries.editTitle') : t('countries.createTitle')} maxWidth="max-w-xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={country ? t('countries.editTitle') : t('countries.createTitle')} maxWidth="max-w-2xl">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {formError && <Alert variant="error">{formError}</Alert>}
 
@@ -150,6 +158,11 @@ export function CountryFormModal({ isOpen, onClose, onSaved, country }: CountryF
           onChange={(e) => update('exchange_rate', e.target.value === '' ? undefined : Number(e.target.value))}
           error={fieldErrors.exchange_rate}
           hint={t('countries.exchangeRateHint', { group: groupCurrency })}
+        />
+
+        <CountryInvoiceSettings
+          value={form.invoice_settings ?? {}}
+          onChange={(v) => setForm((prev) => ({ ...prev, invoice_settings: v }))}
         />
 
         <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">

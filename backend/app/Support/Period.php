@@ -22,6 +22,15 @@ class Period
         return is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1;
     }
 
+    /**
+     * Date du jour métier (Africa/Douala) : à 00:30 à Douala il est encore la
+     * veille en UTC, et le bilan « du jour » affichait la mauvaise journée.
+     */
+    public static function businessToday(): Carbon
+    {
+        return Carbon::parse(Carbon::now(self::businessTimezone())->toDateString());
+    }
+
     public static function from(Request $request, ?Carbon $default = null): Carbon
     {
         $from = $request->input('from');

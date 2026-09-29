@@ -87,6 +87,7 @@ export interface CountryStat {
   code: string;
   currency_code: string;
   exchange_rate?: number;
+  invoice_settings?: import('@/api/countries.api').CountryInvoiceSettings | null;
   iso_code?: string | null;
   phone_code?: string | null;
   is_active: boolean;

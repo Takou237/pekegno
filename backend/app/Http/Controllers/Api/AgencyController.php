@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdateAgencyRequest;
 use App\Http\Resources\AgencyResource;
 use App\Models\Agency;
 use App\Models\City;
+use App\Models\Country;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\ScopeService;
@@ -241,6 +242,20 @@ class AgencyController extends Controller
 
                 $user->forceFill(['country_id' => $newCountryId])->save();
             });
+
+            // Clients inscrits dans cette agence : ils changent de pays avec elle
+            // (le décompte des clients par pays repose sur users.country_id). Leur
+            // ville, qui appartient à l'ancien pays, est détachée.
+            User::where('registered_agency_id', $agency->id)
+                ->where(fn ($q) => $q->whereNull('country_id')->orWhere('country_id', '<>', $newCountryId))
+                ->update([
+                    'country_id' => $newCountryId,
+                    'city_id' => null,
+                    'country' => Country::whereKey($newCountryId)->value('name'),
+                ]);
+
+            // Règles de commission ciblant cette agence : leur pays suit.
+            DB::table('commission_rules')->where('scope_agency_id', $agency->id)->update(['scope_country_id' => $newCountryId]);
 
             // Journal d'activité : on dénormalise le nouveau pays.
             $agency->activityLogs()->update(['country_id' => $newCountryId]);

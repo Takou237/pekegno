@@ -35,6 +35,7 @@ class CourseResource extends JsonResource
                 'name' => $this->agency?->name,
                 'code' => $this->agency?->code,
             ]),
+            'agency_id' => $this->agency_id,
             'availability' => $this->agency_id ? 'agency' : 'global',
             'is_active' => $this->is_active,
             'is_public' => (bool) $this->is_public,

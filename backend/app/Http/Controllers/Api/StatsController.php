@@ -528,6 +528,7 @@ class StatsController extends Controller
                     'code' => $country->code,
                     'currency_code' => $country->currency_code,
                     'exchange_rate' => (float) ($country->exchange_rate ?? 1),
+                    'invoice_settings' => $country->invoice_settings,
                     'iso_code' => $country->iso_code,
                     'phone_code' => $country->phone_code,
                     'is_active' => $country->is_active,

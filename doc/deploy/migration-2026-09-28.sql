@@ -38,5 +38,6 @@ WHERE r.name = 'caissier' AND p.name = 'commissions.encaisser'
 INSERT INTO migrations (migration, batch)
 SELECT m, (SELECT COALESCE(MAX(batch), 0) + 1 FROM migrations)
 FROM (VALUES ('2026_09_28_000001_add_discount_to_formation_enrollments_table'),
-             ('2026_09_28_000002_add_exchange_rate_to_countries_table')) AS v(m)
+             ('2026_09_28_000002_add_exchange_rate_to_countries_table'),
+             ('2026_09_29_000001_grant_cashier_commission_payment')) AS v(m)
 WHERE NOT EXISTS (SELECT 1 FROM migrations WHERE migration = v.m);

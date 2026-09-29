@@ -19,6 +19,7 @@ class Country extends Model
         'phone_code',
         'currency_code',
         'exchange_rate',
+        'invoice_settings',
         'is_active',
     ];
 
@@ -27,6 +28,7 @@ class Country extends Model
         return [
             'is_active' => 'boolean',
             'exchange_rate' => 'float',
+            'invoice_settings' => 'array',
         ];
     }
 

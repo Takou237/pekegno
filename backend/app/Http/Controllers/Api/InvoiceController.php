@@ -387,7 +387,62 @@ class InvoiceController extends Controller
             'paymentProofs' => fn ($q) => $q->with(['submitter:id,first_name,last_name,email', 'reviewer:id,first_name,last_name,email']),
         ]);
 
-        return response()->json($invoice);
+        return response()->json(array_merge($invoice->toArray(), [
+            'print' => $this->printData($invoice),
+        ]));
+    }
+
+    /**
+     * Données du modèle de facture imprimable : émetteur (entité du pays de
+     * l'agence), destinataire, description et période de chaque ligne.
+     */
+    private function printData(Invoice $invoice): array
+    {
+        $country = $invoice->agency?->geoCountry;
+        $settings = $country?->invoice_settings ?? [];
+
+        // Inscription Academy : modules du cours en description, dates de la session.
+        $enrollment = FormationEnrollment::with(['course.modules', 'sessionParticipants.session'])
+            ->where('invoice_id', $invoice->id)
+            ->first();
+        $session = $enrollment?->sessionParticipants->first()?->session;
+        $modules = $enrollment?->course?->modules?->sortBy('order_index')->pluck('name')->values() ?? collect();
+
+        $serviceDescriptions = Service::whereIn('id', $invoice->items->pluck('service_id')->filter())
+            ->pluck('description', 'id');
+
+        $client = $invoice->client;
+
+        return [
+            'issuer' => [
+                'company_name' => $settings['company_name'] ?? null,
+                'header_lines' => $settings['header_lines'] ?? implode("\n", array_filter([
+                    $invoice->agency?->address,
+                    $invoice->agency?->city,
+                    $invoice->agency?->phone ? 'Téléphone : '.$invoice->agency->phone : null,
+                    $invoice->agency?->email ? 'E-mail : '.$invoice->agency->email : null,
+                ])),
+                'footer_lines' => $settings['footer_lines'] ?? null,
+                'stamp_url' => $settings['stamp_url'] ?? null,
+                'payment_accounts' => $settings['payment_accounts'] ?? [],
+            ],
+            'recipient' => [
+                'name' => $invoice->client_label,
+                'country' => $client?->geoCountry?->name ?? $client?->country ?? $country?->name,
+                'phone' => $client?->phone,
+                'email' => $client?->email,
+            ],
+            'items' => $invoice->items->map(fn ($item) => [
+                'id' => $item->id,
+                'description' => $enrollment
+                    ? ($modules->isNotEmpty()
+                        ? $modules->map(fn ($name, $i) => ($i + 1).'- '.$name)->implode("\n")
+                        : $enrollment->course?->description)
+                    : ($item->service_id ? $serviceDescriptions->get($item->service_id) : null),
+                'period_start' => $session?->start_at?->toDateString(),
+                'period_end' => $session?->end_at?->toDateString(),
+            ])->values(),
+        ];
     }
 
     #[OA\Put(

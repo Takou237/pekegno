@@ -41,10 +41,30 @@ export interface InvoicePayment {
   treasury_account?: { id: string; name: string; type: string } | null;
 }
 
+export interface InvoicePaymentAccount {
+  label: string;
+  details: string;
+  holder?: string | null;
+}
+
+/** Données du modèle de facture imprimable (GET /invoices/{id}). */
+export interface InvoicePrintData {
+  issuer: {
+    company_name: string | null;
+    header_lines: string | null;
+    footer_lines: string | null;
+    stamp_url: string | null;
+    payment_accounts: InvoicePaymentAccount[];
+  };
+  recipient: { name: string | null; country: string | null; phone: string | null; email: string | null };
+  items: { id: string; description: string | null; period_start: string | null; period_end: string | null }[];
+}
+
 export interface Invoice {
   id: string;
   number: string;
   currency_code?: string;
+  print?: InvoicePrintData;
   agency_id: string | null;
   client_id: string | null;
   client_name: string | null;

@@ -13,6 +13,7 @@ use App\Models\TrainingSession;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\InvoiceNumberGenerator;
+use App\Services\PaymentService;
 use App\Services\SellerProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class FormationEnrollmentController extends Controller
         private readonly InvoiceNumberGenerator $invoiceNumber,
         private readonly ActivityLogger $logger,
         private readonly SellerProfileService $sellerProfiles,
+        private readonly PaymentService $paymentService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -432,7 +434,10 @@ class FormationEnrollmentController extends Controller
             'invoice_date' => now(),
             'payment_type' => $validated['payment_type'] ?? null,
             'total_amount' => $total,
-            'amount_paid' => $needsValidation ? 0 : $amountPaid,
+            // Le montant versé est encaissé plus bas via PaymentService (ligne de
+            // paiement, caisse, comptabilité, commission) : écrire amount_paid
+            // directement laissait l'argent hors du bilan et de la trésorerie.
+            'amount_paid' => 0,
             'declared_advance' => $needsValidation && $amountPaid > 0 ? $amountPaid : null,
             'discount' => $discountAmount,
             'vat_rate' => 0,
@@ -446,11 +451,21 @@ class FormationEnrollmentController extends Controller
 
         $invoice->items()->create([
             'service_id' => null,
-            'label' => "Formation {$course->name} ({$course->code})",
+            'label' => (str_starts_with(mb_strtolower($course->name), 'formation') ? $course->name : "Formation {$course->name}")." ({$course->code})",
             'unit_price' => $price,
             'quantity' => 1,
             'line_total' => $price,
         ]);
+
+        if (! $needsValidation && $amountPaid > 0) {
+            $this->paymentService->applyPayment(
+                $invoice,
+                $amountPaid,
+                $validated['payment_type'] ?? 'cash',
+                $amountPaid < $total,
+                $request->user()->id,
+            );
+        }
 
         // Preuve de paiement jointe à l'inscription : si le commercial en fournit une
         // dès la création, elle est rattachée à la facture (examinée par le caissier

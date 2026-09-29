@@ -101,3 +101,38 @@ Comptes utiles : un super-admin, une **caissière**, un **commercial**.
 - [ ] **T18** : nouveau logo coloré dans le header, le menu, la page de connexion et l'impression des factures ;
   icône « P » dans l'onglet du navigateur.
 - [ ] **T19** : passer en revue les listes déroulantes des formulaires (agence, utilisateur, inscription, facture).
+
+## Mise à jour du 29/09 (corrections après recette)
+
+Base : importer **`migration-2026-09-29.sql`** (après celui du 28/09 ; rejouable) — colonne
+`countries.invoice_settings` (modèle de facture), Cameroun pré-rempli depuis le modèle Word,
+permission de paiement des commissions de la caissière, types de formation `presentiel` → `in_person`.
+Code : push + « Update from Remote » + **OPcache** ; frontend : nouveau `frontend-dist.zip`.
+
+Puis, une seule fois :
+1. **Paiements d'inscription manquants** : uploader `repair-enrollment-payments.php` dans `backend/public/`,
+   ouvrir `https://pekegnogroup.com/repair-enrollment-payments.php` (simulation : liste des factures),
+   puis `...?apply=1` pour enregistrer, et **supprimer le fichier**.
+2. **Emails** : uploader `mail-test.php` dans `backend/public/`, ouvrir `https://pekegnogroup.com/mail-test.php`,
+   lire le diagnostic, **supprimer le fichier**. Si la connexion à `smtp.gmail.com` est en ÉCHEC,
+   o2switch bloque le SMTP sortant : utiliser une boîte mail cPanel (`mail.pekegnogroup.com`, port 465, cf. README §3.8).
+   Si « Config en cache : OUI », supprimer `backend/bootstrap/cache/config.php` puis vider l'OPcache.
+3. **Cachet** : Pays → crayon sur Cameroun → « Cachet / signature » → téléverser l'image, enregistrer
+   (nécessite le lien `storage`, cf. `setup-storage-link.php`).
+
+### Recette complémentaire (29/09)
+- [ ] Caissière : menu **Commissions** → Payer une commission (plus de « Action non autorisée »).
+- [ ] Caissière d'une agence : ne voit que les bénéficiaires de son agence.
+- [ ] Pays Côte d'Ivoire → Factures : seulement les factures ivoiriennes, montants en **XOF** ; clic sur une
+      facture → reste sous `/countries/.../invoices/...` ; « Nouvelle facture » avec une agence ivoirienne → XOF.
+- [ ] Pays → Services → Academy → Nouvelle inscription : la liste des formations s'affiche (avec l'agence).
+- [ ] Agence → Équipes (et Département → Équipes) : icône clé de réinitialisation du mot de passe.
+- [ ] Profil → activer la 2FA → le statut passe à **activée** (et reste activé après reconnexion).
+- [ ] Inscription payée par la caissière → Bilan : le montant apparaît dans **Total encaissé** et en caisse.
+- [ ] Vente faite après minuit (heure de Douala) → comptée le bon jour dans le bilan.
+- [ ] Bilan vue consolidée : « Solde initial » = somme des soldes initiaux des agences.
+- [ ] Facture → Imprimer → PDF sur une page A4, au format du modèle (en-tête entité, DESTINATAIRE, Désignation /
+      Description / Période / Prix, TOTAL, somme en lettres, moyens de paiement, cachet, pied NUI).
+- [ ] Modifier le pays d'une agence depuis ses Paramètres → la page bascule sous le nouveau pays ; les clients
+      inscrits dans l'agence suivent.
+- [ ] Super-admin : entrée **Factures** dans le menu.

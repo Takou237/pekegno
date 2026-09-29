@@ -1219,6 +1219,7 @@ class Phase6AcademyTest extends TestCase
     {
         $caissier = $this->userWithRole('caissier');
         $agency = $this->agencyIn('CMR');
+        DB::table('user_assignments')->insert(['user_id' => $caissier->id, 'agency_id' => $agency->id, 'is_primary' => true, 'created_at' => now(), 'updated_at' => now()]);
         $trainer = $this->createTrainer();
 
         $profile = SellerProfile::create([
@@ -1262,12 +1263,19 @@ class Phase6AcademyTest extends TestCase
         ])->assertStatus(201);
 
         $this->assertDatabaseCount('commission_payments', 2);
+
+        // Caissière d'une autre agence : ni visible, ni payable.
+        $other = $this->userWithRole('caissier');
+        DB::table('user_assignments')->insert(['user_id' => $other->id, 'agency_id' => $this->agencyIn('CMR')->id, 'is_primary' => true, 'created_at' => now(), 'updated_at' => now()]);
+        $this->assertNull(collect($this->getJson('/api/commission-payments/summary')->assertOk()->json('data'))->firstWhere('id', $profile->id));
+        $this->postJson('/api/seller-profiles/'.$profile->id.'/pay', ['amount' => 1])->assertForbidden();
     }
 
     public function test_cashier_can_pay_commission_entry(): void
     {
         $caissier = $this->userWithRole('caissier');
         $agency = $this->agencyIn('CMR');
+        DB::table('user_assignments')->insert(['user_id' => $caissier->id, 'agency_id' => $agency->id, 'is_primary' => true, 'created_at' => now(), 'updated_at' => now()]);
         $trainer = $this->createTrainer();
 
         $profile = SellerProfile::create([

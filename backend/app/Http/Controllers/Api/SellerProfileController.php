@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\AccountingCategory;
 use App\Models\AccountingTransaction;
 use App\Models\CommissionEntry;
 use App\Models\CommissionPayment;
 use App\Models\SellerProfile;
 use App\Models\TreasuryAccount;
 use App\Services\AccountingService;
+use App\Services\ScopeService;
 use App\Services\TreasuryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +21,7 @@ class SellerProfileController extends Controller
         private readonly TreasuryService $treasuryService,
         private readonly AccountingService $accountingService,
     ) {}
+
     public function index(Request $request): JsonResponse
     {
         $query = SellerProfile::with('user');
@@ -143,6 +144,9 @@ class SellerProfileController extends Controller
             'note' => 'nullable|string',
         ]);
 
+        $scopeIds = app(ScopeService::class)->agencyIds($request->user());
+        abort_if($scopeIds !== null && ! in_array($sellerProfile->agency_id, $scopeIds, true), 403, 'Ce bénéficiaire est hors de votre périmètre.');
+
         $amount = (float) $validated['amount'];
         $balance = $sellerProfile->balance();
 
@@ -243,7 +247,7 @@ class SellerProfileController extends Controller
                     sourceType: 'commission_payment',
                     sourceId: $commissionPayment->id,
                     category: 'commission',
-                    reference: "COMM-{$sellerProfile->id}-" . now()->format('YmdHis'),
+                    reference: "COMM-{$sellerProfile->id}-".now()->format('YmdHis'),
                     createdBy: auth()->id(),
                 );
             }
@@ -258,7 +262,7 @@ class SellerProfileController extends Controller
                     'category_id' => $category->id,
                     'type' => 'expense',
                     'label' => "Commission vendeur — {$sellerProfile->full_name}",
-                    'reference' => "COMM-{$sellerProfile->id}-" . now()->format('YmdHis'),
+                    'reference' => "COMM-{$sellerProfile->id}-".now()->format('YmdHis'),
                     'amount' => $amount,
                     'transacted_at' => now(),
                     'operator_id' => auth()->id(),

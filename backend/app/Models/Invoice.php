@@ -168,7 +168,7 @@ class Invoice extends Model
      */
     public function getCurrencyCodeAttribute(): string
     {
-        return GroupCurrency::currencyForCountry($this->agency?->country_id);
+        return GroupCurrency::currencyForAgency($this->agency_id);
     }
 
     /**

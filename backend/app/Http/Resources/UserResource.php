@@ -12,7 +12,7 @@ class UserResource extends JsonResource
         return [
             'id' => $this->id,
             'username' => $this->username,
-            'name' => $this->first_name . ' ' . $this->last_name,
+            'name' => $this->first_name.' '.$this->last_name,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
             'email' => $this->email,
@@ -43,6 +43,8 @@ class UserResource extends JsonResource
             ]),
             'address' => $this->address,
             'is_active' => $this->is_active,
+            'two_factor_enabled' => (bool) $this->two_factor_enabled,
+            'is_password_change_required' => (bool) $this->is_password_change_required,
             'role' => $this->whenLoaded('role'),
             'role_id' => $this->role_id,
             'email_verified_at' => $this->email_verified_at?->toISOString(),
@@ -53,16 +55,15 @@ class UserResource extends JsonResource
                 'is_primary' => $this->pivot->is_primary,
                 'is_department_chief' => $this->pivot->is_department_chief,
             ]),
-            'assignments' => $this->whenLoaded('assignments', fn () =>
-                $this->assignments->map(fn ($a) => [
-                    'id' => $a->id,
-                    'name' => $a->name,
-                    'pivot' => [
-                        'department_id' => $a->pivot->department_id,
-                        'is_primary' => $a->pivot->is_primary,
-                        'is_department_chief' => $a->pivot->is_department_chief,
-                    ],
-                ])
+            'assignments' => $this->whenLoaded('assignments', fn () => $this->assignments->map(fn ($a) => [
+                'id' => $a->id,
+                'name' => $a->name,
+                'pivot' => [
+                    'department_id' => $a->pivot->department_id,
+                    'is_primary' => $a->pivot->is_primary,
+                    'is_department_chief' => $a->pivot->is_department_chief,
+                ],
+            ])
             ),
         ];
     }

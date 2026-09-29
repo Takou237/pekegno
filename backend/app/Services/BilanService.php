@@ -195,11 +195,11 @@ class BilanService
         $total = 0.0;
         foreach ($accounts as $account) {
             $in = TreasuryTransaction::ofAccount($account->id)
-                ->where('transacted_at', '<=', $date->endOfDay())
+                ->where('transacted_at', '<=', $this->dayBounds($date)[1])
                 ->where('direction', 'in')
                 ->sum('amount');
             $out = TreasuryTransaction::ofAccount($account->id)
-                ->where('transacted_at', '<=', $date->endOfDay())
+                ->where('transacted_at', '<=', $this->dayBounds($date)[1])
                 ->where('direction', 'out')
                 ->sum('amount');
 
@@ -207,6 +207,21 @@ class BilanService
         }
 
         return round($total, 2);
+    }
+
+    /**
+     * Bornes UTC d'une journée métier (Africa/Douala). Les dates sont stockées
+     * en UTC : `whereDate` classait une vente de 00:02 à Douala (23:02 UTC) la
+     * veille. Une date saisie sans heure (00:00) reste bien sur son jour.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function dayBounds(Carbon $date): array
+    {
+        $tz = (string) config('app.business_timezone', 'Africa/Douala');
+        $day = Carbon::parse($date->toDateString(), $tz);
+
+        return [$day->copy()->startOfDay()->utc(), $day->copy()->endOfDay()->utc()];
     }
 
     /**
@@ -231,7 +246,7 @@ class BilanService
             ->where('invoices.validation_status', 'validated')
             ->whereNull('invoice_items.product_id')
             ->whereNull('formation_enrollments.id')
-            ->whereDate('invoices.invoice_date', $date->toDateString())
+            ->whereBetween('invoices.invoice_date', $this->dayBounds($date))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->selectRaw("
@@ -265,7 +280,7 @@ class BilanService
             ->whereNotNull('invoice_items.product_id')
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
-            ->whereDate('invoices.invoice_date', $date->toDateString())
+            ->whereBetween('invoices.invoice_date', $this->dayBounds($date))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->selectRaw("
@@ -300,7 +315,7 @@ class BilanService
             ->leftJoin('courses', 'courses.id', '=', 'formation_enrollments.course_id')
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
-            ->whereDate('invoices.invoice_date', $date->toDateString())
+            ->whereBetween('invoices.invoice_date', $this->dayBounds($date))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->selectRaw('coalesce(courses.mode, ?) as mode, count(distinct formation_enrollments.id) as count', ['in_person'])
@@ -311,7 +326,7 @@ class BilanService
             ->join('invoices', 'invoices.id', '=', 'formation_enrollments.invoice_id')
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
-            ->whereDate('invoices.invoice_date', $date->toDateString())
+            ->whereBetween('invoices.invoice_date', $this->dayBounds($date))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->selectRaw(
@@ -342,7 +357,7 @@ class BilanService
             ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
-            ->whereDate('invoice_payments.paid_at', $date->toDateString())
+            ->whereBetween('invoice_payments.paid_at', $this->dayBounds($date))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->selectRaw('invoice_payments.payment_method, sum(invoice_payments.amount) as total')
@@ -360,7 +375,7 @@ class BilanService
         return DB::table('accounting_transactions')
             ->leftJoin('accounting_categories', 'accounting_categories.id', '=', 'accounting_transactions.category_id')
             ->where('accounting_transactions.type', 'expense')
-            ->whereDate('accounting_transactions.transacted_at', $date->toDateString())
+            ->whereBetween('accounting_transactions.transacted_at', $this->dayBounds($date))
             ->when($agencyId, fn ($q) => $q->where('accounting_transactions.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('accounting_transactions.agency_id', $agencyIds))
             ->selectRaw("
@@ -380,6 +395,15 @@ class BilanService
 
     private function openingBalance(Carbon $date, ?string $agencyId, ?array $agencyIds = null): float
     {
+        // Vue multi-agences : somme des soldes initiaux de chaque agence, pour que
+        // le consolidé corresponde exactement aux tableaux par agence (l'ancienne
+        // requête « agency_id nul ET parmi ces agences » ne trouvait jamais rien).
+        if ($agencyId === null) {
+            $ids = $agencyIds ?? Agency::whereNull('deleted_at')->pluck('id')->all();
+
+            return round(array_sum(array_map(fn ($id) => $this->openingBalance($date, $id), $ids)), 2);
+        }
+
         $previous = $date->copy()->subDay();
 
         $stored = DailyBalance::query()

@@ -15,6 +15,7 @@ import { CreateUserModal } from '@/components/users/CreateUserModal';
 import { AssignMemberModal } from '@/components/users/AssignMemberModal';
 import type { Agency } from '@/types/agency';
 import type { UserListItem } from '@/types/user';
+import { ResetPasswordButton } from '@/components/users/ResetPasswordButton';
 
 interface AgencyLayoutContext {
   agency: Agency | null;
@@ -169,6 +170,7 @@ export default function AgencyTeamsPage() {
                     </td>
                     {canManageUsers && (
                       <td className="px-5 py-3 text-right">
+                        <ResetPasswordButton user={user} />
                         <button
                           type="button"
                           onClick={() => setRemoveTarget({ id: user.id, name: user.name ?? user.username })}

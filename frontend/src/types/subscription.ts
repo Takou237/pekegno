@@ -42,6 +42,7 @@ export interface Subscription {
 }
 
 export interface SubscriptionListParams {
+  country_id?: string;
   agency_id?: string;
   client_id?: string;
   per_page?: number;

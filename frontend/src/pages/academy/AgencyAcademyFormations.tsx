@@ -414,6 +414,7 @@ export default function AgencyAcademyFormations({ agencyId, countryId }: AgencyA
         isOpen={enrollOpen}
         onClose={() => setEnrollOpen(false)}
         agencyId={agencyId}
+        countryId={countryId}
         onSaved={handleEnrollmentSaved}
       />
     </div>

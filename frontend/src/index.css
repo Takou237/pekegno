@@ -111,22 +111,31 @@ input[type="number"]:not(.with-spinners) {
   -moz-appearance: textfield;
 }
 
-/* Impression facture : seuls les éléments de #invoice-print sont visibles */
-@media print {
-  body * {
-    visibility: hidden;
+/* Impression facture : seule la copie #invoice-print (portail dans <body>)
+   est imprimée ; l'application et la modale d'aperçu sont masquées. */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+@media screen {
+  #invoice-print {
+    display: none;
   }
-  #invoice-print,
-  #invoice-print * {
-    visibility: visible;
+}
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+  body > *:not(#invoice-print) {
+    display: none !important;
   }
   #invoice-print {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    padding: 0;
-    margin: 0;
+    display: block;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
     background: #fff;
   }
 }
+
 

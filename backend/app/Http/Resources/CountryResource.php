@@ -17,6 +17,7 @@ class CountryResource extends JsonResource
             'phone_code' => $this->phone_code,
             'currency_code' => $this->currency_code,
             'exchange_rate' => (float) ($this->exchange_rate ?? 1),
+            'invoice_settings' => $this->invoice_settings,
             'is_active' => $this->is_active,
             'organization_id' => $this->organization_id,
             'organization' => $this->whenLoaded('organization', fn () => [

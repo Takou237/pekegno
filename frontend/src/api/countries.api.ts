@@ -7,6 +7,14 @@ interface PaginatedResponse<T> {
   meta: { current_page: number; from: number; last_page: number; per_page: number; to: number; total: number };
 }
 
+export interface CountryInvoiceSettings {
+  company_name?: string | null;
+  header_lines?: string | null;
+  footer_lines?: string | null;
+  stamp_url?: string | null;
+  payment_accounts?: { label: string; details: string; holder?: string | null }[];
+}
+
 export interface CountryPayload {
   name: string;
   code: string;
@@ -14,6 +22,7 @@ export interface CountryPayload {
   phone_code?: string;
   currency_code: string;
   exchange_rate?: number;
+  invoice_settings?: CountryInvoiceSettings | null;
   is_active?: boolean;
 }
 

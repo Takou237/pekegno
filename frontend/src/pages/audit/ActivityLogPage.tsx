@@ -1,3 +1,4 @@
+import { useParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { Download, History } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -63,7 +64,8 @@ export default function ActivityLogPage() {
   const [entityFilter, setEntityFilter] = useState('all');
   const [actionFilter, setActionFilter] = useState('all');
   const [userFilter, setUserFilter] = useState('all');
-  const [countryFilter, setCountryFilter] = useState('all');
+  const { countryId: routeCountryId } = useParams<{ countryId?: string }>();
+  const [countryFilter, setCountryFilter] = useState(routeCountryId ?? 'all');
   const [agencyFilter, setAgencyFilter] = useState('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');

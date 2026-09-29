@@ -21,7 +21,7 @@ import { Select } from '@/components/ui/Select';
 import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { InvoicePrint } from '@/components/invoices/InvoicePrint';
+import { InvoicePrint, InvoicePrintPortal } from '@/components/invoices/InvoicePrint';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Invoice, PaymentMethod, PaymentProof } from '@/types/invoice';
@@ -663,6 +663,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           </div>
         </div>
       </div>
+
+      {printOpen && <InvoicePrintPortal invoice={invoice} />}
 
       <Modal
         isOpen={printOpen}

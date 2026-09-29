@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountingTransaction;
 use App\Models\Commercial;
 use App\Models\CommissionEntry;
 use App\Models\CommissionPayment;
@@ -11,11 +12,13 @@ use App\Models\SellerProfile;
 use App\Models\TreasuryAccount;
 use App\Services\AccountingService;
 use App\Services\CommissionService;
+use App\Services\ScopeService;
 use App\Services\TreasuryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use OA\Get;
 use OpenApi\Attributes as OA;
 
 class CommissionController extends Controller
@@ -95,7 +98,8 @@ class CommissionController extends Controller
 
         return response()->json(['message' => 'Règle désactivée.']);
     }
-#[\OA\Get(path: '/api/commissions/entries', summary: 'Lister les lignes de commission', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Entrées paginées')])]
+
+    #[Get(path: '/api/commissions/entries', summary: 'Lister les lignes de commission', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Entrées paginées')])]
     public function indexEntries(Request $request): JsonResponse
     {
         $query = CommissionEntry::query()->with(['invoice', 'beneficiary', 'sellerProfile.user', 'rule', 'validator', 'payer']);
@@ -209,6 +213,8 @@ class CommissionController extends Controller
         $commercial = $entry->beneficiary;
 
         $agencyId = $sellerProfile?->agency_id ?? $commercial?->agency_id;
+        $scopeIds = app(ScopeService::class)->agencyIds($request->user());
+        abort_if($scopeIds !== null && ! in_array($agencyId, $scopeIds, true), 403, 'Ce bénéficiaire est hors de votre périmètre.');
         $beneficiaryName = $sellerProfile?->full_name
             ?? trim("{$commercial?->first_name} {$commercial?->last_name}")
             ?? 'Bénéficiaire';
@@ -272,7 +278,7 @@ class CommissionController extends Controller
             $category = $this->accountingService->commissionExpenseCategory();
 
             if ($category && $agencyId) {
-                \App\Models\AccountingTransaction::create([
+                AccountingTransaction::create([
                     'number' => $this->accountingService->nextNumber(),
                     'agency_id' => $agencyId,
                     'category_id' => $category->id,
@@ -317,11 +323,15 @@ class CommissionController extends Controller
     {
         $agencyId = $request->input('agency_id');
         $search = strtolower(trim((string) $request->input('search', '')));
+        // Utilisateur rattaché à des agences (caissière, responsable...) : seulement
+        // les bénéficiaires de son périmètre.
+        $scopeIds = app(ScopeService::class)->agencyIds($request->user());
 
         $sellers = SellerProfile::query()
             ->with('user')
             ->where('is_active', true)
             ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId))
+            ->when($scopeIds !== null, fn ($q) => $q->whereIn('agency_id', $scopeIds))
             ->get()
             ->map(fn (SellerProfile $p) => $this->summaryBeneficiary(
                 id: $p->id,
@@ -339,6 +349,7 @@ class CommissionController extends Controller
             ->with('user')
             ->where('is_active', true)
             ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId))
+            ->when($scopeIds !== null, fn ($q) => $q->whereIn('agency_id', $scopeIds))
             ->get()
             ->map(fn (Commercial $c) => $this->summaryBeneficiary(
                 id: $c->id,
@@ -401,6 +412,9 @@ class CommissionController extends Controller
             $beneficiaryName = trim("{$commercial->first_name} {$commercial->last_name}")
                 ?: ($commercial->user?->name ?? $commercial->email ?? 'Commercial');
         }
+
+        $scopeIds = app(ScopeService::class)->agencyIds($request->user());
+        abort_if($scopeIds !== null && ! in_array($agencyId, $scopeIds, true), 403, 'Ce bénéficiaire est hors de votre périmètre.');
 
         $balance = $this->balanceForBeneficiary($sellerProfile, $commercial);
 
@@ -493,7 +507,7 @@ class CommissionController extends Controller
             // 4. Écriture comptable (dépense) — catégorie dédiée « Commissions ».
             $category = $this->accountingService->commissionExpenseCategory();
             if ($category && $agencyId) {
-                \App\Models\AccountingTransaction::create([
+                AccountingTransaction::create([
                     'number' => $this->accountingService->nextNumber(),
                     'agency_id' => $agencyId,
                     'category_id' => $category->id,

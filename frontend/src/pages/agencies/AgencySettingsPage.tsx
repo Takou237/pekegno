@@ -11,6 +11,7 @@ import { AgencyFormModal } from '@/components/agencies/AgencyFormModal';
 import { AgencyChiefAssignModal } from '@/components/agencies/AgencyChiefAssignModal';
 import { canAssignAgencyChief, canDeleteAgency, canEditAgency } from '@/utils/agencyPermissions';
 import type { Agency } from '@/types/agency';
+import { useOrgContext } from '@/context/OrgContext';
 
 interface AgencyLayoutContext {
   agency: Agency | null;
@@ -24,6 +25,7 @@ export default function AgencySettingsPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { agency, refreshAgency } = useOutletContext<AgencyLayoutContext>();
+  const { refresh: refreshOrg } = useOrgContext();
 
   const [editOpen, setEditOpen] = useState(false);
   const [chiefOpen, setChiefOpen] = useState(false);
@@ -136,8 +138,15 @@ export default function AgencySettingsPage() {
         isOpen={editOpen}
         agency={agency}
         onClose={() => setEditOpen(false)}
-        onSaved={() => {
+        onSaved={(saved) => {
           setEditOpen(false);
+          // Pays changé : l'agence et ses données vivent désormais sous le nouveau
+          // pays (URL, header, monnaie) — on y bascule au lieu de rester sous l'ancien.
+          void refreshOrg();
+          if (saved.country_id && saved.country_id !== agency?.country_id) {
+            navigate(`/countries/${saved.country_id}/agencies/${saved.id}/settings`, { replace: true });
+            return;
+          }
           refreshAgency?.();
         }}
       />

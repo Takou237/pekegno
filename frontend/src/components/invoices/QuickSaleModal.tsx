@@ -20,6 +20,7 @@ import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem } from '@/types/service';
 import type { Commercial } from '@/types/commercial';
+import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 
 interface InvoiceLineDraft {
   key: string;
@@ -46,6 +47,7 @@ interface QuickSaleModalProps {
 }
 
 export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleModalProps) {
+  const currency = useAgencyCurrency(agencyId);
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
@@ -384,7 +386,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
                           ...res.map((s) => ({
                             id: s.id,
                             label: s.name,
-                            subtitle: `${formatCurrency(Number(s.effective_price ?? s.price))}${
+                            subtitle: `${formatCurrency(Number(s.effective_price ?? s.price), currency)}${
                               s.has_promotion ? ' · promo' : ''
                             }${s.category ? ` · ${s.category}` : ''}`,
                           })),
@@ -417,7 +419,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
                       >
                         {tiers.map((t) => (
                           <option key={t.tier} value={t.tier}>
-                            {t.label} — {formatCurrency(Number(t.price))}
+                            {t.label} — {formatCurrency(Number(t.price), currency)}
                           </option>
                         ))}
                       </Select>
@@ -452,7 +454,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
                   </div>
                   <div className="flex items-center gap-2 sm:flex-col sm:items-end">
                     <span className="hidden text-sm font-semibold text-gray-800 dark:text-gray-100 sm:block">
-                      {formatCurrency((Number(line.unit_price) || 0) * (Number(line.quantity) || 0))}
+                      {formatCurrency((Number(line.unit_price) || 0) * (Number(line.quantity) || 0), currency)}
                     </span>
                     <button
                       type="button"
@@ -559,14 +561,14 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
             <div className="flex flex-col gap-1 text-sm">
               <span className="text-gray-500 dark:text-gray-400">{t('invoices.totalAfterDiscount')}</span>
               <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                {formatCurrency(totals.subtotal)}
+                {formatCurrency(totals.subtotal, currency)}
               </span>
             </div>
             {totals.discount > 0 && (
               <div className="flex flex-col gap-1 text-sm">
                 <span className="text-gray-500 dark:text-gray-400">- {t('invoices.discount')}</span>
                 <span className="text-lg font-semibold text-error-500">
-                  - {formatCurrency(totals.discount)}
+                  - {formatCurrency(totals.discount, currency)}
                 </span>
               </div>
             )}
@@ -574,20 +576,20 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
               <div className="flex flex-col gap-1 text-sm">
                 <span className="text-gray-500 dark:text-gray-400">{t('invoices.vatAmount')}</span>
                 <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                  + {formatCurrency(totals.vat)}
+                  + {formatCurrency(totals.vat, currency)}
                 </span>
               </div>
             )}
             <div className="flex flex-col gap-1 text-sm">
               <span className="text-gray-500 dark:text-gray-400">{t('invoices.totalAmount')}</span>
               <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                {formatCurrency(totals.total)}
+                {formatCurrency(totals.total, currency)}
               </span>
             </div>
             <div className="flex flex-col gap-1 text-sm">
               <span className="text-gray-500 dark:text-gray-400">{t('invoices.balanceDue')}</span>
               <span className="text-lg font-semibold text-brand-600 dark:text-brand-400">
-                {formatCurrency(totals.balance)}
+                {formatCurrency(totals.balance, currency)}
               </span>
             </div>
           </div>

@@ -23,6 +23,8 @@ import type {
 } from '@/types/formation';
 import type { PaymentMethod } from '@/types/invoice';
 import { currencyLabel } from '@/utils/number';
+import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
+import { useOrgContext } from '@/context/OrgContext';
 
 const SELLER_TRAINER_PREFIX = 'trainer:';
 
@@ -30,6 +32,11 @@ interface FormationEnrollmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   agencyId?: string;
+  /**
+   * Inscription depuis un pays (sans agence) : les formations du pays sont
+   * proposées et l'agence de travail est celle de la formation choisie.
+   */
+  countryId?: string;
   /** Cours présélectionné (bouton « Inscrire » depuis une carte de formation). */
   presetCourseId?: string;
   onSaved: (enrollment: FormationEnrollment) => void;
@@ -64,7 +71,8 @@ const emptyForm: FormState = {
 export default function FormationEnrollmentModal({
   isOpen,
   onClose,
-  agencyId,
+  agencyId: agencyProp,
+  countryId,
   presetCourseId,
   onSaved,
 }: FormationEnrollmentModalProps) {
@@ -80,6 +88,13 @@ export default function FormationEnrollmentModal({
   const [learnerMode, setLearnerMode] = useState<LearnerMode>('existing');
   const [newLearner, setNewLearner] = useState<NewLearnerFormState>(emptyNewLearnerForm);
   const [courses, setCourses] = useState<Course[]>([]);
+  // Agence de travail : celle fournie, sinon celle de la formation choisie.
+  // Formation globale (sans agence) depuis un pays : première agence du pays.
+  const { countries } = useOrgContext();
+  const countryFirstAgencyId = countries.find((c) => c.id === countryId)?.agencies[0]?.id;
+  const agencyId =
+    agencyProp ?? courses.find((c) => c.id === form.course_id)?.agency_id ?? (countryId ? countryFirstAgencyId : undefined);
+  const currency = useAgencyCurrency(agencyId);
   const [enrollSessions, setEnrollSessions] = useState<TrainingSession[]>([]);
   // Preuve de paiement jointe à l'inscription (obligatoire pour un commercial,
   // comme pour une vente rapide).
@@ -106,10 +121,10 @@ export default function FormationEnrollmentModal({
   }, [isOpen, presetCourseId]);
 
   useEffect(() => {
-    if (!isOpen || !agencyId) return;
+    if (!isOpen || (!agencyProp && !countryId)) return;
     let active = true;
     academyApi
-      .courses({ agency_id: agencyId, per_page: 100 })
+      .courses({ agency_id: agencyProp, country_id: agencyProp ? undefined : countryId, per_page: 100 })
       .then((res) => {
         if (active) setCourses(res.data);
       })
@@ -119,7 +134,7 @@ export default function FormationEnrollmentModal({
     return () => {
       active = false;
     };
-  }, [isOpen, agencyId]);
+  }, [isOpen, agencyProp, countryId]);
 
   useEffect(() => {
     if (!form.course_id) {
@@ -335,6 +350,8 @@ export default function FormationEnrollmentModal({
             {courses.map((course) => (
               <option key={course.id} value={course.id}>
                 {courseOptionLabel(course, t)}
+                {/* Depuis un pays, une même formation existe dans plusieurs agences. */}
+                {!agencyProp && course.agency?.name ? ` — ${course.agency.name}` : ''}
               </option>
             ))}
           </select>
@@ -379,7 +396,7 @@ export default function FormationEnrollmentModal({
             </select>
           </div>
           <Input
-            label={`${t('academy.discountValue')}${form.discount_type === 'percent' ? ' (%)' : ` (${currencyLabel()})`}`}
+            label={`${t('academy.discountValue')}${form.discount_type === 'percent' ? ' (%)' : ` (${currencyLabel(currency)})`}`}
             type="number"
             min={0}
             max={form.discount_type === 'percent' ? 100 : basePrice || undefined}
@@ -466,7 +483,7 @@ export default function FormationEnrollmentModal({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label={`${t('academy.amountPaid')} (${currencyLabel()})`}
+            label={`${t('academy.amountPaid')} (${currencyLabel(currency)})`}
             type="number"
             min={0}
             placeholder="0"
