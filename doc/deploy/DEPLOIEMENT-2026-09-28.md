@@ -136,3 +136,22 @@ Puis, une seule fois :
 - [ ] Modifier le pays d'une agence depuis ses Paramètres → la page bascule sous le nouveau pays ; les clients
       inscrits dans l'agence suivent.
 - [ ] Super-admin : entrée **Factures** dans le menu.
+
+## Mise à jour du 30/09 (reçu de versement)
+
+Une facture non soldée ne s'imprime toujours pas, mais **chaque versement a désormais son reçu imprimable**
+(numéro `REC-AAAAMMJJ-NNN`, montant en lettres, déjà versé, reste à payer, cachet du pays).
+
+Base : importer **`migration-2026-09-30.sql`** (après celui du 29/09 ; rejouable, validé sur PostgreSQL 9.6) —
+ajoute `invoice_payments.receipt_number` et numérote les versements déjà enregistrés.
+Code : push + « Update from Remote » + **OPcache** ; frontend : nouveau `frontend-dist.zip`.
+
+### Recette
+- [ ] Facture avec un acompte (statut partiel) : bouton **Imprimer** toujours grisé ; dans l'historique des paiements,
+      bouton **Reçu** sur chaque ligne → aperçu → Imprimer le reçu (une page A4).
+- [ ] Le reçu affiche : numéro REC-…, client, montant en chiffres et en lettres, mode, caissier, total facture,
+      déjà versé avant, total versé à ce jour, **reste à payer**, mention « ne vaut pas facture acquittée ».
+- [ ] Encaisser un 2ᵉ versement depuis la facture → le reçu s'ouvre automatiquement ; son « déjà versé » = 1ᵉʳ versement.
+- [ ] Encaisser (vente rapide) avec montant reçu → lien **Imprimer le reçu** dans le bandeau de confirmation.
+- [ ] Colonne « Encaissé par » de l'historique : le nom du caissier s'affiche (avant : « — »).
+- [ ] Dernier versement qui solde la facture : le reçu indique « Ce versement solde la facture » et la facture devient imprimable.

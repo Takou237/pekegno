@@ -233,9 +233,11 @@ répond désormais 503 avec un message clair et l'erreur est journalisée.
 | `env.production.example` | Modèle de `.env` de prod (à copier dans `backend/.env`, mot de passe à compléter) |
 | `DEPLOIEMENT-2026-09-28.md` | Procédure pas à pas + checklist de recette de la mise à jour du 28/09 |
 | `migration-2026-09-29.sql` | Corrections du 29/09 (modèle de facture par pays, permission caissière, types de formation) — à importer après celui du 28/09 |
+| `migration-2026-09-30.sql` | Reçu imprimable par versement (colonne `invoice_payments.receipt_number` + numérotation des versements existants) — à importer après celui du 29/09 |
 | `repair-enrollment-payments.php` | One-shot : crée les paiements manquants des inscriptions (simulation, puis `?apply=1`), puis supprimer |
 | `mail-test.php` | One-shot : diagnostic SMTP (config chargée, connexions sortantes, envoi test), puis supprimer |
 | `migration-2026-09-28.sql` | Mise à jour de la BD pour les tickets du 28/09 (remise inscription, taux de change pays, monnaie groupe, commission caissier) — à importer une fois via phpPgAdmin |
+| `reset-transactions.sql` | Remet à zéro toutes les transactions (factures, paiements, dépenses, compta, trésorerie, commissions, points, inscriptions, abonnements) en conservant la configuration — **sauvegarde obligatoire avant** |
 | `reset-opcache.php` | Script à visiter une fois puis supprimer (piège #3.4) |
 | `setup-storage-link.php` | Équivalent de `php artisan storage:link` sans terminal |
 | `vendor-prod.zip` / `frontend-dist.zip` | Derniers builds prêts à uploader (peuvent être obsolètes — régénérer si le code a changé depuis) |

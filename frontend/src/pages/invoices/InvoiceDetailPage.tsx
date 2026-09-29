@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Printer, XCircle, Wallet, Pencil, ImageIcon, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { ArrowLeft, Printer, XCircle, Wallet, Pencil, ImageIcon, ThumbsUp, ThumbsDown, Receipt } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
@@ -21,7 +21,8 @@ import { Select } from '@/components/ui/Select';
 import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { InvoicePrint, InvoicePrintPortal } from '@/components/invoices/InvoicePrint';
+import { InvoicePrint, InvoicePrintPortal, PrintPortal } from '@/components/invoices/InvoicePrint';
+import { PaymentReceiptPrint } from '@/components/invoices/PaymentReceiptPrint';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Invoice, PaymentMethod, PaymentProof } from '@/types/invoice';
@@ -49,6 +50,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [printOpen, setPrintOpen] = useState(false);
+  // Versement dont le reçu est affiché (imprimable même si la facture n'est pas soldée).
+  const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
   const [payOpen, setPayOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(false);
@@ -93,6 +96,14 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       setEditComment(inv.comment ?? '');
       // Arrivée depuis la liste des en attente ("Valider") : ouvrir directement
       // la première preuve de paiement à analyser.
+      // Arrivée depuis « Encaisser » : ouvrir le reçu du versement demandé.
+      const receiptParam = searchParams.get('receipt');
+      if (receiptParam) {
+        if ((inv.payments ?? []).some((p) => p.id === receiptParam)) setReceiptPaymentId(receiptParam);
+        const next = new URLSearchParams(searchParams);
+        next.delete('receipt');
+        setSearchParams(next, { replace: true });
+      }
       if (searchParams.get('review') === 'proof') {
         const pending = (inv.payment_proofs ?? []).find((p) => p.status === 'pending');
         if (pending) {
@@ -162,7 +173,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     setPaySubmitting(true);
     setPayErrors({});
     try {
-      await invoicesApi.pay(invoice.id, {
+      const knownIds = new Set((invoice.payments ?? []).map((p) => p.id));
+      const updated = await invoicesApi.pay(invoice.id, {
         amount,
         payment_method: payMethod,
         paid_at: payPaidAt || undefined,
@@ -170,7 +182,10 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       });
       showToast(t('invoices.paid'), 'success');
       closePay();
-      fetchInvoice();
+      await fetchInvoice();
+      // Proposer directement le reçu du versement qui vient d'être encaissé.
+      const created = (updated.payments ?? []).find((p) => !knownIds.has(p.id));
+      if (created) setReceiptPaymentId(created.id);
     } catch (error) {
       setPayErrors(extractFieldErrors(error));
       const msg = extractErrorMessage(error, t('invoices.payFailed'));
@@ -308,6 +323,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       </div>
     );
   }
+
+  const receiptPayment = invoice.payments?.find((p) => p.id === receiptPaymentId) ?? null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -470,7 +487,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                   <th className="py-2 pr-3 font-medium">{t('invoices.paymentMethod')}</th>
                   <th className="py-2 pr-3 font-medium">{t('invoices.treasuryAccount')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('invoices.paymentAmount')}</th>
-                  <th className="py-2 font-medium">{t('invoices.paymentReceivedBy')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.paymentReceivedBy')}</th>
+                  <th className="py-2 font-medium" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -488,10 +506,16 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                     <td className="py-2 pr-3 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(p.amount, invoice.currency_code)}
                     </td>
-                    <td className="py-2 text-gray-600 dark:text-gray-300">
+                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
                       {p.receiver
                         ? [p.receiver.first_name, p.receiver.last_name].filter(Boolean).join(' ') || p.receiver.email
                         : '—'}
+                    </td>
+                    <td className="py-2 text-right">
+                      <Button variant="outline" size="sm" onClick={() => setReceiptPaymentId(p.id)} title={p.receipt_number ?? undefined}>
+                        <Receipt className="h-4 w-4" />
+                        {t('invoices.receipt')}
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -665,6 +689,35 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       </div>
 
       {printOpen && <InvoicePrintPortal invoice={invoice} />}
+      {receiptPayment && (
+        <PrintPortal>
+          <PaymentReceiptPrint invoice={invoice} payment={receiptPayment} />
+        </PrintPortal>
+      )}
+
+      <Modal
+        isOpen={receiptPayment !== null}
+        onClose={() => setReceiptPaymentId(null)}
+        title={t('invoices.receiptTitle', { number: receiptPayment?.receipt_number ?? '' })}
+        maxWidth="max-w-3xl"
+      >
+        {receiptPayment && (
+          <div className="flex flex-col gap-4">
+            <div className="max-h-[70vh] overflow-auto rounded-xl border border-gray-200 dark:border-gray-700">
+              <PaymentReceiptPrint invoice={invoice} payment={receiptPayment} />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setReceiptPaymentId(null)}>
+                {t('common.close')}
+              </Button>
+              <Button onClick={() => window.print()}>
+                <Printer className="h-4 w-4" />
+                {t('invoices.printReceipt')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         isOpen={printOpen}

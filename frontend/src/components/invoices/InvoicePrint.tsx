@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { currentLocale } from '@/i18n';
 import { currencyLabel, formatNumber, numberToWords } from '@/utils/number';
@@ -5,7 +6,7 @@ import type { Invoice } from '@/types/invoice';
 import logoUrl from '@/assets/pekegno-logo.png';
 
 // XAF et XOF sont tous deux des francs CFA ; les autres monnaies gardent leur code.
-function currencyWords(code?: string | null): string {
+export function currencyWords(code?: string | null): string {
   return !code || code === 'XAF' || code === 'XOF' ? 'Francs CFA' : code;
 }
 
@@ -13,7 +14,7 @@ function shortDate(value: string): string {
   return new Date(`${value}T12:00:00`).toLocaleDateString(currentLocale(), { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
 }
 
-const BLUE = '#00AEEF';
+export const BLUE = '#00AEEF';
 
 /**
  * Facture imprimable reproduisant le modèle PEKEGNO (FACTURE PEKEGNO academy.docx) :
@@ -187,11 +188,14 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
  * fenêtre d'aperçu défile, et imprimer son contenu coupait la facture.
  * Invisible à l'écran, seule visible à l'impression (voir index.css).
  */
+export function PrintPortal({ children }: { children: ReactNode }) {
+  return createPortal(<div id="invoice-print">{children}</div>, document.body);
+}
+
 export function InvoicePrintPortal({ invoice }: { invoice: Invoice }) {
-  return createPortal(
-    <div id="invoice-print">
+  return (
+    <PrintPortal>
       <InvoicePrint invoice={invoice} />
-    </div>,
-    document.body,
+    </PrintPortal>
   );
 }

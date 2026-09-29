@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\TreasuryAccount;
+use Illuminate\Support\Facades\DB;
 
 class PaymentService
 {
@@ -26,14 +27,15 @@ class PaymentService
         // Déterminer le compte de trésorerie
         $account = $this->resolveAccount($treasuryAccountId, $invoice);
 
-        $payment = $invoice->payments()->create([
+        // Transaction : le verrou du numéro de reçu reste tenu jusqu'à l'insertion.
+        $payment = DB::transaction(fn () => $invoice->payments()->create([
             'amount' => $amount,
             'payment_method' => $method,
             'is_advance' => $isAdvance,
             'paid_at' => $paidAt ?? now(),
             'received_by' => $userId,
             'treasury_account_id' => $account?->id,
-        ]);
+        ]));
 
         $invoice->increment('amount_paid', $amount);
         $invoice->refreshStatus();

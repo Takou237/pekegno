@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Pencil, Eye, Trash2, UserPlus, Download, KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { usersApi } from '@/api/users.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { departmentsApi } from '@/api/departments.api';
@@ -38,6 +38,8 @@ export default function UserListPage() {
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Ouverte depuis les paramètres d'un pays : seules ses agences sont proposées.
+  const { countryId } = useParams<{ countryId?: string }>();
 
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [roles, setRoles] = useState<RoleListItem[]>([]);
@@ -224,6 +226,23 @@ export default function UserListPage() {
       setDepartments([]);
     }
   }, [selectedAgencyId, agencies, currentUser]);
+
+  // Listes déroulantes du formulaire de création : agences (du pays courant
+  // le cas échéant), puis départements de l'agence choisie.
+  const createAgencyOptions = useMemo(
+    () =>
+      agencies
+        .filter((a) => !countryId || a.country_id === countryId)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [agencies, countryId],
+  );
+  const createDepartmentOptions = useMemo(
+    () =>
+      (agencies.find((a) => a.id === createForm.agency_id)?.departments ?? [])
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [agencies, createForm.agency_id],
+  );
 
   function openEdit(user: UserListItem) {
     setEditUser(user);
@@ -963,53 +982,38 @@ export default function UserListPage() {
             ))}
           </Select>
 
-          <Autocomplete
+          <Select
             label={t('users.optionalAgency')}
-            placeholder={t('users.agencyPlaceholder')}
             value={createForm.agency_id ?? ''}
-            onChange={(agencyId) =>
-              setCreateForm((p) => ({ ...p, agency_id: agencyId, department_id: '' }))
+            onChange={(e) =>
+              setCreateForm((p) => ({ ...p, agency_id: e.target.value, department_id: '' }))
             }
-            fetchOptions={async (query) => {
-              const q = query.trim();
-              const res = await agenciesApi.list({ search: q || undefined, per_page: 20 });
-              return res.data.map((a) => ({
-                id: a.id,
-                label: a.name,
-                subtitle: [a.code, a.city].filter(Boolean).join(' — '),
-              }));
-            }}
             error={createErrors.agency_id}
-          />
+          >
+            <option value="">{t('users.noAgencyOption')}</option>
+            {createAgencyOptions.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
 
-          <Autocomplete
-            key={createForm.agency_id || 'none'}
+          <Select
             label={t('users.optionalDepartment')}
-            placeholder={
-              createForm.agency_id
-                ? t('users.departmentPlaceholder')
-                : t('users.selectAgencyFirst')
-            }
             value={createForm.department_id ?? ''}
-            onChange={(departmentId) =>
-              setCreateForm((p) => ({ ...p, department_id: departmentId }))
-            }
+            onChange={(e) => setCreateForm((p) => ({ ...p, department_id: e.target.value }))}
             disabled={!createForm.agency_id}
-            fetchOptions={async (query) => {
-              if (!createForm.agency_id) return [];
-              const q = query.trim();
-              const res = await departmentsApi.list({
-                search: q || undefined,
-                agency_id: createForm.agency_id,
-                per_page: 20,
-              });
-              return res.data.map((d) => ({
-                id: d.id,
-                label: d.name,
-              }));
-            }}
             error={createErrors.department_id}
-          />
+          >
+            <option value="">
+              {createForm.agency_id ? t('users.noDepartmentOption') : t('users.selectAgencyFirst')}
+            </option>
+            {createDepartmentOptions.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </Select>
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} className="flex-1">

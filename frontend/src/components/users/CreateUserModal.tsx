@@ -11,8 +11,9 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { CreateUserPayload, RoleListItem } from '@/types/user';
+import type { Agency } from '@/types/agency';
+import type { Department } from '@/types/department';
 import { assignableRoleNames, CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
 import { useUsernameSuggestion } from '@/hooks/useUsernameSuggestion';
 
@@ -40,6 +41,8 @@ export function CreateUserModal({
   const { showToast } = useToast();
 
   const [roles, setRoles] = useState<RoleListItem[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [form, setForm] = useState<CreateUserPayload>({
     username: '',
     email: '',
@@ -73,8 +76,42 @@ export function CreateUserModal({
       });
       setErrors({});
       usersApi.listRoles().then(setRoles).catch(() => {});
+      if (!fixedAgencyId) {
+        agenciesApi
+          .list({ per_page: 100, sort_by: 'name', sort_order: 'asc' })
+          .then((res) => setAgencies(res.data))
+          .catch(() => {});
+      }
     }
   }, [isOpen, fixedAgencyId, fixedDepartmentId]);
+
+  // Liste déroulante des départements de l'agence (fixe ou choisie).
+  const departmentAgencyId = fixedAgencyId ?? form.agency_id ?? '';
+  useEffect(() => {
+    setDepartments([]);
+    if (!isOpen || !departmentAgencyId || fixedDepartmentId) return;
+    departmentsApi
+      .list({ agency_id: departmentAgencyId, per_page: 100 })
+      .then((res) => setDepartments([...res.data].sort((a, b) => a.name.localeCompare(b.name))))
+      .catch(() => {});
+  }, [isOpen, departmentAgencyId, fixedDepartmentId]);
+
+  const departmentSelect = (
+    <Select
+      label={t('users.optionalDepartment')}
+      value={form.department_id ?? ''}
+      onChange={(e) => setForm((p) => ({ ...p, department_id: e.target.value }))}
+      disabled={!departmentAgencyId}
+      error={errors.department_id}
+    >
+      <option value="">{departmentAgencyId ? t('users.noDepartmentOption') : t('users.selectAgencyFirst')}</option>
+      {departments.map((d) => (
+        <option key={d.id} value={d.id}>
+          {d.name}
+        </option>
+      ))}
+    </Select>
+  );
 
   const assignableRoles = roles.filter(
     (r) =>
@@ -184,73 +221,25 @@ export function CreateUserModal({
                 className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
               />
             </div>
-            {!fixedDepartmentId && (
-              <Autocomplete
-                label={t('users.optionalDepartment')}
-                placeholder={t('users.departmentPlaceholder')}
-                value={form.department_id ?? ''}
-                onChange={(departmentId) =>
-                  setForm((p) => ({ ...p, department_id: departmentId }))
-                }
-                fetchOptions={async (query) => {
-                  const q = query.trim();
-                  const res = await departmentsApi.list({
-                    search: q || undefined,
-                    agency_id: fixedAgencyId,
-                    per_page: 20,
-                  });
-                  return res.data.map((d) => ({ id: d.id, label: d.name }));
-                }}
-                error={errors.department_id}
-              />
-            )}
+            {!fixedDepartmentId && departmentSelect}
           </>
         ) : (
           <>
-            <Autocomplete
+            <Select
               label={t('users.optionalAgency')}
-              placeholder={t('users.agencyPlaceholder')}
               value={form.agency_id ?? ''}
-              onChange={(agencyId) =>
-                setForm((p) => ({ ...p, agency_id: agencyId, department_id: '' }))
-              }
-              fetchOptions={async (query) => {
-                const q = query.trim();
-                const res = await agenciesApi.list({ search: q || undefined, per_page: 20 });
-                return res.data.map((a) => ({
-                  id: a.id,
-                  label: a.name,
-                  subtitle: [a.code, a.city].filter(Boolean).join(' — '),
-                }));
-              }}
+              onChange={(e) => setForm((p) => ({ ...p, agency_id: e.target.value, department_id: '' }))}
               error={errors.agency_id}
-            />
+            >
+              <option value="">{t('users.noAgencyOption')}</option>
+              {agencies.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
 
-            <Autocomplete
-              key={form.agency_id || 'none'}
-              label={t('users.optionalDepartment')}
-              placeholder={
-                form.agency_id
-                  ? t('users.departmentPlaceholder')
-                  : t('users.selectAgencyFirst')
-              }
-              value={form.department_id ?? ''}
-              onChange={(departmentId) =>
-                setForm((p) => ({ ...p, department_id: departmentId }))
-              }
-              disabled={!form.agency_id}
-              fetchOptions={async (query) => {
-                if (!form.agency_id) return [];
-                const q = query.trim();
-                const res = await departmentsApi.list({
-                  search: q || undefined,
-                  agency_id: form.agency_id,
-                  per_page: 20,
-                });
-                return res.data.map((d) => ({ id: d.id, label: d.name }));
-              }}
-              error={errors.department_id}
-            />
+            {departmentSelect}
           </>
         )}
 

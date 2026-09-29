@@ -378,7 +378,9 @@ class InvoiceController extends Controller
     {
         $invoice->load([
             'items',
-            'payments',
+            // Caissier et compte : affichés dans l'historique et sur le reçu de chaque versement.
+            'payments' => fn ($q) => $q->with(['receiver:id,first_name,last_name,email', 'treasuryAccount:id,name,type'])
+                ->orderBy('paid_at')->orderBy('created_at'),
             'commissionPayments',
             'client',
             'commercial',

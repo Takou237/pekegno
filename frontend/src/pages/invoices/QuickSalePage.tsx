@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, Receipt } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
@@ -55,7 +55,7 @@ export default function QuickSalePage() {
   const [submitting, setSubmitting] = useState(false);
   // Facture de la vente qui vient d'être enregistrée : on reste sur l'écran
   // d'encaissement, prêt pour le client suivant, avec un lien pour la revoir.
-  const [lastInvoice, setLastInvoice] = useState<{ id: string; number: string } | null>(null);
+  const [lastInvoice, setLastInvoice] = useState<{ id: string; number: string; paymentId?: string } | null>(null);
   const [proofInputKey, setProofInputKey] = useState(0);
   const serviceResultsRef = useRef<ServiceSearchItem[]>([]);
 
@@ -158,15 +158,17 @@ export default function QuickSalePage() {
 
       // Un commercial ne peut pas encaisser : sa facture part en attente de validation.
       // Seul un caissier / la direction valide puis encaisse.
+      let paymentId: string | undefined;
       if (!isCommercial && Number(amountReceived) > 0) {
-        await invoicesApi.pay(invoice.id, {
+        const paid = await invoicesApi.pay(invoice.id, {
           amount: Number(amountReceived),
           payment_method: paymentType as PaymentMethod,
         });
+        paymentId = paid.payments?.[0]?.id;
       }
 
       showToast(isCommercial ? t('invoices.quickSuccessPending') : t('invoices.quickSuccess'), 'success');
-      setLastInvoice({ id: invoice.id, number: invoice.number });
+      setLastInvoice({ id: invoice.id, number: invoice.number, paymentId });
       // On reste sur l'écran d'encaissement : la vente suivante peut être
       // saisie immédiatement, et l'origine n'est pas quittée pour autant.
       resetForm();
@@ -209,6 +211,16 @@ export default function QuickSalePage() {
             >
               {lastInvoice.number}
             </Link>
+            {lastInvoice.paymentId && (
+              <Link
+                to={`/invoices/${lastInvoice.id}?receipt=${lastInvoice.paymentId}`}
+                state={{ from: backPath }}
+                className="inline-flex items-center gap-1 font-semibold underline"
+              >
+                <Receipt className="h-4 w-4" />
+                {t('invoices.printReceipt')}
+              </Link>
+            )}
             {' — '}
             {t('invoices.quickFormReset')}
           </span>

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ReceiptNumberGenerator;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,7 @@ class InvoicePayment extends Model
         'received_by',
         'comment',
         'treasury_account_id',
+        'receipt_number',
     ];
 
     protected function casts(): array
@@ -28,6 +30,17 @@ class InvoicePayment extends Model
             'is_advance' => 'boolean',
             'paid_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Chaque versement reçoit un numéro de reçu à sa création : c'est ce reçu
+     * qui s'imprime tant que la facture n'est pas soldée.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (InvoicePayment $payment) {
+            $payment->receipt_number ??= app(ReceiptNumberGenerator::class)->next();
+        });
     }
 
     public function invoice(): BelongsTo

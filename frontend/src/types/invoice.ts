@@ -37,6 +37,8 @@ export interface InvoicePayment {
   received_by: string | null;
   comment: string | null;
   treasury_account_id: string | null;
+  /** REC-AAAAMMJJ-NNN : numéro du reçu imprimable de ce versement. */
+  receipt_number: string | null;
   receiver?: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
   treasury_account?: { id: string; name: string; type: string } | null;
 }

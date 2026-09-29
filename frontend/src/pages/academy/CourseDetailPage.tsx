@@ -33,6 +33,7 @@ import {
 } from '@/components/academy/EnrollmentLearnerField';
 import type {
   CourseModule as CourseModuleType,
+  EnrollmentDiscountType,
   FormationEnrollment,
   FormationEnrollmentPayload,
   LearnerObservation,
@@ -48,6 +49,8 @@ import { Autocomplete } from '@/components/ui/Autocomplete';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { formatCurrency, currencyLabel } from '@/utils/number';
+import { courseBasePrice, resolveEnrollmentDiscount } from '@/utils/enrollmentDiscount';
+import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import { currentLocale } from '@/i18n';
 import type { Department } from '@/types/department';
 
@@ -108,6 +111,8 @@ interface EnrollmentFormState {
   seller_trainer_id: string;
   training_session_id: string;
   amount_paid: string;
+  discount_type: '' | EnrollmentDiscountType;
+  discount_value: string;
   notes: string;
 }
 
@@ -119,6 +124,8 @@ const emptyEnrollForm: EnrollmentFormState = {
   seller_trainer_id: '',
   training_session_id: '',
   amount_paid: '',
+  discount_type: '',
+  discount_value: '',
   notes: '',
 };
 
@@ -127,6 +134,7 @@ export default function CourseDetailPage() {
   const { showToast } = useToast();
   const { courseId, departmentId } = useParams<{ courseId: string; departmentId: string }>();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
+  const currency = useAgencyCurrency(agencyId);
 
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -423,6 +431,9 @@ export default function CourseDetailPage() {
           : { seller_user_id: enrollForm.seller_user_id || undefined }),
         ...(enrollForm.training_session_id ? { training_session_id: enrollForm.training_session_id } : {}),
         ...(enrollForm.amount_paid ? { amount_paid: Number(enrollForm.amount_paid) } : {}),
+        ...(enrollForm.discount_type && enrollForm.discount_value
+          ? { discount_type: enrollForm.discount_type, discount_value: Number(enrollForm.discount_value) }
+          : {}),
         notes: enrollForm.notes || undefined,
       };
       const saved = await academyApi.createFormationEnrollment(payload);
@@ -537,6 +548,11 @@ export default function CourseDetailPage() {
       </div>
     );
   }
+
+  // Remise saisie et montant net réellement dû, affiché avant validation (même calcul que la modale d'inscription).
+  const basePrice = courseBasePrice(course);
+  const discountAmount = resolveEnrollmentDiscount(basePrice, enrollForm);
+  const netPrice = Math.round((basePrice - discountAmount) * 100) / 100;
 
   const tabs: { key: Tab; label: string; icon: typeof CalendarDays }[] = [
     { key: 'sessions', label: t('nav.sessions'), icon: CalendarDays },
@@ -925,13 +941,57 @@ export default function CourseDetailPage() {
               className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             />
           </div>
-          {(course.effective_price != null || course.price != null) && (
-            <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
-              {t('academy.priceToPay', { amount: Number(course.effective_price ?? course.price).toLocaleString() })}
+          {(basePrice > 0 || discountAmount > 0) && (
+            <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+              {discountAmount > 0 ? (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-normal opacity-80">
+                    {t('invoices.discountLabel')} : −{discountAmount.toLocaleString()}
+                  </span>
+                  <span>{t('academy.priceToPay', { amount: netPrice.toLocaleString() })}</span>
+                </div>
+              ) : (
+                <span>{t('academy.priceToPay', { amount: basePrice.toLocaleString() })}</span>
+              )}
             </div>
           )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('academy.discountType')}
+              </label>
+              <select
+                value={enrollForm.discount_type}
+                onChange={(e) =>
+                  setEnrollForm((prev) => ({
+                    ...prev,
+                    discount_type: e.target.value as '' | EnrollmentDiscountType,
+                    discount_value: '',
+                  }))
+                }
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              >
+                <option value="">{t('academy.discountNone')}</option>
+                <option value="percent">{t('academy.discountPercent')}</option>
+                <option value="amount">{t('academy.discountAmount')}</option>
+              </select>
+            </div>
+            <Input
+              label={`${t('academy.discountValue')}${enrollForm.discount_type === 'percent' ? ' (%)' : ` (${currencyLabel(currency)})`}`}
+              type="number"
+              min={0}
+              max={enrollForm.discount_type === 'percent' ? 100 : basePrice || undefined}
+              step={enrollForm.discount_type === 'percent' ? 0.01 : 1}
+              placeholder="0"
+              value={enrollForm.discount_value}
+              onChange={(e) => setEnrollForm((prev) => ({ ...prev, discount_value: e.target.value }))}
+              disabled={!enrollForm.discount_type}
+              hint={enrollForm.discount_type ? t('academy.discountHint') : undefined}
+              error={enrollFieldErrors.discount_value}
+            />
+          </div>
           <Input
-            label={`${t('academy.amountPaid')} (${currencyLabel()})`}
+            label={`${t('academy.amountPaid')} (${currencyLabel(currency)})`}
             type="number"
             min={0}
             placeholder="0"
