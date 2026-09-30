@@ -14,6 +14,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\ScopeService;
+use App\Services\WelcomeEmailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +46,7 @@ class ClientController extends Controller
     public function __construct(
         private readonly ActivityLogger $activityLogger,
         private readonly ScopeService $scopeService,
+        private readonly WelcomeEmailService $welcomeEmailService,
     ) {}
 
     /**
@@ -157,11 +159,15 @@ class ClientController extends Controller
 
         $hasPassword = ! empty($data['password']);
 
-        $user = DB::transaction(function () use ($data, $hasPassword, $clientRole, $request) {
+        // Généré avant la transaction : il est transmis en clair par email
+        // après coup (WelcomeEmailService) et hashé par le cast du modèle.
+        $plainPassword = $hasPassword ? $data['password'] : Str::password(16);
+
+        $user = DB::transaction(function () use ($data, $plainPassword, $hasPassword, $clientRole, $request) {
             $user = User::create([
                 'username' => $data['email'],
                 'email' => $data['email'],
-                'password' => $hasPassword ? $data['password'] : Str::password(16),
+                'password' => $plainPassword,
                 'first_name' => $data['first_name'] ?? null,
                 'last_name' => $data['last_name'] ?? null,
                 'phone' => $data['phone'] ?? null,
@@ -193,6 +199,10 @@ class ClientController extends Controller
 
             return $user;
         });
+
+        // Identifiants envoyés par email (sauf compte sans email réel) : le mot
+        // de passe en clair n'existe que dans la transaction ci-dessus.
+        $this->welcomeEmailService->send($user, $plainPassword);
 
         return (new UserResource($user->fresh()->load(['role', 'clientCategory', 'geoCountry', 'geoCity', 'registeredAgency', 'referringCommercial'])))
             ->response()

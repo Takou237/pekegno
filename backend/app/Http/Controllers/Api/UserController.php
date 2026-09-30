@@ -11,6 +11,7 @@ use App\Mail\UserWelcomeMail;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\WelcomeEmailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,7 @@ class UserController extends Controller
 
     public function __construct(
         private readonly ActivityLogger $logger,
+        private readonly WelcomeEmailService $welcomeEmailService,
     ) {}
 
     private function parseWith(Request $request): array
@@ -211,34 +213,11 @@ class UserController extends Controller
             request: $request,
         );
 
-        $this->sendWelcomeEmail($user, $plainPassword);
+        $this->welcomeEmailService->send($user, $plainPassword);
 
         return (new UserResource($user->fresh()->load('role', 'assignments')))
             ->response()
             ->setStatusCode(201);
-    }
-
-    /**
-     * Envoie les paramètres de connexion au nouvel utilisateur.
-     *
-     * L'envoi a lieu après la transaction : un serveur SMTP indisponible ne doit
-     * pas faire échouer la création du compte. L'administrateur reste responsable
-     * de communiquer les identifiants en cas d'échec (le journal d'activité et le
-     * journal applicatif tracent l'incident).
-     */
-    private function sendWelcomeEmail(User $user, string $plainPassword): void
-    {
-        $frontendUrl = rtrim((string) config('app.frontend_url'), '/');
-
-        try {
-            Mail::to($user->email)->send(new UserWelcomeMail(
-                user: $user->loadMissing('role'),
-                plainPassword: $plainPassword,
-                loginUrl: $frontendUrl !== '' ? $frontendUrl.'/login' : null,
-            ));
-        } catch (\Throwable $e) {
-            Log::error("Échec de l'envoi de l'email de bienvenue à l'utilisateur {$user->id} : ".$e->getMessage());
-        }
     }
 
     #[OA\Get(
