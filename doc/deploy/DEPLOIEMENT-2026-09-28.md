@@ -155,3 +155,12 @@ Code : push + « Update from Remote » + **OPcache** ; frontend : nouveau `front
 - [ ] Encaisser (vente rapide) avec montant reçu → lien **Imprimer le reçu** dans le bandeau de confirmation.
 - [ ] Colonne « Encaissé par » de l'historique : le nom du caissier s'affiche (avant : « — »).
 - [ ] Dernier versement qui solde la facture : le reçu indique « Ce versement solde la facture » et la facture devient imprimable.
+- [ ] Département → Formations → fiche d'une formation → Nouvelle inscription : champs **Remise accordée** / **Valeur**,
+      le net à payer s'affiche avant validation et la facture porte la remise.
+- [ ] Agence → Équipes → Créer un utilisateur : « Département (optionnel) » est une **liste déroulante** des départements de l'agence.
+- [ ] Pays → Paramètres → Créer un utilisateur : Agence = liste déroulante des agences **du pays**, puis Département = liste
+      déroulante des départements de l'agence choisie.
+
+### Remise à zéro des transactions (optionnel, irréversible)
+Si l'on repart de zéro (CA, dépenses, trésorerie, commissions…) : **sauvegarde** de la base, puis importer
+`reset-transactions.sql`, **après** `migration-2026-09-30.sql`. La configuration (pays, agences, utilisateurs, catalogue) est conservée.
