@@ -8,6 +8,7 @@ import type {
   LoginCredentials,
   LoginResponse,
   ResetPasswordPayload,
+  TwoFactorChannel,
   TwoFactorEnableResponse,
   TwoFactorLoginPayload,
   User,
@@ -55,9 +56,23 @@ export const authApi = {
     return data;
   },
 
-  /** POST /auth/2fa/enable — génère le secret + l'URL du QR code (ne l'active pas encore). */
-  async enableTwoFactor(): Promise<TwoFactorEnableResponse> {
-    const { data } = await client.post<TwoFactorEnableResponse>('/auth/2fa/enable');
+  /** POST /auth/2fa/enable — totp : secret + QR code ; email : envoi du premier code. */
+  async enableTwoFactor(channel: TwoFactorChannel = 'totp'): Promise<TwoFactorEnableResponse> {
+    const { data } = await client.post<TwoFactorEnableResponse>('/auth/2fa/enable', { channel });
+    return data;
+  },
+
+  /** POST /auth/2fa/email/resend — renvoie un code pendant un défi de connexion (public). */
+  async resendTwoFactorEmailCode(tempToken: string): Promise<ApiMessageResponse> {
+    const { data } = await client.post<ApiMessageResponse>('/auth/2fa/email/resend', {
+      temp_token: tempToken,
+    });
+    return data;
+  },
+
+  /** POST /auth/2fa/email/send — code à l'utilisateur connecté (ex. désactivation). */
+  async sendTwoFactorEmailCode(): Promise<ApiMessageResponse> {
+    const { data } = await client.post<ApiMessageResponse>('/auth/2fa/email/send');
     return data;
   },
 

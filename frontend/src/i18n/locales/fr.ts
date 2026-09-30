@@ -220,6 +220,12 @@ export default {
     twoFactorInvalid: 'Code invalide ou expiré.',
     twoFactorVerify: 'Vérifier le code',
     twoFactorNone: 'Aucune vérification en attente. Merci de vous reconnecter.',
+    twoFactorTotpHint: 'Saisissez le code de votre application d\'authentification.',
+    twoFactorEmailSent: 'Un code à 6 chiffres vient d\'être envoyé à votre adresse email.',
+    twoFactorEmailResend: 'Renvoyer le code',
+    twoFactorEmailResendIn: 'Renvoyer le code ({{seconds}} s)',
+    twoFactorEmailResent: 'Nouveau code envoyé. Vérifiez votre boîte de réception.',
+    twoFactorEmailResendFailed: 'Impossible d\'envoyer le code pour le moment. Réessayez.',
   },
 
   register: {
@@ -264,6 +270,22 @@ export default {
     twoFactorNotEnabled: 'non activée',
     twoFactorDesc:
       'Ajoute une étape de vérification par code à 6 chiffres lors de la connexion.',
+    twoFactorDescEmail:
+      'Un code à 6 chiffres vous est envoyé par email à chaque connexion.',
+    twoFactorChannelTotp: 'app authenticator',
+    twoFactorChannelEmail: 'par email',
+    twoFactorChooseTotp: 'Application d\'authentification (recommandé)',
+    twoFactorChooseTotpDesc:
+      'Code généré hors ligne par Google Authenticator, Authy… Fonctionne même sans réseau, aucun envoi nécessaire.',
+    twoFactorChooseTotpAction: 'Utiliser l\'app authenticator',
+    twoFactorChooseEmail: 'Code par email',
+    twoFactorChooseEmailDesc:
+      'Le code est envoyé sur votre adresse email à chaque connexion. Nécessite d\'y avoir accès.',
+    twoFactorChooseEmailAction: 'Utiliser l\'email',
+    twoFactorEmailCodeSent: 'Code envoyé à {{email}}.',
+    twoFactorEmailCodeSentShort: 'Code envoyé.',
+    twoFactorEmailResendFailed: 'Impossible d\'envoyer le code pour le moment. Réessayez.',
+    twoFactorSendCodeForDisable: 'Renvoyer un code par email',
     twoFactorDisable: 'Désactiver',
     twoFactorEnable: 'Activer',
     twoFactorScan:

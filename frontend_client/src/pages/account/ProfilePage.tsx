@@ -7,6 +7,7 @@ import { extractErrorMessage } from '@/api/client';
 import { Input } from '@/components/ui/Input';
 import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Button } from '@/components/ui/Button';
+import { TwoFactorSection } from './TwoFactorSection';
 import { UserCircle, Mail, Lock } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -114,6 +115,8 @@ export default function ProfilePage() {
           <Button type="submit" isLoading={savingPassword}>{t('account.changePassword')}</Button>
         </form>
       </div>
+
+      <TwoFactorSection />
     </div>
   );
 }

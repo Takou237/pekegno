@@ -93,6 +93,7 @@ Route::post('/auth/register', RegisterController::class);
 Route::post('/auth/forgot-password', ForgotPasswordController::class)->middleware('throttle:5,1');
 Route::post('/auth/reset-password', ResetPasswordController::class);
 Route::post('/auth/2fa/login', [TwoFactorController::class, 'login']);
+    Route::post('/auth/2fa/email/resend', [TwoFactorController::class, 'resendEmailCode'])->middleware('throttle:3,1');
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/auth/change-password', ChangePasswordController::class);
@@ -128,6 +129,14 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::get('/client/attendances', [ClientAttendanceController::class, 'index']);
     Route::get('/client/observations', [ClientLearnerObservationController::class, 'index']);
     Route::post('/client/observations', [ClientLearnerObservationController::class, 'store']);
+
+    // 2FA par email du portail client (auto-activation, renvoi, désactivation).
+    // Le défi de connexion lui-même reste public : /auth/2fa/login et
+    // /auth/2fa/email/resend sont partagés par les deux portails.
+    Route::post('/client/2fa/enable', [TwoFactorController::class, 'enable']);
+    Route::post('/client/2fa/verify', [TwoFactorController::class, 'verify']);
+    Route::post('/client/2fa/disable', [TwoFactorController::class, 'disable']);
+    Route::post('/client/2fa/email/send', [TwoFactorController::class, 'sendEmailCodeToAuthenticated']);
 });
 
 Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'update.activity', 'portal:staff'])->group(function () {
@@ -138,6 +147,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/auth/2fa/enable', [TwoFactorController::class, 'enable']);
     Route::post('/auth/2fa/verify', [TwoFactorController::class, 'verify']);
     Route::post('/auth/2fa/disable', [TwoFactorController::class, 'disable']);
+    Route::post('/auth/2fa/email/send', [TwoFactorController::class, 'sendEmailCodeToAuthenticated']);
 
     Route::get('/agencies/trash', [AgencyController::class, 'trash']);
     Route::post('/agencies/{agency}/restore', [AgencyController::class, 'restore']);

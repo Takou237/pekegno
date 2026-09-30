@@ -3,12 +3,15 @@
 namespace App\Services;
 
 use App\Http\Resources\UserResource;
+use App\Mail\TwoFactorCodeMail;
 use App\Models\ActivityLog;
 use App\Models\LoginLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class AuthService
 {
@@ -104,16 +107,36 @@ class AuthService
                 300
             );
 
+            $channel = $user->two_factor_channel === 'email' ? 'email' : 'totp';
+
+            // Canal email : le code part par email (échec SMTP non bloquant —
+            // convention du dépôt, cf. T8/T9). Canal totp : rien à envoyer,
+            // l'utilisateur lit son app authenticator.
+            if ($channel === 'email') {
+                try {
+                    $code = app(TwoFactorService::class)->issueEmailCode($user);
+
+                    Mail::to($user->email)->send(new TwoFactorCodeMail(
+                        $code,
+                        (int) ceil(TwoFactorService::EMAIL_CODE_TTL / 60),
+                    ));
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            }
+
             $this->log(
                 user: $user,
                 action: '2fa_required',
                 ip: $ip,
                 userAgent: $userAgent,
+                reason: $channel === 'email' ? 'OTP sent by email' : null,
             );
 
             return [
                 'temp_token' => $tempToken,
                 'two_factor_required' => true,
+                'two_factor_channel' => $channel,
             ];
         }
 

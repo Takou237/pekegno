@@ -133,11 +133,24 @@ export interface User {
   country?: string | null;
   address?: string | null;
   client_number?: string;
+  /** Double authentification (canal email sur le portail client). */
+  two_factor_enabled?: boolean;
+  two_factor_channel?: 'totp' | 'email';
 }
 
-export interface LoginResponse {
-  user: User;
-  token: string;
+/** Défi 2FA : réponse de POST /client/login quand le compte est protégé. */
+export interface AuthTwoFactorChallengeResponse {
+  two_factor_required: true;
+  temp_token: string;
+  two_factor_channel?: 'totp' | 'email';
+}
+
+export type LoginResponse = { user: User; token: string } | AuthTwoFactorChallengeResponse;
+
+export function isTwoFactorChallenge(
+  response: LoginResponse
+): response is AuthTwoFactorChallengeResponse {
+  return (response as AuthTwoFactorChallengeResponse).two_factor_required === true;
 }
 
 export interface Order {
