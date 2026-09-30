@@ -87,6 +87,7 @@ class Phase5BilanTest extends TestCase
             'items' => [['label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 2]],
             'advance' => 10000,
             'payment_type' => 'momo',
+            'payer_phone' => '+237690000000',
         ]);
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
@@ -131,6 +132,7 @@ class Phase5BilanTest extends TestCase
             'items' => [['label' => 'Coaching', 'unit_price' => 7000, 'quantity' => 1]],
             'advance' => 7000,
             'payment_type' => 'om',
+            'payer_phone' => '+237690000000',
         ]);
 
         $global = $this->getJson('/api/bilans')->assertOk()->json();

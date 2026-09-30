@@ -7,6 +7,7 @@ use App\Http\Requests\Api\StoreInvoicePaymentRequest;
 use App\Http\Requests\Api\StoreInvoiceRequest;
 use App\Http\Requests\Api\UpdateInvoiceRequest;
 use App\Mail\InvoiceStatusMail;
+use App\Models\Agency;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
@@ -66,8 +67,26 @@ class InvoiceController extends Controller
                 ->whereNotNull('agency_id')
                 ->pluck('agency_id');
 
-            return $query->where(function ($q) use ($agencyIds) {
-                $q->whereIn('agency_id', $agencyIds)->orWhereNull('agency_id');
+            // La file de validation, elle, s'élargit au pays : une facture en attente
+            // doit toujours être atteignable par un caissier habilité à la valider.
+            // Filtrer sur la seule agence laissait les ventes d'un commercial d'une
+            // agence sans caissier affecté (ex. Yaoundé Centre) en attente
+            // indéfiniment, invisibles de la validation — sauf pour l'admin.
+            // Seules les factures encore en attente sont concernées : le registre
+            // des factures validées reste borné aux agences du caissier.
+            $pendingCountryIds = Agency::whereIn('id', $agencyIds)
+                ->whereNotNull('country_id')
+                ->pluck('country_id')
+                ->unique()
+                ->values();
+
+            return $query->where(function ($q) use ($agencyIds, $pendingCountryIds) {
+                $q->whereIn('agency_id', $agencyIds)
+                    ->orWhereNull('agency_id')
+                    ->when($pendingCountryIds->isNotEmpty(), fn ($q) => $q->orWhere(function ($q) use ($pendingCountryIds) {
+                        $q->where('validation_status', Invoice::VALIDATION_PENDING)
+                            ->whereHas('agency', fn ($a) => $a->whereIn('country_id', $pendingCountryIds));
+                    }));
             });
         }
 
@@ -287,6 +306,7 @@ class InvoiceController extends Controller
                 'seller_user_id' => $data['seller_user_id'] ?? $request->user()->id,
                 'invoice_date' => $data['invoice_date'] ?? now(),
                 'payment_type' => $data['payment_type'] ?? null,
+                'payer_phone' => $data['payer_phone'] ?? null,
                 'total_amount' => $total,
                 'amount_paid' => 0,
                 'declared_advance' => ! empty($data['advance']) ? (float) $data['advance'] : null,
@@ -334,6 +354,7 @@ class InvoiceController extends Controller
                     'invoice_id' => $invoice->id,
                     'submitted_by' => $request->user()->id,
                     'payment_method' => $data['payment_type'] ?? 'cash',
+                    'phone_number_used' => $data['payer_phone'] ?? null,
                     'file_path' => $path,
                     'status' => PaymentProof::STATUS_PENDING,
                 ]);

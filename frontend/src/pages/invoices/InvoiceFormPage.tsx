@@ -78,6 +78,7 @@ export default function InvoiceFormPage({
   const currency = useAgencyCurrency(agencyId);
   const [invoiceDate, setInvoiceDate] = useState(todayLocal());
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('');
+  const [payerPhone, setPayerPhone] = useState('');
   const [advance, setAdvance] = useState('');
   const [discount, setDiscount] = useState('');
   const [vatRate, setVatRate] = useState('');
@@ -88,6 +89,10 @@ export default function InvoiceFormPage({
   const [submitting, setSubmitting] = useState(false);
   const [myCommercial, setMyCommercial] = useState<Commercial | null>(null);
   const serviceResultsRef = useRef<Record<string, ServiceSearchItem[]>>({});
+
+  // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
+  // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
+  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo';
 
   useEffect(() => {
     if (!isCommercial || !currentUser?.id) return;
@@ -214,6 +219,10 @@ export default function InvoiceFormPage({
       setErrors({ client_id: t('invoices.colClient') });
       return;
     }
+    if (requiresPayerPhone && !payerPhone.trim()) {
+      setErrors({ payer_phone: t('invoices.payerPhoneRequired') });
+      return;
+    }
     if (Number(advance) > totals.total) {
       setErrors({ advance: t('invoices.advanceExceedsTotal') });
       return;
@@ -234,6 +243,7 @@ export default function InvoiceFormPage({
         agency_id: agencyId || undefined,
         invoice_date: invoiceDate,
         payment_type: paymentType || undefined,
+        payer_phone: requiresPayerPhone ? payerPhone.trim() : undefined,
         comment: comment || undefined,
         // L'avance est envoyée aussi par un commercial : elle est enregistrée côté
         // backend comme avance déclarée (declared_advance), appliquée à la validation
@@ -413,6 +423,16 @@ export default function InvoiceFormPage({
                 <option value="om">{t('invoices.paymentOm')}</option>
                 <option value="momo">{t('invoices.paymentMomo')}</option>
               </Select>
+              {requiresPayerPhone && (
+                <Input
+                  label={`${t('invoices.payerPhone')} *`}
+                  value={payerPhone}
+                  onChange={(e) => setPayerPhone(e.target.value)}
+                  error={errors.payer_phone}
+                  hint={t('invoices.payerPhoneHint')}
+                  placeholder="+237 6XX XXX XXX"
+                />
+              )}
             </div>
             {isCommercial && (
               <div>

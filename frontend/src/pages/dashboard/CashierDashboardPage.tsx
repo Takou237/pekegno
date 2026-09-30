@@ -7,7 +7,7 @@ import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { currentLocale } from '@/i18n';
-import { todayLocal } from '@/utils/date';
+import { businessToday } from '@/utils/date';
 import { formatCurrency } from '@/utils/number';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { DashboardStats } from '@/types/stats';
@@ -54,7 +54,7 @@ function StatCard({
 
 export default function CashierDashboardPage() {
   const { t } = useTranslation();
-  const today = todayLocal();
+  const today = businessToday();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [pending, setPending] = useState<Invoice[]>([]);

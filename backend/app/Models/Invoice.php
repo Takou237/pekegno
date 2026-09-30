@@ -34,6 +34,7 @@ class Invoice extends Model
         'seller_user_id',
         'invoice_date',
         'payment_type',
+        'payer_phone',
         'total_amount',
         'amount_paid',
         'declared_advance',

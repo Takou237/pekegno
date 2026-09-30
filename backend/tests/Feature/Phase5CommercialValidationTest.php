@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Agency;
 use App\Models\Commercial;
+use App\Models\Country;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
 use App\Models\Role;
@@ -12,6 +13,7 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -217,6 +219,7 @@ class Phase5CommercialValidationTest extends TestCase
 
         $invoice = $this->post('/api/invoices', [
             'payment_type' => 'om',
+            'payer_phone' => '+237690000000',
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
@@ -245,6 +248,7 @@ class Phase5CommercialValidationTest extends TestCase
 
         $invoice = $this->post('/api/invoices', [
             'payment_type' => 'om',
+            'payer_phone' => '+237690000000',
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
@@ -281,6 +285,7 @@ class Phase5CommercialValidationTest extends TestCase
 
         $invoice = $this->post('/api/invoices', [
             'payment_type' => 'momo',
+            'payer_phone' => '+237690000000',
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
@@ -352,5 +357,262 @@ class Phase5CommercialValidationTest extends TestCase
 
         $this->getJson('/api/commercials/me/stats')
             ->assertStatus(404);
+    }
+
+    /**
+     * Un commercial créé via l'admin avant l'auto-création du profil métier n'a pas de
+     * ligne dans `commercials`. Sa première connexion doit réparer cela : ensuite, son
+     * dashboard répond et ses ventes lui sont rattachées.
+     */
+    public function test_login_repairs_missing_commercial_profile(): void
+    {
+        $user = User::factory()->create([
+            'role_id' => Role::where('name', 'commercial')->value('id'),
+            'email' => 'thibault.noupoue@example.com',
+            'password' => bcrypt('12345678'),
+        ]);
+
+        $this->assertNull(Commercial::where('user_id', $user->id)->first());
+
+        $this->postJson('/api/staff/login', [
+            'email' => 'thibault.noupoue@example.com',
+            'password' => '12345678',
+        ])->assertOk();
+
+        $this->assertNotNull(Commercial::where('user_id', $user->id)->first(), 'Le profil commercial doit être créé à la première connexion.');
+    }
+
+    /**
+     * Même sans profil métier, une commande facturée par un commercial doit naître en
+     * attente de validation : la décision ne peut pas reposer sur commercial_id seul,
+     * qui était null pour ces comptes — la facture échappait alors au caissier.
+     */
+    public function test_order_invoiced_by_commercial_without_profile_still_pending(): void
+    {
+        $client = User::factory()->create([
+            'role_id' => Role::where('name', 'client')->value('id'),
+        ]);
+
+        $commercialUser = User::factory()->create([
+            'role_id' => Role::where('name', 'commercial')->value('id'),
+        ]);
+        Sanctum::actingAs($commercialUser);
+
+        $order = $this->postJson('/api/orders', [
+            'agency_id' => Agency::factory()->create()->id,
+            'client_id' => $client->id,
+            'lines' => [
+                ['line_type' => 'manual', 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+        ])->assertStatus(201)->json();
+
+        $this->postJson("/api/orders/{$order['id']}/confirm")->assertOk();
+
+        $invoice = $this->postJson("/api/orders/{$order['id']}/invoice")
+            ->assertStatus(201)
+            ->json();
+
+        $this->assertSame(
+            Invoice::VALIDATION_PENDING,
+            $invoice['validation_status'],
+            'La facture d’un commercial sans profil doit rester en attente de validation caissier.'
+        );
+    }
+
+    /**
+     * La file de validation ne peut pas être bornée à la seule agence du caissier :
+     * une vente d'un commercial rattaché à une autre agence du même pays resterait
+     * en attente indéfiniment, invisible de tous les caissiers (et hors de portée de
+     * la validation métier que le caissier a pour mission d'accomplir).
+     */
+    public function test_cashier_sees_pending_invoice_of_a_commercial_in_another_agency_of_same_country(): void
+    {
+        $country = Country::create([
+            'name' => 'Cameroun',
+            'code' => 'CMR',
+            'currency_code' => 'XAF',
+        ]);
+
+        $cashierAgency = Agency::factory()->create(['country_id' => $country->id]);
+        $commercialAgency = Agency::factory()->create(['country_id' => $country->id]);
+
+        $cashier = $this->actingAsRole('caissier');
+        DB::table('user_assignments')->insert([
+            'user_id' => $cashier->id,
+            'agency_id' => $cashierAgency->id,
+            'is_primary' => false,
+            'is_department_chief' => false,
+        ]);
+
+        $commercial = User::factory()->create([
+            'role_id' => Role::where('name', 'commercial')->value('id'),
+        ]);
+        Commercial::factory()->create([
+            'user_id' => $commercial->id,
+            'agency_id' => $commercialAgency->id,
+        ]);
+
+        Sanctum::actingAs($commercial);
+        $invoiceId = $this->post('/api/invoices', [
+            'agency_id' => $commercialAgency->id,
+            'payment_type' => 'momo',
+            'payer_phone' => '+237690000000',
+            'items' => [
+                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
+        ])->assertCreated()->json('id');
+
+        Sanctum::actingAs($cashier);
+
+        $this->getJson('/api/invoices?validation_status=pending')
+            ->assertOk()
+            ->assertJsonPath('invoices.meta.total', 1)
+            ->assertJsonPath('invoices.data.0.id', $invoiceId)
+            ->assertJsonPath('invoices.data.0.payment_proofs_count', 1);
+    }
+
+    /**
+     * Le clic sur « Valider » ouvre la modale d'examen de la preuve. Si la preuve
+     * n'est pas dans le périmètre du caissier, la liste annonce pourtant
+     * payment_proofs_count = 1 et l'écran affiche « aucune preuve à afficher » :
+     * le commercial est bloqué avec un aller-retour inutile. Le périmètre des
+     * preuves doit donc suivre celui de la facture qu'elles justifient.
+     */
+    public function test_cashier_can_read_the_proof_of_a_pending_invoice_from_another_agency(): void
+    {
+        $country = Country::create([
+            'name' => 'Cameroun',
+            'code' => 'CMR',
+            'currency_code' => 'XAF',
+        ]);
+
+        $cashierAgency = Agency::factory()->create(['country_id' => $country->id]);
+        $commercialAgency = Agency::factory()->create(['country_id' => $country->id]);
+
+        $cashier = $this->actingAsRole('caissier');
+        DB::table('user_assignments')->insert([
+            'user_id' => $cashier->id,
+            'agency_id' => $cashierAgency->id,
+            'is_primary' => false,
+            'is_department_chief' => false,
+        ]);
+
+        $commercial = User::factory()->create([
+            'role_id' => Role::where('name', 'commercial')->value('id'),
+        ]);
+        Commercial::factory()->create([
+            'user_id' => $commercial->id,
+            'agency_id' => $commercialAgency->id,
+        ]);
+
+        Sanctum::actingAs($commercial);
+        $invoiceId = $this->post('/api/invoices', [
+            'agency_id' => $commercialAgency->id,
+            'payment_type' => 'momo',
+            'payer_phone' => '+237690000000',
+            'items' => [
+                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
+        ])->assertCreated()->json('id');
+
+        Sanctum::actingAs($cashier);
+
+        $proofId = $this->getJson("/api/payment-proofs?invoice_id={$invoiceId}&status=pending&per_page=1")
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('data.0.payment_method', 'momo')
+            ->json('data.0.id');
+
+        // Et le caissier peut aller au bout : accepter la preuve valide la facture.
+        $this->postJson("/api/payment-proofs/{$proofId}/approve")
+            ->assertOk()
+            ->assertJsonPath('invoice.validation_status', Invoice::VALIDATION_VALIDATED);
+    }
+
+    /**
+     * L'élargissement au pays ne doit pas ouvrir le registre : une facture déjà
+     * validée dans un autre pays reste hors périmètre du caissier.
+     */
+    public function test_cashier_does_not_see_validated_invoice_from_another_country(): void
+    {
+        $ownCountry = Country::create(['name' => 'Cameroun', 'code' => 'CMR', 'currency_code' => 'XAF']);
+        $otherCountry = Country::create(['name' => "Côte d'Ivoire", 'code' => 'CIV', 'currency_code' => 'XAF']);
+
+        $cashierAgency = Agency::factory()->create(['country_id' => $ownCountry->id]);
+        $otherAgency = Agency::factory()->create(['country_id' => $otherCountry->id]);
+
+        $cashier = $this->actingAsRole('caissier');
+        DB::table('user_assignments')->insert([
+            'user_id' => $cashier->id,
+            'agency_id' => $cashierAgency->id,
+            'is_primary' => false,
+            'is_department_chief' => false,
+        ]);
+
+        Invoice::create([
+            'agency_id' => $otherAgency->id,
+            'number' => 'FAC-ETRANGER-001',
+            'invoice_date' => now(),
+            'total_amount' => 25000,
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+        ]);
+
+        // La facture existe bien en base, mais reste hors de la réponse du caissier.
+        $this->getJson('/api/invoices?per_page=100')
+            ->assertOk()
+            ->assertJsonPath('invoices.meta.total', 0)
+            ->assertJsonMissing(['number' => 'FAC-ETRANGER-001']);
+    }
+
+    /**
+     * Un règlement mobile money sans numéro payeur est inexploitable : le numéro
+     * utilisé pour la transaction est demandé et conservé sur la facture.
+     */
+    public function test_mobile_money_invoice_requires_and_keeps_the_payer_phone(): void
+    {
+        $commercial = $this->createCommercialUser();
+        Sanctum::actingAs($commercial);
+
+        $this->post('/api/invoices', [
+            'payment_type' => 'om',
+            'items' => [
+                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
+        ])->assertStatus(422)->assertJsonValidationErrors('payer_phone');
+
+        $invoice = $this->post('/api/invoices', [
+            'payment_type' => 'momo',
+            'payer_phone' => '+237691234567',
+            'items' => [
+                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+            ],
+            'proof_file' => UploadedFile::fake()->image('preuve.png'),
+        ])->assertCreated()->json();
+
+        $this->assertSame('+237691234567', $invoice['payer_phone']);
+
+        // Le même numéro est reporté sur la preuve, que le caissier examine.
+        $this->assertSame(
+            '+237691234567',
+            PaymentProof::where('invoice_id', $invoice['id'])->value('phone_number_used'),
+        );
+    }
+
+    /** Un règlement en espèces n'a pas de numéro payeur à demander. */
+    public function test_cash_invoice_does_not_require_a_payer_phone(): void
+    {
+        $this->actingAsRole('caissier');
+
+        $invoice = $this->postJson('/api/invoices', [
+            'payment_type' => 'cash',
+            'items' => [
+                ['label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 1],
+            ],
+        ])->assertCreated()->json();
+
+        $this->assertNull($invoice['payer_phone']);
     }
 }

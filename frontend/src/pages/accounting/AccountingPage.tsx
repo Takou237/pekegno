@@ -27,7 +27,7 @@ import type { CommissionBeneficiary } from '@/types/commissions';
 import type { CommissionPaymentMethod } from '@/types/commissions';
 import { COMMISSION_PAYMENT_METHODS } from '@/types/commissions';
 import type { PaginationMeta } from '@/types/agency';
-import { todayLocal } from '@/utils/date';
+import { businessToday } from '@/utils/date';
 import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
@@ -63,7 +63,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
     label: '',
     amount: '',
     category_id: '',
-    transacted_at: todayLocal(),
+    transacted_at: businessToday(),
     reference: '',
     note: '',
     beneficiary: '',
@@ -160,7 +160,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
       label: '',
       amount: '',
       category_id: '',
-      transacted_at: todayLocal(),
+      transacted_at: businessToday(),
       reference: '',
       note: '',
       beneficiary: '',

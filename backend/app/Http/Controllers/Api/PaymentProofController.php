@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Mail\InvoiceStatusMail;
+use App\Models\Agency;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
 use App\Services\ActivityLogger;
 use App\Services\PaymentService;
+use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +47,21 @@ class PaymentProofController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user());
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
+
+        // Une preuve n'est examinable que par qui peut valider sa facture : le
+        // périmètre des preuves suit donc exactement celui des factures
+        // (InvoiceController::scopeByRole). Sans l'élargissement au pays, une
+        // facture en attente d'un commercial d'une autre agence était bien
+        // listée, mais sa preuve restait filtrée ici — le caissier arrivait sur
+        // « Valider » et se trouvait devant « aucune preuve à afficher ».
+        $pendingCountryIds = $agencyIds === null
+            ? collect()
+            : Agency::whereIn('id', $agencyIds)
+                ->whereNotNull('country_id')
+                ->pluck('country_id')
+                ->unique()
+                ->values();
 
         $query = PaymentProof::query()
             ->with(['invoice:id,number,client_name,total_amount,validation_status,status,agency_id', 'submitter:id,first_name,last_name,email', 'reviewer:id,first_name,last_name,email'])
@@ -53,7 +69,13 @@ class PaymentProofController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('agency_id'), fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->where('agency_id', $request->input('agency_id'))))
             ->when($request->filled('country_id'), fn ($q) => $q->whereHas('invoice.agency', fn ($inner) => $inner->where('country_id', $request->input('country_id'))))
-            ->when($agencyIds !== null, fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
+            ->when($agencyIds !== null, fn ($q) => $q->where(function ($q) use ($agencyIds, $pendingCountryIds) {
+                $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds))
+                    ->orWhereHas('invoice', fn ($inner) => $inner->whereNull('agency_id'))
+                    ->when($pendingCountryIds->isNotEmpty(), fn ($q) => $q->orWhereHas('invoice', fn ($inner) => $inner
+                        ->where('validation_status', Invoice::VALIDATION_PENDING)
+                        ->whereHas('agency', fn ($a) => $a->whereIn('country_id', $pendingCountryIds))));
+            }))
             ->orderByDesc('created_at');
 
         return response()->json($query->paginate(min((int) $request->input('per_page', 15), 100)));

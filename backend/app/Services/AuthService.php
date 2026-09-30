@@ -19,6 +19,10 @@ class AuthService
 
     public const LOCK_DURATION_MINUTES = 15;
 
+    public function __construct(
+        private readonly CommercialProfileService $commercialProfiles,
+    ) {}
+
     /**
      * Connexion héritée (portail quelconque, token historique).
      */
@@ -158,6 +162,12 @@ class AuthService
             'failed_attempts' => 0,
             'locked_until' => null,
         ]);
+
+        // Filet de sécurité : les commerciaux créés avant l'auto-création du profil
+        // métier (table commercials) restaient sans profil — dashboard vide (« aucun
+        // profil commercial associé ») et ventes rattachées à personne. On répare à
+        // la connexion ; l'opération est sans effet pour qui a déjà son profil.
+        $this->commercialProfiles->ensureFor($user);
 
         return [
             // UserResource (pas le modèle brut) : le login doit renvoyer le même

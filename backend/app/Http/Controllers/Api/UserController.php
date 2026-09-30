@@ -11,6 +11,7 @@ use App\Mail\UserWelcomeMail;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\CommercialProfileService;
 use App\Services\WelcomeEmailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class UserController extends Controller
     public function __construct(
         private readonly ActivityLogger $logger,
         private readonly WelcomeEmailService $welcomeEmailService,
+        private readonly CommercialProfileService $commercialProfileService,
     ) {}
 
     private function parseWith(Request $request): array
@@ -195,6 +197,14 @@ class UserController extends Controller
 
             if ($agencyId) {
                 $user->assignments()->attach($agencyId, [
+                    // is_primary désigne le CHEF d'agence, pas l'agence principale du
+                    // compte : l'index unique partiel uq_agency_chief n'autorise qu'un
+                    // seul is_primary par agence, et UserAssignmentController::assignChief
+                    // démute le titulaire précédent. Le marquer ici hissait tout nouvel
+                    // employé au rang de chef d'agence et faisait échouer la création
+                    // (violation de clé unique) dès qu'un chef existait sur l'agence.
+                    // Le rattachement simple suffit : le périmètre (ScopeService) et les
+                    // listes du caissier lisent toutes les affectations, pas ce drapeau.
                     'is_primary' => false,
                     'is_department_chief' => false,
                     'department_id' => $departmentId,
@@ -203,6 +213,11 @@ class UserController extends Controller
 
             return $user;
         });
+
+        // Un compte commercial doit disposer dès sa création de son profil
+        // métier (table commercials) : sans lui, son tableau de bord reste vide
+        // (« aucun profil commercial associé »).
+        $this->commercialProfileService->ensureFor($user->fresh(), $data['agency_id'] ?? null);
 
         $this->logger->log(
             action: 'created',
@@ -279,6 +294,15 @@ class UserController extends Controller
         }
 
         $user->update($validated);
+
+        // Promotion d'un employé existant vers le rôle commercial : son profil
+        // métier est créé au passage pour éviter le dashboard vide. La relation
+        // « role » doit être rechargée : elle pointe encore vers l'ancien rôle
+        // après le update().
+        $newRoleName = $user->fresh()?->role?->name;
+        if ($newRoleName === 'commercial' && $oldRoleId !== $user->role_id) {
+            $this->commercialProfileService->ensureFor($user->fresh());
+        }
 
         $this->logger->log(
             action: isset($validated['role_id']) && (string) $validated['role_id'] !== (string) $oldRoleId ? 'role_changed' : 'updated',

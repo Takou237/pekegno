@@ -7,7 +7,7 @@ import { client } from '@/api/client';
 import { statsApi } from '@/api/stats.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
-import { todayLocal } from '@/utils/date';
+import { businessToday } from '@/utils/date';
 import { SkeletonDashboard,
   SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
@@ -677,7 +677,7 @@ function DeptChiefDashboard() {
 
 function CashierDashboard() {
   const { t } = useTranslation();
-  const today = todayLocal();
+  const today = businessToday();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
