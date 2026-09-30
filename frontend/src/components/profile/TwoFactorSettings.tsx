@@ -123,6 +123,15 @@ export function TwoFactorSettings() {
     }
   }
 
+  function handleOpenDisableModal() {
+    setDisableError(null);
+    setIsDisableModalOpen(true);
+    // Canal email : le code est envoyé dès l'ouverture, le bouton ne sert qu'au renvoi.
+    if (isEmailChannel) {
+      void handleSendDisableCode();
+    }
+  }
+
   async function handleDisable(event: FormEvent) {
     event.preventDefault();
     setDisableError(null);
@@ -192,7 +201,7 @@ export function TwoFactorSettings() {
         </div>
         <div className="w-48 shrink-0">
           {user.two_factor_enabled ? (
-            <Button variant="outline" onClick={() => setIsDisableModalOpen(true)} fullWidth>
+            <Button variant="outline" onClick={handleOpenDisableModal} fullWidth>
               {t('profile.twoFactorDisable')}
             </Button>
           ) : null}

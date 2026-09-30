@@ -233,7 +233,15 @@ export function TwoFactorSection() {
             {t('account.twoFactorOn')}{' '}
             <span className="text-success-600 font-medium">({user?.email})</span>
           </p>
-          <Button variant="outline" onClick={() => setShowDisable(true)} className="shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowDisable(true);
+              // Les clients sont toujours en canal email : le code part dès l'ouverture.
+              void handleSendDisableCode();
+            }}
+            className="shrink-0"
+          >
             {t('account.twoFactorDisableAction')}
           </Button>
         </div>

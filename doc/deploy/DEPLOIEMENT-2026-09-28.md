@@ -2,6 +2,11 @@
 
 Procédures générales et pièges : voir `README.md` (même dossier).
 
+> ✅ **Déploiement terminé le 30/09/2026.** Les migrations `migration-2026-09-28.sql`, `-29.sql`, `-30.sql`,
+> `-30-2fa.sql`, `-30-payer-phone.sql` sont **appliquées en prod** et `repair-enrollment-payments.php` a été
+> **exécuté** : ne rien réimporter ni relancer lors des prochains déploiements. Ce document reste comme
+> historique et checklist de recette. État courant de la prod : `README.md` §1 « État de la production ».
+
 ## Ce qui change
 
 Aucun des tickets T1–T19 n'est encore en production : tout part en un seul déploiement.
@@ -162,6 +167,11 @@ Code : push + « Update from Remote » + **OPcache** ; frontend : nouveau `front
 - [ ] Agence → Équipes → Créer un utilisateur : « Département (optionnel) » est une **liste déroulante** des départements de l'agence.
 - [ ] Pays → Paramètres → Créer un utilisateur : Agence = liste déroulante des agences **du pays**, puis Département = liste
       déroulante des départements de l'agence choisie.
+
+## Mise à jour du 30/09 (soir) — 2FA email + téléphone payeur
+
+Base : `migration-2026-09-30-2fa.sql` (`users.two_factor_channel`) puis `migration-2026-09-30-payer-phone.sql`
+(`invoices.payer_phone`) — **appliqués en prod le 30/09**. Frontend reconstruit (`frontend-dist.zip`).
 
 ### Remise à zéro des transactions (optionnel, irréversible)
 Si l'on repart de zéro (CA, dépenses, trésorerie, commissions…) : **sauvegarde** de la base, puis importer

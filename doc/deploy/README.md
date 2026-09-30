@@ -26,6 +26,25 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
   - Mot de passe : dans `backend/.env` sur le serveur (ne pas le redemander à
     l'utilisateur sans raison — ne jamais le faire circuler dans un chat).
 
+### État de la production (à tenir à jour après chaque déploiement)
+
+✅ **Déjà appliqué en prod au 30/09/2026 — NE PAS réimporter / relancer :**
+
+| Script | Contenu |
+|---|---|
+| `migration-2026-09-28.sql` | remise inscription, taux de change pays, monnaie groupe, commission caissière |
+| `migration-2026-09-29.sql` | modèle de facture par pays, permission caissière, types de formation |
+| `migration-2026-09-30.sql` | `invoice_payments.receipt_number` (reçus de versement) |
+| `migration-2026-09-30-2fa.sql` | `users.two_factor_channel` (2FA par email) |
+| `migration-2026-09-30-payer-phone.sql` | `invoices.payer_phone` (téléphone du payeur mobile money) |
+| `repair-enrollment-payments.php` | paiements manquants des inscriptions créés (`?apply=1` fait, fichier supprimé du serveur) |
+
+Dernière migration Laravel présente en prod :
+`2026_09_30_000003_add_payer_phone_to_invoices_table`. Pour un prochain
+déploiement, n'importer que les **nouveaux** scripts SQL correspondant aux
+migrations ajoutées après celle-ci (contrôle :
+`SELECT migration FROM migrations ORDER BY id DESC LIMIT 5;`).
+
 ## 2. Environnement local (développement)
 
 ⚠️ **Ne jamais toucher à la base PostgreSQL locale sans autorisation explicite
@@ -231,6 +250,24 @@ serait réel.
 par écrit (chat, capture d'écran…), le changer aussitôt (cPanel → Email
 Accounts → Manage → Change Password) et le ressaisir dans le `.env`.
 
+### 3.9 « The route api/... could not be found » alors que le code est à jour
+Vu le 30/09 : `git pull` « Déjà à jour » sur `master`, la route présente dans
+`backend/routes/api.php`, mais la prod répond 404 « route could not be
+found » (ex. `api/users/{id}/reset-password`, `api/auth/2fa/email/send`).
+Cause : le PHP web sert une ancienne table de routes (cache Laravel
+`bootstrap/cache/routes-v7.php` et/ou OPcache).
+
+**Fix (SSH, depuis `~/repositories/pekegno/backend`) :**
+```bash
+php artisan route:clear
+php artisan config:clear
+ls -la bootstrap/cache/        # ne doit rester que packages.php, services.php
+php artisan route:list --path=<chemin>   # contrôle
+```
+Puis **vider l'OPcache via le navigateur** (#3.4) : `artisan` en SSH ne vide
+pas l'OPcache du site web. Ne jamais lancer `php artisan route:cache` /
+`config:cache` / `optimize` en prod : ça refige les routes et le `.env`.
+
 ## 4. Comment déployer une mise à jour
 
 ### Backend (Laravel)
@@ -256,7 +293,9 @@ Accounts → Manage → Change Password) et le ressaisir dans le `.env`.
    traduire en `ALTER TABLE`/`CREATE TABLE` SQL à la main et de les importer
    via phpPgAdmin (onglet Importer) — voir piège #3.1 si on régénère un
    schéma complet.
-4. **Toujours vider l'OPcache après un déploiement** (piège #3.4).
+4. **Toujours vider les caches après un déploiement** : `php artisan route:clear`
+   + `php artisan config:clear` en SSH (piège #3.9), puis l'OPcache via
+   `reset-opcache.php` (piège #3.4).
 5. Vérifier `backend/.env` (`APP_URL`, `FRONTEND_URL`, `DB_*`) est toujours
    correct après tout changement de domaine/base.
 
@@ -295,11 +334,13 @@ Accounts → Manage → Change Password) et le ressaisir dans le `.env`.
 | `seed-roles-permissions.sql` | Les 9 rôles + 162 permissions + leurs associations (généré depuis `PermissionSeeder`/`RoleSeeder`) |
 | `env.production.example` | Modèle de `.env` de prod (à copier dans `backend/.env`, mot de passe à compléter) — **volontairement non versionné** (ignoré par git, cf. `.gitignore`) : en créer une copie localement si besoin |
 | `DEPLOIEMENT-2026-09-28.md` | Procédure pas à pas + checklist de recette de la mise à jour du 28/09 |
-| `migration-2026-09-29.sql` | Corrections du 29/09 (modèle de facture par pays, permission caissière, types de formation) — à importer après celui du 28/09 |
-| `migration-2026-09-30.sql` | Reçu imprimable par versement (colonne `invoice_payments.receipt_number` + numérotation des versements existants) — à importer après celui du 29/09 |
-| `repair-enrollment-payments.php` | One-shot : crée les paiements manquants des inscriptions (simulation, puis `?apply=1`), puis supprimer |
+| `migration-2026-09-29.sql` | ✅ **Appliqué en prod.** Corrections du 29/09 (modèle de facture par pays, permission caissière, types de formation) |
+| `migration-2026-09-30.sql` | ✅ **Appliqué en prod.** Reçu imprimable par versement (colonne `invoice_payments.receipt_number` + numérotation des versements existants) |
+| `migration-2026-09-30-2fa.sql` | ✅ **Appliqué en prod.** Colonne `users.two_factor_channel` (2FA par email) |
+| `migration-2026-09-30-payer-phone.sql` | ✅ **Appliqué en prod.** Colonne `invoices.payer_phone` (téléphone du payeur mobile money) |
+| `repair-enrollment-payments.php` | ✅ **Déjà exécuté en prod (ne pas relancer).** One-shot : crée les paiements manquants des inscriptions |
 | `mail-test.php` | One-shot : diagnostic SMTP (config chargée, connexions sortantes, envoi test), puis supprimer |
-| `migration-2026-09-28.sql` | Mise à jour de la BD pour les tickets du 28/09 (remise inscription, taux de change pays, monnaie groupe, commission caissier) — à importer une fois via phpPgAdmin |
+| `migration-2026-09-28.sql` | ✅ **Appliqué en prod.** Mise à jour de la BD pour les tickets du 28/09 (remise inscription, taux de change pays, monnaie groupe, commission caissier) |
 | `reset-transactions.sql` | Remet à zéro toutes les transactions (factures, paiements, dépenses, compta, trésorerie, commissions, points, inscriptions, abonnements) en conservant la configuration — **sauvegarde obligatoire avant** |
 | `reset-opcache.php` | Script à visiter une fois puis supprimer (piège #3.4) |
 | `setup-storage-link.php` | Équivalent de `php artisan storage:link` sans terminal |
