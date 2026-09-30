@@ -32,12 +32,16 @@ export interface User {
   role: Role | null;
   is_active: boolean;
   two_factor_enabled: boolean;
+  two_factor_channel: TwoFactorChannel;
   is_password_change_required: boolean;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
   assignments?: UserAssignment[];
 }
+
+/** Canal de réception du code 2FA. */
+export type TwoFactorChannel = 'totp' | 'email';
 
 export interface LoginCredentials {
   email: string;
@@ -57,6 +61,8 @@ export interface AuthSuccessResponse {
 export interface AuthTwoFactorChallengeResponse {
   two_factor_required: true;
   temp_token: string;
+  /** Canal du défi : 'email' = un code vient d'être envoyé par email. */
+  two_factor_channel?: TwoFactorChannel;
 }
 
 export type LoginResponse = AuthSuccessResponse | AuthTwoFactorChallengeResponse;
@@ -93,10 +99,10 @@ export interface DeleteAccountPayload {
   password: string;
 }
 
-export interface TwoFactorEnableResponse {
-  secret: string;
-  qr_code_url: string;
-}
+/** Réponse de POST /auth/2fa/enable — dépend du canal demandé. */
+export type TwoFactorEnableResponse =
+  | { channel: 'totp'; secret: string; qr_code_url: string }
+  | { channel: 'email'; masked_email: string };
 
 export interface ApiMessageResponse {
   message: string;

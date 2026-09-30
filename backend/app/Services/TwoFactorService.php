@@ -2,12 +2,33 @@
 
 namespace App\Services;
 
+use App\Models\User;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Hash;
+
 class TwoFactorService
 {
     private const SECRET_LENGTH = 20;
+
     private const TOTP_PERIOD = 30;
+
     private const TOTP_DIGITS = 6;
+
     private const TOTP_WINDOW = 1;
+
+    /** Durée de vie du code email (secondes). */
+    public const EMAIL_CODE_TTL = 300;
+
+    /** Tentatives maximales de saisie d'un code email. */
+    public const EMAIL_MAX_ATTEMPTS = 5;
+
+    /** Délai minimum entre deux envois (secondes). */
+    public const EMAIL_RESEND_COOLDOWN = 60;
+
+    private const EMAIL_CODE_KEY = '2fa_email_code:';
+
+    private const EMAIL_SENT_AT_KEY = '2fa_email_sent_at:';
 
     public function generateSecretKey(): string
     {
@@ -31,7 +52,7 @@ class TwoFactorService
             'period' => self::TOTP_PERIOD,
         ]);
 
-        return 'otpauth://totp/' . rawurlencode($issuer) . ':' . rawurlencode($email) . '?' . $params;
+        return 'otpauth://totp/'.rawurlencode($issuer).':'.rawurlencode($email).'?'.$params;
     }
 
     public function verifyKey(string $secret, string $key): bool
@@ -52,6 +73,91 @@ class TwoFactorService
         }
 
         return false;
+    }
+
+    /**
+     * Génère un code à 6 chiffres pour le canal email et stocke son hash en cache.
+     * Le code en clair n'existe que le temps de l'envoi — jamais persisté.
+     */
+    public function issueEmailCode(User $user): string
+    {
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        Cache::put(self::EMAIL_CODE_KEY.$user->id, [
+            'hash' => Hash::make($code),
+            'attempts' => 0,
+        ], self::EMAIL_CODE_TTL);
+
+        Cache::put(self::EMAIL_SENT_AT_KEY.$user->id, now()->timestamp, self::EMAIL_RESEND_COOLDOWN);
+
+        return $code;
+    }
+
+    /** Vérifie le code email ; consomme le code en cas de succès. */
+    public function verifyEmailCode(User $user, string $code): bool
+    {
+        $code = trim($code);
+
+        $payload = Cache::get(self::EMAIL_CODE_KEY.$user->id);
+
+        if (! $payload || strlen($code) !== self::TOTP_DIGITS) {
+            return false;
+        }
+
+        if (! Hash::check($code, $payload['hash'])) {
+            $attempts = ($payload['attempts'] ?? 0) + 1;
+
+            if ($attempts >= self::EMAIL_MAX_ATTEMPTS) {
+                Cache::forget(self::EMAIL_CODE_KEY.$user->id);
+
+                return false;
+            }
+
+            Cache::put(self::EMAIL_CODE_KEY.$user->id, array_merge($payload, ['attempts' => $attempts]), self::EMAIL_CODE_TTL);
+
+            return false;
+        }
+
+        Cache::forget(self::EMAIL_CODE_KEY.$user->id);
+
+        return true;
+    }
+
+    /** Secondes restantes avant de pouvoir renvoyer un code email (0 = autorisé). */
+    public function emailResendCooldownRemaining(User $user): int
+    {
+        $sentAt = Cache::get(self::EMAIL_SENT_AT_KEY.$user->id);
+
+        if (! $sentAt) {
+            return 0;
+        }
+
+        return max(0, self::EMAIL_RESEND_COOLDOWN - (now()->timestamp - (int) $sentAt));
+    }
+
+    /** Supprime un code email en attente (ex. trop de tentatives). */
+    public function forgetEmailCode(User $user): void
+    {
+        Cache::forget(self::EMAIL_CODE_KEY.$user->id);
+    }
+
+    /** Vérifie le code selon le canal configuré de l'utilisateur. */
+    public function verifyCodeForUser(User $user, string $code): bool
+    {
+        if ($user->two_factor_channel === 'email') {
+            return $this->verifyEmailCode($user, $code);
+        }
+
+        if (! $user->two_factor_secret) {
+            return false;
+        }
+
+        return $this->verifyKey($this->decryptSecret($user->two_factor_secret), $code);
+    }
+
+    private function decryptSecret(string $encrypted): string
+    {
+        return Crypt::decrypt($encrypted);
     }
 
     private function generateTotp(string $secret, int $time): string

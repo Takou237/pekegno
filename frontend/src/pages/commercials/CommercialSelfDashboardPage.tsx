@@ -30,22 +30,32 @@ export default function CommercialSelfDashboardPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const res = await commercialsApi.list({ per_page: 100 });
-      const mine = (res.data ?? []).find((c) => c.user_id === user?.id) ?? null;
+      // Source fiable : l'endpoint « moi » retrouve le profil du compte connecté
+      // par user_id, sans dépendre d'une liste paginée (le profil pouvait manquer
+      // de la première page — d'où « aucun commercial lié à votre compte »).
+      const s = await commercialsApi.myStats();
+      setStats(s);
+      const mine: Commercial = {
+        ...(commercial ?? ({} as Commercial)),
+        id: s.commercial.id,
+        user_id: user?.id ?? null,
+        first_name: s.commercial.first_name,
+        last_name: s.commercial.last_name,
+        email: s.commercial.email,
+        points_balance: s.commercial.points_balance,
+        commission_type: s.commercial.commission_type,
+        commission_value: s.commercial.commission_value,
+        is_active: s.commercial.is_active,
+      };
       setCommercial(mine);
-      if (mine) {
-        const [s, invRes] = await Promise.all([
-          commercialsApi.stats(mine.id),
-          invoicesApi.list({ commercial_id: mine.id, per_page: 10 }),
-        ]);
-        setStats(s);
-        setInvoices(invRes.invoices.data);
-      }
+      const invRes = await invoicesApi.list({ commercial_id: s.commercial.id, per_page: 10 });
+      setInvoices(invRes.invoices.data);
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('commercials.loadFailed')));
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, t]);
 
   useEffect(() => {

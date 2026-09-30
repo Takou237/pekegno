@@ -29,6 +29,7 @@ class User extends Authenticatable
         'locked_until',
         'two_factor_enabled',
         'two_factor_secret',
+        'two_factor_channel',
         'active_session_id',
         'is_password_change_required',
         'last_activity_at',

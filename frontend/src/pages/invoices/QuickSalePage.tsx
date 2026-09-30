@@ -40,6 +40,7 @@ export default function QuickSalePage() {
 
   // Payment
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('cash');
+  const [payerPhone, setPayerPhone] = useState('');
   const [amountReceived, setAmountReceived] = useState('');
   // Avance déclarée (commercial uniquement) : encaissée par le caissier à la validation.
   const [advance, setAdvance] = useState('');
@@ -69,6 +70,10 @@ export default function QuickSalePage() {
     [amountReceived, total],
   );
 
+  // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
+  // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
+  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo';
+
   /**
    * Vide le formulaire. Appelé après chaque vente enregistrée : le guichet
    * enchaîne les clients, et une saisie restante (client, montant, ou pire la
@@ -82,6 +87,7 @@ export default function QuickSalePage() {
     setPassTier('');
     setSeminarTiers([]);
     setPaymentType('cash');
+    setPayerPhone('');
     setAmountReceived('');
     setAdvance('');
     setProofFile(null);
@@ -116,6 +122,10 @@ export default function QuickSalePage() {
       setErrors({ service_id: t('invoices.quickSelectService') });
       return;
     }
+    if (requiresPayerPhone && !payerPhone.trim()) {
+      setErrors({ payer_phone: t('invoices.payerPhoneRequired') });
+      return;
+    }
     if (!paymentType && !isCommercial) {
       setErrors({ payment_type: t('invoices.quickSelectPaymentType') });
       return;
@@ -138,6 +148,7 @@ export default function QuickSalePage() {
           client_id: freeClientName ? undefined : clientId || undefined,
           client_name: freeClientName || undefined,
           payment_type: paymentType || undefined,
+          payer_phone: requiresPayerPhone ? payerPhone.trim() : undefined,
           comment: comment || undefined,
           // L'avance d'un commercial est enregistrée comme avance déclarée
           // (declared_advance) côté backend, appliquée à la validation par le caissier.
@@ -322,6 +333,16 @@ export default function QuickSalePage() {
               <option value="om">{t('invoices.paymentOm')}</option>
               <option value="momo">{t('invoices.paymentMomo')}</option>
             </Select>
+            {requiresPayerPhone && (
+              <Input
+                label={`${t('invoices.payerPhone')} *`}
+                value={payerPhone}
+                onChange={(e) => setPayerPhone(e.target.value)}
+                error={errors.payer_phone}
+                hint={t('invoices.payerPhoneHint')}
+                placeholder="+237 6XX XXX XXX"
+              />
+            )}
             {isCommercial ? (
               <Input
                 label={t('invoices.advance')}

@@ -44,6 +44,7 @@ class UserResource extends JsonResource
             'address' => $this->address,
             'is_active' => $this->is_active,
             'two_factor_enabled' => (bool) $this->two_factor_enabled,
+            'two_factor_channel' => $this->two_factor_channel ?? 'totp',
             'is_password_change_required' => (bool) $this->is_password_change_required,
             'role' => $this->whenLoaded('role'),
             'role_id' => $this->role_id,

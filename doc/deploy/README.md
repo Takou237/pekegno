@@ -148,25 +148,88 @@ modifier l'un ne touche pas l'autre. Toujours vérifier lequel des deux est
 concerné avant de dire "ça devrait marcher".
 
 ### 3.8 Emails : sans SMTP configuré, aucun email ne part
-Création d'utilisateur (identifiants), réinitialisation par l'admin et « mot
-de passe oublié » envoient des emails. Avec `MAIL_MAILER=log` (valeur par
-défaut de `.env.example`), les messages sont seulement écrits dans
-`storage/logs/laravel.log` : l'utilisateur ne reçoit rien. En production,
-créer une boîte mail dans cPanel (ex. `noreply@pekegnogroup.com`) puis
-renseigner dans `backend/.env` :
+Création d'utilisateur (identifiants), réinitialisation par l'admin, « mot
+de passe oublié » et désormais les codes 2FA par email envoient des messages.
+Avec `MAIL_MAILER=log` (valeur par défaut de `.env.example`), les messages
+sont seulement écrits dans `storage/logs/laravel.log` : l'utilisateur ne
+reçoit rien.
+
+⚠️ **Piège identifié le 30/09 (diagnostic réel)** : le certificat TLS du
+serveur mail d'o2switch ne couvre PAS `mail.pekegnogroup.com` (vérifié :
+« hostname mismatch »). Avec `MAIL_HOST=mail.pekegnogroup.com` + `smtps`,
+la connexion échoue sur la vérification du nom d'hôte (code 62) : les
+emails ne partent pas, sans erreur visible côté utilisateur.
+
+✅ **Hostnames valides** (certificat vérifié, code 0) — dans l'ordre de
+préférence :
+1. `pekegnogroup.com:465` — c'est le serveur sortant que cPanel affiche
+   lui-même dans « Connect Devices » (Secure SSL/TLS Settings) ;
+2. `mail.lynx.o2switch.net:465` — hostname interne du serveur (Lynx).
+
+❌ **Interdit** : `mail.pekegnogroup.com` (certificat non couvert).
+
+En production, créer une boîte mail dans cPanel (ex.
+`noreply@pekegnogroup.com`) puis renseigner dans `backend/.env` :
 ```
 MAIL_MAILER=smtp
 MAIL_SCHEME=smtps
-MAIL_HOST=mail.pekegnogroup.com   # serveur SMTP indiqué par cPanel
+MAIL_HOST=pekegnogroup.com   # serveur sortant SSL affiché par cPanel ; alternative : mail.lynx.o2switch.net
 MAIL_PORT=465
 MAIL_USERNAME=noreply@pekegnogroup.com
-MAIL_PASSWORD="mot de passe de la boîte"
+MAIL_PASSWORD="mot de passe de la boîte"   # À SAISIR SUR PLACE, jamais dans un chat
 MAIL_FROM_ADDRESS="noreply@pekegnogroup.com"
 MAIL_FROM_NAME="PEKEGNO"
 FRONTEND_URL=https://plateforme.pekegnogroup.com
 ```
 Puis vider l'OPcache (#3.4). En cas d'échec SMTP, « mot de passe oublié »
-répond désormais 503 avec un message clair et l'erreur est journalisée.
+répond désormais 503 avec un message clair et l'erreur est journalisée,
+et le renvoi d'un code 2FA échoue proprement (503) sans casser le flux.
+
+Vérifier aussi cPanel → **Email Deliverability** : activer SPF et DKIM
+pour `pekegnogroup.com`, sinon les emails finissent en spam chez Gmail.
+
+#### Procédure cPanel pas à pas (option A — 10 minutes)
+1. **cPanel → Email Deliverability** : si « Issues Found » pour
+   `pekegnogroup.com`, cliquer **Repair** (installe SPF + DKIM). Étape
+   optionnelle mais fortement recommandée pour la délivrabilité.
+2. **cPanel → Email Accounts → Create** :
+   - Domain : `pekegnogroup.com`, Username : `noreply`
+   - Password : générer un mot de passe fort (⚠️ ne jamais le coller dans
+     un chat — le saisir directement dans le `.env` à l'étape 4)
+   - Storage : décocher ou mettre 1 Go (boîte d'envoi technique, pas de
+     réception utile) ; décocher « Send welcome email »
+3. **cPanel → Email Accounts → Connect Devices** (sur la boîte `noreply`) :
+   noter le serveur **SMTP** de la section « Secure SSL/TLS Settings » —
+   attendu `pekegnogroup.com`, port **465** (si cPanel affiche autre chose,
+   utiliser ce qu'il affiche, en vérifiant le certificat : jamais
+   `mail.pekegnogroup.com`).
+4. **Gestionnaire de fichiers → `repositories/pekegno/backend/.env`** :
+   éditer le bloc `MAIL_*` exactement comme ci-dessus (mot de passe saisi
+   sur place). Si un fichier `bootstrap/cache/config.php` existe, le
+   **supprimer** : sinon le `.env` est ignoré (diagnostic `mail-test.php`
+   l'affiche en tête).
+5. **Vider l'OPcache** (piège #3.4) : uploader `reset-opcache.php` dans
+   `backend/public/`, ouvrir `https://pekegnogroup.com/reset-opcache.php`,
+   vérifier le message de succès, **supprimer le fichier**.
+6. **Tester** : uploader `mail-test.php` dans `backend/public/`, ouvrir
+   `https://pekegnogroup.com/mail-test.php`. Attendu : « Config en cache :
+   non », `MAIL_MAILER: smtp`, hôte `pekegnogroup.com:465`, toutes
+   les connexions réseau « OK » et l'email de test reçu (vérifier les
+   spams). **Supprimer immédiatement le fichier.**
+7. **Recette applicative** : dans la plateforme, utiliser « Mot de passe
+   oublié » avec une vraie adresse (email reçu, lien fonctionnel), créer
+   un utilisateur test (email de bienvenue reçu), activer la 2FA par
+   email sur un compte (code reçu à la connexion suivante).
+
+Si l'étape 6 échoue malgré tout (connexion `pekegnogroup.com:465` en ÉCHEC
+depuis le serveur lui-même), essayer `MAIL_HOST=mail.lynx.o2switch.net` ;
+si les deux échouent, ouvrir un ticket au support o2switch en citant le
+hostname et le port — c'est le seul cas restant où le blocage sortant
+serait réel.
+
+🔐 **Mot de passe compromis** : si le mot de passe de la boîte a circulé
+par écrit (chat, capture d'écran…), le changer aussitôt (cPanel → Email
+Accounts → Manage → Change Password) et le ressaisir dans le `.env`.
 
 ## 4. Comment déployer une mise à jour
 
@@ -230,7 +293,7 @@ répond désormais 503 avec un message clair et l'erreur est journalisée.
 | `seed-admin.sql` | Crée le rôle `super-admin` + le compte `admin@pekegno.com` |
 | `seed-admin2.sql` | Un 2ème compte super-admin |
 | `seed-roles-permissions.sql` | Les 9 rôles + 162 permissions + leurs associations (généré depuis `PermissionSeeder`/`RoleSeeder`) |
-| `env.production.example` | Modèle de `.env` de prod (à copier dans `backend/.env`, mot de passe à compléter) |
+| `env.production.example` | Modèle de `.env` de prod (à copier dans `backend/.env`, mot de passe à compléter) — **volontairement non versionné** (ignoré par git, cf. `.gitignore`) : en créer une copie localement si besoin |
 | `DEPLOIEMENT-2026-09-28.md` | Procédure pas à pas + checklist de recette de la mise à jour du 28/09 |
 | `migration-2026-09-29.sql` | Corrections du 29/09 (modèle de facture par pays, permission caissière, types de formation) — à importer après celui du 28/09 |
 | `migration-2026-09-30.sql` | Reçu imprimable par versement (colonne `invoice_payments.receipt_number` + numérotation des versements existants) — à importer après celui du 29/09 |

@@ -75,6 +75,7 @@ export interface Invoice {
   seller_user_id: string | null;
   invoice_date: string;
   payment_type: PaymentMethod | null;
+  payer_phone: string | null;
   total_amount: string;
   amount_paid: string;
   declared_advance: string | null;
@@ -147,6 +148,7 @@ export interface CreateInvoicePayload {
   seller_user_id?: string;
   invoice_date?: string;
   payment_type?: PaymentMethod;
+  payer_phone?: string;
   comment?: string;
   advance?: number;
   discount?: number;

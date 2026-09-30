@@ -1,6 +1,13 @@
 import i18n, { currentLocale } from '@/i18n';
 
 /**
+ * Fuseau métier : doit rester aligné sur `config('app.business_timezone')`
+ * côté backend. Les « journées » comptables (bilan, encaissements) sont closes
+ * à minuit heure de Douala, pas à minuit heure du navigateur.
+ */
+export const BUSINESS_TIMEZONE = 'Africa/Douala';
+
+/**
  * Retourne la date du jour dans le fuseau local de l'utilisateur (YYYY-MM-DD).
  * À utiliser pour les bornes from/to (le backend interprète ces dates dans le
  * fuseau métier Africa/Douala).
@@ -13,6 +20,32 @@ export function todayLocal(date: Date = new Date()): string {
 }
 
 /**
+ * Date du jour métier (YYYY-MM-DD en Africa/Douala), alignée sur
+ * `App\Support\Period::businessToday()`. Un navigateur hors UTC+0/+1 verrait
+ * sinon « aujourd'hui » basculer sur la mauvaise journée.
+ */
+export function businessToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: BUSINESS_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+/**
+ * Convertit un jour `YYYY-MM-DD` en Date à minuit local. `new Date('2026-09-30')`
+ * est interprété en UTC par le navigateur et affiche la veille dans les fuseaux
+ * à l'ouest de Greenwich.
+ */
+export function parseDay(value: string | Date): Date {
+  if (value instanceof Date) return value;
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (parts) return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+  return new Date(value);
+}
+
+/**
  * Formate une date à la façon WhatsApp :
  * - aujourd'hui -> "Aujourd'hui"
  * - hier -> "Hier"
@@ -20,7 +53,7 @@ export function todayLocal(date: Date = new Date()): string {
  * - sinon -> jour/mois/année (jj/mm/aaaa)
  */
 export function formatRelativeDate(value: string | Date): string {
-  const date = typeof value === 'string' ? new Date(value) : value;
+  const date = parseDay(value);
   if (Number.isNaN(date.getTime())) return '—';
 
   const locale = currentLocale();

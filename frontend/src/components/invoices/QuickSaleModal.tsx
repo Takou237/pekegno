@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
@@ -15,10 +15,16 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
-import { Autocomplete, FREE_TEXT_PREFIX, type AutocompleteOption } from '@/components/ui/Autocomplete';
+import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
+import {
+  EnrollmentLearnerField,
+  emptyNewLearnerForm,
+  type LearnerMode,
+  type NewLearnerFormState,
+} from '@/components/academy/EnrollmentLearnerField';
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
-import type { ServiceSearchItem } from '@/types/service';
+import type { SeminarTier, Service } from '@/types/service';
 import type { Commercial } from '@/types/commercial';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 
@@ -39,6 +45,15 @@ function newLine(): InvoiceLineDraft {
 }
 
 const FORMATION_PREFIX = 'formation:';
+
+/** Entrée de la liste déroulante « Produit » : un produit du catalogue ou une formation. */
+interface ProductOption {
+  value: string;
+  label: string;
+  price: number;
+  tiers: SeminarTier[];
+  isCourse: boolean;
+}
 
 interface QuickSaleModalProps {
   isOpen: boolean;
@@ -61,20 +76,57 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   );
 
   const [clientId, setClientId] = useState('');
+  const [learnerMode, setLearnerMode] = useState<LearnerMode>('existing');
+  const [newLearner, setNewLearner] = useState<NewLearnerFormState>(emptyNewLearnerForm);
   const [sellerId, setSellerId] = useState('');
   const [sellerIsTrainer, setSellerIsTrainer] = useState(false);
   const [myCommercial, setMyCommercial] = useState<Commercial | null>(null);
   const [paymentType, setPaymentType] = useState<'' | PaymentMethod>('cash');
+  const [payerPhone, setPayerPhone] = useState('');
   const [advance, setAdvance] = useState('');
   const [discount, setDiscount] = useState('');
   const [vatRate, setVatRate] = useState('');
   const [comment, setComment] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [lines, setLines] = useState<InvoiceLineDraft[]>([newLine()]);
+  const [catalogue, setCatalogue] = useState<Service[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const serviceResultsRef = useRef<Record<string, ServiceSearchItem[]>>({});
-  const courseResultsRef = useRef<Record<string, Course | null>>({});
+
+  // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
+  // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
+  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo';
+
+  const productOptions = useMemo<ProductOption[]>(() => {
+    const fromCatalogue: ProductOption[] = catalogue.map((service) => ({
+      value: service.id,
+      label: service.name,
+      price: Number(service.effective_price ?? service.price ?? 0),
+      tiers: service.is_seminar ? (service.seminar_tiers ?? []) : [],
+      isCourse: false,
+    }));
+    const fromCourses: ProductOption[] = courses.map((course) => ({
+      value: FORMATION_PREFIX + course.id,
+      label: course.name,
+      price: Number(course.effective_price ?? course.price ?? 0),
+      tiers: [],
+      isCourse: true,
+    }));
+    return [...fromCatalogue, ...fromCourses];
+  }, [catalogue, courses]);
+
+  const catalogueOptions = useMemo(() => productOptions.filter((o) => !o.isCourse), [productOptions]);
+  const courseOptions = useMemo(() => productOptions.filter((o) => o.isCourse), [productOptions]);
+
+  const learnerOptions = useCallback(async (query: string) => {
+    const results = await clientsApi.search(query.trim());
+    return results.map((c) => ({
+      id: c.id,
+      label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
+      subtitle: [c.email, c.client_number].filter(Boolean).join(' — '),
+    }));
+  }, []);
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce(
@@ -98,9 +150,12 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
 
   function reset() {
     setClientId('');
+    setLearnerMode('existing');
+    setNewLearner(emptyNewLearnerForm);
     setSellerId('');
     setSellerIsTrainer(false);
     setPaymentType('cash');
+    setPayerPhone('');
     setAdvance('');
     setDiscount('');
     setVatRate('');
@@ -113,6 +168,17 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   useEffect(() => {
     if (!isOpen) return;
     reset();
+    // La liste déroulante « Produit » propose tout le catalogue visible par
+    // l'utilisateur (produits de l'agence + formations) plutôt qu'une saisie
+    // texte : le catalogue fait foi sur le libellé et le prix.
+    servicesApi
+      .list({ per_page: 100, agency_id: agencyId })
+      .then((res) => setCatalogue(res.data ?? []))
+      .catch(() => setCatalogue([]));
+    academyApi
+      .courses({ agency_id: agencyId, per_page: 100 })
+      .then((res) => setCourses(res.data ?? []))
+      .catch(() => setCourses([]));
     if (isCommercial && currentUser?.id) {
       commercialsApi
         .list({ per_page: 100 })
@@ -171,45 +237,26 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
     setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev));
   }
 
-  function handleServiceSelect(key: string, lineId: string) {
-    if (lineId.startsWith(FORMATION_PREFIX)) {
-      const entry = courseResultsRef.current[lineId];
-      if (!entry) return;
-      const alreadyUsed = lines.some((l) => l.key !== key && l.service_id === lineId);
-      if (alreadyUsed) {
-        showToast(t('invoices.duplicateService'), 'error');
-        return;
-      }
-      updateLine(key, {
-        service_id: lineId,
-        kind: 'formation',
-        label: entry.name,
-        unit_price: String(entry.effective_price ?? entry.price ?? ''),
-        pass_tier: '',
-      });
+  function handleProductSelect(key: string, value: string) {
+    if (!value) {
+      updateLine(key, { service_id: '', kind: '', label: '', unit_price: '', pass_tier: '' });
       return;
     }
-    const results = serviceResultsRef.current[key] ?? [];
-    const service = results.find((s) => s.id === lineId);
-    if (!service) return;
-    const alreadyUsed = lines.some((l) => l.key !== key && l.service_id === lineId);
+    const option = productOptions.find((o) => o.value === value);
+    if (!option) return;
+    const alreadyUsed = lines.some((l) => l.key !== key && l.service_id === value);
     if (alreadyUsed) {
       showToast(t('invoices.duplicateService'), 'error');
       return;
     }
-    const patches: Partial<InvoiceLineDraft> = {
-      service_id: service.id,
-      kind: 'service',
-      label: service.name,
-      unit_price: String(service.effective_price ?? service.price ?? ''),
-    };
-    if (service.is_seminar && service.seminar_tiers && service.seminar_tiers.length > 0) {
-      patches.pass_tier = service.seminar_tiers[0].tier;
-      patches.unit_price = String(service.seminar_tiers[0].price);
-    } else {
-      patches.pass_tier = '';
-    }
-    updateLine(key, patches);
+    const tiers = option.tiers;
+    updateLine(key, {
+      service_id: option.value,
+      kind: option.isCourse ? 'formation' : 'service',
+      label: option.label,
+      unit_price: String(tiers[0]?.price ?? option.price),
+      pass_tier: tiers[0]?.tier ?? '',
+    });
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -221,6 +268,10 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
       setErrors({ items: t('invoices.noItems') });
       return;
     }
+    if (requiresPayerPhone && !payerPhone.trim()) {
+      setErrors({ payer_phone: t('invoices.payerPhoneRequired') });
+      return;
+    }
     if (Number(advance) > totals.total) {
       setErrors({ advance: t('invoices.advanceExceedsTotal') });
       return;
@@ -229,17 +280,35 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
       setErrors({ proof_file: t('invoices.proofRequiredForSale') });
       return;
     }
-    const freeClientName = clientId.startsWith(FREE_TEXT_PREFIX) ? clientId.slice(FREE_TEXT_PREFIX.length) : '';
     setSubmitting(true);
     setErrors({});
     try {
+      let buyerId = learnerMode === 'existing' ? clientId : '';
+      if (learnerMode === 'new') {
+        if (!newLearner.first_name.trim() || !newLearner.last_name.trim()) {
+          setErrors({ learner_user_id: t('academy.newLearnerRequired') });
+          return;
+        }
+        // L'apprenant saisi est créé comme client : la facture le rattache à un
+        // compte réel, ce qui permet de le retrouver dans l'historique.
+        const created = await clientsApi.create({
+          first_name: newLearner.first_name.trim(),
+          last_name: newLearner.last_name.trim(),
+          email: newLearner.email.trim(),
+          phone: newLearner.phone.trim() || null,
+          country: newLearner.country || undefined,
+          registered_agency_id: agencyId,
+        });
+        buyerId = created.id;
+      }
+
       const payload = {
-        client_id: freeClientName ? undefined : clientId || undefined,
-        client_name: freeClientName || undefined,
+        client_id: buyerId || undefined,
         commercial_id: !sellerIsTrainer && sellerId ? sellerId : undefined,
         seller_user_id: sellerIsTrainer && sellerId ? sellerId : undefined,
         agency_id: agencyId || undefined,
         payment_type: paymentType || undefined,
+        payer_phone: requiresPayerPhone ? payerPhone.trim() : undefined,
         comment: comment || undefined,
         advance: Number(advance) || undefined,
         discount: Number(discount) || undefined,
@@ -275,23 +344,18 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
           <Alert variant="error">{Object.values(errors).join(' ')}</Alert>
         )}
 
+        <EnrollmentLearnerField
+          mode={learnerMode}
+          onModeChange={setLearnerMode}
+          learnerUserId={clientId}
+          onLearnerUserIdChange={setClientId}
+          fetchOptions={learnerOptions}
+          newLearner={newLearner}
+          onNewLearnerChange={setNewLearner}
+          error={errors.learner_user_id}
+        />
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Autocomplete
-            label={t('invoices.headerClient')}
-            placeholder={t('invoices.headerClientPlaceholder')}
-            value={clientId}
-            onChange={setClientId}
-            freeText
-            fetchOptions={async (query) => {
-              const res = await clientsApi.search(query.trim());
-              return res.map((c) => ({
-                id: c.id,
-                label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                subtitle: [c.email, c.client_number].filter(Boolean).join(' — '),
-              }));
-            }}
-            error={errors.client_id}
-          />
           {isCommercial || isSelfSellerRole ? (
             <Input
               label={t('invoices.seller')}
@@ -361,48 +425,37 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
           <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">{t('invoices.items')}</h3>
           <div className="flex flex-col gap-3">
             {lines.map((line, index) => {
-              const results = serviceResultsRef.current[line.key] ?? [];
-              const selectedService =
-                line.kind !== 'formation' ? results.find((s) => s.id === line.service_id) : undefined;
-              const tiers = selectedService?.seminar_tiers;
-              const hasTiers = line.pass_tier !== '' && tiers && tiers.length > 0;
+              const tiers = productOptions.find((o) => o.value === line.service_id)?.tiers ?? [];
+              const hasTiers = tiers.length > 0;
               return (
                 <div key={line.key} className="flex flex-col gap-2 rounded-xl border border-gray-100 p-3 dark:border-gray-800 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1">
-                    <Autocomplete
-                      label={index === 0 ? t('invoices.itemService') : undefined}
-                      placeholder={t('invoices.itemServicePlaceholder')}
+                    <Select
+                      label={index === 0 ? t('invoices.itemProduct') : undefined}
                       value={line.service_id}
-                      onChange={(serviceId) => handleServiceSelect(line.key, serviceId)}
-                      fetchOptions={async (query) => {
-                        const q = query.trim();
-                        const [res, courses] = await Promise.all([
-                          servicesApi.search(q),
-                          academyApi.courses({ search: q || undefined, per_page: 100 }),
-                        ]);
-                        serviceResultsRef.current[line.key] = res;
-                        courseResultsRef.current[line.key] = null;
-                        return [
-                          ...res.map((s) => ({
-                            id: s.id,
-                            label: s.name,
-                            subtitle: `${formatCurrency(Number(s.effective_price ?? s.price), currency)}${
-                              s.has_promotion ? ' · promo' : ''
-                            }${s.category ? ` · ${s.category}` : ''}`,
-                          })),
-                          ...courses.data.map((c) => {
-                            courseResultsRef.current[FORMATION_PREFIX + c.id] = c;
-                            return {
-                              id: FORMATION_PREFIX + c.id,
-                              label: c.name,
-                              subtitle: `${t('nav.courses')} — ${formatCurrency(
-                                Number(c.effective_price ?? c.price ?? 0),
-                              )}`,
-                            };
-                          }),
-                        ];
-                      }}
-                    />
+                      onChange={(e) => handleProductSelect(line.key, e.target.value)}
+                      error={index === 0 ? errors.items : undefined}
+                    >
+                      <option value="">{t('invoices.itemProductPlaceholder')}</option>
+                      {catalogueOptions.length > 0 && (
+                        <optgroup label={t('invoices.catalogGroup')}>
+                          {catalogueOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {`${o.label} — ${formatCurrency(o.price, currency)}`}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {courseOptions.length > 0 && (
+                        <optgroup label={t('invoices.formationsGroup')}>
+                          {courseOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {`${o.label} — ${formatCurrency(o.price, currency)}`}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </Select>
                   </div>
                   {hasTiers && (
                     <div className="w-full sm:w-40">
@@ -494,6 +547,16 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
               <option value="momo">{t('invoices.paymentMomo')}</option>
             </Select>
           </div>
+          {requiresPayerPhone && (
+            <Input
+              label={`${t('invoices.payerPhone')} *`}
+              value={payerPhone}
+              onChange={(e) => setPayerPhone(e.target.value)}
+              error={errors.payer_phone}
+              hint={t('invoices.payerPhoneHint')}
+              placeholder="+237 6XX XXX XXX"
+            />
+          )}
           <Input
             label={t('invoices.advance')}
             type="number"

@@ -16,7 +16,7 @@ import { canExportData } from '@/utils/exportPermissions';
 import { formatCurrency } from '@/utils/number';
 import type { Agency } from '@/types/agency';
 import type { BilanAgency } from '@/types/bilan';
-import { todayLocal } from '@/utils/date';
+import { businessToday, parseDay } from '@/utils/date';
 import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 interface DailyBilanPageProps {
@@ -33,8 +33,7 @@ interface PeriodBlock {
 }
 
 function defaultPeriodFrom(): string {
-  const now = new Date();
-  return todayLocal(new Date(now.getFullYear(), now.getMonth(), 1));
+  return `${businessToday().slice(0, 7)}-01`;
 }
 
 export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
@@ -47,7 +46,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
 
   const [viewMode, setViewMode] = useState<ViewMode>('period');
 
-  const [date, setDate] = useState(() => todayLocal());
+  const [date, setDate] = useState(() => businessToday());
   const [agencyId, setAgencyId] = useState(lockedAgency ?? '');
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [agencyBilan, setAgencyBilan] = useState<BilanAgency | null>(null);
@@ -61,7 +60,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   const [periodFrom, setPeriodFrom] = useState(defaultPeriodFrom());
-  const [periodTo, setPeriodTo] = useState(() => todayLocal());
+  const [periodTo, setPeriodTo] = useState(() => businessToday());
   const [periodBlocks, setPeriodBlocks] = useState<PeriodBlock[]>([]);
   const [periodLoading, setPeriodLoading] = useState(true);
   const [periodError, setPeriodError] = useState<string | null>(null);
@@ -279,7 +278,7 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
             {bilan.agency.name}
           </span>
         )}
-        <span className="text-sm text-gray-400">{new Date(bilan.date).toLocaleDateString()}</span>
+        <span className="text-sm text-gray-400">{parseDay(bilan.date).toLocaleDateString()}</span>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
@@ -550,7 +549,7 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
             {days.map((d) => (
               <tr key={d.date} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <td className="sticky left-0 z-10 bg-white px-4 py-2.5 font-medium text-gray-700 dark:bg-gray-900 dark:text-gray-200">
-                  {new Date(d.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                  {parseDay(d.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                 </td>
                 <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
                   {formationTotal(d) > 0 ? formatCurrency(formationTotal(d)) : '—'}
@@ -656,7 +655,7 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
   const rows: (string | number)[][] = [header];
 
   for (const date of allDates) {
-    const row: (string | number)[] = [new Date(date).toLocaleDateString('fr-FR')];
+    const row: (string | number)[] = [parseDay(date).toLocaleDateString('fr-FR')];
     for (const { saleCols, productCols, expenseCols, byDate } of perBlock) {
       const day = byDate[date];
       row.push(day ? formationTotal(day) : 0);

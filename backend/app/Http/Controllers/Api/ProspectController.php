@@ -12,6 +12,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\PointsService;
+use App\Services\WelcomeEmailService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ class ProspectController extends Controller
     public function __construct(
         private readonly PointsService $pointsService,
         private readonly ActivityLogger $logger,
+        private readonly WelcomeEmailService $welcomeEmailService,
     ) {}
 
     private function scopeByRole(Builder $query, ?User $user): Builder
@@ -253,7 +255,11 @@ class ProspectController extends Controller
 
         $actorId = $request->user()->id;
 
-        $client = DB::transaction(function () use ($prospect, $actorId, $request) {
+        // Généré hors de la transaction : il est transmis en clair par email
+        // après coup (WelcomeEmailService) et hashé par le cast du modèle.
+        $plainPassword = Str::password(16);
+
+        $client = DB::transaction(function () use ($prospect, $actorId, $plainPassword) {
             $clientRole = Role::where('name', 'client')->firstOrFail();
 
             $email = $prospect->email
@@ -262,7 +268,7 @@ class ProspectController extends Controller
             $user = User::create([
                 'username' => $email,
                 'email' => $email,
-                'password' => Str::password(16),
+                'password' => $plainPassword,
                 'first_name' => $prospect->first_name,
                 'last_name' => $prospect->last_name,
                 'phone' => $prospect->phone,
@@ -291,6 +297,9 @@ class ProspectController extends Controller
             newValues: ['client_id' => $client->id, 'client_number' => $client->client_number],
             request: $request,
         );
+
+        // Le mot de passe (généré) est transmis par email au nouveau client.
+        $this->welcomeEmailService->send($client, $plainPassword);
 
         return (new UserResource($client->fresh()->load('role')))->response()->setStatusCode(201);
     }

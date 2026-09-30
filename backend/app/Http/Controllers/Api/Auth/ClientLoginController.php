@@ -41,6 +41,12 @@ class ClientLoginController extends Controller
             userAgent: $request->userAgent(),
         );
 
+        // Défi 2FA : la réponse ne contient pas de 'user' (temp_token + canal).
+        // Le renvoyer tel quel — sinon UserResource crashe sur null.
+        if (! isset($result['user'])) {
+            return response()->json($result);
+        }
+
         // Le site client consomme `user.name` (UserResource) : on sérialise
         // explicitement pour être cohérent avec GET /api/client/me.
         $result['user'] = new UserResource($result['user']);

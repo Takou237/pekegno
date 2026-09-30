@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Service;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -103,7 +104,15 @@ class OrderInvoicingService
         return DB::transaction(function () use ($order, $actorUserId) {
             $client = $order->client;
 
-            $needsValidation = $order->commercial_id !== null || in_array($order->channel, ['commercial_online', 'client_self'], true);
+            // Le canal seul suffit : une vente saisie par un commercial naît en attente
+            // même si son profil métier manque (commercial_id null). Décider sur
+            // commercial_id seul validait directement la facture d'un commercial sans
+            // profil — elle échappait à l'examen du caissier.
+            $actorIsCommercial = User::find($actorUserId)?->role?->name === 'commercial';
+
+            $needsValidation = $order->commercial_id !== null
+                || in_array($order->channel, ['commercial_online', 'client_self'], true)
+                || $actorIsCommercial;
 
             $source = match ($order->channel) {
                 'client_self' => 'client_self',

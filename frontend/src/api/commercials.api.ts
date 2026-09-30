@@ -61,6 +61,12 @@ export const commercialsApi = {
     return data;
   },
 
+  /** Statistiques du commercial connecté (profil retrouvé via user_id côté API). */
+  async myStats(params: { from?: string; to?: string } = {}): Promise<CommercialStats> {
+    const { data } = await client.get<CommercialStats>('/commercials/me/stats', { params });
+    return data;
+  },
+
   async stats(id: string, params: { from?: string; to?: string } = {}): Promise<CommercialStats> {
     const { data } = await client.get<CommercialStats>(`/commercials/${id}/stats`, { params });
     return data;

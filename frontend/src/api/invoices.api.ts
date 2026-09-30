@@ -52,6 +52,7 @@ export const invoicesApi = {
     append('seller_user_id', payload.seller_user_id);
     append('invoice_date', payload.invoice_date);
     append('payment_type', payload.payment_type);
+    append('payer_phone', payload.payer_phone);
     append('comment', payload.comment);
     append('advance', payload.advance);
     append('discount', payload.discount);

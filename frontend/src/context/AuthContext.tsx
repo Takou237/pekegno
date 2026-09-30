@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/useToast';
 import {
   requiresTwoFactor,
   type LoginCredentials,
+  type TwoFactorChannel,
   type User,
 } from '@/types/auth';
 
@@ -26,6 +27,7 @@ interface AuthContextValue {
   isInitializing: boolean;
   isAuthenticated: boolean;
   pendingTwoFactorToken: string | null;
+  pendingTwoFactorChannel: TwoFactorChannel;
   login: (credentials: LoginCredentials) => Promise<{ requiresTwoFactor: boolean }>;
   verifyTwoFactor: (code: string) => Promise<void>;
   cancelTwoFactorChallenge: () => void;
@@ -41,6 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pendingTwoFactorToken, setPendingTwoFactorToken] = useState<string | null>(
     null
   );
+  const [pendingTwoFactorChannel, setPendingTwoFactorChannel] =
+    useState<TwoFactorChannel>('totp');
   const { showToast } = useToast();
   const { t } = useTranslation();
 
@@ -48,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStoredToken(null);
     setUser(null);
     setPendingTwoFactorToken(null);
+    setPendingTwoFactorChannel('totp');
   }, []);
 
   useEffect(() => {
@@ -92,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (requiresTwoFactor(response)) {
       setPendingTwoFactorToken(response.temp_token);
+      setPendingTwoFactorChannel(response.two_factor_channel ?? 'totp');
       return { requiresTwoFactor: true };
     }
 
@@ -141,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitializing,
       isAuthenticated: user !== null,
       pendingTwoFactorToken,
+      pendingTwoFactorChannel,
       login,
       verifyTwoFactor,
       cancelTwoFactorChallenge,
@@ -151,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isInitializing,
       pendingTwoFactorToken,
+      pendingTwoFactorChannel,
       login,
       verifyTwoFactor,
       cancelTwoFactorChallenge,
