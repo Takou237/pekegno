@@ -381,13 +381,13 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.totalAmount')}</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-1 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {formatCurrency(invoice.total_amount, invoice.currency_code)}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.paidAmount')}</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-1 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {formatCurrency(invoice.amount_paid, invoice.currency_code)}
           </p>
           {Number(invoice.amount_paid) === 0 &&
@@ -400,13 +400,13 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.balanceDue')}</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-1 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {formatCurrency(invoice.balance_due, invoice.currency_code)}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.invoiceDate')}</p>
           <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-100">
@@ -425,7 +425,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               </p>
               {invoice.client && (
                 <>
-                  <p className="text-gray-600 dark:text-gray-300">{invoice.client.email}</p>
+                  <p className="text-gray-600 [overflow-wrap:anywhere] dark:text-gray-300">{invoice.client.email}</p>
                   {invoice.client.phone && (
                     <p className="text-gray-600 dark:text-gray-300">{invoice.client.phone}</p>
                   )}
@@ -444,7 +444,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 {[invoice.commercial.first_name, invoice.commercial.last_name].filter(Boolean).join(' ')}
               </p>
               {invoice.commercial.email && (
-                <p className="text-gray-600 dark:text-gray-300">{invoice.commercial.email}</p>
+                <p className="text-gray-600 [overflow-wrap:anywhere] dark:text-gray-300">{invoice.commercial.email}</p>
               )}
             </div>
           ) : (

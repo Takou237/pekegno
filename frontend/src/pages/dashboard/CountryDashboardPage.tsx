@@ -37,13 +37,13 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex items-center gap-3">
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
           {icon}
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+        <div className="w-full min-w-0">
+          <p className="truncate text-lg font-bold sm:text-2xl text-gray-900 dark:text-white">{value}</p>
           <p className="truncate text-sm text-gray-500 dark:text-gray-400">{label}</p>
           {sub && <p className="truncate text-xs text-gray-400">{sub}</p>}
         </div>
@@ -117,7 +117,7 @@ export default function CountryDashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="w-full min-w-0 sm:w-auto">
           <div className="flex items-center gap-2">
             <Link
               to="/"
@@ -137,7 +137,7 @@ export default function CountryDashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           label={t('dashboard.revenue')}
           value={formatCurrency(stats?.revenue ?? 0)}
@@ -169,12 +169,12 @@ export default function CountryDashboardPage() {
           to={`/countries/${countryId}/agencies`}
           className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
               <Building2 className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-lg font-bold sm:text-2xl text-gray-900 dark:text-white">
                 {stats?.agencies_total ?? '—'}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.agencies')}</p>
@@ -182,12 +182,12 @@ export default function CountryDashboardPage() {
           </div>
         </Link>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
               <FolderTree className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-lg font-bold sm:text-2xl text-gray-900 dark:text-white">
                 {stats?.departments_total ?? '—'}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.departments')}</p>
@@ -195,12 +195,12 @@ export default function CountryDashboardPage() {
           </div>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-lg font-bold sm:text-2xl text-gray-900 dark:text-white">
                 {stats?.users_total ?? '—'}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.users')}</p>

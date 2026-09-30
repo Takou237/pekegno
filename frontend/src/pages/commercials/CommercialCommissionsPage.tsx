@@ -65,13 +65,13 @@ export default function CommercialCommissionsPage() {
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('commercial.commissionsSubtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-brand-600" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.selfTurnover')}</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {formatCurrency(stats.turnover)}
           </p>
         </div>
@@ -80,7 +80,7 @@ export default function CommercialCommissionsPage() {
             <Coins className="h-4 w-4 text-brand-600" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.commissionsEarned')}</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {formatCurrency(stats.commissions_earned)}
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function CommercialCommissionsPage() {
             <CheckCircle2 className="h-4 w-4 text-success-500" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.commissionsPaid')}</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {formatCurrency(stats.commissions_paid)}
           </p>
         </div>
@@ -98,7 +98,7 @@ export default function CommercialCommissionsPage() {
             <Wallet className="h-4 w-4 text-amber-500" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.commissionsOwed')}</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {formatCurrency(stats.commissions)}
           </p>
         </div>
@@ -107,7 +107,7 @@ export default function CommercialCommissionsPage() {
             <Trophy className="h-4 w-4 text-amber-500" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.commissionsRank')}</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {stats.rank.position ? `#${stats.rank.position}` : '—'}
             <span className="ml-1 text-sm font-normal text-gray-400">/ {stats.rank.total}</span>
           </p>

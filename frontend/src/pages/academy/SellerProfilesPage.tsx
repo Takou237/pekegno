@@ -451,7 +451,7 @@ export default function SellerProfilesPage() {
                             <SkeletonTable rows={2} />
                           ) : summary ? (
                             <div className="flex flex-col gap-4">
-                              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
                                 <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
                                   <p className="text-xs text-gray-400">{t('academy.totalTraining')}</p>
                                   <p className="mt-1 text-lg font-semibold text-gray-800 dark:text-white">{formatCurrency(summary.total_training)}</p>

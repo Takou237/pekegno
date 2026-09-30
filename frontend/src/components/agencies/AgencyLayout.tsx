@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AxiosError } from 'axios';
 import {
@@ -24,6 +24,7 @@ import { extractErrorMessage } from '@/api/errors';
 import { Spinner } from '@/components/ui/Spinner';
 import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
+import { SubNav } from '@/components/layout/SubNav';
 import { AgencySwitcher } from '@/components/agencies/AgencySwitcher';
 import type { Agency } from '@/types/agency';
 
@@ -67,6 +68,7 @@ export function AgencyLayout() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const closeMobileNav = useCallback(() => setMobileOpen(false), []);
 
   const loadAgency = useCallback(() => {
     if (!agencyId) return;
@@ -128,7 +130,7 @@ export function AgencyLayout() {
       />
 
       <main className="flex flex-1 flex-col gap-4 p-4 sm:p-6 lg:flex-row">
-        <div className="flex flex-col gap-6 lg:w-72 lg:shrink-0">
+        <div className="flex flex-col gap-3 sm:gap-4 lg:w-72 lg:shrink-0 lg:gap-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
             {isLoading ? (
               <div className="flex justify-center py-8">
@@ -142,14 +144,7 @@ export function AgencyLayout() {
           </div>
 
           {!isLoading && !loadError && agency && (
-            <nav className="hidden flex-col gap-1 rounded-2xl border border-gray-100 bg-white p-3 lg:flex dark:border-gray-800 dark:bg-gray-900">
-              {subItems.map(({ to, label, icon: Icon, end }) => (
-                <NavLink key={to || '/'} to={to} end={end} className={subLinkClass}>
-                  <Icon className="h-5 w-5" />
-                  {label}
-                </NavLink>
-              ))}
-            </nav>
+            <SubNav items={subItems} linkClass={subLinkClass} />
           )}
         </div>
 
@@ -162,9 +157,12 @@ export function AgencyLayout() {
         </div>
       </main>
 
-      {mobileOpen && (
-        <MobileNav contextTitle={agency?.name} contextItems={subItems} contextOnly />
-      )}
+      <MobileNav
+        isOpen={mobileOpen}
+        onClose={closeMobileNav}
+        contextTitle={agency?.name}
+        contextItems={subItems}
+      />
     </div>
   );
 }

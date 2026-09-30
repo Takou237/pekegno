@@ -423,18 +423,18 @@ export default function AcademyReportsPage() {
         <SkeletonDashboard />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {cards.map((card) => (
               <div
                 key={card.label}
-                className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
+                className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4 rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900"
               >
                 <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${card.color} text-white`}>
                   <card.icon className="h-6 w-6" />
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">{card.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{card.value}</p>
+                  <p className="text-lg font-bold sm:text-2xl text-gray-900 dark:text-white">{card.value}</p>
                 </div>
               </div>
             ))}

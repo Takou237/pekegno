@@ -39,12 +39,12 @@ export function UserMenu() {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+        className="flex min-w-0 items-center gap-3 rounded-lg px-1 py-1.5 hover:bg-gray-100 sm:px-2 dark:hover:bg-gray-800"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
           {fullName.charAt(0).toUpperCase()}
         </span>
-        <span className="min-w-0 text-left">
+        <span className="hidden min-w-0 max-w-[10rem] text-left sm:block">
           <span className="block truncate text-sm font-medium text-gray-800 dark:text-gray-100">
             {fullName}
           </span>

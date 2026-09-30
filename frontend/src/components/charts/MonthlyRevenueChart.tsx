@@ -15,17 +15,17 @@ export function MonthlyRevenueChart({ data }: { data: MonthlyRevenuePoint[] }) {
       {data.length === 0 ? (
         <p className="text-sm text-gray-400">{t('dashboard.noData')}</p>
       ) : (
-        <div className="flex h-48 items-end gap-2">
+        <div className="flex h-48 items-end gap-1 sm:gap-2">
           {data.map((d) => (
-            <div key={d.month} className="group flex h-48 flex-1 flex-col items-center justify-end gap-1">
-              <span className="text-[10px] font-medium text-gray-400 opacity-0 transition group-hover:opacity-100">
+            <div key={d.month} className="group flex h-48 min-w-0 flex-1 flex-col items-center justify-end gap-1">
+              <span className="max-w-full truncate text-[10px] font-medium text-gray-400 opacity-0 transition group-hover:opacity-100">
                 {formatCurrency(d.revenue)}
               </span>
               <div
                 className="w-full rounded-t-md bg-brand-500/80 transition group-hover:bg-brand-500 dark:bg-brand-500/40"
                 style={{ height: `${Math.max(3, Math.round((d.revenue / max) * barMaxHeight))}px` }}
               />
-              <span className="truncate text-[10px] text-gray-400">{d.label}</span>
+              <span className="max-w-full truncate text-[10px] text-gray-400">{d.label}</span>
             </div>
           ))}
         </div>

@@ -17,7 +17,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
   }
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[500] flex items-end justify-center sm:items-center sm:p-4">
       <div
         className="absolute inset-0 bg-gray-900/50"
         onClick={onClose}
@@ -27,16 +27,16 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className={`relative z-10 w-full ${maxWidth} max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900`}
+        className={`relative z-10 w-full ${maxWidth} max-h-[92dvh] overflow-y-auto overscroll-contain rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:max-h-[90vh] sm:rounded-2xl sm:p-6 dark:bg-gray-900`}
       >
-        <div className="mb-5 flex items-center justify-between">
-          <h2 id="modal-title" className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="mb-4 flex items-start justify-between gap-3 sm:mb-5">
+          <h2 id="modal-title" className="min-w-0 text-base font-semibold sm:text-lg text-gray-900 dark:text-white">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+            className="-mr-1 shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
             aria-label={t('common.close')}
           >
             <X className="h-5 w-5" />

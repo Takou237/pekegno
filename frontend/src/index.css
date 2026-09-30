@@ -99,6 +99,14 @@
   body {
     @apply bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100;
   }
+
+  /* Les champs (surtout type="date") ont une largeur minimale intrinsèque qui
+     fait déborder les lignes flex/grid sur mobile : on les laisse rétrécir. */
+  input,
+  select,
+  textarea {
+    min-width: 0;
+  }
 }
 
 /* Masquer les spinners des inputs number (sauf .with-spinners) */
@@ -139,3 +147,26 @@ input[type="number"]:not(.with-spinners) {
 }
 
 
+
+/* Barres d'onglets défilantes (sous-menus sur mobile) : défilement sans barre visible. */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Tableaux dans un conteneur défilant : sous 1024px, une ligne par cellule
+   (défilement horizontal propre plutôt que des cellules repliées sur 3 lignes),
+   et marges réduites sur téléphone. Hors @layer : prime sur les utilitaires px-*. */
+@media (max-width: 1023px) {
+  .overflow-x-auto > table :is(th, td) {
+    white-space: nowrap;
+  }
+}
+@media (max-width: 639px) {
+  .overflow-x-auto > table :is(th, td) {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}

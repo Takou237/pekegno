@@ -35,7 +35,9 @@ function SelectDropdown({
   onChange,
   groups,
   placeholder,
+  className = '',
 }: {
+  className?: string;
   label: string;
   icon: typeof Globe;
   value: string | null;
@@ -44,7 +46,7 @@ function SelectDropdown({
   placeholder: string;
 }) {
   return (
-    <div className="relative">
+    <div className={`relative min-w-0 ${className}`}>
       <label className="sr-only">{label}</label>
       <div className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
         <Icon className="h-4 w-4" />
@@ -52,7 +54,7 @@ function SelectDropdown({
       <select
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-7 text-sm font-medium text-gray-700 transition-colors hover:border-brand-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-brand-500/50"
+        className="w-full min-w-0 appearance-none truncate rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-7 text-sm font-medium text-gray-700 transition-colors hover:border-brand-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-brand-500/50"
       >
         <option value="">{placeholder}</option>
         {groups.map((group, index) =>
@@ -329,173 +331,192 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
     );
   }
 
+  const orgSelectors = (itemClassName: string) => (
+    <>
+      <SelectDropdown
+        className={itemClassName}
+        label={t('contextBar.country')}
+        icon={Globe}
+        value={selection.countryId}
+        onChange={handleCountryChange}
+        groups={countryGroups}
+        placeholder={t('contextBar.selectCountry')}
+      />
+      <SelectDropdown
+        className={itemClassName}
+        label={t('contextBar.agency')}
+        icon={Building2}
+        value={selection.agencyId}
+        onChange={handleAgencyChange}
+        groups={agencyGroups}
+        placeholder={t('contextBar.selectAgency')}
+      />
+      <SelectDropdown
+        className={itemClassName}
+        label={t('contextBar.department')}
+        icon={FolderTree}
+        value={selection.departmentId}
+        onChange={handleDepartmentChange}
+        groups={departmentGroups}
+        placeholder={t('contextBar.selectDepartment')}
+      />
+    </>
+  );
+
   return (
-    <div className="flex h-[70px] shrink-0 items-center gap-2 border-b border-gray-100 bg-white px-3 dark:border-gray-800 dark:bg-gray-900 sm:px-4">
-      {onMobileMenuToggle && (
-        <button
-          type="button"
-          onClick={onMobileMenuToggle}
-          className="mr-1 rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
-          aria-label={t('nav.menu', 'Menu')}
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-      )}
+    <header className="shrink-0 border-b border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex h-16 items-center gap-2 px-3 sm:px-4 lg:h-[70px]">
+        {onMobileMenuToggle && (
+          <button
+            type="button"
+            onClick={onMobileMenuToggle}
+            className="-ml-1 shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
+            aria-label={t('nav.menu', 'Menu')}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
 
-      {showOrgSelectors && (
-        <>
-          <span className="mr-1 hidden lg:block">
-            <BrandLogo className="h-7" />
-          </span>
-          <span className="mx-1 hidden text-gray-300 dark:text-gray-600 lg:inline">|</span>
+        {/* Mobile/tablette : le logo remplace les listes (déplacées sur la 2e ligne). */}
+        <span className="min-w-0 shrink lg:hidden">
+          <BrandLogo className="h-7" />
+        </span>
 
-          <SelectDropdown
-            label={t('contextBar.country')}
-            icon={Globe}
-            value={selection.countryId}
-            onChange={handleCountryChange}
-            groups={countryGroups}
-            placeholder={t('contextBar.selectCountry')}
-          />
-
-          <SelectDropdown
-            label={t('contextBar.agency')}
-            icon={Building2}
-            value={selection.agencyId}
-            onChange={handleAgencyChange}
-            groups={agencyGroups}
-            placeholder={t('contextBar.selectAgency')}
-          />
-
-          <SelectDropdown
-            label={t('contextBar.department')}
-            icon={FolderTree}
-            value={selection.departmentId}
-            onChange={handleDepartmentChange}
-            groups={departmentGroups}
-            placeholder={t('contextBar.selectDepartment')}
-          />
-        </>
-      )}
-
-      {leftSlot && <div className="ml-1 shrink-0 sm:ml-2">{leftSlot}</div>}
-
-      <div className="ml-auto flex items-center gap-1">
-        {rightSlot}
-        {(canValidate || isCommercial) && (
-          <div className="relative" ref={notifRef}>
-            <button
-              type="button"
-              onClick={() =>
-                setNotifOpen((v) => {
-                  const next = !v;
-                  if (next && isCommercial && user) {
-                    localStorage.setItem(seenValidatedKey(user.id), new Date().toISOString());
-                    setValidatedUnseenTotal(0);
-                  }
-                  return next;
-                })
-              }
-              className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-              aria-label={t('contextBar.notifications')}
-            >
-              <Bell className="h-4.5 w-4.5" />
-              {(canValidate ? pendingTotal : validatedUnseenTotal) > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                  {(canValidate ? pendingTotal : validatedUnseenTotal) > 99
-                    ? '99+'
-                    : canValidate
-                      ? pendingTotal
-                      : validatedUnseenTotal}
-                </span>
-              )}
-            </button>
-
-            {notifOpen && canValidate && (
-              <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
-                <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
-                  {t('contextBar.pendingValidations')}
-                </div>
-                {pendingInvoices.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-sm text-gray-400">{t('contextBar.noPending')}</p>
-                ) : (
-                  <ul className="max-h-80 overflow-y-auto">
-                    {pendingInvoices.map((inv) => (
-                      <li key={inv.id}>
-                        <Link
-                          to="/invoices/pending"
-                          onClick={() => setNotifOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/60"
-                        >
-                          {Number(inv.payment_proofs_count ?? 0) > 0 ? (
-                            <ImageIcon className="h-4 w-4 shrink-0 text-amber-500" />
-                          ) : (
-                            <FileText className="h-4 w-4 shrink-0 text-gray-400" />
-                          )}
-                          <span className="flex-1 truncate">
-                            <span className="font-medium text-gray-800 dark:text-gray-100">{inv.number}</span>
-                            <span className="ml-1.5 text-gray-500 dark:text-gray-400">{inv.client_label ?? ''}</span>
-                          </span>
-                          <span className="shrink-0 font-medium text-gray-700 dark:text-gray-200">
-                            {formatCurrency(inv.total_amount)}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <Link
-                  to="/invoices/pending"
-                  onClick={() => setNotifOpen(false)}
-                  className="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-medium text-brand-600 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
-                >
-                  {t('contextBar.seeAllPending', { count: pendingTotal })}
-                </Link>
-              </div>
-            )}
-
-            {notifOpen && !canValidate && isCommercial && (
-              <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
-                <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
-                  {t('contextBar.validatedInvoices')}
-                </div>
-                {validatedInvoices.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-sm text-gray-400">{t('contextBar.noValidated')}</p>
-                ) : (
-                  <ul className="max-h-80 overflow-y-auto">
-                    {validatedInvoices.map((inv) => (
-                      <li key={inv.id}>
-                        <Link
-                          to={`/invoices/${inv.id}`}
-                          onClick={() => setNotifOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/60"
-                        >
-                          <FileText className="h-4 w-4 shrink-0 text-green-500" />
-                          <span className="flex-1 truncate">
-                            <span className="font-medium text-gray-800 dark:text-gray-100">{inv.number}</span>
-                            <span className="ml-1.5 text-gray-500 dark:text-gray-400">{inv.client_label ?? ''}</span>
-                          </span>
-                          <span className="shrink-0 font-medium text-gray-700 dark:text-gray-200">
-                            {formatCurrency(inv.total_amount)}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <Link
-                  to="/invoices"
-                  onClick={() => setNotifOpen(false)}
-                  className="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-medium text-brand-600 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
-                >
-                  {t('contextBar.seeAllInvoices')}
-                </Link>
-              </div>
-            )}
+        {showOrgSelectors && (
+          <div className="hidden min-w-0 items-center gap-2 lg:flex">
+            <span className="mr-1 shrink-0">
+              <BrandLogo className="h-7" />
+            </span>
+            <span className="mx-1 text-gray-300 dark:text-gray-600">|</span>
+            {orgSelectors('max-w-[13rem]')}
           </div>
         )}
-        <UserMenu />
+
+        {leftSlot && <div className="shrink-0 sm:ml-2">{leftSlot}</div>}
+
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          {rightSlot}
+          {(canValidate || isCommercial) && (
+            <div className="relative" ref={notifRef}>
+              <button
+                type="button"
+                onClick={() =>
+                  setNotifOpen((v) => {
+                    const next = !v;
+                    if (next && isCommercial && user) {
+                      localStorage.setItem(seenValidatedKey(user.id), new Date().toISOString());
+                      setValidatedUnseenTotal(0);
+                    }
+                    return next;
+                  })
+                }
+                className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                aria-label={t('contextBar.notifications')}
+              >
+                <Bell className="h-4.5 w-4.5" />
+                {(canValidate ? pendingTotal : validatedUnseenTotal) > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {(canValidate ? pendingTotal : validatedUnseenTotal) > 99
+                      ? '99+'
+                      : canValidate
+                        ? pendingTotal
+                        : validatedUnseenTotal}
+                  </span>
+                )}
+              </button>
+
+              {notifOpen && canValidate && (
+                <div className="fixed inset-x-3 top-16 z-40 rounded-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                  <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
+                    {t('contextBar.pendingValidations')}
+                  </div>
+                  {pendingInvoices.length === 0 ? (
+                    <p className="px-4 py-6 text-center text-sm text-gray-400">{t('contextBar.noPending')}</p>
+                  ) : (
+                    <ul className="max-h-80 overflow-y-auto">
+                      {pendingInvoices.map((inv) => (
+                        <li key={inv.id}>
+                          <Link
+                            to="/invoices/pending"
+                            onClick={() => setNotifOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                          >
+                            {Number(inv.payment_proofs_count ?? 0) > 0 ? (
+                              <ImageIcon className="h-4 w-4 shrink-0 text-amber-500" />
+                            ) : (
+                              <FileText className="h-4 w-4 shrink-0 text-gray-400" />
+                            )}
+                            <span className="flex-1 truncate">
+                              <span className="font-medium text-gray-800 dark:text-gray-100">{inv.number}</span>
+                              <span className="ml-1.5 text-gray-500 dark:text-gray-400">{inv.client_label ?? ''}</span>
+                            </span>
+                            <span className="shrink-0 font-medium text-gray-700 dark:text-gray-200">
+                              {formatCurrency(inv.total_amount)}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <Link
+                    to="/invoices/pending"
+                    onClick={() => setNotifOpen(false)}
+                    className="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-medium text-brand-600 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
+                  >
+                    {t('contextBar.seeAllPending', { count: pendingTotal })}
+                  </Link>
+                </div>
+              )}
+
+              {notifOpen && !canValidate && isCommercial && (
+                <div className="fixed inset-x-3 top-16 z-40 rounded-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                  <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
+                    {t('contextBar.validatedInvoices')}
+                  </div>
+                  {validatedInvoices.length === 0 ? (
+                    <p className="px-4 py-6 text-center text-sm text-gray-400">{t('contextBar.noValidated')}</p>
+                  ) : (
+                    <ul className="max-h-80 overflow-y-auto">
+                      {validatedInvoices.map((inv) => (
+                        <li key={inv.id}>
+                          <Link
+                            to={`/invoices/${inv.id}`}
+                            onClick={() => setNotifOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                          >
+                            <FileText className="h-4 w-4 shrink-0 text-green-500" />
+                            <span className="flex-1 truncate">
+                              <span className="font-medium text-gray-800 dark:text-gray-100">{inv.number}</span>
+                              <span className="ml-1.5 text-gray-500 dark:text-gray-400">{inv.client_label ?? ''}</span>
+                            </span>
+                            <span className="shrink-0 font-medium text-gray-700 dark:text-gray-200">
+                              {formatCurrency(inv.total_amount)}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <Link
+                    to="/invoices"
+                    onClick={() => setNotifOpen(false)}
+                    className="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-medium text-brand-600 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
+                  >
+                    {t('contextBar.seeAllInvoices')}
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+          <UserMenu />
+        </div>
       </div>
-    </div>
+
+      {showOrgSelectors && (
+        <div className="grid grid-cols-3 gap-2 border-t border-gray-100 px-3 py-2 sm:px-4 lg:hidden dark:border-gray-800">
+          {orgSelectors('w-full')}
+        </div>
+      )}
+    </header>
   );
 }

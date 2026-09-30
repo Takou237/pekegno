@@ -108,13 +108,13 @@ export default function CommercialSelfDashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-brand-600" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.selfTurnover')}</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {formatCurrency(stats?.turnover ?? 0)}
           </p>
         </div>
@@ -123,14 +123,14 @@ export default function CommercialSelfDashboardPage() {
             <ShoppingCart className="h-4 w-4 text-brand-600" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.selfSales')}</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{stats?.sales_count ?? 0}</p>
+          <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">{stats?.sales_count ?? 0}</p>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center gap-2">
             <Coins className="h-4 w-4 text-brand-600" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.selfCommissions')}</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+          <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
             {formatCurrency(stats?.commissions ?? 0)}
           </p>
         </div>
@@ -139,7 +139,7 @@ export default function CommercialSelfDashboardPage() {
             <Star className="h-4 w-4 text-amber-500" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.selfPoints')}</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{commercial.points_balance}</p>
+          <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">{commercial.points_balance}</p>
         </div>
       </div>
 

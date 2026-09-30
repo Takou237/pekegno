@@ -134,7 +134,7 @@ export default function TreasuryPage() {
       </div>
 
       {/* Account cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {accountsLoading ? (
           <div className="col-span-full flex justify-center py-8"><Spinner /></div>
         ) : accounts.length === 0 ? (
@@ -147,7 +147,7 @@ export default function TreasuryPage() {
                   <span>{TYPE_ICONS[a.type] ?? '💰'}</span>
                   <span>{a.name}</span>
                 </div>
-                <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+                <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
                   {formatCurrency(a.balance)}
                 </p>
                 {a.agency && (
@@ -157,7 +157,7 @@ export default function TreasuryPage() {
             ))}
             <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-500/30 dark:bg-brand-500/10">
               <p className="text-sm font-medium text-brand-700 dark:text-brand-300">{t('treasury.totalBalance')}</p>
-              <p className="mt-2 text-2xl font-bold text-brand-700 dark:text-brand-300">
+              <p className="mt-2 text-lg font-bold sm:text-2xl text-brand-700 dark:text-brand-300">
                 {formatCurrency(totalBalance)}
               </p>
             </div>

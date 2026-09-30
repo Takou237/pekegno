@@ -681,10 +681,10 @@ export default function DepartmentOverviewPage() {
       {isAcademy ? (
         academy && !academy.isLoading ? (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
               {kpis.slice(0, 4).map(renderCard)}
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
               {[...kpis.slice(4), agencyCard].map(renderCard)}
             </div>
 
@@ -787,10 +787,10 @@ export default function DepartmentOverviewPage() {
         )
       ) : business ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {businessKpis.map(renderCard)}
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {businessInfoCards.map(renderCard)}
           </div>
 

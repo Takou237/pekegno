@@ -342,7 +342,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('accounting.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('accounting.subtitle')}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           {canExportData(currentUser) && (
             <Button variant="outline" onClick={handleExport} isLoading={isExporting}>
               <Download className="h-4 w-4" />

@@ -29,7 +29,7 @@ export function Pagination({
   const to = Math.min(currentPage * perPage, total);
 
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <p className="text-sm text-gray-500 dark:text-gray-400">
         {t('pagination.of', { from, to, total })}
       </p>
@@ -38,7 +38,7 @@ export function Pagination({
           type="button"
           disabled={currentPage <= 1}
           onClick={() => onPageChange(currentPage - 1)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:hover:bg-gray-800"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:hover:bg-gray-800"
           aria-label={t('pagination.previous')}
         >
           <ChevronLeft className="h-4 w-4" />
@@ -50,7 +50,7 @@ export function Pagination({
           type="button"
           disabled={currentPage >= lastPage}
           onClick={() => onPageChange(currentPage + 1)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:hover:bg-gray-800"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:hover:bg-gray-800"
           aria-label={t('pagination.next')}
         >
           <ChevronRight className="h-4 w-4" />

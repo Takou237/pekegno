@@ -50,7 +50,7 @@ export function SkeletonCards({ count = 6, className }: { count?: number } & Ske
           key={index}
           className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
             <SkeletonCircle className="h-12 w-12" />
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-32" />
@@ -112,7 +112,7 @@ export function SkeletonDetail({ className }: SkeletonProps) {
             <Skeleton className="h-4 w-32" />
           </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="flex flex-col gap-2">
               <Skeleton className="h-3.5 w-20" />
@@ -129,7 +129,7 @@ export function SkeletonDashboard({ className }: SkeletonProps) {
   return (
     <div className={`flex flex-col gap-6 ${className ?? ''}`}>
       <SkeletonPageHeader />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <div
             key={index}

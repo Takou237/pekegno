@@ -18,14 +18,14 @@ export function PeriodPresets({ from, to, onChange, allowAll = false, only, clas
   const presets = only ? PERIOD_PRESETS.filter((p) => only.includes(p.key)) : PERIOD_PRESETS;
 
   const chip = (active: boolean) =>
-    `rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+    `shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
       active
         ? 'border-brand-500 bg-brand-500 text-white'
         : 'border-gray-200 text-gray-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 dark:border-gray-700 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300'
     }`;
 
   return (
-    <div className={`flex flex-wrap items-center gap-1 ${className}`}>
+    <div className={`scrollbar-none -mx-1 flex items-center gap-1 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 ${className}`}>
       {presets.map((p) => {
         const period = presetPeriod(p.key);
         const active = period.from === from && period.to === to;

@@ -241,7 +241,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
               }}
             />
           </div>
-          <div className="flex items-end gap-3">
+          <div className="col-span-2 grid grid-cols-2 gap-3 lg:col-span-1">
             <Input label={t('invoices.filterFrom')} type="date" value={from} onChange={(e) => setFilter('from', e.target.value)} />
             <Input label={t('invoices.filterTo')} type="date" value={to} onChange={(e) => setFilter('to', e.target.value)} />
           </div>
