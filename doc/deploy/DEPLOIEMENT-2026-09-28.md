@@ -115,7 +115,9 @@ Puis, une seule fois :
    puis `...?apply=1` pour enregistrer, et **supprimer le fichier**.
 2. **Emails** : uploader `mail-test.php` dans `backend/public/`, ouvrir `https://pekegnogroup.com/mail-test.php`,
    lire le diagnostic, **supprimer le fichier**. Si la connexion à `smtp.gmail.com` est en ÉCHEC,
-   o2switch bloque le SMTP sortant : utiliser une boîte mail cPanel (`mail.pekegnogroup.com`, port 465, cf. README §3.8).
+   o2switch n'intercepte pas le port 465, mais le certificat TLS du serveur mail ne
+   couvre pas `mail.pekegnogroup.com` : utiliser le hostname validé
+   `mail.lynx.o2switch.net` (même serveur, cf. README §3.8 et sa procédure cPanel).
    Si « Config en cache : OUI », supprimer `backend/bootstrap/cache/config.php` puis vider l'OPcache.
 3. **Cachet** : Pays → crayon sur Cameroun → « Cachet / signature » → téléverser l'image, enregistrer
    (nécessite le lien `storage`, cf. `setup-storage-link.php`).
