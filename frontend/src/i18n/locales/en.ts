@@ -62,6 +62,16 @@ export default {
     selectAccount: 'Select an account…',
   },
 
+  routeError: {
+    offlineTitle: 'Connection lost',
+    offlineDesc: 'The page could not be loaded: check your internet connection. It will reload automatically as soon as the connection is back.',
+    loadTitle: 'Unable to load the page',
+    loadDesc: 'Loading failed (unstable connection or platform update). Please try again in a moment.',
+    genericTitle: 'Something went wrong',
+    genericDesc: 'An unexpected problem occurred on this page. Try again; if it persists, contact your administrator.',
+    retry: 'Try again',
+    home: 'Back to home',
+  },
   date: {
     today: 'Today',
     yesterday: 'Yesterday',

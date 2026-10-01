@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\PaymentService;
+use App\Services\PendingInvoiceNotifier;
 use App\Services\SellerProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +29,7 @@ class FormationEnrollmentController extends Controller
         private readonly ActivityLogger $logger,
         private readonly SellerProfileService $sellerProfiles,
         private readonly PaymentService $paymentService,
+        private readonly PendingInvoiceNotifier $pendingNotifier,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -130,6 +132,8 @@ class FormationEnrollmentController extends Controller
             $validated['seller_user_id'] = $request->user()?->id;
         }
 
+        $invoiceProvided = ! empty($validated['invoice_id']);
+
         $enrollment = DB::transaction(function () use ($validated, $request, $existing, $requestedSessionId, $discountAmount) {
             $invoiceId = $validated['invoice_id'] ?? null;
 
@@ -159,6 +163,12 @@ class FormationEnrollmentController extends Controller
 
             return $enrollment;
         });
+
+        // Inscription saisie par un commercial : la facture générée attend la
+        // validation d'un caissier, prévenu par email (hors transaction).
+        if (! $invoiceProvided && $enrollment->invoice?->validation_status === Invoice::VALIDATION_PENDING) {
+            $this->pendingNotifier->notify($enrollment->invoice);
+        }
 
         return response()->json($enrollment, 201);
     }

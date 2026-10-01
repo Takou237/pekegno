@@ -20,11 +20,13 @@ use App\Services\ActivityLogger;
 use App\Services\CommissionService;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\PaymentService;
+use App\Services\PendingInvoiceNotifier;
 use App\Services\PointsService;
 use App\Services\SellerProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -40,6 +42,7 @@ class InvoiceController extends Controller
         private readonly PaymentService $paymentService,
         private readonly ActivityLogger $logger,
         private readonly SellerProfileService $sellerProfiles,
+        private readonly PendingInvoiceNotifier $pendingNotifier,
     ) {}
 
     private function scopeByRole($query, ?User $user)
@@ -379,6 +382,12 @@ class InvoiceController extends Controller
 
             return $invoice;
         });
+
+        // Hors transaction : l'email ne part que pour une facture réellement
+        // enregistrée, et un SMTP lent ou en panne ne fait pas échouer la vente.
+        if ($invoice->validation_status === Invoice::VALIDATION_PENDING) {
+            $this->pendingNotifier->notify($invoice);
+        }
 
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency', 'seller']), 201);
     }
@@ -727,9 +736,15 @@ class InvoiceController extends Controller
 
         $frontend = rtrim((string) env('FRONTEND_URL', ''), '/');
 
-        Mail::to($email)->send(new InvoiceStatusMail(
-            invoice: $invoice,
-            clientUrl: $frontend !== '' ? "{$frontend}/mon-compte/factures" : null,
-        ));
+        // Un SMTP en panne ne doit pas faire échouer la validation / le rejet,
+        // déjà enregistré en base à ce stade.
+        try {
+            Mail::to($email)->send(new InvoiceStatusMail(
+                invoice: $invoice,
+                clientUrl: $frontend !== '' ? "{$frontend}/mon-compte/factures" : null,
+            ));
+        } catch (\Throwable $e) {
+            Log::error("Échec de l'envoi de l'email de statut de la facture {$invoice->number} : ".$e->getMessage());
+        }
     }
 }

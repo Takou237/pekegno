@@ -278,6 +278,13 @@ class ProspectController extends Controller
                 'role_id' => $clientRole->id,
                 'is_active' => true,
                 'is_password_change_required' => true,
+                // Le client hérite de l'agence et du commercial du prospect. Sans
+                // agence, il sortait du périmètre d'un commercial (borné à son
+                // agence) : introuvable dans ses clients et dans la recherche
+                // « apprenant » d'une vente, juste après la conversion.
+                'registered_agency_id' => $prospect->agency_id ?? $prospect->commercial?->agency_id,
+                'commercial_user_id' => $prospect->commercial?->user_id,
+                'registered_at' => now(),
             ]);
 
             $user->update(['client_number' => User::generateClientNumber()]);

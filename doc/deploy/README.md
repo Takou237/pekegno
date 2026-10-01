@@ -39,6 +39,13 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 | `migration-2026-09-30-payer-phone.sql` | `invoices.payer_phone` (téléphone du payeur mobile money) |
 | `repair-enrollment-payments.php` | paiements manquants des inscriptions créés (`?apply=1` fait, fichier supprimé du serveur) |
 
+⏳ **À appliquer avec le déploiement du 01/10/2026** (voir
+`DEPLOIEMENT-2026-10-01.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `repair-converted-clients-2026-10-01.sql` | rattache à leur agence / commercial les clients issus d'une conversion de prospect (idempotent, aucune migration de schéma) |
+
 Dernière migration Laravel présente en prod :
 `2026_09_30_000003_add_payer_phone_to_invoices_table`. Pour un prochain
 déploiement, n'importer que les **nouveaux** scripts SQL correspondant aux
@@ -307,8 +314,10 @@ pas l'OPcache du site web. Ne jamais lancer `php artisan route:cache` /
    VITE_API_URL=https://pekegnogroup.com/api npm run build
    ```
 3. Zipper le contenu de `dist/` (pas le dossier), uploader dans
-   `/plateforme.pekegnogroup.com` sur le serveur, extraire (en ayant vidé
-   l'ancien contenu avant), vérifier qu'il y a bien un `.htaccess` (désormais
+   `/plateforme.pekegnogroup.com` sur le serveur, extraire en écrasant (inutile
+   de vider l'ancien contenu : garder les anciens fichiers de `assets/` permet
+   aux onglets déjà ouverts de continuer à charger leurs pages ; `index.html`
+   n'est jamais mis en cache, cf. `.htaccess`), vérifier qu'il y a bien un `.htaccess` (désormais
    fourni par `frontend/public/.htaccess`, donc copié automatiquement dans `dist/`) avec la
    règle de fallback SPA (sinon les routes React Router en direct donnent
    du 404) :
@@ -338,6 +347,8 @@ pas l'OPcache du site web. Ne jamais lancer `php artisan route:cache` /
 | `migration-2026-09-30.sql` | ✅ **Appliqué en prod.** Reçu imprimable par versement (colonne `invoice_payments.receipt_number` + numérotation des versements existants) |
 | `migration-2026-09-30-2fa.sql` | ✅ **Appliqué en prod.** Colonne `users.two_factor_channel` (2FA par email) |
 | `migration-2026-09-30-payer-phone.sql` | ✅ **Appliqué en prod.** Colonne `invoices.payer_phone` (téléphone du payeur mobile money) |
+| `DEPLOIEMENT-2026-10-01.md` | Procédure + recette du 01/10 (services seuls dans « Nouvelle vente », email aux caissiers, conversion prospect, erreurs de chargement de page) |
+| `repair-converted-clients-2026-10-01.sql` | ⏳ **À importer une fois** (01/10). Rattache à leur agence / commercial les clients issus d'une conversion de prospect — idempotent |
 | `repair-enrollment-payments.php` | ✅ **Déjà exécuté en prod (ne pas relancer).** One-shot : crée les paiements manquants des inscriptions |
 | `mail-test.php` | One-shot : diagnostic SMTP (config chargée, connexions sortantes, envoi test), puis supprimer |
 | `migration-2026-09-28.sql` | ✅ **Appliqué en prod.** Mise à jour de la BD pour les tickets du 28/09 (remise inscription, taux de change pays, monnaie groupe, commission caissier) |

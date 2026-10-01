@@ -13,6 +13,7 @@ use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
@@ -304,9 +305,15 @@ class PaymentProofController extends Controller
 
         $frontend = rtrim((string) env('FRONTEND_URL', ''), '/');
 
-        Mail::to($email)->send(new InvoiceStatusMail(
-            invoice: $invoice,
-            clientUrl: $frontend !== '' ? "{$frontend}/mon-compte/factures" : null,
-        ));
+        // Un SMTP en panne ne doit pas faire échouer la validation / le rejet,
+        // déjà enregistré en base à ce stade.
+        try {
+            Mail::to($email)->send(new InvoiceStatusMail(
+                invoice: $invoice,
+                clientUrl: $frontend !== '' ? "{$frontend}/mon-compte/factures" : null,
+            ));
+        } catch (\Throwable $e) {
+            Log::error("Échec de l'envoi de l'email de statut de la facture {$invoice->number} : ".$e->getMessage());
+        }
     }
 }

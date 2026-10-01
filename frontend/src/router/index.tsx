@@ -1,5 +1,5 @@
-import { lazy, Suspense, type ReactNode } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { Suspense, type ReactNode } from 'react';
+import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from '@/router/ProtectedRoute';
 import { GuestRoute } from '@/router/GuestRoute';
 import { HomeRedirect } from '@/router/HomeRedirect';
@@ -16,118 +16,129 @@ import {
   SkeletonForm,
   SkeletonTable,
 } from '@/components/ui/Skeleton';
+import RouteErrorPage from '@/pages/RouteErrorPage';
+import { lazyWithRetry } from '@/utils/lazyWithRetry';
 
-const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
-const TwoFactorPage = lazy(() => import('@/pages/auth/TwoFactorPage'));
-const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
-const AcademyDashboardPage = lazy(() => import('@/pages/dashboard/AcademyDashboardPage'));
-const CountryDashboardPage = lazy(() => import('@/pages/dashboard/CountryDashboardPage'));
-const CashierDashboardPage = lazy(() => import('@/pages/dashboard/CashierDashboardPage'));
-const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
-const AgencyListPage = lazy(() => import('@/pages/agencies/AgencyListPage'));
-const AgencyTrashPage = lazy(() => import('@/pages/agencies/AgencyTrashPage'));
-const AgencyOverviewPage = lazy(() => import('@/pages/agencies/AgencyOverviewPage'));
-const AgencyDepartmentsPage = lazy(() => import('@/pages/agencies/AgencyDepartmentsPage'));
-const AgencyServicesPage = lazy(() => import('@/pages/agencies/AgencyServicesPage'));
-const AgencyAcademyPage = lazy(() => import('@/pages/agencies/AgencyAcademyPage'));
-const AgencyTeamsPage = lazy(() => import('@/pages/agencies/AgencyTeamsPage'));
-const AgencySettingsPage = lazy(() => import('@/pages/agencies/AgencySettingsPage'));
-const AgencyPromotionsPage = lazy(() => import('@/pages/agencies/AgencyPromotionsPage'));
-const AgencyServiceTrashPage = lazy(() => import('@/pages/agencies/AgencyServiceTrashPage'));
-const AgencyDepartmentTrashPage = lazy(() => import('@/pages/agencies/AgencyDepartmentTrashPage'));
-const UserListPage = lazy(() => import('@/pages/users/UserListPage'));
-const DepartmentListPage = lazy(() => import('@/pages/departments/DepartmentListPage'));
-const DepartmentTrashPage = lazy(() => import('@/pages/departments/DepartmentTrashPage'));
-const DepartmentOverviewPage = lazy(() => import('@/pages/departments/DepartmentOverviewPage'));
-const DepartmentTeamsPage = lazy(() => import('@/pages/departments/DepartmentTeamsPage'));
-const DepartmentSettingsPage = lazy(() => import('@/pages/departments/DepartmentSettingsPage'));
-const RolesPrivilegesPage = lazy(() => import('@/pages/RolesPrivilegesPage'));
-const CategoryListPage = lazy(() => import('@/pages/categories/CategoryListPage'));
-const CategoryTrashPage = lazy(() => import('@/pages/categories/CategoryTrashPage'));
-const ServiceListPage = lazy(() => import('@/pages/services/ServiceListPage'));
-const DepartmentServicesPage = lazy(() => import('@/pages/departments/DepartmentServicesPage'));
-const DepartmentProductsPage = lazy(() => import('@/pages/departments/DepartmentProductsPage'));
-const ServiceTrashPage = lazy(() => import('@/pages/services/ServiceTrashPage'));
-const ReceivablesPage = lazy(() => import('@/pages/invoices/ReceivablesPage'));
-const ClientListPage = lazy(() => import('@/pages/clients/ClientListPage'));
-const ClientDetailPage = lazy(() => import('@/pages/clients/ClientDetailPage'));
-const CommercialListPage = lazy(() => import('@/pages/commercials/CommercialListPage'));
-const CommercialDetailPage = lazy(() => import('@/pages/commercials/CommercialDetailPage'));
-const CommercialSelfDashboardPage = lazy(() => import('@/pages/commercials/CommercialSelfDashboardPage'));
-const CommercialCommissionsPage = lazy(() => import('@/pages/commercials/CommercialCommissionsPage'));
-const AgencyCommercialsPage = lazy(() => import('@/pages/commercials/AgencyCommercialsPage'));
-const CountryCommercialsPage = lazy(() => import('@/pages/commercials/CountryCommercialsPage'));
-const AgencyCommercialDetailPage = lazy(
+const LoginPage = lazyWithRetry(() => import('@/pages/auth/LoginPage'));
+const TwoFactorPage = lazyWithRetry(() => import('@/pages/auth/TwoFactorPage'));
+const ForgotPasswordPage = lazyWithRetry(() => import('@/pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazyWithRetry(() => import('@/pages/auth/ResetPasswordPage'));
+const AcademyDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/AcademyDashboardPage'));
+const CountryDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/CountryDashboardPage'));
+const CashierDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/CashierDashboardPage'));
+const ProfilePage = lazyWithRetry(() => import('@/pages/profile/ProfilePage'));
+const AgencyListPage = lazyWithRetry(() => import('@/pages/agencies/AgencyListPage'));
+const AgencyTrashPage = lazyWithRetry(() => import('@/pages/agencies/AgencyTrashPage'));
+const AgencyOverviewPage = lazyWithRetry(() => import('@/pages/agencies/AgencyOverviewPage'));
+const AgencyDepartmentsPage = lazyWithRetry(() => import('@/pages/agencies/AgencyDepartmentsPage'));
+const AgencyServicesPage = lazyWithRetry(() => import('@/pages/agencies/AgencyServicesPage'));
+const AgencyAcademyPage = lazyWithRetry(() => import('@/pages/agencies/AgencyAcademyPage'));
+const AgencyTeamsPage = lazyWithRetry(() => import('@/pages/agencies/AgencyTeamsPage'));
+const AgencySettingsPage = lazyWithRetry(() => import('@/pages/agencies/AgencySettingsPage'));
+const AgencyPromotionsPage = lazyWithRetry(() => import('@/pages/agencies/AgencyPromotionsPage'));
+const AgencyServiceTrashPage = lazyWithRetry(() => import('@/pages/agencies/AgencyServiceTrashPage'));
+const AgencyDepartmentTrashPage = lazyWithRetry(() => import('@/pages/agencies/AgencyDepartmentTrashPage'));
+const UserListPage = lazyWithRetry(() => import('@/pages/users/UserListPage'));
+const DepartmentListPage = lazyWithRetry(() => import('@/pages/departments/DepartmentListPage'));
+const DepartmentTrashPage = lazyWithRetry(() => import('@/pages/departments/DepartmentTrashPage'));
+const DepartmentOverviewPage = lazyWithRetry(() => import('@/pages/departments/DepartmentOverviewPage'));
+const DepartmentTeamsPage = lazyWithRetry(() => import('@/pages/departments/DepartmentTeamsPage'));
+const DepartmentSettingsPage = lazyWithRetry(() => import('@/pages/departments/DepartmentSettingsPage'));
+const RolesPrivilegesPage = lazyWithRetry(() => import('@/pages/RolesPrivilegesPage'));
+const CategoryListPage = lazyWithRetry(() => import('@/pages/categories/CategoryListPage'));
+const CategoryTrashPage = lazyWithRetry(() => import('@/pages/categories/CategoryTrashPage'));
+const ServiceListPage = lazyWithRetry(() => import('@/pages/services/ServiceListPage'));
+const DepartmentServicesPage = lazyWithRetry(() => import('@/pages/departments/DepartmentServicesPage'));
+const DepartmentProductsPage = lazyWithRetry(() => import('@/pages/departments/DepartmentProductsPage'));
+const ServiceTrashPage = lazyWithRetry(() => import('@/pages/services/ServiceTrashPage'));
+const ReceivablesPage = lazyWithRetry(() => import('@/pages/invoices/ReceivablesPage'));
+const ClientListPage = lazyWithRetry(() => import('@/pages/clients/ClientListPage'));
+const ClientDetailPage = lazyWithRetry(() => import('@/pages/clients/ClientDetailPage'));
+const CommercialListPage = lazyWithRetry(() => import('@/pages/commercials/CommercialListPage'));
+const CommercialDetailPage = lazyWithRetry(() => import('@/pages/commercials/CommercialDetailPage'));
+const CommercialSelfDashboardPage = lazyWithRetry(() => import('@/pages/commercials/CommercialSelfDashboardPage'));
+const CommercialCommissionsPage = lazyWithRetry(() => import('@/pages/commercials/CommercialCommissionsPage'));
+const AgencyCommercialsPage = lazyWithRetry(() => import('@/pages/commercials/AgencyCommercialsPage'));
+const CountryCommercialsPage = lazyWithRetry(() => import('@/pages/commercials/CountryCommercialsPage'));
+const AgencyCommercialDetailPage = lazyWithRetry(
   () => import('@/pages/commercials/AgencyCommercialDetailPage')
 );
-const AgencyCommercialReportPage = lazy(
+const AgencyCommercialReportPage = lazyWithRetry(
   () => import('@/pages/commercials/AgencyCommercialReportPage')
 );
-const InvoiceListPage = lazy(() => import('@/pages/invoices/InvoiceListPage'));
-const PendingInvoicesPage = lazy(() => import('@/pages/invoices/PendingInvoicesPage'));
-const InvoiceFormPage = lazy(() => import('@/pages/invoices/InvoiceFormPage'));
-const QuickSalePage = lazy(() => import('@/pages/invoices/QuickSalePage'));
-const InvoiceDetailPage = lazy(() => import('@/pages/invoices/InvoiceDetailPage'));
-const AgencyInvoicesPage = lazy(() => import('@/pages/invoices/AgencyInvoicesPage'));
-const AgencyPendingInvoicesPage = lazy(() => import('@/pages/invoices/AgencyPendingInvoicesPage'));
-const AgencyInvoiceDetailPage = lazy(() => import('@/pages/invoices/AgencyInvoiceDetailPage'));
-const AgencyReceivablesPage = lazy(() => import('@/pages/invoices/AgencyReceivablesPage'));
-const AccountingPage = lazy(() => import('@/pages/accounting/AccountingPage'));
-const AgencyAccountingPage = lazy(() => import('@/pages/accounting/AgencyAccountingPage'));
-const DailyBilanPage = lazy(() => import('@/pages/bilans/DailyBilanPage'));
-const SubscriptionListPage = lazy(() => import('@/pages/subscriptions/SubscriptionListPage'));
-const AgencySubscriptionsPage = lazy(() => import('@/pages/subscriptions/AgencySubscriptionsPage'));
-const CommercialReportPage = lazy(() => import('@/pages/commercials/CommercialReportPage'));
-const SubscriptionsReportPage = lazy(() => import('@/pages/reports/SubscriptionsReportPage'));
-const CustomersReportPage = lazy(() => import('@/pages/reports/CustomersReportPage'));
-const ComparisonReportPage = lazy(() => import('@/pages/reports/ComparisonReportPage'));
-const EmployeeListPage = lazy(() => import('@/pages/employees/EmployeeListPage'));
-const EmployeeDetailPage = lazy(() => import('@/pages/employees/EmployeeDetailPage'));
-const AgencyEmployeeListPage = lazy(() => import('@/pages/employees/AgencyEmployeeListPage'));
-const AgencyEmployeeDetailPage = lazy(() => import('@/pages/employees/AgencyEmployeeDetailPage'));
-const AgencyEmployeeReportPage = lazy(() => import('@/pages/employees/AgencyEmployeeReportPage'));
-const CountryEmployeeListPage = lazy(() => import('@/pages/employees/CountryEmployeeListPage'));
-const ActivityLogPage = lazy(() => import('@/pages/audit/ActivityLogPage'));
-const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
-const CountryListPage = lazy(() => import('@/pages/CountryListPage'));
-const AcademyCoursesPage = lazy(() => import('@/pages/academy/AcademyCoursesPage'));
-const AcademySessionsPage = lazy(() => import('@/pages/academy/AcademySessionsPage'));
-const AcademyTrainersPage = lazy(() => import('@/pages/academy/AcademyTrainersPage'));
-const AcademyTrainerDetailPage = lazy(() => import('@/pages/academy/AcademyTrainerDetailPage'));
-const AcademyLearnersPage = lazy(() => import('@/pages/academy/AcademyLearnersPage'));
-const AcademyLearnerDetailPage = lazy(() => import('@/pages/academy/AcademyLearnerDetailPage'));
-const ComingSoonPage = lazy(() => import('@/pages/ComingSoonPage'));
-const TreasuryPage = lazy(() => import('@/pages/treasury/TreasuryPage'));
-const ExpenseListPage = lazy(() => import('@/pages/expenses/ExpenseListPage'));
-const CommissionRulesPage = lazy(() => import('@/pages/commissions/CommissionRulesPage'));
-const CommissionEntriesPage = lazy(() => import('@/pages/commissions/CommissionEntriesPage'));
-const CashierCommissionsPage = lazy(() => import('@/pages/commissions/CashierCommissionsPage'));
-const CompanyListPage = lazy(() => import('@/pages/companies/CompanyListPage'));
-const OpportunityKanbanPage = lazy(() => import('@/pages/opportunities/OpportunityKanbanPage'));
-const OpportunityDetailPage = lazy(() => import('@/pages/opportunities/OpportunityDetailPage'));
-const AttendanceSheetPage = lazy(() => import('@/pages/academy/AttendanceSheetPage'));
-const CertificateListPage = lazy(() => import('@/pages/academy/CertificateListPage'));
-const CourseModulesPage = lazy(() => import('@/pages/academy/CourseModulesPage'));
-const CourseDetailPage = lazy(() => import('@/pages/academy/CourseDetailPage'));
-const FormationEnrollmentPage = lazy(() => import('@/pages/academy/FormationEnrollmentPage'));
-const SellerProfilesPage = lazy(() => import('@/pages/academy/SellerProfilesPage'));
-const AcademyProspectsPage = lazy(() => import('@/pages/academy/AcademyProspectsPage'));
-const ProspectsList = lazy(() => import('@/components/prospects/ProspectsList'));
-const AcademyReceivablesPage = lazy(() => import('@/pages/academy/AcademyReceivablesPage'));
-const AcademyReportsPage = lazy(() => import('@/pages/academy/AcademyReportsPage'));
-const AcademyPlanningPage = lazy(() => import('@/pages/academy/AcademyPlanningPage'));
-const AcademyInvoicesPage = lazy(() => import('@/pages/academy/AcademyInvoicesPage'));
-const AcademyInvoiceFormPage = lazy(() => import('@/pages/academy/AcademyInvoiceFormPage'));
-const AcademyCommissionsPage = lazy(() => import('@/pages/academy/AcademyCommissionsPage'));
-const AcademyAccountingPage = lazy(() => import('@/pages/academy/AcademyAccountingPage'));
-const AcademyBilanPage = lazy(() => import('@/pages/academy/AcademyBilanPage'));
-const ContractListPage = lazy(() => import('@/pages/agency/ContractListPage'));
-const ContractDetailPage = lazy(() => import('@/pages/agency/ContractDetailPage'));
-const RenewalsPage = lazy(() => import('@/pages/agency/RenewalsPage'));
+const InvoiceListPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceListPage'));
+const PendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/PendingInvoicesPage'));
+const InvoiceFormPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceFormPage'));
+const QuickSalePage = lazyWithRetry(() => import('@/pages/invoices/QuickSalePage'));
+const InvoiceDetailPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceDetailPage'));
+const AgencyInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/AgencyInvoicesPage'));
+const AgencyPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/AgencyPendingInvoicesPage'));
+const AgencyInvoiceDetailPage = lazyWithRetry(() => import('@/pages/invoices/AgencyInvoiceDetailPage'));
+const AgencyReceivablesPage = lazyWithRetry(() => import('@/pages/invoices/AgencyReceivablesPage'));
+const AccountingPage = lazyWithRetry(() => import('@/pages/accounting/AccountingPage'));
+const AgencyAccountingPage = lazyWithRetry(() => import('@/pages/accounting/AgencyAccountingPage'));
+const DailyBilanPage = lazyWithRetry(() => import('@/pages/bilans/DailyBilanPage'));
+const SubscriptionListPage = lazyWithRetry(() => import('@/pages/subscriptions/SubscriptionListPage'));
+const AgencySubscriptionsPage = lazyWithRetry(() => import('@/pages/subscriptions/AgencySubscriptionsPage'));
+const CommercialReportPage = lazyWithRetry(() => import('@/pages/commercials/CommercialReportPage'));
+const SubscriptionsReportPage = lazyWithRetry(() => import('@/pages/reports/SubscriptionsReportPage'));
+const CustomersReportPage = lazyWithRetry(() => import('@/pages/reports/CustomersReportPage'));
+const ComparisonReportPage = lazyWithRetry(() => import('@/pages/reports/ComparisonReportPage'));
+const EmployeeListPage = lazyWithRetry(() => import('@/pages/employees/EmployeeListPage'));
+const EmployeeDetailPage = lazyWithRetry(() => import('@/pages/employees/EmployeeDetailPage'));
+const AgencyEmployeeListPage = lazyWithRetry(() => import('@/pages/employees/AgencyEmployeeListPage'));
+const AgencyEmployeeDetailPage = lazyWithRetry(() => import('@/pages/employees/AgencyEmployeeDetailPage'));
+const AgencyEmployeeReportPage = lazyWithRetry(() => import('@/pages/employees/AgencyEmployeeReportPage'));
+const CountryEmployeeListPage = lazyWithRetry(() => import('@/pages/employees/CountryEmployeeListPage'));
+const ActivityLogPage = lazyWithRetry(() => import('@/pages/audit/ActivityLogPage'));
+const SettingsPage = lazyWithRetry(() => import('@/pages/settings/SettingsPage'));
+const CountryListPage = lazyWithRetry(() => import('@/pages/CountryListPage'));
+const AcademyCoursesPage = lazyWithRetry(() => import('@/pages/academy/AcademyCoursesPage'));
+const AcademySessionsPage = lazyWithRetry(() => import('@/pages/academy/AcademySessionsPage'));
+const AcademyTrainersPage = lazyWithRetry(() => import('@/pages/academy/AcademyTrainersPage'));
+const AcademyTrainerDetailPage = lazyWithRetry(() => import('@/pages/academy/AcademyTrainerDetailPage'));
+const AcademyLearnersPage = lazyWithRetry(() => import('@/pages/academy/AcademyLearnersPage'));
+const AcademyLearnerDetailPage = lazyWithRetry(() => import('@/pages/academy/AcademyLearnerDetailPage'));
+const ComingSoonPage = lazyWithRetry(() => import('@/pages/ComingSoonPage'));
+const TreasuryPage = lazyWithRetry(() => import('@/pages/treasury/TreasuryPage'));
+const ExpenseListPage = lazyWithRetry(() => import('@/pages/expenses/ExpenseListPage'));
+const CommissionRulesPage = lazyWithRetry(() => import('@/pages/commissions/CommissionRulesPage'));
+const CommissionEntriesPage = lazyWithRetry(() => import('@/pages/commissions/CommissionEntriesPage'));
+const CashierCommissionsPage = lazyWithRetry(() => import('@/pages/commissions/CashierCommissionsPage'));
+const CompanyListPage = lazyWithRetry(() => import('@/pages/companies/CompanyListPage'));
+const OpportunityKanbanPage = lazyWithRetry(() => import('@/pages/opportunities/OpportunityKanbanPage'));
+const OpportunityDetailPage = lazyWithRetry(() => import('@/pages/opportunities/OpportunityDetailPage'));
+const AttendanceSheetPage = lazyWithRetry(() => import('@/pages/academy/AttendanceSheetPage'));
+const CertificateListPage = lazyWithRetry(() => import('@/pages/academy/CertificateListPage'));
+const CourseModulesPage = lazyWithRetry(() => import('@/pages/academy/CourseModulesPage'));
+const CourseDetailPage = lazyWithRetry(() => import('@/pages/academy/CourseDetailPage'));
+const FormationEnrollmentPage = lazyWithRetry(() => import('@/pages/academy/FormationEnrollmentPage'));
+const SellerProfilesPage = lazyWithRetry(() => import('@/pages/academy/SellerProfilesPage'));
+const AcademyProspectsPage = lazyWithRetry(() => import('@/pages/academy/AcademyProspectsPage'));
+const ProspectsList = lazyWithRetry(() => import('@/components/prospects/ProspectsList'));
+const AcademyReceivablesPage = lazyWithRetry(() => import('@/pages/academy/AcademyReceivablesPage'));
+const AcademyReportsPage = lazyWithRetry(() => import('@/pages/academy/AcademyReportsPage'));
+const AcademyPlanningPage = lazyWithRetry(() => import('@/pages/academy/AcademyPlanningPage'));
+const AcademyInvoicesPage = lazyWithRetry(() => import('@/pages/academy/AcademyInvoicesPage'));
+const AcademyInvoiceFormPage = lazyWithRetry(() => import('@/pages/academy/AcademyInvoiceFormPage'));
+const AcademyCommissionsPage = lazyWithRetry(() => import('@/pages/academy/AcademyCommissionsPage'));
+const AcademyAccountingPage = lazyWithRetry(() => import('@/pages/academy/AcademyAccountingPage'));
+const AcademyBilanPage = lazyWithRetry(() => import('@/pages/academy/AcademyBilanPage'));
+const ContractListPage = lazyWithRetry(() => import('@/pages/agency/ContractListPage'));
+const ContractDetailPage = lazyWithRetry(() => import('@/pages/agency/ContractDetailPage'));
+const RenewalsPage = lazyWithRetry(() => import('@/pages/agency/RenewalsPage'));
 
 function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
   return <Suspense fallback={fallback}>{node}</Suspense>;
+}
+
+/**
+ * Enveloppe les pages d'un layout dans une route sans chemin portant l'écran
+ * d'erreur : une page qui ne charge pas (coupure réseau…) affiche l'erreur à
+ * sa place en gardant la navigation (sidebar, en-tête) du layout.
+ */
+function withErrorBoundary(children: RouteObject[]): RouteObject[] {
+  return [{ errorElement: <RouteErrorPage />, children }];
 }
 
 const cards = <SkeletonCards />;
@@ -136,7 +147,7 @@ const detail = <SkeletonDetail />;
 const dashboard = <SkeletonDashboard />;
 const form = <SkeletonForm />;
 
-const agencyChildren = [
+const agencyChildren: RouteObject[] = [
   { index: true, element: page(<AgencyOverviewPage />, dashboard) },
   { path: 'departments', element: page(<AgencyDepartmentsPage />, cards) },
   { path: 'departments/trash', element: page(<AgencyDepartmentTrashPage />, table) },
@@ -170,19 +181,21 @@ const agencyChildren = [
 export const router = createBrowserRouter([
   {
     element: <GuestRoute />,
-    children: [
+    errorElement: <RouteErrorPage />,
+    children: withErrorBoundary([
       { path: '/login', element: page(<LoginPage />, form) },
       { path: '/forgot-password', element: page(<ForgotPasswordPage />, form) },
       { path: '/reset-password', element: page(<ResetPasswordPage />, form) },
       { path: '/two-factor', element: page(<TwoFactorPage />, form) },
-    ],
+    ]),
   },
   {
     element: <ProtectedRoute />,
+    errorElement: <RouteErrorPage />,
     children: [
       {
         element: <AppLayout />,
-        children: [
+        children: withErrorBoundary([
           { path: '/', element: page(<HomeRedirect />, dashboard) },
           { path: '/caissier/dashboard', element: page(<CashierDashboardPage />, dashboard) },
           { path: '/caissier/commissions', element: page(<CashierCommissionsPage />, table) },
@@ -233,12 +246,12 @@ export const router = createBrowserRouter([
           { path: '/catalog/categories/trash', element: page(<CategoryTrashPage />, table) },
           { path: '/catalog/services', element: page(<ServiceListPage />, cards) },
           { path: '/catalog/services/trash', element: page(<ServiceTrashPage />, table) },
-        ],
+        ]),
       },
       {
         path: '/countries/:countryId',
         element: <CountryLayout />,
-        children: [
+        children: withErrorBoundary([
           { index: true, element: page(<CountryDashboardPage />, dashboard) },
           { path: 'clients', element: page(<ClientListPage />, table) },
           { path: 'clients/:id', element: page(<ClientDetailPage />, detail) },
@@ -265,7 +278,7 @@ export const router = createBrowserRouter([
           { path: 'catalog', element: <Navigate to="services" replace /> },
           { path: 'catalog/categories', element: page(<CategoryListPage />, table) },
           { path: 'catalog/services', element: <Navigate to="services" replace /> },
-        ],
+        ]),
       },
       {
         path: '/agencies/:agencyId/*',
@@ -274,12 +287,12 @@ export const router = createBrowserRouter([
       {
         path: '/countries/:countryId/agencies/:agencyId',
         element: <AgencyLayout />,
-        children: agencyChildren,
+        children: withErrorBoundary(agencyChildren),
       },
       {
         path: '/departments/:departmentId',
         element: <DepartmentLayout />,
-        children: [
+        children: withErrorBoundary([
           { index: true, element: page(<DepartmentOverviewPage />, dashboard) },
           { path: 'team', element: page(<DepartmentTeamsPage />, table) },
           { path: 'settings', element: page(<DepartmentSettingsPage />, detail) },
@@ -334,7 +347,7 @@ export const router = createBrowserRouter([
           { path: 'planning', element: page(<ComingSoonPage />, table) },
           { path: 'production', element: page(<ComingSoonPage />, table) },
           { path: 'revisions', element: page(<ComingSoonPage />, table) },
-        ],
+        ]),
       },
     ],
   },

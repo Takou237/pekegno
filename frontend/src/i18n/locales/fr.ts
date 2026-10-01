@@ -63,6 +63,16 @@ export default {
     selectAccount: 'Sélectionner un compte…',
   },
 
+  routeError: {
+    offlineTitle: 'Connexion perdue',
+    offlineDesc: "La page n'a pas pu être chargée : vérifiez votre connexion internet. Elle se rechargera automatiquement dès que la connexion revient.",
+    loadTitle: 'Impossible de charger la page',
+    loadDesc: "Le chargement a échoué (connexion instable ou mise à jour de la plateforme). Réessayez dans un instant.",
+    genericTitle: 'Une erreur est survenue',
+    genericDesc: "Un problème inattendu est survenu sur cette page. Réessayez ; si le problème persiste, contactez l'administrateur.",
+    retry: 'Réessayer',
+    home: "Retour à l'accueil",
+  },
   date: {
     today: "Aujourd'hui",
     yesterday: 'Hier',

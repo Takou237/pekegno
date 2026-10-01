@@ -188,8 +188,8 @@ export default function ProspectsList({ agencyId, hideCommercialField = false }:
       showToast(t('prospects.converted'), 'success');
       setConvertTarget(null);
       fetchProspects();
-    } catch {
-      showToast(t('prospects.convertFailed'), 'error');
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('prospects.convertFailed')), 'error');
     } finally {
       setIsConverting(false);
     }
@@ -370,7 +370,7 @@ export default function ProspectsList({ agencyId, hideCommercialField = false }:
         isOpen={!!convertTarget}
         onClose={() => setConvertTarget(null)}
         title={t('prospects.convertTitle')}
-        maxWidth="sm"
+        maxWidth="max-w-sm"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600 dark:text-gray-400">

@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback, lazy, Suspense, type FormEvent } from 'react';
+import { useEffect, useState, useCallback, Suspense, type FormEvent } from 'react';
 import { Save, Plus, Pencil, Trash2 } from 'lucide-react';
+import { lazyWithRetry } from '@/utils/lazyWithRetry';
 import { useTranslation } from 'react-i18next';
 import { settingsApi } from '@/api/settings.api';
 import { accountingApi } from '@/api/accounting.api';
@@ -19,8 +20,8 @@ import type { CommissionType } from '@/types/settings';
 import type { AccountingCategory, AccountingType } from '@/types/accounting';
 import type { Category } from '@/types/category';
 
-const UserListPage = lazy(() => import('@/pages/users/UserListPage'));
-const RolesPrivilegesPage = lazy(() => import('@/pages/RolesPrivilegesPage'));
+const UserListPage = lazyWithRetry(() => import('@/pages/users/UserListPage'));
+const RolesPrivilegesPage = lazyWithRetry(() => import('@/pages/RolesPrivilegesPage'));
 
 type Tab = 'general' | 'accounting-cats' | 'service-cats' | 'users' | 'privileges';
 

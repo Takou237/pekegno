@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
 import { servicesApi } from '@/api/services.api';
-import { academyApi, type Course } from '@/api/academy.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -15,13 +14,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
-import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
-import {
-  EnrollmentLearnerField,
-  emptyNewLearnerForm,
-  type LearnerMode,
-  type NewLearnerFormState,
-} from '@/components/academy/EnrollmentLearnerField';
+import { Autocomplete, FREE_TEXT_PREFIX, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import type { PaymentMethod } from '@/types/invoice';
 import type { SeminarTier, Service } from '@/types/service';
@@ -35,7 +28,7 @@ interface InvoiceLineDraft {
   unit_price: string;
   quantity: string;
   pass_tier: string;
-  kind: 'service' | 'formation' | '';
+  kind: 'service' | '';
 }
 
 let lineCounter = 0;
@@ -44,15 +37,12 @@ function newLine(): InvoiceLineDraft {
   return { key: `line-${lineCounter}`, service_id: '', label: '', unit_price: '', quantity: '1', pass_tier: '', kind: '' };
 }
 
-const FORMATION_PREFIX = 'formation:';
-
-/** Entrée de la liste déroulante « Produit » : un produit du catalogue ou une formation. */
+/** Entrée de la liste déroulante « Produit » : un service du catalogue. */
 interface ProductOption {
   value: string;
   label: string;
   price: number;
   tiers: SeminarTier[];
-  isCourse: boolean;
 }
 
 interface QuickSaleModalProps {
@@ -76,8 +66,6 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   );
 
   const [clientId, setClientId] = useState('');
-  const [learnerMode, setLearnerMode] = useState<LearnerMode>('existing');
-  const [newLearner, setNewLearner] = useState<NewLearnerFormState>(emptyNewLearnerForm);
   const [sellerId, setSellerId] = useState('');
   const [sellerIsTrainer, setSellerIsTrainer] = useState(false);
   const [myCommercial, setMyCommercial] = useState<Commercial | null>(null);
@@ -90,7 +78,6 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [lines, setLines] = useState<InvoiceLineDraft[]>([newLine()]);
   const [catalogue, setCatalogue] = useState<Service[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -98,28 +85,20 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
   const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo';
 
-  const productOptions = useMemo<ProductOption[]>(() => {
-    const fromCatalogue: ProductOption[] = catalogue.map((service) => ({
-      value: service.id,
-      label: service.name,
-      price: Number(service.effective_price ?? service.price ?? 0),
-      tiers: service.is_seminar ? (service.seminar_tiers ?? []) : [],
-      isCourse: false,
-    }));
-    const fromCourses: ProductOption[] = courses.map((course) => ({
-      value: FORMATION_PREFIX + course.id,
-      label: course.name,
-      price: Number(course.effective_price ?? course.price ?? 0),
-      tiers: [],
-      isCourse: true,
-    }));
-    return [...fromCatalogue, ...fromCourses];
-  }, [catalogue, courses]);
+  // Les formations se vendent par une inscription (module Academy), pas par
+  // une vente de guichet : la liste ne propose que les services du catalogue.
+  const productOptions = useMemo<ProductOption[]>(
+    () =>
+      catalogue.map((service) => ({
+        value: service.id,
+        label: service.name,
+        price: Number(service.effective_price ?? service.price ?? 0),
+        tiers: service.is_seminar ? (service.seminar_tiers ?? []) : [],
+      })),
+    [catalogue],
+  );
 
-  const catalogueOptions = useMemo(() => productOptions.filter((o) => !o.isCourse), [productOptions]);
-  const courseOptions = useMemo(() => productOptions.filter((o) => o.isCourse), [productOptions]);
-
-  const learnerOptions = useCallback(async (query: string) => {
+  const clientOptions = useCallback(async (query: string) => {
     const results = await clientsApi.search(query.trim());
     return results.map((c) => ({
       id: c.id,
@@ -150,8 +129,6 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
 
   function reset() {
     setClientId('');
-    setLearnerMode('existing');
-    setNewLearner(emptyNewLearnerForm);
     setSellerId('');
     setSellerIsTrainer(false);
     setPaymentType('cash');
@@ -168,17 +145,13 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   useEffect(() => {
     if (!isOpen) return;
     reset();
-    // La liste déroulante « Produit » propose tout le catalogue visible par
-    // l'utilisateur (produits de l'agence + formations) plutôt qu'une saisie
-    // texte : le catalogue fait foi sur le libellé et le prix.
+    // La liste déroulante « Produit » propose les services du catalogue visibles
+    // par l'utilisateur plutôt qu'une saisie texte : le catalogue fait foi sur
+    // le libellé et le prix.
     servicesApi
       .list({ per_page: 100, agency_id: agencyId })
       .then((res) => setCatalogue(res.data ?? []))
       .catch(() => setCatalogue([]));
-    academyApi
-      .courses({ agency_id: agencyId, per_page: 100 })
-      .then((res) => setCourses(res.data ?? []))
-      .catch(() => setCourses([]));
     if (isCommercial && currentUser?.id) {
       commercialsApi
         .list({ per_page: 100 })
@@ -252,7 +225,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
     const tiers = option.tiers;
     updateLine(key, {
       service_id: option.value,
-      kind: option.isCourse ? 'formation' : 'service',
+      kind: 'service',
       label: option.label,
       unit_price: String(tiers[0]?.price ?? option.price),
       pass_tier: tiers[0]?.tier ?? '',
@@ -266,6 +239,10 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
     );
     if (validLines.length === 0) {
       setErrors({ items: t('invoices.noItems') });
+      return;
+    }
+    if (!clientId) {
+      setErrors({ client_id: t('invoices.colClient') });
       return;
     }
     if (requiresPayerPhone && !payerPhone.trim()) {
@@ -283,27 +260,12 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
     setSubmitting(true);
     setErrors({});
     try {
-      let buyerId = learnerMode === 'existing' ? clientId : '';
-      if (learnerMode === 'new') {
-        if (!newLearner.first_name.trim() || !newLearner.last_name.trim()) {
-          setErrors({ learner_user_id: t('academy.newLearnerRequired') });
-          return;
-        }
-        // L'apprenant saisi est créé comme client : la facture le rattache à un
-        // compte réel, ce qui permet de le retrouver dans l'historique.
-        const created = await clientsApi.create({
-          first_name: newLearner.first_name.trim(),
-          last_name: newLearner.last_name.trim(),
-          email: newLearner.email.trim(),
-          phone: newLearner.phone.trim() || null,
-          country: newLearner.country || undefined,
-          registered_agency_id: agencyId,
-        });
-        buyerId = created.id;
-      }
-
+      // Comme « Nouvelle facture » : client existant choisi dans la recherche,
+      // ou nom saisi librement pour un nouveau client.
+      const freeClientName = clientId.startsWith(FREE_TEXT_PREFIX) ? clientId.slice(FREE_TEXT_PREFIX.length) : '';
       const payload = {
-        client_id: buyerId || undefined,
+        client_id: freeClientName ? undefined : clientId || undefined,
+        client_name: freeClientName || undefined,
         commercial_id: !sellerIsTrainer && sellerId ? sellerId : undefined,
         seller_user_id: sellerIsTrainer && sellerId ? sellerId : undefined,
         agency_id: agencyId || undefined,
@@ -344,19 +306,19 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
           <Alert variant="error">{Object.values(errors).join(' ')}</Alert>
         )}
 
-        <EnrollmentLearnerField
-          mode={learnerMode}
-          onModeChange={setLearnerMode}
-          learnerUserId={clientId}
-          onLearnerUserIdChange={setClientId}
-          fetchOptions={learnerOptions}
-          newLearner={newLearner}
-          onNewLearnerChange={setNewLearner}
-          error={errors.learner_user_id}
-        />
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {isCommercial || isSelfSellerRole ? (
+          <Autocomplete
+            label={t('invoices.headerClient')}
+            placeholder={t('invoices.headerClientPlaceholder')}
+            value={clientId}
+            onChange={setClientId}
+            freeText
+            fetchOptions={clientOptions}
+            error={errors.client_id}
+          />
+          {/* Un commercial vend toujours pour lui-même : la facture lui est
+              rattachée côté serveur, le champ « Vendeur » n'a rien à lui apprendre. */}
+          {isCommercial ? null : isSelfSellerRole ? (
             <Input
               label={t('invoices.seller')}
               value={
@@ -437,24 +399,11 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
                       error={index === 0 ? errors.items : undefined}
                     >
                       <option value="">{t('invoices.itemProductPlaceholder')}</option>
-                      {catalogueOptions.length > 0 && (
-                        <optgroup label={t('invoices.catalogGroup')}>
-                          {catalogueOptions.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {`${o.label} — ${formatCurrency(o.price, currency)}`}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {courseOptions.length > 0 && (
-                        <optgroup label={t('invoices.formationsGroup')}>
-                          {courseOptions.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {`${o.label} — ${formatCurrency(o.price, currency)}`}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
+                      {productOptions.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {`${o.label} — ${formatCurrency(o.price, currency)}`}
+                        </option>
+                      ))}
                     </Select>
                   </div>
                   {hasTiers && (
