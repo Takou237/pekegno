@@ -947,6 +947,7 @@ export default {
     backToServices: 'Back to services',
     bonusFixed: 'Fixed bonus',
     bonusFixedHint: 'Fixed amount paid to the commercial per sale of this service (takes priority over percentage).',
+    deployCountriesHint: 'The service will be created in every agency of each selected country.',
     isSeminar: 'Seminar service (Pass)',
     seminarTiers: 'Seminar tiers',
     tierLabel: 'Label',

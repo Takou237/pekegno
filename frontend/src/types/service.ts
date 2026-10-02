@@ -64,7 +64,8 @@ export interface ServiceSearchItem {
 export interface ServicePayload {
   name: string;
   category_id: string;
-  agency_id: string;
+  /** Facultatif à la création : le service est créé dans les agences des pays cochés. */
+  agency_id?: string;
   price: number | string;
   bonus_fixed?: number | string | null;
   is_seminar?: boolean;
@@ -73,6 +74,8 @@ export interface ServicePayload {
   description?: string | null;
   cover_image?: string | null;
   presentation_video?: string | null;
+  /** Création uniquement : dupliquer le service dans toutes les agences de ces pays. */
+  target_country_ids?: string[];
 }
 
 export interface ServiceListParams {

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { categoriesApi } from '@/api/categories.api';
 import { agenciesApi } from '@/api/agencies.api';
+import { countriesApi } from '@/api/countries.api';
 import { uploadsApi } from '@/api/uploads.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -11,8 +12,10 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { CountryDeployPicker } from '@/components/countries/CountryDeployPicker';
 import type { Category } from '@/types/category';
 import type { Agency } from '@/types/agency';
+import type { CountryStat } from '@/types/stats';
 import type { Service, ServicePayload } from '@/types/service';
 
 interface ServiceFormState {
@@ -70,6 +73,8 @@ export function ServiceFormModal({
   const [form, setForm] = useState<ServiceFormState>(emptyForm('', agencyId));
   const [categories, setCategories] = useState<Category[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [countries, setCountries] = useState<CountryStat[]>([]);
+  const [targetCountryIds, setTargetCountryIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -79,6 +84,16 @@ export function ServiceFormModal({
     if (isOpen) {
       categoriesApi.list({ per_page: 100 }).then((r) => setCategories(r.data)).catch(() => {});
       agenciesApi.list({ per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
+      // Comme pour les formations : à la création, le service est déployé par
+      // défaut dans tous les pays actifs ; l'utilisateur décoche les autres.
+      setTargetCountryIds([]);
+      countriesApi
+        .list({ per_page: 100 })
+        .then((r) => {
+          setCountries(r.data);
+          if (!isEditing) setTargetCountryIds(r.data.filter((c) => c.is_active).map((c) => c.id));
+        })
+        .catch(() => {});
       const source = duplicateSource ?? service;
       setForm(
         source
@@ -132,7 +147,9 @@ export function ServiceFormModal({
     return {
       name: form.name.trim(),
       category_id: form.category_id,
-      agency_id: form.agency_id,
+      // En création, pas de choix d'agence : seule l'agence de la page (si on
+      // est sur une agence) est ajoutée aux agences des pays cochés.
+      agency_id: isEditing ? form.agency_id : agencyId || undefined,
       price: form.price !== '' ? Number(form.price) : (form.is_seminar ? 0 : Number(form.price)),
       bonus_fixed: form.bonus_fixed ? Number(form.bonus_fixed) : null,
       is_seminar: form.is_seminar,
@@ -148,6 +165,7 @@ export function ServiceFormModal({
       description: form.description.trim() || null,
       cover_image: form.cover_image,
       presentation_video: form.presentation_video.trim() || null,
+      ...(isEditing ? {} : { target_country_ids: targetCountryIds.length ? targetCountryIds : undefined }),
     };
   }
 
@@ -209,20 +227,22 @@ export function ServiceFormModal({
           </Select>
         </div>
 
-        <Select
-          label={t('services.agency')}
-          required
-          value={form.agency_id}
-          onChange={(e) => update('agency_id', e.target.value)}
-          error={fieldErrors.agency_id}
-        >
-          <option value="">{t('services.selectAgency')}</option>
-          {agencies.map((agency) => (
-            <option key={agency.id} value={agency.id}>
-              {agency.name}
-            </option>
-          ))}
-        </Select>
+        {isEditing && (
+          <Select
+            label={t('services.agency')}
+            required
+            value={form.agency_id}
+            onChange={(e) => update('agency_id', e.target.value)}
+            error={fieldErrors.agency_id}
+          >
+            <option value="">{t('services.selectAgency')}</option>
+            {agencies.map((agency) => (
+              <option key={agency.id} value={agency.id}>
+                {agency.name}
+              </option>
+            ))}
+          </Select>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
@@ -385,6 +405,17 @@ export function ServiceFormModal({
             <p className="text-sm text-error-500">{fieldErrors.cover_image}</p>
           )}
         </div>
+
+        {!isEditing && (
+          <CountryDeployPicker
+            countries={countries}
+            selectedIds={targetCountryIds}
+            onChange={setTargetCountryIds}
+            currentCountryId={agencies.find((a) => a.id === agencyId)?.country_id ?? undefined}
+            hint={t('services.deployCountriesHint')}
+            error={fieldErrors.target_country_ids ?? fieldErrors.agency_id}
+          />
+        )}
 
         <div className="mt-2 flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting} className="flex-1">

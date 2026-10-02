@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreServiceRequest;
 use App\Http\Requests\Api\UpdateServiceRequest;
 use App\Http\Resources\ServiceResource;
+use App\Models\Agency;
 use App\Models\PriceHistory;
 use App\Models\SeminarTier;
 use App\Models\Service;
@@ -13,6 +14,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
 class ServiceController extends Controller
@@ -83,7 +86,7 @@ class ServiceController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['name', 'category_id', 'agency_id', 'price'],
+                required: ['name', 'category_id', 'price'],
                 properties: [
                     new OA\Property(property: 'name', type: 'string', example: 'Conseil en organisation'),
                     new OA\Property(property: 'category_id', type: 'string', format: 'uuid'),
@@ -92,6 +95,7 @@ class ServiceController extends Controller
                     new OA\Property(property: 'price', type: 'number', example: 50000),
                     new OA\Property(property: 'cover_image', type: 'string'),
                     new OA\Property(property: 'presentation_video', type: 'string'),
+                    new OA\Property(property: 'target_country_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Crée aussi le service dans toutes les agences de ces pays'),
                 ]
             )
         ),
@@ -104,20 +108,51 @@ class ServiceController extends Controller
     public function store(StoreServiceRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $targetCountryIds = $data['target_country_ids'] ?? [];
+        unset($data['target_country_ids']);
 
-        if (empty($data['code'])) {
-            $data['code'] = Service::generateCode();
+        // Agences cibles : l'agence de la page (si fournie), plus toutes les agences
+        // des pays cochés (une copie du service par agence, comme les formations).
+        $agencyIds = collect([$data['agency_id'] ?? null])
+            ->merge($targetCountryIds
+                ? Agency::query()->whereNull('deleted_at')->whereIn('country_id', $targetCountryIds)->pluck('id')
+                : [])
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($agencyIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'target_country_ids' => 'Aucune agence dans les pays cochés : le service ne peut être créé nulle part.',
+            ]);
         }
 
-        $service = Service::create(Arr::except($data, ['tiers']));
+        $service = DB::transaction(function () use ($data, $agencyIds) {
+            $primary = null;
 
-        PriceHistory::create([
-            'service_id' => $service->id,
-            'price' => $service->price,
-            'changed_at' => now(),
-        ]);
+            foreach ($agencyIds as $agencyId) {
+                $row = Arr::except($data, ['tiers']);
+                $row['agency_id'] = $agencyId;
+                // Le code saisi n'est gardé que pour l'agence choisie (il est unique).
+                if ($primary !== null || empty($row['code'])) {
+                    $row['code'] = Service::generateCode();
+                }
 
-        $this->syncSeminarTiers($service, $data['tiers'] ?? null, (bool) ($data['is_seminar'] ?? false));
+                $created = Service::create($row);
+
+                PriceHistory::create([
+                    'service_id' => $created->id,
+                    'price' => $created->price,
+                    'changed_at' => now(),
+                ]);
+
+                $this->syncSeminarTiers($created, $data['tiers'] ?? null, (bool) ($data['is_seminar'] ?? false));
+
+                $primary ??= $created;
+            }
+
+            return $primary;
+        });
 
         return (new ServiceResource($service->load(['category', 'agency', 'promotions', 'seminarTiers'])))
             ->response()

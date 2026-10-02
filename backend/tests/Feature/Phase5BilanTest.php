@@ -213,7 +213,7 @@ class Phase5BilanTest extends TestCase
         $this->assertEquals(22000, $tomorrow['solde_initial']);
     }
 
-    public function test_daily_bilan_counts_unpaid_services_without_received(): void
+    public function test_daily_bilan_ignores_unpaid_invoices(): void
     {
         $this->actingAsAdmin();
 
@@ -222,7 +222,10 @@ class Phase5BilanTest extends TestCase
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
-        $this->assertEquals(3, $bilan['total_ventes']);
+        // Le bilan ne compte que l'encaissé : une facture impayée n'y figure pas
+        // (elle reste dans les créances jusqu'au jour de son versement).
+        $this->assertEquals(0, $bilan['total_ventes']);
+        $this->assertEquals(0, $bilan['total_ventes_amount']);
         $this->assertEquals(0, $bilan['total_received']);
     }
 

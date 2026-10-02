@@ -956,6 +956,7 @@ export default {
     backToServices: 'Retour aux services',
     bonusFixed: 'Prime fixe',
     bonusFixedHint: 'Montant fixe versé au commercial par vente de ce service (prioritaire sur le pourcentage).',
+    deployCountriesHint: 'Le service sera créé dans toutes les agences de chaque pays sélectionné.',
     isSeminar: 'Service séminaire (Pass)',
     isPublic: 'Publier sur le catalogue en ligne',
     isPublicHint: 'Visible par les clients sur le site public sans connexion, une fois coché et enregistré.',

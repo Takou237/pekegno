@@ -348,6 +348,7 @@ pas l'OPcache du site web. Ne jamais lancer `php artisan route:cache` /
 | `migration-2026-09-30-2fa.sql` | ✅ **Appliqué en prod.** Colonne `users.two_factor_channel` (2FA par email) |
 | `migration-2026-09-30-payer-phone.sql` | ✅ **Appliqué en prod.** Colonne `invoices.payer_phone` (téléphone du payeur mobile money) |
 | `DEPLOIEMENT-2026-10-01.md` | Procédure + recette du 01/10 (services seuls dans « Nouvelle vente », email aux caissiers, conversion prospect, erreurs de chargement de page) |
+| `repair-missing-agency.php` | ⏳ **À exécuter une fois** (01/10) après le `git pull` : rattache les factures sans agence à l'agence du vendeur (+ caisse, comptabilité). Simulation puis `?apply=1`, puis supprimer |
 | `repair-converted-clients-2026-10-01.sql` | ⏳ **À importer une fois** (01/10). Rattache à leur agence / commercial les clients issus d'une conversion de prospect — idempotent |
 | `repair-enrollment-payments.php` | ✅ **Déjà exécuté en prod (ne pas relancer).** One-shot : crée les paiements manquants des inscriptions |
 | `mail-test.php` | One-shot : diagnostic SMTP (config chargée, connexions sortantes, envoi test), puis supprimer |

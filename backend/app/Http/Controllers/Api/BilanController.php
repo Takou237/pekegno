@@ -93,7 +93,8 @@ class BilanController extends Controller
     public function period(Request $request): JsonResponse
     {
         $from = Period::from($request, Period::businessToday());
-        $to = Period::to($request, $from->copy()->endOfDay());
+        // Sans « to » : le même jour que « from » (period() raisonne en jours métier).
+        $to = Period::to($request, $from->copy());
         $agencyId = $request->input('agency_id');
         $agencyIds = $this->scopedAgencyIds($request, $request->input('country_id'));
 

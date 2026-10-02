@@ -15,6 +15,7 @@ use App\Services\ActivityLogger;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\PaymentService;
 use App\Services\PendingInvoiceNotifier;
+use App\Services\SaleAgencyResolver;
 use App\Services\SellerProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class FormationEnrollmentController extends Controller
         private readonly SellerProfileService $sellerProfiles,
         private readonly PaymentService $paymentService,
         private readonly PendingInvoiceNotifier $pendingNotifier,
+        private readonly SaleAgencyResolver $agencyResolver,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -409,14 +411,24 @@ class FormationEnrollmentController extends Controller
                 : null;
         }
 
+        // Une formation globale n'a pas d'agence : la vente est alors rattachée à
+        // l'agence du vendeur, sinon elle échappe au bilan du jour et à la caisse.
+        $agencyId = $this->agencyResolver->resolve(
+            $course->agency_id,
+            $request->user(),
+            $commercialId,
+            $sellerUserId,
+            $validated['seller_trainer_id'] ?? null,
+        );
+
         // Vendeur formateur → son profil vendeur est garanti (taux non inventé).
         if ($sellerUserId !== null) {
             $sellerUser = User::find($sellerUserId);
             if ($sellerUser) {
-                $this->sellerProfiles->ensureForUser($sellerUser, $course->agency_id);
+                $this->sellerProfiles->ensureForUser($sellerUser, $agencyId);
             }
         } elseif (! empty($validated['seller_trainer_id']) && isset($sellerTrainer) && $sellerTrainer->user_id) {
-            $this->sellerProfiles->ensureForTrainer($sellerTrainer, $course->agency_id);
+            $this->sellerProfiles->ensureForTrainer($sellerTrainer, $agencyId);
         }
 
         $comment = "Inscription à la formation {$course->name}";
@@ -436,7 +448,7 @@ class FormationEnrollmentController extends Controller
 
         $invoice = Invoice::create([
             'number' => $this->invoiceNumber->next(),
-            'agency_id' => $course->agency_id ?? $request->user()?->primaryAgency()->value('agencies.id'),
+            'agency_id' => $agencyId,
             'client_id' => $validated['learner_user_id'],
             'client_name' => $learner ? trim("{$learner->first_name} {$learner->last_name}") : null,
             'commercial_id' => $commercialId,

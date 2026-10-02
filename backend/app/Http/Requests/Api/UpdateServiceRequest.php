@@ -28,6 +28,9 @@ class UpdateServiceRequest extends FormRequest
             'price' => $isSeminar
                 ? ['sometimes', 'nullable', 'numeric', 'min:0']
                 : ['sometimes', 'required', 'numeric', 'min:0'],
+            // Prime fixe par vente : sans cette règle, validated() l'écartait et
+            // la valeur saisie dans le formulaire n'était jamais enregistrée.
+            'bonus_fixed' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'is_seminar' => ['sometimes', 'boolean'],
             'is_public' => ['sometimes', 'boolean'],
             'tiers' => ['sometimes', 'array', 'max:3'],

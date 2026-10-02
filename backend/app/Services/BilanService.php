@@ -25,8 +25,16 @@ class BilanService
      */
     public function period(Carbon $from, Carbon $to, ?string $agencyId, ?array $agencyIds = null): array
     {
+        // Les bornes arrivent en UTC (Period::from/to) : « 01/10 00:00 à Douala »
+        // vaut « 30/09 23:00 UTC ». Itérer sur ces instants faisait construire le
+        // bilan du 30/09 quand on demandait le 01/10. On revient donc aux jours
+        // métier avant de boucler (buildSingleDay recalcule ses bornes UTC).
+        $tz = (string) config('app.business_timezone', 'Africa/Douala');
+        $from = Carbon::parse($from->copy()->setTimezone($tz)->toDateString());
+        $to = Carbon::parse($to->copy()->setTimezone($tz)->toDateString());
+
         $days = [];
-        $current = $date = $from->copy();
+        $current = $from->copy();
 
         while ($current->lte($to)) {
             $days[] = $this->buildSingleDay($current, $agencyId, $agencyIds);
@@ -225,7 +233,42 @@ class BilanService
     }
 
     /**
-     * Ventes groupées par catégorie de service (dynamique).
+     * Lignes de facture des factures encaissées dans la journée, avec la part de
+     * l'encaissement du jour qui leur revient (colonne `allocated`).
+     *
+     * Le bilan affiche ce qui est réellement encaissé, pas le montant facturé :
+     * une inscription à 50 000 payée 10 000 compte pour 10 000 ce jour-là, le
+     * reste sera compté le jour où il est versé. L'encaissement d'une facture est
+     * réparti sur ses lignes au prorata de leur montant (remise/TVA comprises),
+     * si bien que les colonnes de ventes totalisent exactement le « Total encaissé ».
+     */
+    private function paidLines(Carbon $date, ?string $agencyId, ?array $agencyIds = null)
+    {
+        $paidToday = DB::table('invoice_payments')
+            ->whereBetween('paid_at', $this->dayBounds($date))
+            ->groupBy('invoice_id')
+            ->selectRaw('invoice_id, sum(amount) as amount');
+
+        $lineSums = DB::table('invoice_items')
+            ->groupBy('invoice_id')
+            ->selectRaw('invoice_id, sum(line_total) as lines_total');
+
+        return DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->joinSub($paidToday, 'paid_today', 'paid_today.invoice_id', '=', 'invoices.id')
+            ->joinSub($lineSums, 'line_sums', 'line_sums.invoice_id', '=', 'invoices.id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', 'validated')
+            ->where('line_sums.lines_total', '>', 0)
+            ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
+            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds));
+    }
+
+    /** Part de l'encaissement du jour revenant à une ligne (cf. paidLines). */
+    private const ALLOCATED = 'invoice_items.line_total * paid_today.amount / line_sums.lines_total';
+
+    /**
+     * Encaissements du jour groupés par catégorie de service (dynamique).
      *
      * Les lignes liées à une inscription de formation (service_id null + rattachement
      * via formation_enrollments) sont exclues : elles sont comptées séparément
@@ -233,8 +276,7 @@ class BilanService
      */
     private function servicesByCategory(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
-        return DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+        return $this->paidLines($date, $agencyId, $agencyIds)
             ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')
             ->leftJoin('categories', 'categories.id', '=', 'services.category_id')
             ->leftJoin('formation_enrollments', function ($join) {
@@ -242,18 +284,13 @@ class BilanService
                     ->whereNull('invoice_items.service_id')
                     ->whereNull('invoice_items.product_id');
             })
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', 'validated')
             ->whereNull('invoice_items.product_id')
             ->whereNull('formation_enrollments.id')
-            ->whereBetween('invoices.invoice_date', $this->dayBounds($date))
-            ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
-            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->selectRaw("
                 coalesce(categories.name, 'Autres') as category,
                 coalesce(invoice_items.label, '') as label,
                 sum(invoice_items.quantity) as count,
-                sum(invoice_items.line_total) as total
+                sum(".self::ALLOCATED.") as total
             ")
             ->groupBy('category', 'label')
             ->orderByDesc('total')
@@ -269,25 +306,19 @@ class BilanService
     }
 
     /**
-     * Ventes de produits groupées par catégorie (dynamique).
+     * Encaissements du jour sur des produits, groupés par catégorie (dynamique).
      */
     private function productsByCategory(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
-        return DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+        return $this->paidLines($date, $agencyId, $agencyIds)
             ->leftJoin('products', 'products.id', '=', 'invoice_items.product_id')
             ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
             ->whereNotNull('invoice_items.product_id')
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', 'validated')
-            ->whereBetween('invoices.invoice_date', $this->dayBounds($date))
-            ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
-            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->selectRaw("
                 coalesce(categories.name, 'Autres') as category,
                 coalesce(invoice_items.label, '') as label,
                 sum(invoice_items.quantity) as count,
-                sum(invoice_items.line_total) as total
+                sum(".self::ALLOCATED.") as total
             ")
             ->groupBy('category', 'label')
             ->orderByDesc('total')
@@ -303,38 +334,29 @@ class BilanService
     }
 
     /**
-     * Ventes de formations (inscriptions) du jour.
+     * Encaissements du jour sur des inscriptions de formation.
      *
-     * Le montant vient de la facture générée par l'inscription (hors lignes de
-     * la facture pour éviter le double comptage avec produits/services éventuels).
+     * Part de l'encaissement revenant aux lignes « formation » (ni service ni
+     * produit) des factures d'inscription ; le nombre est celui des inscriptions
+     * ayant reçu un versement ce jour-là.
      */
     private function formationSales(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
+        $formationLines = $this->paidLines($date, $agencyId, $agencyIds)
+            ->whereNull('invoice_items.service_id')
+            ->whereNull('invoice_items.product_id')
+            ->whereExists(fn ($q) => $q->selectRaw('1')
+                ->from('formation_enrollments')
+                ->whereColumn('formation_enrollments.invoice_id', 'invoices.id'));
+
+        $total = (float) (clone $formationLines)->selectRaw('sum('.self::ALLOCATED.') as total')->value('total');
+
         $rows = DB::table('formation_enrollments')
-            ->join('invoices', 'invoices.id', '=', 'formation_enrollments.invoice_id')
             ->leftJoin('courses', 'courses.id', '=', 'formation_enrollments.course_id')
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', 'validated')
-            ->whereBetween('invoices.invoice_date', $this->dayBounds($date))
-            ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
-            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->whereIn('formation_enrollments.invoice_id', (clone $formationLines)->select('invoices.id'))
             ->selectRaw('coalesce(courses.mode, ?) as mode, count(distinct formation_enrollments.id) as count', ['in_person'])
             ->groupBy('mode')
             ->get();
-
-        $total = (float) DB::table('formation_enrollments')
-            ->join('invoices', 'invoices.id', '=', 'formation_enrollments.invoice_id')
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', 'validated')
-            ->whereBetween('invoices.invoice_date', $this->dayBounds($date))
-            ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
-            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->selectRaw(
-                'sum(case when invoices.total_amount - coalesce((select sum(ii.line_total) from invoice_items ii where ii.invoice_id = invoices.id and (ii.service_id is not null or ii.product_id is not null)), 0) > 0
-                    then invoices.total_amount - coalesce((select sum(ii.line_total) from invoice_items ii where ii.invoice_id = invoices.id and (ii.service_id is not null or ii.product_id is not null)), 0)
-                    else 0 end) as total'
-            )
-            ->value('total');
 
         $count = (int) $rows->sum('count');
 

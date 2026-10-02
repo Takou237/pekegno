@@ -18,13 +18,22 @@ class StoreServiceRequest extends FormRequest
         return [
             'code' => ['sometimes', 'nullable', 'string', 'max:50', 'unique:services,code'],
             'category_id' => ['required', 'uuid', 'exists:categories,id'],
-            'agency_id' => ['required', 'uuid', 'exists:agencies,id'],
+            // L'agence n'est plus choisie dans le formulaire : le service est créé
+            // dans les agences des pays cochés (plus l'agence de la page, si fournie).
+            'agency_id' => ['required_without:target_country_ids', 'nullable', 'uuid', 'exists:agencies,id'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
             'price' => $isSeminar
                 ? ['sometimes', 'nullable', 'numeric', 'min:0']
                 : ['required', 'numeric', 'min:0'],
+            // Prime fixe par vente : sans cette règle, validated() l'écartait et
+            // la valeur saisie dans le formulaire n'était jamais enregistrée.
+            'bonus_fixed' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'is_seminar' => ['sometimes', 'boolean'],
+            // Déploiement : le service est aussi créé dans toutes les agences
+            // des pays sélectionnés (comme les formations).
+            'target_country_ids' => ['required_without:agency_id', 'array'],
+            'target_country_ids.*' => ['uuid', 'exists:countries,id'],
             'is_public' => ['sometimes', 'boolean'],
             'tiers' => ['sometimes', 'array', 'max:3'],
             'tiers.*.tier' => ['required', 'in:classique,premium,vip'],
@@ -42,7 +51,8 @@ class StoreServiceRequest extends FormRequest
             'name.required' => 'Le nom du service est obligatoire.',
             'category_id.required' => 'La catégorie est obligatoire.',
             'category_id.exists' => 'La catégorie sélectionnée est invalide.',
-            'agency_id.required' => "L'agence est obligatoire.",
+            'agency_id.required_without' => 'Cochez au moins un pays où créer le service.',
+            'target_country_ids.required_without' => 'Cochez au moins un pays où créer le service.',
             'agency_id.exists' => "L'agence sélectionnée est invalide.",
             'price.required' => 'Le prix est obligatoire.',
             'price.numeric' => 'Le prix doit être un nombre.',

@@ -21,6 +21,7 @@ use App\Services\CommissionService;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\PaymentService;
 use App\Services\PendingInvoiceNotifier;
+use App\Services\SaleAgencyResolver;
 use App\Services\PointsService;
 use App\Services\SellerProfileService;
 use Illuminate\Http\JsonResponse;
@@ -43,6 +44,7 @@ class InvoiceController extends Controller
         private readonly ActivityLogger $logger,
         private readonly SellerProfileService $sellerProfiles,
         private readonly PendingInvoiceNotifier $pendingNotifier,
+        private readonly SaleAgencyResolver $agencyResolver,
     ) {}
 
     private function scopeByRole($query, ?User $user)
@@ -300,9 +302,14 @@ class InvoiceController extends Controller
 
             $invoice = Invoice::create([
                 'number' => $this->numberGenerator->next(),
-                'agency_id' => $data['agency_id']
-                    ?? $request->user()->commercialProfile?->agency_id
-                    ?? $request->user()->primaryAgency()->value('agencies.id'),
+                // Vente saisie hors agence (page pays, admin sans agence) : agence du
+                // vendeur, sinon la facture échappe au bilan du jour et à la caisse.
+                'agency_id' => $this->agencyResolver->resolve(
+                    $data['agency_id'] ?? null,
+                    $request->user(),
+                    $commercialId,
+                    $data['seller_user_id'] ?? null,
+                ),
                 'client_id' => $data['client_id'] ?? null,
                 'client_name' => $data['client_name'] ?? null,
                 'commercial_id' => $commercialId,
