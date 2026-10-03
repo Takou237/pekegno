@@ -37,6 +37,8 @@ export interface AccountingListParams {
   search?: string;
   type?: AccountingType;
   agency_id?: string;
+  /** Comptabilité limitée à un département. */
+  department_id?: string;
   country_id?: string;
   category_id?: string;
   from?: string;
@@ -47,6 +49,7 @@ export interface AccountingListParams {
 
 export interface AccountingTransactionPayload {
   agency_id?: string | null;
+  department_id?: string | null;
   category_id?: string | null;
   type: AccountingType;
   label: string;

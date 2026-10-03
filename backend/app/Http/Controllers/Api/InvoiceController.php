@@ -123,6 +123,13 @@ class InvoiceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $base = $this->scopeByRole(Invoice::query(), $request->user())
+            // Agency : factures des contrats (packages / prestations), éventuellement d'un département.
+            ->when($request->boolean('from_contracts'), fn ($q) => $q->whereNotNull('invoices.contract_id'))
+            ->when($request->contract_department_id, fn ($q, $departmentId) => $q->whereIn(
+                'invoices.contract_id',
+                \App\Models\Contract::query()->where('department_id', $departmentId)->select('id')
+            ))
+            ->when($request->contract_id, fn ($q, $contractId) => $q->where('invoices.contract_id', $contractId))
             ->when($request->boolean('from_enrollments'), fn ($q) => $q->whereIn(
                 'invoices.id',
                 FormationEnrollment::query()->whereNotNull('invoice_id')->pluck('invoice_id')

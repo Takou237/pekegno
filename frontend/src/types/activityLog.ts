@@ -20,6 +20,7 @@ export interface ActivityLog {
 export interface ActivityLogParams {
   user_id?: string;
   entity_type?: string;
+  entity_id?: string;
   action?: string;
   agency_id?: string;
   country_id?: string;

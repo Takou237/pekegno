@@ -32,6 +32,8 @@ class AccountingController extends Controller
         $base = AccountingTransaction::query()
             ->with(['agency:id,name,code', 'category:id,name,type', 'client:id,first_name,last_name', 'operator:id,first_name,last_name'])
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
+            // Comptabilité d'un département : uniquement ses écritures.
+            ->when($request->department_id, fn ($q, $id) => $q->where('department_id', $id))
             ->when(
                 ! $request->agency_id && $request->country_id,
                 fn ($q) => $q->whereHas('agency', fn ($a) => $a->where('country_id', $request->country_id))
@@ -85,6 +87,7 @@ class AccountingController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01'],
             'category_id' => ['nullable', 'exists:accounting_categories,id'],
             'agency_id' => ['nullable', 'exists:agencies,id'],
+            'department_id' => ['nullable', 'exists:departments,id'],
             'client_id' => ['nullable', 'exists:users,id'],
             'transacted_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
@@ -131,6 +134,7 @@ class AccountingController extends Controller
             'amount' => ['sometimes', 'numeric', 'min:0.01'],
             'category_id' => ['nullable', 'exists:accounting_categories,id'],
             'agency_id' => ['nullable', 'exists:agencies,id'],
+            'department_id' => ['nullable', 'exists:departments,id'],
             'client_id' => ['nullable', 'exists:users,id'],
             'transacted_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],

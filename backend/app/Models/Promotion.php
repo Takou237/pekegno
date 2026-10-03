@@ -13,6 +13,7 @@ class Promotion extends Model
     protected $fillable = [
         'service_id',
         'formation_id',
+        'package_id',
         'type',
         'promo_price',
         'discount_percent',
@@ -38,6 +39,11 @@ class Promotion extends Model
     public function formation(): BelongsTo
     {
         return $this->belongsTo(Course::class, 'formation_id');
+    }
+
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionPack::class, 'package_id');
     }
 
     public function isActive(): bool

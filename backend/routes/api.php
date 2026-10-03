@@ -4,6 +4,15 @@ use App\Http\Controllers\Api\AccountingCategoryController;
 use App\Http\Controllers\Api\AccountingController;
 use App\Http\Controllers\Api\ActivityController;
 use App\Http\Controllers\Api\ActivityLogController;
+use App\Http\Controllers\Api\Agency\AgencyCategoryController;
+use App\Http\Controllers\Api\Agency\AgencyNotificationController;
+use App\Http\Controllers\Api\Agency\AgencyReportController;
+use App\Http\Controllers\Api\Agency\AgencySettingsController;
+use App\Http\Controllers\Api\Agency\ClientTeamController;
+use App\Http\Controllers\Api\Agency\PackageController;
+use App\Http\Controllers\Api\Agency\PrestationActionController;
+use App\Http\Controllers\Api\Agency\PrestationController;
+use App\Http\Controllers\Api\Agency\PrestationReviewController;
 use App\Http\Controllers\Api\AgencyController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\Auth\ChangePasswordController;
@@ -30,6 +39,7 @@ use App\Http\Controllers\Api\Client\ClientInvoiceController;
 use App\Http\Controllers\Api\Client\ClientLearnerController;
 use App\Http\Controllers\Api\Client\ClientLearnerObservationController;
 use App\Http\Controllers\Api\Client\ClientOrderController;
+use App\Http\Controllers\Api\Client\ClientPrestationController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CommercialController;
 use App\Http\Controllers\Api\CommercialReportController;
@@ -127,6 +137,14 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::post('/client/enrollments', [ClientEnrollmentController::class, 'store']);
     Route::get('/client/learner-profile', [ClientLearnerController::class, 'show']);
     Route::get('/client/attendances', [ClientAttendanceController::class, 'index']);
+    // === Agency — Mes prestations + notation 5★ par action (D5/D11/D12) + notifications (D18) ===
+    Route::get('/client/prestations', [ClientPrestationController::class, 'index']);
+    Route::get('/client/prestations/{prestation}', [ClientPrestationController::class, 'show']);
+    Route::get('/client/prestations/{prestation}/actions', [ClientPrestationController::class, 'actions']);
+    Route::put('/client/prestation-actions/{action}/review', [ClientPrestationController::class, 'review']);
+    Route::get('/client/notifications', [AgencyNotificationController::class, 'index']);
+    Route::post('/client/notifications/read-all', [AgencyNotificationController::class, 'markAllRead']);
+    Route::post('/client/notifications/{notification}/read', [AgencyNotificationController::class, 'markRead']);
     Route::get('/client/observations', [ClientLearnerObservationController::class, 'index']);
     Route::post('/client/observations', [ClientLearnerObservationController::class, 'store']);
 
@@ -348,11 +366,11 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::delete('/subscription-packs/{pack}', [SubscriptionController::class, 'packsDestroy'])->middleware('permission:abonnements.supprimer');
 
     Route::get('/subscriptions', [SubscriptionController::class, 'index'])->middleware('permission:abonnements.consulter');
-    Route::post('/subscriptions', [SubscriptionController::class, 'store'])->middleware('permission:abonnements.creer');
+    Route::post('/subscriptions', [SubscriptionController::class, 'store'])->middleware(['subscriptions.writable', 'permission:abonnements.creer']);
     Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show'])->middleware('permission:abonnements.consulter');
-    Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy'])->middleware('permission:abonnements.supprimer');
-    Route::post('/subscriptions/{subscription}/renew', [SubscriptionController::class, 'renew'])->middleware('permission:abonnements.renouveler');
-    Route::post('/subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->middleware('permission:abonnements.modifier');
+    Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy'])->middleware(['subscriptions.writable', 'permission:abonnements.supprimer']);
+    Route::post('/subscriptions/{subscription}/renew', [SubscriptionController::class, 'renew'])->middleware(['subscriptions.writable', 'permission:abonnements.renouveler']);
+    Route::post('/subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->middleware(['subscriptions.writable', 'permission:abonnements.modifier']);
 
     Route::get('/subscription-notifications', [SubscriptionNotificationController::class, 'index'])->middleware('permission:abonnements.consulter');
     Route::post('/subscription-notifications/{notification}/retry', [SubscriptionNotificationController::class, 'retry'])->middleware('permission:abonnements.modifier');
@@ -453,6 +471,83 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/certificates/{certificate}/revoke', [CertificateController::class, 'revoke'])->middleware('permission:certificats.modifier');
 
     // === Sprint 5 : Contrats ===
+    // === Agency — Catégories (D2) ===
+    Route::get('/agency-categories', [AgencyCategoryController::class, 'index'])->middleware('permission:packages.consulter,prestations.consulter');
+    Route::post('/agency-categories', [AgencyCategoryController::class, 'store'])->middleware('permission:packages.creer,prestations.creer');
+    Route::put('/agency-categories/{category}', [AgencyCategoryController::class, 'update'])->middleware('permission:packages.modifier,prestations.modifier');
+    Route::delete('/agency-categories/{category}', [AgencyCategoryController::class, 'destroy'])->middleware('permission:packages.supprimer,prestations.supprimer');
+
+    // === Agency — Packages ===
+    Route::get('/packages', [PackageController::class, 'index'])->middleware('permission:packages.consulter');
+    Route::post('/packages', [PackageController::class, 'store'])->middleware('permission:packages.creer');
+    Route::get('/packages/{package}', [PackageController::class, 'show'])->middleware('permission:packages.consulter');
+    Route::put('/packages/{package}', [PackageController::class, 'update'])->middleware('permission:packages.modifier');
+    Route::delete('/packages/{package}', [PackageController::class, 'destroy'])->middleware('permission:packages.supprimer');
+    Route::post('/packages/{package}/promotions', [PackageController::class, 'storePromotion'])->middleware('permission:packages.modifier');
+    Route::delete('/packages/{package}/promotions/{promotion}', [PackageController::class, 'destroyPromotion'])->middleware('permission:packages.modifier');
+    Route::post('/packages/{package}/subscribe', [PackageController::class, 'subscribe'])->middleware('permission:prestations.creer');
+
+    // === Agency — Prestations ===
+    Route::get('/prestations', [PrestationController::class, 'index'])->middleware('permission:prestations.consulter');
+    Route::get('/prestations/tracking', [PrestationController::class, 'tracking'])->middleware('permission:prestations.consulter');
+    Route::get('/prestations/tracking/export', [PrestationController::class, 'exportTracking'])->middleware('permission:prestations.exporter');
+    Route::get('/prestations/reviews/summary', [PrestationReviewController::class, 'aggregate'])->middleware('permission:prestations.consulter');
+    Route::get('/prestation-actions/board', [PrestationActionController::class, 'board'])->middleware('permission:prestation-actions.consulter');
+    Route::post('/prestations', [PrestationController::class, 'store'])->middleware('permission:prestations.creer');
+    Route::get('/prestations/{prestation}', [PrestationController::class, 'show'])->middleware('permission:prestations.consulter');
+    Route::put('/prestations/{prestation}', [PrestationController::class, 'update'])->middleware('permission:prestations.modifier');
+    Route::delete('/prestations/{prestation}', [PrestationController::class, 'destroy'])->middleware('permission:prestations.supprimer');
+    Route::post('/prestations/{prestation}/submit', [PrestationController::class, 'submit'])->middleware('permission:prestations.creer');
+    Route::post('/prestations/{prestation}/validate', [PrestationController::class, 'validatePrestation'])->middleware('permission:prestations.valider');
+    Route::post('/prestations/{prestation}/reject', [PrestationController::class, 'reject'])->middleware('permission:prestations.valider');
+    Route::post('/prestations/{prestation}/back-to-draft', [PrestationController::class, 'backToDraft'])->middleware('permission:prestations.modifier');
+    Route::post('/prestations/{prestation}/start', [PrestationController::class, 'start'])->middleware('permission:prestations.modifier');
+    Route::post('/prestations/{prestation}/suspend', [PrestationController::class, 'suspend'])->middleware('permission:prestations.modifier');
+    Route::post('/prestations/{prestation}/resume', [PrestationController::class, 'resume'])->middleware('permission:prestations.modifier');
+    Route::post('/prestations/{prestation}/cancel', [PrestationController::class, 'cancel'])->middleware('permission:prestations.modifier');
+    Route::post('/prestations/{prestation}/complete', [PrestationController::class, 'complete'])->middleware('permission:prestations.modifier');
+
+    // === Agency — Actions des prestations (D4) ===
+    Route::get('/prestations/{prestation}/actions', [PrestationActionController::class, 'index'])->middleware('permission:prestation-actions.consulter');
+    Route::post('/prestations/{prestation}/actions', [PrestationActionController::class, 'store'])->middleware('permission:prestation-actions.creer');
+    Route::put('/prestation-actions/{action}', [PrestationActionController::class, 'update'])->middleware('permission:prestation-actions.modifier');
+    Route::delete('/prestation-actions/{action}', [PrestationActionController::class, 'destroy'])->middleware('permission:prestation-actions.supprimer');
+    Route::post('/prestation-actions/{action}/status', [PrestationActionController::class, 'changeStatus'])->middleware('permission:prestation-actions.modifier');
+    Route::get('/prestation-actions/{action}/comments', [PrestationActionController::class, 'comments'])->middleware('permission:prestation-actions.consulter');
+    Route::post('/prestation-actions/{action}/comments', [PrestationActionController::class, 'storeComment'])->middleware('permission:prestation-actions.modifier');
+    Route::get('/prestation-actions/{action}/logs', [PrestationActionController::class, 'logs'])->middleware('permission:prestation-actions.consulter');
+    Route::post('/prestation-actions/{action}/logs', [PrestationActionController::class, 'storeLog'])->middleware('permission:prestation-actions.modifier');
+
+    // === Agency — Notes 5★ (lecture seule staff, D5) ===
+    Route::get('/prestations/{prestation}/reviews', [PrestationReviewController::class, 'index'])->middleware('permission:prestations.consulter');
+    Route::get('/prestations/{prestation}/reviews/summary', [PrestationReviewController::class, 'summary'])->middleware('permission:prestations.consulter');
+
+    // === Agency — Équipe client ===
+    Route::get('/client-team-roles', [ClientTeamController::class, 'roles'])->middleware('permission:equipe-client.consulter');
+    Route::post('/client-team-roles', [ClientTeamController::class, 'storeRole'])->middleware('permission:equipe-client.gerer');
+    Route::post('/client-team-roles/defaults', [ClientTeamController::class, 'seedDefaultRoles'])->middleware('permission:equipe-client.gerer');
+    Route::put('/client-team-roles/{role}', [ClientTeamController::class, 'updateRole'])->middleware('permission:equipe-client.gerer');
+    Route::delete('/client-team-roles/{role}', [ClientTeamController::class, 'destroyRole'])->middleware('permission:equipe-client.gerer');
+    Route::get('/client-team', [ClientTeamController::class, 'overview'])->middleware('permission:equipe-client.consulter');
+    Route::get('/prestations/{prestation}/team', [ClientTeamController::class, 'members'])->middleware('permission:equipe-client.consulter');
+    Route::post('/prestations/{prestation}/team', [ClientTeamController::class, 'storeMember'])->middleware('permission:equipe-client.gerer');
+    Route::put('/prestation-team-members/{member}', [ClientTeamController::class, 'updateMember'])->middleware('permission:equipe-client.gerer');
+    Route::delete('/prestation-team-members/{member}', [ClientTeamController::class, 'destroyMember'])->middleware('permission:equipe-client.gerer');
+
+    // === Agency — Rapports, notifications, réglages ===
+    Route::get('/reports/agency', AgencyReportController::class)->middleware('permission:reports.consulter,prestations.consulter');
+    Route::get('/agency-notifications', [AgencyNotificationController::class, 'index']);
+    Route::post('/agency-notifications/read-all', [AgencyNotificationController::class, 'markAllRead']);
+    Route::post('/agency-notifications/{notification}/read', [AgencyNotificationController::class, 'markRead']);
+    Route::get('/departments/{department}/agency-settings', [AgencySettingsController::class, 'show'])->middleware('permission:contrats.consulter');
+    Route::put('/departments/{department}/agency-settings', [AgencySettingsController::class, 'update'])->middleware('permission:settings.modifier,departments.modifier');
+
+    // === Contrats (étendus Agency) ===
+    Route::post('/contracts/{contract}/suspend', [ContractController::class, 'suspend'])->middleware('permission:contrats.modifier');
+    Route::post('/contracts/{contract}/resume', [ContractController::class, 'resume'])->middleware('permission:contrats.modifier');
+    Route::post('/contracts/{contract}/sign', [ContractController::class, 'sign'])->middleware('permission:contrats.modifier');
+    Route::get('/contracts/{contract}/pdf', [ContractController::class, 'pdf'])->middleware('permission:contrats.consulter');
+
     Route::get('/contracts', [ContractController::class, 'index'])->middleware('permission:contrats.consulter');
     Route::post('/contracts', [ContractController::class, 'store'])->middleware('permission:contrats.creer');
     Route::get('/contracts/{contract}', [ContractController::class, 'show'])->middleware('permission:contrats.consulter');

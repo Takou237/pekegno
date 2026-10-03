@@ -14,10 +14,13 @@ class InvoiceItem extends Model
         'invoice_id',
         'service_id',
         'product_id',
+        'package_id',
+        'prestation_id',
         'label',
         'unit_price',
         'quantity',
         'line_total',
+        'is_pass_through',
         'pass_tier',
         'pass_label',
     ];
@@ -28,6 +31,7 @@ class InvoiceItem extends Model
             'unit_price' => 'decimal:2',
             'quantity' => 'integer',
             'line_total' => 'decimal:2',
+            'is_pass_through' => 'boolean',
         ];
     }
 
@@ -39,6 +43,16 @@ class InvoiceItem extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionPack::class, 'package_id');
+    }
+
+    public function prestation(): BelongsTo
+    {
+        return $this->belongsTo(Prestation::class);
     }
 
     public function product(): BelongsTo

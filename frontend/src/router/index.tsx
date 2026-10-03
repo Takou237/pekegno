@@ -8,6 +8,7 @@ import { AgencyLayout } from '@/components/agencies/AgencyLayout';
 import { AgencyRedirect } from '@/components/agencies/AgencyRedirect';
 import { CountryLayout } from '@/components/countries/CountryLayout';
 import { DepartmentLayout } from '@/components/departments/DepartmentLayout';
+import { ByDepartmentType } from '@/components/departments/ByDepartmentType';
 import {
   PageSkeleton,
   SkeletonCards,
@@ -127,6 +128,18 @@ const AcademyBilanPage = lazyWithRetry(() => import('@/pages/academy/AcademyBila
 const ContractListPage = lazyWithRetry(() => import('@/pages/agency/ContractListPage'));
 const ContractDetailPage = lazyWithRetry(() => import('@/pages/agency/ContractDetailPage'));
 const RenewalsPage = lazyWithRetry(() => import('@/pages/agency/RenewalsPage'));
+// Département Agency (doc/AGENCY_A_FAIRE.md)
+const AgencyDeptDashboardPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptDashboardPage'));
+const AgencyDeptPackagesPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptPackagesPage'));
+const PrestationListPage = lazyWithRetry(() => import('@/pages/agency/PrestationListPage'));
+const PrestationDetailPage = lazyWithRetry(() => import('@/pages/agency/PrestationDetailPage'));
+const PrestationTrackingPage = lazyWithRetry(() => import('@/pages/agency/PrestationTrackingPage'));
+const AgencyActionsBoardPage = lazyWithRetry(() => import('@/pages/agency/AgencyActionsBoardPage'));
+const ClientTeamPage = lazyWithRetry(() => import('@/pages/agency/ClientTeamPage'));
+const AgencyDeptInvoicesPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptInvoicesPage'));
+const AgencyDeptReceivablesPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptReceivablesPage'));
+const AgencyDeptCommissionsPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptCommissionsPage'));
+const AgencyDeptReportsPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptReportsPage'));
 
 function page(node: ReactNode, fallback: ReactNode = <PageSkeleton />) {
   return <Suspense fallback={fallback}>{node}</Suspense>;
@@ -293,11 +306,41 @@ export const router = createBrowserRouter([
         path: '/departments/:departmentId',
         element: <DepartmentLayout />,
         children: withErrorBoundary([
-          { index: true, element: page(<DepartmentOverviewPage />, dashboard) },
+          // Chemins partagés entre types de département : la page dépend du type.
+          {
+            index: true,
+            element: page(<ByDepartmentType pages={{ agency: <AgencyDeptDashboardPage /> }} fallback={<DepartmentOverviewPage />} />, dashboard),
+          },
           { path: 'team', element: page(<DepartmentTeamsPage />, table) },
           { path: 'settings', element: page(<DepartmentSettingsPage />, detail) },
-          // Academy routes
           { path: 'prospects', element: page(<AcademyProspectsPage />, table) },
+          {
+            path: 'invoices',
+            element: page(<ByDepartmentType pages={{ agency: <AgencyDeptInvoicesPage /> }} fallback={<AcademyInvoicesPage />} />, table),
+          },
+          {
+            path: 'receivables',
+            element: page(<ByDepartmentType pages={{ agency: <AgencyDeptReceivablesPage /> }} fallback={<AcademyReceivablesPage />} />, table),
+          },
+          {
+            path: 'commissions',
+            element: page(<ByDepartmentType pages={{ agency: <AgencyDeptCommissionsPage /> }} fallback={<AcademyCommissionsPage />} />, table),
+          },
+          {
+            path: 'reports',
+            element: page(<ByDepartmentType pages={{ agency: <AgencyDeptReportsPage /> }} fallback={<AcademyReportsPage />} />, table),
+          },
+          {
+            path: 'planning',
+            element: page(<ByDepartmentType pages={{ academy: <AcademyPlanningPage /> }} fallback={<ComingSoonPage />} />, table),
+          },
+          { path: 'accounting', element: page(<AcademyAccountingPage />, table) },
+          { path: 'bilans', element: page(<AcademyBilanPage />, table) },
+          { path: 'clients', element: page(<ClientListPage />, table) },
+          { path: 'clients/:id', element: page(<ClientDetailPage />, detail) },
+          { path: 'services', element: page(<DepartmentServicesPage />, cards) },
+          { path: 'products', element: page(<DepartmentProductsPage />, cards) },
+          // Academy
           { path: 'learners', element: page(<AcademyLearnersPage />, table) },
           { path: 'learners/:learnerId', element: page(<AcademyLearnerDetailPage />, detail) },
           { path: 'enrollments', element: page(<FormationEnrollmentPage />, table) },
@@ -306,32 +349,27 @@ export const router = createBrowserRouter([
           { path: 'courses/:courseId/modules', element: page(<CourseModulesPage />, table) },
           { path: 'sessions', element: page(<AcademySessionsPage />, table) },
           { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
-          { path: 'planning', element: page(<AcademyPlanningPage />, table) },
           { path: 'trainers', element: page(<AcademyTrainersPage />, table) },
           { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
           { path: 'presences', element: page(<AcademySessionsPage />, table) },
-          { path: 'invoices', element: page(<AcademyInvoicesPage />, table) },
           { path: 'invoices/new', element: page(<AcademyInvoiceFormPage />, form) },
           { path: 'payments', element: page(<SellerProfilesPage />, table) },
-          { path: 'commissions', element: page(<AcademyCommissionsPage />, table) },
-          { path: 'receivables', element: page(<AcademyReceivablesPage />, table) },
           { path: 'certificates', element: page(<CertificateListPage />, table) },
-          { path: 'reports', element: page(<AcademyReportsPage />, table) },
-          { path: 'accounting', element: page(<AcademyAccountingPage />, table) },
-          { path: 'bilans', element: page(<AcademyBilanPage />, table) },
-          // Agency routes
-          { path: 'clients', element: page(<ClientListPage />, table) },
-          { path: 'clients/:id', element: page(<ClientDetailPage />, detail) },
-          { path: 'packages', element: page(<ComingSoonPage />, cards) },
+          { path: 'academy', element: page(<AgencyAcademyPage />, cards) },
+          // Agency
+          { path: 'packages', element: page(<AgencyDeptPackagesPage />, cards) },
+          // Une souscription EST un contrat : l'ancienne page redirige vers l'onglet Packages.
+          { path: 'subscriptions', element: <Navigate to="../contracts?origin=package" replace /> },
+          { path: 'prestations', element: page(<PrestationListPage />, table) },
+          { path: 'prestations/tracking', element: page(<PrestationTrackingPage />, table) },
+          { path: 'prestations/:prestationId', element: page(<PrestationDetailPage />, detail) },
+          { path: 'client-team', element: page(<ClientTeamPage />, table) },
           { path: 'contracts', element: page(<ContractListPage />, table) },
           { path: 'contracts/:contractId', element: page(<ContractDetailPage />, detail) },
-          { path: 'services', element: page(<DepartmentServicesPage />, cards) },
-          { path: 'products', element: page(<DepartmentProductsPage />, cards) },
-          { path: 'academy', element: page(<AgencyAcademyPage />, cards) },
-          { path: 'community', element: page(<ComingSoonPage />, table) },
-          { path: 'advertising', element: page(<ComingSoonPage />, table) },
+          { path: 'community', element: page(<AgencyActionsBoardPage mode="community" />, table) },
+          { path: 'advertising', element: page(<AgencyActionsBoardPage mode="advertising" />, table) },
           { path: 'renewals', element: page(<RenewalsPage />, table) },
-          // Store routes
+          // Store
           { path: 'catalog', element: page(<ComingSoonPage />, cards) },
           { path: 'stocks', element: page(<ComingSoonPage />, table) },
           { path: 'suppliers', element: page(<ComingSoonPage />, table) },
@@ -341,10 +379,9 @@ export const router = createBrowserRouter([
           { path: 'deliveries', element: page(<ComingSoonPage />, table) },
           { path: 'returns', element: page(<ComingSoonPage />, table) },
           { path: 'inventories', element: page(<ComingSoonPage />, table) },
-          // Studio routes
+          // Studio
           { path: 'quotes', element: page(<ComingSoonPage />, table) },
           { path: 'projects', element: page(<ComingSoonPage />, table) },
-          { path: 'planning', element: page(<ComingSoonPage />, table) },
           { path: 'production', element: page(<ComingSoonPage />, table) },
           { path: 'revisions', element: page(<ComingSoonPage />, table) },
         ]),

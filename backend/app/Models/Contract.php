@@ -14,18 +14,30 @@ class Contract extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
 
+    public const STATUS_DRAFT = 'draft';
+    public const STATUS_PENDING = 'pending';
     public const STATUS_ACTIVE = 'active';
     public const STATUS_DUE_SOON = 'due_soon';
     public const STATUS_EXPIRED = 'expired';
     public const STATUS_SUSPENDED = 'suspended';
     public const STATUS_TERMINATED = 'terminated';
+    public const STATUS_RENEWED = 'renewed';
+
+    public const ORIGIN_MANUAL = 'manual';
+    public const ORIGIN_PRESTATION = 'prestation';
+    public const ORIGIN_PACKAGE = 'package';
+
+    public const ORIGINS = [self::ORIGIN_MANUAL, self::ORIGIN_PRESTATION, self::ORIGIN_PACKAGE];
 
     public const STATUSES = [
+        self::STATUS_DRAFT,
+        self::STATUS_PENDING,
         self::STATUS_ACTIVE,
         self::STATUS_DUE_SOON,
         self::STATUS_EXPIRED,
         self::STATUS_SUSPENDED,
         self::STATUS_TERMINATED,
+        self::STATUS_RENEWED,
     ];
 
     public const BILLING_CYCLES = [
@@ -42,6 +54,15 @@ class Contract extends Model
         'agency_id',
         'department_id',
         'pack_id',
+        'origin',
+        'prestation_id',
+        'commercial_id',
+        'budget_allocated',
+        'activated_at',
+        'signed_at',
+        'signed_document_path',
+        'suspended_reason',
+        'legacy_subscription_id',
         'start_date',
         'end_date',
         'billing_cycle',
@@ -63,6 +84,9 @@ class Contract extends Model
             'auto_renew' => 'boolean',
             'renewal_count' => 'integer',
             'amount' => 'decimal:2',
+            'budget_allocated' => 'decimal:2',
+            'activated_at' => 'datetime',
+            'signed_at' => 'datetime',
             'terminated_at' => 'datetime',
         ];
     }
@@ -90,6 +114,21 @@ class Contract extends Model
     public function pack(): BelongsTo
     {
         return $this->belongsTo(SubscriptionPack::class, 'pack_id');
+    }
+
+    public function prestation(): BelongsTo
+    {
+        return $this->belongsTo(Prestation::class);
+    }
+
+    public function commercial(): BelongsTo
+    {
+        return $this->belongsTo(Commercial::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 
     public function parentContract(): BelongsTo

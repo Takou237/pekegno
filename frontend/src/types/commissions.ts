@@ -20,6 +20,8 @@ export interface CommissionRule {
   scope_department_id: string | null;
   service_id: string | null;
   course_id: string | null;
+  package_id?: string | null;
+  package?: { id: string; name: string } | null;
   trigger_event: 'on_sale' | 'on_payment' | 'on_full_payment';
   formula_type: 'percent' | 'fixed' | 'tiered';
   percent_value: number | null;
@@ -53,6 +55,7 @@ export interface CommissionRulePayload {
   scope_department_id?: string;
   service_id?: string;
   course_id?: string;
+  package_id?: string;
   trigger_event: string;
   formula_type: string;
   percent_value?: number;
@@ -96,9 +99,9 @@ export interface CommissionEntry {
   rule_snapshot: Record<string, unknown>;
   beneficiary_commercial_id: string | null;
   seller_profile_id: string | null;
-  category: 'training' | 'service' | null;
+  category: 'training' | 'service' | 'agency' | null;
   product_id: string | null;
-  product_type: 'course' | 'service' | null;
+  product_type: 'course' | 'service' | 'package' | 'prestation' | null;
   base_amount: number;
   amount: number;
   status: CommissionEntryStatus;
@@ -146,6 +149,8 @@ export interface CommissionPayment {
 
 export interface CommissionEntryListParams {
   status?: CommissionEntryStatus;
+  category?: 'training' | 'service' | 'agency';
+  agency_id?: string;
   beneficiary_commercial_id?: string;
   seller_profile_id?: string;
   from?: string;

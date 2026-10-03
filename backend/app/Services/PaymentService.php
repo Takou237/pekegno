@@ -13,6 +13,7 @@ class PaymentService
         private readonly AccountingService $accountingService,
         private readonly PointsService $pointsService,
         private readonly TreasuryService $treasuryService,
+        private readonly ContractService $contractService,
     ) {}
 
     public function applyPayment(
@@ -62,6 +63,9 @@ class PaymentService
         if ($invoice->status === 'paid') {
             $this->pointsService->awardForSale($invoice, $userId);
         }
+
+        // Agency (D10) : le premier paiement active le contrat lié.
+        $this->contractService->activateOnFirstPayment($invoice);
     }
 
     /**

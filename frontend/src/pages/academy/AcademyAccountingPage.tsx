@@ -3,9 +3,11 @@ import AccountingPage from '@/pages/accounting/AccountingPage';
 
 interface DepartmentLayoutContext {
   agencyId?: string;
+  departmentId?: string;
 }
 
+/** Comptabilité d'un département (Academy, Agency…) : uniquement ses écritures. */
 export default function AcademyAccountingPage() {
-  const { agencyId } = useOutletContext<DepartmentLayoutContext>();
-  return <AccountingPage fixedAgencyId={agencyId} />;
+  const { agencyId, departmentId } = useOutletContext<DepartmentLayoutContext>();
+  return <AccountingPage fixedAgencyId={agencyId} fixedDepartmentId={departmentId} />;
 }

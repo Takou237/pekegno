@@ -32,7 +32,7 @@ class CommissionController extends Controller
     #[OA\Get(path: '/api/commission-rules', summary: 'Lister les règles (dernières versions)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Règles')])]
     public function indexRules(Request $request): JsonResponse
     {
-        $query = CommissionRule::query()->with(['beneficiary', 'sellerProfile.user', 'course', 'service', 'scopeAgency', 'scopeCountry', 'scopeDepartment']);
+        $query = CommissionRule::query()->with(['beneficiary', 'sellerProfile.user', 'course', 'service', 'package:id,name', 'scopeAgency', 'scopeCountry', 'scopeDepartment']);
 
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
@@ -40,6 +40,14 @@ class CommissionController extends Controller
 
         if ($request->filled('course_id')) {
             $query->where('course_id', $request->input('course_id'));
+        }
+
+        if ($request->filled('package_id')) {
+            $query->where('package_id', $request->input('package_id'));
+        }
+
+        if ($request->boolean('agency_only')) {
+            $query->whereNotNull('package_id');
         }
 
         $latestIds = CommissionRule::query()
@@ -106,6 +114,15 @@ class CommissionController extends Controller
 
         if ($request->filled('status')) {
             $query->ofStatus($request->input('status'));
+        }
+
+        // Agency : commissions sur packages / prestations (category = agency).
+        if ($request->filled('category')) {
+            $query->where('category', $request->input('category'));
+        }
+
+        if ($request->filled('agency_id')) {
+            $query->whereHas('invoice', fn ($q) => $q->where('agency_id', $request->input('agency_id')));
         }
 
         if ($request->filled('beneficiary_commercial_id')) {
@@ -629,6 +646,8 @@ class CommissionController extends Controller
             'scope_department_id' => ['nullable', 'uuid', 'exists:departments,id'],
             'service_id' => ['nullable', 'uuid', 'exists:services,id'],
             'course_id' => ['nullable', 'uuid', 'exists:courses,id'],
+            // Agency (D13) : taux par package.
+            'package_id' => ['nullable', 'uuid', 'exists:subscription_packs,id'],
             'trigger_event' => ['required', 'string', 'in:on_sale,on_payment,on_full_payment'],
             'formula_type' => ['required', 'string', 'in:percent,fixed,tiered'],
             'percent_value' => ['nullable', 'numeric', 'min:0', 'max:100'],

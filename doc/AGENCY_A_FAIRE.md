@@ -39,9 +39,9 @@ Fichier : `frontend/src/components/layout/navItems.ts` → `getDepartmentItems()
 | 2 | Prospects | `prospects` | 🟡 pointe vers `AcademyProspectsPage` | Vérifier filtre `interest = agency` / département |
 | 3 | Clients | `clients` | 🟢 `ClientListPage` / `ClientDetailPage` | Ajouter onglets Packages / Prestations / Contrats sur la fiche |
 | 4 | Packages | `packages` | 🔴 `ComingSoonPage` | Créer (§6.2) |
-| 5 | Souscriptions | `subscriptions` | 🟡 `AgencySubscriptionsPage` existe hors département | Brancher / adapter (§6.3) |
+| 5 | ~~Souscriptions~~ | `subscriptions` | ✅ redirige vers Contrats ▸ Packages souscrits | **Retiré du menu (D22)** : une souscription est un contrat |
 | 6 | Prestations | `prestations` | 🔴 (aujourd'hui `services` = catalogue) | Créer (§6.4) |
-| 7 | Suivi des prestations (grand tableau) | `prestations/tracking` | 🔴 | Créer (§6.6) |
+| 7 | ~~Suivi des prestations~~ | `prestations/tracking` | ✅ `PrestationTrackingPage` | **Onglet de Prestations (D21)**, plus dans le menu |
 | 8 | Équipe client | `client-team` | 🔴 | Créer (§6.7) |
 | 9 | Contrats | `contracts` | 🟡 `ContractListPage` / `ContractDetailPage` | Étendre (§6.8) |
 | 10 | Services (catalogue) | `services` | 🟢 `DepartmentServicesPage` | Garder (sert à composer les packages) |
@@ -50,9 +50,9 @@ Fichier : `frontend/src/components/layout/navItems.ts` → `getDepartmentItems()
 | 13 | **Renouvellements** | `renewals` | 🟢 `RenewalsPage` | Garder, étendre aux contrats de packages |
 | 14 | **Factures** | `invoices` | ⚠️ **Bug** : l'item pointe sur `payments` qui affiche `SellerProfilesPage` (route Academy) | Créer `AgencyInvoicesPage` + corriger la route (§6.9) |
 | 15 | **Créances** | `receivables` | 🟡 `AcademyReceivablesPage` | Réutiliser avec filtre département Agency |
-| 16 | Commissions | `commissions` | 🟡 `AcademyCommissionsPage` | Réutiliser / généraliser |
-| 17 | Comptabilité | `accounting` | 🟡 `AcademyAccountingPage` (wrapper de `AccountingPage`) | Même wrapper pour Agency |
-| 18 | Bilan du jour | `bilans` | 🟡 `AcademyBilanPage` (wrapper de `DailyBilanPage`) | Même wrapper + bloc Agency |
+| 16 | ~~Commissions~~ | `commissions` | ✅ `AgencyDeptCommissionsPage` | **Retiré du menu (D19)** — accessible depuis Paramètres |
+| 17 | Comptabilité | `accounting` | ✅ wrapper `AccountingPage` | **Limitée au département (D20)** |
+| 18 | Bilan du jour | `bilans` | ✅ wrapper `DailyBilanPage` + bloc Agency | **Limité au département (D20)** |
 | 19 | **Rapports** | `reports` | 🟡 pointe vers `AcademyReportsPage` | Créer `AgencyReportsPage` (§6.11) |
 | 20 | Paramètres | `settings` | 🟢 `DepartmentSettingsPage` | Ajouter catégories, rôles équipe, délais d'alerte |
 | — | ~~Academy~~ | ~~`academy`~~ | 🟢 `AgencyAcademyPage` | **RETIRER du menu Agency** |
@@ -104,6 +104,10 @@ Fichier : `frontend/src/components/layout/navItems.ts` → `getDepartmentItems()
 | **D17** | Commission d'une prestation **hors package** (créée à la main) | **Taux saisi sur la prestation.** | Champs `commission_type` (`percent` \| `fixed`) + `commission_value` sur `prestations`. `CommissionService` : package ⇒ règle du package ; sinon ⇒ taux de la prestation. Toujours déclenché au paiement (D6), avec snapshot dans `commission_entries.rule_snapshot`. |
 | **D14** | Destinataires des alertes de renouvellement | **Chef d'agence + client.** | Notification interne + tâche de relance au chef d'agence ; rappel au client. Le commercial n'est **pas** destinataire. |
 | **D18** | Canal du rappel client | **E-mail + notification dans le portail client.** | Mail via l'envoi existant + notification in-app dans `frontend_client/`. Pas de SMS/WhatsApp en V1. |
+| **D19** | Où placer les Commissions Agency ? | **Retirées du menu latéral**, accessibles depuis **Paramètres** du département. | Lien « Commissions » en tête de la section Paramètres Agency ; la route `…/commissions` reste en place. |
+| **D22** | Faut-il un menu « Souscriptions » à côté de « Contrats » ? | **Non** : une souscription EST un contrat (D1). | Menu retiré ; onglets « Tous / Packages souscrits / Prestations / Manuels » dans Contrats ; l'ancienne URL redirige. |
+| **D21** | Où placer le « Suivi des prestations » ? | **Dans la page Prestations** (onglet), plus dans le menu. | Onglets « Liste / Suivi des prestations » ; route `…/prestations/tracking` conservée. |
+| **D20** | Périmètre de la Comptabilité et du Bilan du jour | **Uniquement le département concerné** (pas toute l'agence). | Colonne `accounting_transactions.department_id` (+ rattrapage de l'existant) ; filtre `department_id` sur `/api/accounting/transactions`, `/api/bilans`, `/api/bilans/period`, `/api/exports/bilans`. Agency = factures de ses contrats + ses dépenses ; Academy = factures d'inscription. |
 | **D15** | Le budget pub transite-t-il par Pekegno ? | **Oui.** Le client paie Pekegno, qui paie les plateformes. | Encaissement suivi en trésorerie comme **pass-through** (hors CA, D7) ; décaissement vers les plateformes = dépense pass-through liée à l'action pub. |
 | **D16** | Reprise `subscriptions → contracts` | **Tout l'historique** (actifs, expirés, annulés…). | Migration de reprise avec mapping des statuts (`renewed`→`renewed`, `cancelled`→`terminated`, etc.) + journal d'import ; à exécuter seulement après validation (pas sur la base locale sans accord). |
 
@@ -608,85 +612,85 @@ Catégorie : **Services à la carte** (prix « à partir de », par mois) :
 Légende : `[ ]` à faire · `[~] (Prénom, date)` en cours · `[x]` terminé. Les numéros servent à se référer aux tâches dans les rapports (§13).
 
 ### Étape 0 — Cadrage
-- [x] #0 Décisions D1 → D18 validées (2026-10-03, voir §3)
+- [x] #0 Décisions D1 → D20 validées (2026-10-03, voir §3)
 
 ### Étape 1 — Socle
-- [ ] #1 `navItems.ts` : retirer l'item **Academy** du département Agency
-- [ ] #2 `navItems.ts` : ajouter Souscriptions, Prestations, Suivi des prestations, Équipe client, Factures, Commissions, Comptabilité, Bilan
-- [ ] #3 `router/index.tsx` : routes Agency + résolution des conflits de chemins (`prospects`, `reports`, `payments`, `receivables`, `planning` en double) via sélection par `department.type`
-- [ ] #4 Corriger Factures : l'item `payments` affiche aujourd'hui `SellerProfilesPage` (Academy)
-- [ ] #5 Permissions `packages.*`, `prestations.*`, `prestation-actions.*`, `equipe-client.*` + attribution aux rôles (`prestations.valider` : chef d'agence + direction, D9)
-- [ ] #6 `frontend/src/types/agency.ts` + clés i18n
+- [x] #1 `navItems.ts` : retirer l'item **Academy** du département Agency
+- [x] #2 `navItems.ts` : ajouter Souscriptions, Prestations, Suivi des prestations, Équipe client, Factures, Commissions, Comptabilité, Bilan
+- [x] #3 `router/index.tsx` : routes Agency + résolution des conflits de chemins (`prospects`, `reports`, `payments`, `receivables`, `planning` en double) via sélection par `department.type`
+- [x] #4 Corriger Factures : l'item `payments` affiche aujourd'hui `SellerProfilesPage` (Academy)
+- [x] #5 Permissions `packages.*`, `prestations.*`, `prestation-actions.*`, `equipe-client.*` + attribution aux rôles (`prestations.valider` : chef d'agence + direction, D9)
+- [x] #6 `frontend/src/types/agency.ts` + clés i18n
 
 ### Étape 2 — Modèle de données
-- [ ] #7 Migration + modèle `agency_categories` (D2)
-- [ ] #8 Extension `subscription_packs` (catégorie, accroche, prérequis, prix barré, période, ordre, `price_is_starting_from`…)
-- [ ] #9 `package_items`, `package_recommendations`
-- [ ] #10 `promotions.package_id`
-- [ ] #11 `prestations` (dont `commission_type` / `commission_value`, D17)
-- [ ] #12 `prestation_actions`, `prestation_action_comments`, `prestation_action_logs`
-- [ ] #13 `client_team_roles`, `prestation_team_members`
-- [ ] #14 `prestation_action_reviews` (unique action + client, D11)
-- [ ] #15 Extension `contracts` (origine, prestation, budget alloué, commercial, statuts `draft`/`pending`/`renewed`, PDF signé facultatif)
-- [ ] #16 `invoices.contract_id`, `invoice_items.package_id` / `prestation_id`, `commission_rules.package_id`
+- [x] #7 Migration + modèle `agency_categories` (D2)
+- [x] #8 Extension `subscription_packs` (catégorie, accroche, prérequis, prix barré, période, ordre, `price_is_starting_from`…)
+- [x] #9 `package_items`, `package_recommendations`
+- [x] #10 `promotions.package_id`
+- [x] #11 `prestations` (dont `commission_type` / `commission_value`, D17)
+- [x] #12 `prestation_actions`, `prestation_action_comments`, `prestation_action_logs`
+- [x] #13 `client_team_roles`, `prestation_team_members`
+- [x] #14 `prestation_action_reviews` (unique action + client, D11)
+- [x] #15 Extension `contracts` (origine, prestation, budget alloué, commercial, statuts `draft`/`pending`/`renewed`, PDF signé facultatif)
+- [x] #16 `invoices.contract_id`, `invoice_items.package_id` / `prestation_id`, `commission_rules.package_id`
 
 ### Étape 3 — Packages
-- [ ] #17 API packages + catégories (CRUD, prix effectif avec promo)
-- [ ] #18 Pages Packages (cartes façon flyer + formulaire items / recommandations / promos)
-- [ ] #19 Seed des packages du flyer (§9) — à valider avant exécution
+- [x] #17 API packages + catégories (CRUD, prix effectif avec promo)
+- [x] #18 Pages Packages (cartes façon flyer + formulaire items / recommandations / promos)
+- [x] #19 Seed des packages du flyer (§9) — `AgencyPackageSeeder` écrit, **exécution à valider** (non lancé)
 
 ### Étape 4 — Prestations & actions
-- [ ] #20 `PrestationService` : CRUD + workflow de statuts (motif obligatoire pour rejet / suspension / annulation)
-- [ ] #21 `PrestationActionService` : CRUD + **blocage strict du budget** (D4) + statuts + commentaires + journal d'exécution
-- [ ] #22 Pages Prestations : liste, formulaire, fiche à onglets (Résumé, Actions, Équipe, Notes, Factures, Historique)
+- [x] #20 `PrestationService` : CRUD + workflow de statuts (motif obligatoire pour rejet / suspension / annulation)
+- [x] #21 `PrestationActionService` : CRUD + **blocage strict du budget** (D4) + statuts + commentaires + journal d'exécution
+- [x] #22 Pages Prestations : liste, formulaire, fiche à onglets (Résumé, Actions, Équipe, Notes, Factures, Historique)
 
 ### Étape 5 — Contrats
-- [ ] #23 `ContractService::createFromPrestation()` — validation d'une prestation ⇒ contrat `pending` avec budget alloué
-- [ ] #24 `ContractService::createFromPackage()`
-- [ ] #25 Activation au premier paiement validé (hook `PaymentService`, D10)
-- [ ] #26 PDF du contrat + étendre `ContractListPage` / `ContractDetailPage`
+- [x] #23 `ContractService::createFromPrestation()` — validation d'une prestation ⇒ contrat `pending` avec budget alloué
+- [x] #24 `ContractService::createFromPackage()`
+- [x] #25 Activation au premier paiement validé (hook `PaymentService`, D10)
+- [x] #26 PDF du contrat + étendre `ContractListPage` / `ContractDetailPage`
 
 ### Étape 6 — Souscription
-- [ ] #27 `PackageService::subscribe()` ⇒ 1 contrat + 1 prestation pré-remplie (actions = items) + facture, par package (D1, D3)
-- [ ] #28 Bouton « Souscrire un client » + page Souscriptions (contrats `origin=package`)
+- [x] #27 `PackageService::subscribe()` ⇒ 1 contrat + 1 prestation pré-remplie (actions = items) + facture, par package (D1, D3)
+- [x] #28 Bouton « Souscrire un client » + page Souscriptions (contrats `origin=package`)
 
 ### Étape 7 — Équipe client
-- [ ] #29 API rôles Agency + membres de prestation + vue globale
-- [ ] #30 Page Équipe client + paramétrage des rôles dans Paramètres
+- [x] #29 API rôles Agency + membres de prestation + vue globale
+- [x] #30 Page Équipe client + paramétrage des rôles dans Paramètres
 
 ### Étape 8 — Suivi
-- [ ] #31 Endpoint + page « Suivi des prestations » (Prestations / Notes / Statut / Motif) avec filtres et export
-- [ ] #32 Pages Community Management et Publicité (vues filtrées des actions)
-- [ ] #33 Notifications : action en retard, budget consommé à 80 % / 100 %
+- [x] #31 Endpoint + page « Suivi des prestations » (Prestations / Notes / Statut / Motif) avec filtres et export
+- [x] #32 Pages Community Management et Publicité (vues filtrées des actions)
+- [x] #33 Notifications : action en retard, budget consommé à 80 % / 100 %
 
 ### Étape 9 — Notation
-- [ ] #34 Endpoint portail client `PUT /api/client/prestation-actions/{id}/review` (upsert, prestation `in_progress`/`completed`, D11/D12) + recalcul des moyennes
-- [ ] #35 Lecture staff + résumés (par prestation et agrégés)
-- [ ] #36 Page « Mes prestations » + notation par action dans `frontend_client/`
+- [x] #34 Endpoint portail client `PUT /api/client/prestation-actions/{id}/review` (upsert, prestation `in_progress`/`completed`, D11/D12) + recalcul des moyennes
+- [x] #35 Lecture staff + résumés (par prestation et agrégés)
+- [x] #36 Page « Mes prestations » + notation par action dans `frontend_client/`
 
 ### Étape 10 — Finance
-- [ ] #37 Page Factures Agency (`AgencyInvoicesPage`)
-- [ ] #38 Créances (réutiliser `AcademyReceivablesPage` filtrée)
-- [ ] #39 Commissions : règle par package + taux saisi sur prestation hors package, au paiement (D6, D13, D17)
-- [ ] #40 Budget pub en pass-through : encaissement + décaissement plateformes (D7, D15)
-- [ ] #41 `BilanService` : bloc Agency + exclusion du pass-through du CA
-- [ ] #42 Wrappers Comptabilité et Bilan du jour (comme Academy)
+- [x] #37 Page Factures Agency (`AgencyInvoicesPage`)
+- [x] #38 Créances (réutiliser `AcademyReceivablesPage` filtrée)
+- [x] #39 Commissions : règle par package + taux saisi sur prestation hors package, au paiement (D6, D13, D17)
+- [x] #40 Budget pub en pass-through : encaissement + décaissement plateformes (D7, D15)
+- [x] #41 `BilanService` : bloc Agency + exclusion du pass-through du CA
+- [x] #42 Wrappers Comptabilité et Bilan du jour (comme Academy)
 
 ### Étape 11 — Renouvellements
-- [ ] #43 `CheckContractRenewalsCommand` : J-30 / J-15 / J-7 / J-1 configurables (D8), chef d'agence + client (D14)
-- [ ] #44 Rappels client : e-mail + notification portail (D18)
-- [ ] #45 `subscriptions` en lecture seule + commande `agency:migrate-subscriptions` (tout l'historique, idempotente, D16) — **à valider avant exécution**
-- [ ] #46 Étendre `RenewalsPage` aux contrats de packages
+- [x] #43 `CheckContractRenewalsCommand` : J-30 / J-15 / J-7 / J-1 configurables (D8), chef d'agence + client (D14)
+- [x] #44 Rappels client : e-mail + notification portail (D18)
+- [x] #45 `subscriptions` en lecture seule + commande `agency:migrate-subscriptions` (tout l'historique, idempotente, D16) — commande écrite, **exécution à valider** (non lancée)
+- [x] #46 Étendre `RenewalsPage` aux contrats de packages
 
 ### Étape 12 — Pilotage
-- [ ] #47 Dashboard Agency (KPI §6.1)
-- [ ] #48 Rapports Agency (§6.11) + exports
-- [ ] #49 Fiche client : onglets Packages / Prestations / Contrats
+- [x] #47 Dashboard Agency (KPI §6.1)
+- [x] #48 Rapports Agency (§6.11) + exports
+- [x] #49 Fiche client : onglets Packages / Prestations / Contrats
 
 ### Étape 13 — Qualité
-- [ ] #50 Tests Feature §5.5
-- [ ] #51 Audit (`ActivityLogger`) sur validation, statuts, budget, notes, résiliation
-- [ ] #52 Recette des parcours §7
+- [x] #50 Tests Feature §5.5
+- [x] #51 Audit (`ActivityLogger`) sur validation, statuts, budget, notes, résiliation
+- [x] #52 Recette des parcours §7
 
 ---
 
@@ -718,13 +722,29 @@ Légende : `[ ]` à faire · `[~] (Prénom, date)` en cours · `[x]` terminé. L
 
 ### 12.2 Questions encore ouvertes
 
-Aucune pour l'instant ✅ — toutes les décisions D1 → D18 sont validées. Ajouter ici les nouvelles questions au fil du développement.
+Aucune pour l'instant ✅ — toutes les décisions D1 → D22 sont validées. Ajouter ici les nouvelles questions au fil du développement.
 
 ---
 
 ## 13. Journal des rapports de session
 
 Le plus récent en haut. Modèle : §8.2.
+
+### 2026-10-03 — Implémentation complète (Claude, avec Mike)
+
+**Tâches terminées** : #1 → #52 (toutes), + D19 (commissions dans Paramètres) et D20 (compta / bilan par département), + type affiché sur les cartes de département.
+**Tâche en cours** : —
+**Fichiers touchés** : voir `doc/audit.md` §3 (liste complète backend / frontend / frontend_client).
+**Migrations ajoutées (à lancer)** : **oui** — 12 migrations `2026_10_03_000001` → `000012`, **lancées sur la base locale de Mike** (à lancer sur les autres bases). Seeder des packages non lancé.
+**Décisions prises** : D19, D20, D21, D22 (ajoutées en §3).
+**Problèmes / pièges rencontrés** :
+- `checkIn()` dans les migrations est un appel sans effet (aucune contrainte en base) ;
+- le portail client exige un jeton nommé `client-token` (tests : voir `actingAsClient()`) ;
+- la règle de commission ne doit pas porter `scope_department_id` (comparé au département du commercial, pas du contrat) ;
+- anciennes pages contrats buguées (`id` au lieu de `contractId`, `terminated_reason` au lieu de `reason`) → réécrites.
+**Questions en suspens** : aucune.
+**Prochaine étape conseillée** : lancer les migrations, puis suivre `doc/test.md`.
+**Comment tester** : `doc/test.md` (recette pas à pas) ; tests auto : `php artisan test --filter=AgencyDepartmentTest`.
 
 ### 2026-10-03 — Cadrage
 

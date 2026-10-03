@@ -13,6 +13,7 @@ class AccountingTransaction extends Model
     protected $fillable = [
         'number',
         'agency_id',
+        'department_id',
         'category_id',
         'type',
         'label',

@@ -18,6 +18,8 @@ import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import type { ClientListItem } from '@/types/client';
 import type { Invoice } from '@/types/invoice';
 import type { PaginationMeta } from '@/types/agency';
+import { useAgencyDept } from '@/hooks/useAgencyDept';
+import { ClientAgencyTab } from '@/components/agencyDept/ClientAgencyTab';
 
 export default function ClientDetailPage() {
   const { id, countryId } = useParams<{ id: string; countryId?: string }>();
@@ -34,7 +36,10 @@ export default function ClientDetailPage() {
   const [invoicesLoading, setInvoicesLoading] = useState(true);
   const [invoicePage, setInvoicePage] = useState(1);
 
-  const [tab, setTab] = useState<'invoices' | 'timeline'>('invoices');
+  const [tab, setTab] = useState<'invoices' | 'timeline' | 'agency'>('invoices');
+  // Département Agency : onglet Packages / Prestations / Contrats du client.
+  const { department, departmentId, basePath } = useAgencyDept();
+  const isAgencyDept = department?.type === 'agency';
   const [timelineActivities, setTimelineActivities] = useState<Activity[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
 
@@ -204,7 +209,14 @@ export default function ClientDetailPage() {
         <button onClick={() => setTab('timeline')} className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'timeline' ? 'bg-white text-gray-900 shadow dark:bg-gray-800 dark:text-white' : 'text-gray-500 hover:text-gray-700'}`}>
           {t('clientDetail.timeline', 'Timeline')}
         </button>
+        {isAgencyDept && (
+          <button onClick={() => setTab('agency')} className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'agency' ? 'bg-white text-gray-900 shadow dark:bg-gray-800 dark:text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t('agencyDept.clientTab.title')}
+          </button>
+        )}
       </div>
+
+      {tab === 'agency' && client && <ClientAgencyTab clientId={client.id} departmentId={departmentId} basePath={basePath} />}
 
       {/* Invoice history table */}
       {tab === 'invoices' && (

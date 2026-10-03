@@ -134,6 +134,7 @@ class ExpenseService
         AccountingTransaction::create([
             'number' => $this->accountingService->nextNumber(),
             'agency_id' => $expense->agency_id,
+            'department_id' => $expense->department_id,
             'category_id' => $category->id,
             'type' => 'expense',
             'label' => "Dépense {$expense->number} — {$category->name}",

@@ -22,6 +22,14 @@ interface DepartmentListPageProps {
   agencyId?: string;
 }
 
+/** Couleur du badge de type affiché sur chaque carte de département. */
+const DEPARTMENT_TYPE_BADGE: Record<DepartmentType, string> = {
+  academy: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300',
+  agency: 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300',
+  store: 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300',
+  studio: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
+};
+
 export default function DepartmentListPage({ agencyId }: DepartmentListPageProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -223,6 +231,14 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
                   </span>
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-gray-900 dark:text-white">{dept.name}</p>
+                    {dept.type && (
+                      <span
+                        className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${DEPARTMENT_TYPE_BADGE[dept.type]}`}
+                        title={t(`departmentTypes.${dept.type}Desc`)}
+                      >
+                        {t(`departmentTypes.${dept.type}`)}
+                      </span>
+                    )}
                     {!agencyId && (
                       <p className="truncate text-xs text-gray-400">{dept.agency?.name ?? '—'}</p>
                     )}

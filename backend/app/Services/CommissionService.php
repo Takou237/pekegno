@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
 use App\Models\FormationEnrollment;
+use App\Models\Prestation;
 use App\Models\SellerProfile;
 use Illuminate\Support\Facades\DB;
 
@@ -92,6 +93,11 @@ class CommissionService
      */
     public function recordForPayment(Invoice $invoice, InvoicePayment $payment, ?string $actorUserId = null): void
     {
+        // Agency (D17) : une prestation hors package porte son propre taux.
+        if ($this->recordPrestationRate($invoice, $payment) > 0) {
+            return;
+        }
+
         if ($this->callEvaluateRulesForPayment($invoice, $payment, $actorUserId) > 0) {
             return;
         }
@@ -179,7 +185,11 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
                 $entryData['beneficiary_commercial_id'] = $beneficiaryId;
             }
 
-            if ($rule->course_id) {
+            if ($rule->package_id) {
+                $entryData['category'] = 'agency';
+                $entryData['product_id'] = $rule->package_id;
+                $entryData['product_type'] = 'package';
+            } elseif ($rule->course_id) {
                 $entryData['category'] = 'training';
                 $entryData['product_id'] = $rule->course_id;
                 $entryData['product_type'] = 'course';
@@ -205,6 +215,79 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
         return $count;
     }
 
+    /**
+     * Agency (D17) : commission d'une prestation hors package, au taux saisi
+     * sur la prestation (pourcentage ou montant fixe), déclenchée à chaque
+     * paiement (D6). La base exclut le budget publicitaire client (pass-through).
+     * Idempotent par paiement. Retourne le nombre d'entrées créées.
+     */
+    public function recordPrestationRate(Invoice $invoice, InvoicePayment $payment): int
+    {
+        $prestationId = $invoice->items()->whereNotNull('prestation_id')->value('prestation_id');
+        $prestation = $prestationId ? Prestation::find($prestationId) : null;
+
+        if (! $prestation || $prestation->package_id || ! $prestation->commission_type || $prestation->commission_value === null) {
+            return 0;
+        }
+
+        $beneficiaryId = $prestation->commercial_id ?? $invoice->commercial_id;
+        if (! $beneficiaryId) {
+            return 0;
+        }
+
+        if (CommissionEntry::where('invoice_payment_id', $payment->id)->where('product_type', 'prestation')->exists()) {
+            return 0;
+        }
+
+        $invoiceTotal = (float) $invoice->total_amount;
+        if ($invoiceTotal <= 0) {
+            return 0;
+        }
+
+        $feesTotal = (float) $invoice->items()->where('is_pass_through', false)->sum('line_total');
+        $paidShare = (float) $payment->amount / $invoiceTotal;
+        $base = round($feesTotal * $paidShare, 2);
+
+        $amount = $prestation->commission_type === 'percent'
+            ? round($base * (float) $prestation->commission_value / 100, 2)
+            : round((float) $prestation->commission_value * $paidShare, 2);
+
+        if ($amount <= 0) {
+            return 0;
+        }
+
+        DB::transaction(function () use ($invoice, $payment, $prestation, $beneficiaryId, $base, $amount) {
+            CommissionEntry::create([
+                'invoice_id' => $invoice->id,
+                'invoice_payment_id' => $payment->id,
+                'commission_rule_id' => null,
+                'rule_snapshot' => [
+                    'source' => 'prestation',
+                    'prestation_id' => $prestation->id,
+                    'commission_type' => $prestation->commission_type,
+                    'commission_value' => (float) $prestation->commission_value,
+                ],
+                'beneficiary_commercial_id' => $beneficiaryId,
+                'base_amount' => $base,
+                'amount' => $amount,
+                'category' => 'agency',
+                'product_id' => $prestation->id,
+                'product_type' => 'prestation',
+                'status' => CommissionEntry::STATUS_CALCULATED,
+            ]);
+
+            $this->logger->log(
+                action: 'commission',
+                entityType: 'invoice',
+                entityId: $invoice->id,
+                description: "Commission de {$amount} FCFA (taux de la prestation {$prestation->reference}) sur la facture {$invoice->number}",
+                newValues: ['prestation_id' => $prestation->id, 'amount' => $amount, 'payment_id' => $payment->id],
+            );
+        });
+
+        return 1;
+    }
+
     private function ruleMatchesInvoice(CommissionRule $rule, Invoice $invoice): bool
     {
         if ($rule->scope_country_id) {
@@ -223,6 +306,11 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
         }
 
         if ($rule->service_id && ! $invoice->items()->where('service_id', $rule->service_id)->exists()) {
+            return false;
+        }
+
+        // Agency (D13) : taux défini par package.
+        if ($rule->package_id && ! $invoice->items()->where('package_id', $rule->package_id)->exists()) {
             return false;
         }
 
@@ -251,6 +339,17 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
 
     private function baseForRule(CommissionRule $rule, Invoice $invoice, float $paidAmount): float
     {
+        if ($rule->package_id) {
+            $invoiceTotal = (float) $invoice->total_amount;
+            if ($invoiceTotal <= 0) {
+                return 0.0;
+            }
+
+            $packageTotal = (float) $invoice->items()->where('package_id', $rule->package_id)->sum('line_total');
+
+            return round($paidAmount * ($packageTotal / $invoiceTotal), 2);
+        }
+
         if (! $rule->service_id && ! $rule->course_id) {
             return $paidAmount;
         }

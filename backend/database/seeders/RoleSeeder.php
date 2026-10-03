@@ -20,6 +20,7 @@ class RoleSeeder extends Seeder
             ['name' => 'comptable', 'description' => 'Consulte et exporte les factures et la comptabilité'],
             ['name' => 'formateur', 'description' => 'Consulte le catalogue de services et les promotions'],
             ['name' => 'client', 'description' => 'Compte client enregistré lors de l\'inscription en ligne'],
+            ['name' => 'community-manager', 'description' => 'Exécute les prestations Agency auxquelles il est affecté'],
         ];
 
         foreach ($roles as $role) {
@@ -70,6 +71,11 @@ class RoleSeeder extends Seeder
                 $p('contrats', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
                 $p('modules', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('vendeurs', ['consulter', 'creer', 'modifier', 'supprimer']),
+                // Agency — D9 : le chef d'agence valide les prestations de son périmètre.
+                $p('packages', ['consulter', 'creer', 'modifier', 'supprimer']),
+                $p('prestations', ['consulter', 'creer', 'modifier', 'supprimer', 'valider', 'exporter']),
+                $p('prestation-actions', ['consulter', 'creer', 'modifier', 'supprimer']),
+                $p('equipe-client', ['consulter', 'gerer']),
             ),
             'responsable-departement' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
@@ -99,6 +105,11 @@ class RoleSeeder extends Seeder
                 $p('contrats', ['consulter', 'creer', 'modifier']),
                 $p('modules', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('vendeurs', ['consulter', 'creer', 'modifier', 'supprimer']),
+                // Agency — pas de `prestations.valider` (D9 : chef d'agence + direction).
+                $p('packages', ['consulter', 'creer', 'modifier']),
+                $p('prestations', ['consulter', 'creer', 'modifier', 'exporter']),
+                $p('prestation-actions', ['consulter', 'creer', 'modifier', 'supprimer']),
+                $p('equipe-client', ['consulter', 'gerer']),
             ),
             'commercial' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
@@ -125,6 +136,11 @@ class RoleSeeder extends Seeder
                 $p('courses', ['consulter']),
                 $p('sessions', ['consulter']),
                 $p('enrollments', ['consulter', 'creer']),
+                // Agency : le commercial vend packages et prestations, et ne voit que les siennes.
+                $p('packages', ['consulter']),
+                $p('prestations', ['consulter', 'creer']),
+                $p('prestation-actions', ['consulter']),
+                $p('equipe-client', ['consulter']),
             ),
             'caissier' => array_merge(
                 // Le caissier vend au guichet et inscrit des apprenants aux formations :
@@ -152,6 +168,9 @@ class RoleSeeder extends Seeder
                 $p('depenses', ['consulter', 'creer', 'encaisser']),
                 $p('commissions', ['consulter', 'encaisser']),
                 $p('stats', ['consulter']),
+                $p('contrats', ['consulter']),
+                $p('packages', ['consulter']),
+                $p('prestations', ['consulter']),
             ),
             'comptable' => array_merge(
                 $p('clients', ['consulter', 'exporter']),
@@ -178,6 +197,8 @@ class RoleSeeder extends Seeder
                 $p('activites', ['consulter']),
                 $p('certificats', ['consulter']),
                 $p('contrats', ['consulter']),
+                $p('packages', ['consulter']),
+                $p('prestations', ['consulter', 'exporter']),
             ),
             'formateur' => array_merge(
                 $p('services', ['consulter']),
@@ -190,6 +211,14 @@ class RoleSeeder extends Seeder
                 $p('presences', ['consulter', 'modifier']),
                 $p('modules', ['consulter']),
                 $p('vendeurs', ['consulter']),
+            ),
+            'community-manager' => array_merge(
+                // Agency : ne voit que les prestations dont il est membre de l'équipe.
+                $p('clients', ['consulter']),
+                $p('packages', ['consulter']),
+                $p('prestations', ['consulter']),
+                $p('prestation-actions', ['consulter', 'modifier']),
+                $p('equipe-client', ['consulter']),
             ),
             'client' => array_merge(
                 $p('services', ['consulter']),

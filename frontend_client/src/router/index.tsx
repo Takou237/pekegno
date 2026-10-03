@@ -20,6 +20,8 @@ const InvoicesPage = lazy(() => import('@/pages/account/InvoicesPage'));
 const FormationsPage = lazy(() => import('@/pages/account/FormationsPage'));
 const LearnerPage = lazy(() => import('@/pages/account/LearnerPage'));
 const ProfilePage = lazy(() => import('@/pages/account/ProfilePage'));
+const PrestationsPage = lazy(() => import('@/pages/account/PrestationsPage'));
+const NotificationsPage = lazy(() => import('@/pages/account/NotificationsPage'));
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<FullPageSpinner />}>{children}</Suspense>
@@ -51,6 +53,8 @@ export const router = createBrowserRouter([
       { path: 'formations', element: <SuspenseWrapper><FormationsPage /></SuspenseWrapper> },
       { path: 'fiche-apprenant', element: <SuspenseWrapper><LearnerPage /></SuspenseWrapper> },
       { path: 'profil', element: <SuspenseWrapper><ProfilePage /></SuspenseWrapper> },
+      { path: 'prestations', element: <SuspenseWrapper><PrestationsPage /></SuspenseWrapper> },
+      { path: 'notifications', element: <SuspenseWrapper><NotificationsPage /></SuspenseWrapper> },
     ],
   },
   { path: '*', element: <SuspenseWrapper><HomePage /></SuspenseWrapper> },

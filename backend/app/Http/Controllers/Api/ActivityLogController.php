@@ -36,6 +36,7 @@ class ActivityLogController extends Controller
             ->with('user:id,first_name,last_name,email', 'agency:id,name,code,country', 'country:id,name,code')
             ->when($request->user_id, fn ($q, $id) => $q->where('user_id', $id))
             ->when($request->entity_type, fn ($q, $t) => $q->where('entity_type', $t))
+            ->when($request->entity_id, fn ($q, $id) => $q->where('entity_id', $id))
             ->when($request->action, fn ($q, $a) => $q->where('action', $a))
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             ->when($request->country_id, fn ($q, $id) => $q->where('activity_logs.country_id', $id))

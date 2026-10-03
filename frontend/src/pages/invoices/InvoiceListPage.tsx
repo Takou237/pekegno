@@ -44,7 +44,18 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   }
 }
 
-export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvoicePath }: { fixedAgencyId?: string; enrollmentOnly?: boolean; newInvoicePath?: string }) {
+export default function InvoiceListPage({
+  fixedAgencyId,
+  enrollmentOnly,
+  newInvoicePath,
+  contractDepartmentId,
+}: {
+  fixedAgencyId?: string;
+  enrollmentOnly?: boolean;
+  newInvoicePath?: string;
+  /** Agency : factures des contrats (packages / prestations) de ce département. */
+  contractDepartmentId?: string;
+}) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
@@ -97,6 +108,8 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
         from: from || undefined,
         to: to || undefined,
         from_enrollments: enrollmentOnly || undefined,
+        from_contracts: contractDepartmentId ? true : undefined,
+        contract_department_id: contractDepartmentId,
         page,
         per_page: 15,
       });
@@ -108,7 +121,7 @@ export default function InvoiceListPage({ fixedAgencyId, enrollmentOnly, newInvo
     } finally {
       setIsLoading(false);
     }
-  }, [search, status, agencyId, countryId, clientId, commercialId, from, to, enrollmentOnly, page, t]);
+  }, [search, status, agencyId, countryId, clientId, commercialId, from, to, enrollmentOnly, contractDepartmentId, page, t]);
 
   useEffect(() => {
     fetchInvoices();

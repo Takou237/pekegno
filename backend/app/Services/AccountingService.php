@@ -9,6 +9,8 @@ use App\Models\InvoicePayment;
 
 class AccountingService
 {
+    public function __construct(private readonly DepartmentLedger $ledger) {}
+
     /**
      * Journalise l'entrée d'argent d'un encaissement (toute entrée réelle est tracée).
      * Idempotent : une seule écriture par paiement.
@@ -29,6 +31,7 @@ class AccountingService
         return AccountingTransaction::create([
             'number' => $this->nextNumber(),
             'agency_id' => $invoice->agency_id,
+            'department_id' => $this->ledger->departmentForInvoice($invoice),
             'category_id' => $this->systemCategory('income')?->id,
             'type' => 'income',
             'label' => "Facture {$invoice->number} — versement",

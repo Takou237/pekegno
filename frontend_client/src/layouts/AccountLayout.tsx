@@ -1,8 +1,9 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
-import { LayoutDashboard, ShoppingCart, FileText, GraduationCap, BookOpen, UserCircle, LogOut, Menu, X, Globe, Store } from 'lucide-react';
-import { useState } from 'react';
+import { LayoutDashboard, ShoppingCart, FileText, GraduationCap, BookOpen, UserCircle, LogOut, Menu, X, Globe, Store, Briefcase, Bell } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { agencyApi } from '@/api/agency.api';
 import { applyLanguage, detectInitialLanguage } from '@/i18n';
 
 const navItems = [
@@ -11,6 +12,8 @@ const navItems = [
   { to: '/mon-compte/factures', icon: FileText, labelKey: 'account.invoices' },
   { to: '/mon-compte/formations', icon: GraduationCap, labelKey: 'account.formations' },
   { to: '/mon-compte/fiche-apprenant', icon: BookOpen, labelKey: 'account.learner' },
+  { to: '/mon-compte/prestations', icon: Briefcase, labelKey: 'agency.myPrestations' },
+  { to: '/mon-compte/notifications', icon: Bell, labelKey: 'agency.notifications' },
   { to: '/mon-compte/profil', icon: UserCircle, labelKey: 'account.profile' },
 ];
 
@@ -20,6 +23,12 @@ export default function AccountLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const lang = detectInitialLanguage();
+  const [unread, setUnread] = useState(0);
+
+  // Pastille de notifications non lues (rappels de renouvellement Agency).
+  useEffect(() => {
+    agencyApi.notifications().then((r) => setUnread(r.unread_count)).catch(() => {});
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -81,6 +90,12 @@ export default function AccountLayout() {
             <Menu size={24} />
           </button>
           <div className="flex-1" />
+          <Link to="/mon-compte/notifications" className="relative text-gray-500 hover:text-brand-600" aria-label={t('agency.notifications')}>
+            <Bell size={20} />
+            {unread > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-error-500 px-1 text-center text-[10px] font-semibold leading-4 text-white">{unread}</span>
+            )}
+          </Link>
           <Link to="/" className="flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700">
             <Store size={16} /> {t('account.backToCatalog')}
           </Link>

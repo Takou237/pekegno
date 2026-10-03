@@ -463,8 +463,12 @@ class ExportController extends Controller
                 abort(403, 'Cette agence est hors de votre périmètre.');
             }
 
-            $bilan = $this->bilanService->daily($date, $agencyId);
+            $bilan = $this->bilanService->daily($date, $agencyId, $request->input('department_id'));
             $rows = collect();
+
+            foreach ($bilan['agency_by_category'] ?? [] as $s) {
+                $rows->push(['Agency', $s['category'].' ('.$s['kind'].')', $s['count'], (float) $s['total']]);
+            }
 
             foreach ($bilan['services_by_category'] as $s) {
                 $rows->push([$s['category'], $s['label'], $s['count'], (float) $s['total']]);

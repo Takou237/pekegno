@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DepartmentFormModal } from '@/components/departments/DepartmentFormModal';
 import { DepartmentChiefAssignModal } from '@/components/departments/DepartmentChiefAssignModal';
+import { AgencySettingsSection } from '@/components/agencyDept/AgencySettingsSection';
 import { canDeleteDepartment, canEditDepartment } from '@/utils/departmentPermissions';
 import type { Department } from '@/types/department';
 
@@ -127,6 +128,8 @@ export default function DepartmentSettingsPage() {
           ))
         )}
       </div>
+
+      {department.type === 'agency' && <AgencySettingsSection departmentId={department.id} />}
 
       <DepartmentFormModal
         isOpen={editOpen}

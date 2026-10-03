@@ -49,6 +49,10 @@ class PermissionSeeder extends Seeder
         'contrats' => ['consulter', 'creer', 'modifier', 'supprimer', 'exporter'],
         'modules' => ['consulter', 'creer', 'modifier', 'supprimer'],
         'vendeurs' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'packages' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'prestations' => ['consulter', 'creer', 'modifier', 'supprimer', 'valider', 'exporter'],
+        'prestation-actions' => ['consulter', 'creer', 'modifier', 'supprimer'],
+        'equipe-client' => ['consulter', 'gerer'],
     ];
 
     private const ACTION_LABELS = [
@@ -63,6 +67,7 @@ class PermissionSeeder extends Seeder
         'renouveler' => 'Renouveler',
         'reporting' => 'Reporting',
         'valider' => 'Valider',
+        'gerer' => 'Gérer',
     ];
 
     private const ENTITY_LABELS = [
@@ -104,6 +109,10 @@ class PermissionSeeder extends Seeder
         'contrats' => 'les contrats',
         'modules' => 'les modules de formation',
         'vendeurs' => 'les profils vendeurs',
+        'packages' => 'les packages Agency',
+        'prestations' => 'les prestations Agency',
+        'prestation-actions' => 'les actions des prestations',
+        'equipe-client' => "l'équipe client Agency",
     ];
 
     public static function permissionNames(): array

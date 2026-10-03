@@ -30,7 +30,7 @@ import type { PaginationMeta } from '@/types/agency';
 import { businessToday } from '@/utils/date';
 import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
-export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
+export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { fixedAgencyId?: string; fixedDepartmentId?: string }) {
   const { agencyId: routeAgencyId, countryId: routeCountryId } = useParams<{ agencyId?: string; countryId?: string }>();
   const agencyId = fixedAgencyId ?? routeAgencyId ?? '';
   const { t } = useTranslation();
@@ -123,6 +123,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
         search: search || undefined,
         type: (typeFilter as AccountingType) || undefined,
         agency_id: agencyId || agencyFilter || undefined,
+        department_id: fixedDepartmentId,
         country_id: agencyId || agencyFilter ? undefined : countryFilter || undefined,
         category_id: categoryFilter || undefined,
         from: from || undefined,
@@ -140,7 +141,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
     } finally {
       setIsLoading(false);
     }
-  }, [search, typeFilter, agencyId, agencyFilter, countryFilter, categoryFilter, from, to, page, t]);
+  }, [search, typeFilter, agencyId, agencyFilter, countryFilter, categoryFilter, from, to, page, fixedDepartmentId, t]);
 
   useEffect(() => {
     fetchTransactions();
@@ -200,6 +201,7 @@ export default function AccountingPage({ fixedAgencyId }: { fixedAgencyId?: stri
         note: txForm.note.trim() || null,
         beneficiary: txForm.beneficiary.trim() || null,
         agency_id: agencyId || null,
+        department_id: fixedDepartmentId ?? null,
       };
       if (editTx) {
         await accountingApi.update(editTx.id, payload);

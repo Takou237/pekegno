@@ -24,6 +24,11 @@ export interface BilanAgency {
   formation_count?: number;
   formation_total?: number;
   formation_by_mode?: BilanFormationMode[];
+  /** Agency : encaissements packages / prestations (honoraires, hors pass-through). */
+  agency_by_category?: Array<{ category: string; kind: 'package' | 'prestation'; count: number; total: number }>;
+  agency_total?: number;
+  /** Agency (D7/D15) : budget publicitaire client encaissé, exclu du CA. */
+  agency_pass_through_total?: number;
   total_ventes: number;
   total_ventes_amount: number;
   cash_total: number;
@@ -63,6 +68,8 @@ export interface BilanPeriod {
 export type BilanParams = {
   date?: string;
   agency_id?: string;
+  /** Bilan limité à un département (ses factures et ses dépenses uniquement). */
+  department_id?: string;
   country_id?: string;
 };
 
@@ -70,5 +77,6 @@ export type BilanPeriodParams = {
   from?: string;
   to?: string;
   agency_id?: string;
+  department_id?: string;
   country_id?: string;
 };

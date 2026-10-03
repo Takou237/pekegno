@@ -21,6 +21,8 @@ import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 interface DailyBilanPageProps {
   fixedAgencyId?: string;
+  /** Bilan d'un département : uniquement ses ventes et ses dépenses. */
+  fixedDepartmentId?: string;
 }
 
 type ViewMode = 'day' | 'period';
@@ -36,7 +38,7 @@ function defaultPeriodFrom(): string {
   return `${businessToday().slice(0, 7)}-01`;
 }
 
-export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
+export default function DailyBilanPage({ fixedAgencyId, fixedDepartmentId }: DailyBilanPageProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -78,7 +80,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
     setConsolidated(null);
 
     bilansApi
-      .daily({ date, agency_id: agencyId || undefined, country_id: routeCountryId })
+      .daily({ date, agency_id: agencyId || undefined, department_id: fixedDepartmentId, country_id: routeCountryId })
       .then((data) => {
         if (!active) return;
         if (data.agencies) {
@@ -95,7 +97,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
       });
 
     return () => { active = false; };
-  }, [viewMode, date, agencyId, routeCountryId, t]);
+  }, [viewMode, date, agencyId, routeCountryId, fixedDepartmentId, t]);
 
   useEffect(() => {
     if (viewMode !== 'period') return;
@@ -106,7 +108,7 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
     async function load() {
       try {
         if (agencyId) {
-          const res = await bilansApi.period({ from: periodFrom, to: periodTo, agency_id: agencyId });
+          const res = await bilansApi.period({ from: periodFrom, to: periodTo, agency_id: agencyId, department_id: fixedDepartmentId });
           if (!active) return;
           setPeriodBlocks([{ key: agencyId, title: res.agency?.name ?? t('bilans.agency'), days: res.days, saleCategories: res.sale_categories ?? [] }]);
         } else if (agencies.length > 1) {
@@ -135,12 +137,12 @@ export default function DailyBilanPage({ fixedAgencyId }: DailyBilanPageProps) {
 
     load();
     return () => { active = false; };
-  }, [viewMode, periodFrom, periodTo, agencyId, agencies, routeCountryId, t]);
+  }, [viewMode, periodFrom, periodTo, agencyId, agencies, routeCountryId, fixedDepartmentId, t]);
 
   async function handleExport() {
     setIsExporting(true);
     try {
-      await downloadExport('bilans', { date, agency_id: agencyId || undefined, country_id: routeCountryId });
+      await downloadExport('bilans', { date, agency_id: agencyId || undefined, department_id: fixedDepartmentId, country_id: routeCountryId });
     } catch (error) {
       showToast(extractErrorMessage(error, t('common.exportFailed')), 'error');
     } finally {
@@ -307,6 +309,22 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.formationsCol')}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{bilan.formation_count}</td>
                   <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(bilan.formation_total ?? 0)}</td>
+                </tr>
+              )}
+              {(bilan.agency_by_category ?? []).map((line, idx) => (
+                <tr key={`agency-${line.category}-${line.kind}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <td className="px-5 py-3 text-gray-500 dark:text-gray-400">Agency</td>
+                  <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{line.category} · {t(`agencyDept.bilan.${line.kind}`)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{line.count}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(line.total)}</td>
+                </tr>
+              ))}
+              {(bilan.agency_pass_through_total ?? 0) > 0 && (
+                <tr className="text-gray-400">
+                  <td className="px-5 py-3">Agency</td>
+                  <td className="px-5 py-3 italic">{t('agencyDept.bilan.passThrough')}</td>
+                  <td />
+                  <td className="px-5 py-3 text-right italic">{formatCurrency(bilan.agency_pass_through_total ?? 0)}</td>
                 </tr>
               )}
               {(bilan.products_by_category ?? []).map((line, idx) => (

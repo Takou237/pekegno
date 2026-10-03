@@ -29,6 +29,7 @@ class Invoice extends Model
         'number',
         'agency_id',
         'client_id',
+        'contract_id',
         'client_name',
         'commercial_id',
         'seller_user_id',
@@ -88,6 +89,11 @@ class Invoice extends Model
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_user_id');
+    }
+
+    public function contract(): BelongsTo
+    {
+        return $this->belongsTo(Contract::class);
     }
 
     public function items(): HasMany

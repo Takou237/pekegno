@@ -44,6 +44,7 @@ class CommissionRule extends Model
         'scope_department_id',
         'service_id',
         'course_id',
+        'package_id',
         'trigger_event',
         'formula_type',
         'percent_value',
@@ -81,6 +82,11 @@ class CommissionRule extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionPack::class, 'package_id');
     }
 
     public function scopeCountry(): BelongsTo
@@ -172,6 +178,7 @@ class CommissionRule extends Model
             'scope_department_id' => $this->scope_department_id,
             'service_id' => $this->service_id,
             'course_id' => $this->course_id,
+            'package_id' => $this->package_id,
             'trigger_event' => $this->trigger_event,
             'formula_type' => $this->formula_type,
             'percent_value' => $this->percent_value,

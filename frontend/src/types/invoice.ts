@@ -126,6 +126,9 @@ export interface InvoiceListParams {
   to?: string;
   include_cancelled?: boolean;
   from_enrollments?: boolean;
+  from_contracts?: boolean;
+  contract_department_id?: string;
+  contract_id?: string;
   course_id?: string;
   session_id?: string;
   per_page?: number;

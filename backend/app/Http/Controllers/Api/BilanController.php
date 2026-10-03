@@ -59,6 +59,7 @@ class BilanController extends Controller
         $date = $request->date('date') ?? Period::businessToday();
         $agencyId = $request->input('agency_id');
         $agencyIds = $this->scopedAgencyIds($request, $request->input('country_id'));
+        [$agencyId, $departmentId] = $this->departmentScope($request, $agencyId);
 
         if ($agencyId) {
             if ($agencyIds !== null && ! in_array($agencyId, $agencyIds, true)) {
@@ -66,7 +67,7 @@ class BilanController extends Controller
             }
 
             return response()->json(
-                $this->bilanService->daily($date, $agencyId)
+                $this->bilanService->daily($date, $agencyId, $departmentId)
             );
         }
 
@@ -97,13 +98,31 @@ class BilanController extends Controller
         $to = Period::to($request, $from->copy());
         $agencyId = $request->input('agency_id');
         $agencyIds = $this->scopedAgencyIds($request, $request->input('country_id'));
+        [$agencyId, $departmentId] = $this->departmentScope($request, $agencyId);
 
         if ($agencyId && $agencyIds !== null && ! in_array($agencyId, $agencyIds, true)) {
             abort(403, 'Cette agence est hors de votre périmètre.');
         }
 
         return response()->json(
-            $this->bilanService->period($from, $to, $agencyId, $agencyIds)
+            $this->bilanService->period($from, $to, $agencyId, $agencyIds, $departmentId)
         );
+    }
+
+    /**
+     * Bilan d'un département (`department_id`) : l'agence est celle du département.
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function departmentScope(Request $request, ?string $agencyId): array
+    {
+        $departmentId = $request->input('department_id');
+        if (! $departmentId) {
+            return [$agencyId, null];
+        }
+
+        $department = \App\Models\Department::findOrFail($departmentId);
+
+        return [$department->agency_id, $department->id];
     }
 }

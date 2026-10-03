@@ -201,19 +201,24 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
       ];
 
     case 'agency':
+      // Academy retiré du menu Agency (réunion). Voir doc/AGENCY_A_FAIRE.md §1.
       return [
         { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
         { to: 'prospects', label: t('nav.prospects'), icon: Users, end: false },
         { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
         { to: 'packages', label: t('nav.packages'), icon: Package, end: false },
+        // « Suivi des prestations » est un onglet de la page Prestations.
+        { to: 'prestations', label: t('nav.prestations'), icon: Briefcase, end: false },
+        { to: 'client-team', label: t('nav.clientTeam'), icon: UserCheck, end: false },
         { to: 'contracts', label: t('nav.contracts'), icon: FileText, end: false },
-        { to: 'services', label: t('nav.services'), icon: Briefcase, end: false },
-        { to: 'academy', label: t('nav.academy'), icon: GraduationCap, end: false },
+        { to: 'services', label: t('nav.services'), icon: Tags, end: false },
         { to: 'community', label: t('nav.communityManagement'), icon: Users, end: false },
         { to: 'advertising', label: t('nav.advertising'), icon: BarChart3, end: false },
         { to: 'renewals', label: t('nav.renewals'), icon: CalendarCheck, end: false },
-        { to: 'payments', label: t('nav.invoices'), icon: Receipt, end: false },
+        { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
         { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
+        { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
+        { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
         { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
         { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
       ];

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Agency;
 use App\Models\Category;
 use App\Models\DailyBalance;
+use App\Models\Department;
 use App\Models\TreasuryAccount;
 use App\Models\TreasuryTransaction;
 use Illuminate\Support\Carbon;
@@ -13,18 +14,44 @@ use Illuminate\Support\Facades\DB;
 class BilanService
 {
     /**
-     * Bilan journalier — agence unique ou globale.
+     * Périmètre « département » : le bilan ne compte alors que les factures et
+     * les écritures du département (cf. DepartmentLedger).
      */
-    public function daily(Carbon $date, ?string $agencyId): array
+    private ?Department $department = null;
+
+    public function __construct(private readonly DepartmentLedger $ledger) {}
+
+    /**
+     * Bilan journalier — agence unique ou globale, ou un seul département.
+     */
+    public function daily(Carbon $date, ?string $agencyId, ?string $departmentId = null): array
     {
-        return $this->buildSingleDay($date, $agencyId);
+        return $this->withDepartment($departmentId, fn () => $this->buildSingleDay($date, $agencyId));
+    }
+
+    private function withDepartment(?string $departmentId, callable $callback): array
+    {
+        $previous = $this->department;
+        $this->department = $departmentId ? Department::findOrFail($departmentId) : null;
+
+        try {
+            $result = $callback();
+        } finally {
+            $this->department = $previous;
+        }
+
+        return $result + ['department_id' => $departmentId];
     }
 
     /**
      * Bilan sur une plage de dates (une entrée par jour).
      */
-    public function period(Carbon $from, Carbon $to, ?string $agencyId, ?array $agencyIds = null): array
+    public function period(Carbon $from, Carbon $to, ?string $agencyId, ?array $agencyIds = null, ?string $departmentId = null): array
     {
+        if ($departmentId !== null && $this->department === null) {
+            return $this->withDepartment($departmentId, fn () => $this->period($from, $to, $agencyId, $agencyIds, $departmentId));
+        }
+
         // Les bornes arrivent en UTC (Period::from/to) : « 01/10 00:00 à Douala »
         // vaut « 30/09 23:00 UTC ». Itérer sur ces instants faisait construire le
         // bilan du 30/09 quand on demandait le 01/10. On revient donc aux jours
@@ -74,6 +101,8 @@ class BilanService
             'total_mobile' => 0,
             'total_depenses' => 0,
             'total_solde_final' => 0,
+            'total_agency' => 0,
+            'total_agency_pass_through' => 0,
         ];
 
         $expenseByCategory = [];
@@ -92,6 +121,8 @@ class BilanService
             $totals['total_mobile'] += $b['mobile_total'];
             $totals['total_depenses'] += $b['expense_total'];
             $totals['total_solde_final'] += $b['solde_final'];
+            $totals['total_agency'] += $b['agency_total'];
+            $totals['total_agency_pass_through'] += $b['agency_pass_through_total'];
 
             foreach ($b['expenses_by_category'] as $cat) {
                 $key = $cat['name'];
@@ -120,6 +151,7 @@ class BilanService
         $servicesByCategory = $this->servicesByCategory($date, $agencyId, $agencyIds);
         $productsByCategory = $this->productsByCategory($date, $agencyId, $agencyIds);
         $formationSales = $this->formationSales($date, $agencyId, $agencyIds);
+        $agencySales = $this->agencySales($date, $agencyId, $agencyIds);
         $received = $this->receivedByMode($date, $agencyId, $agencyIds);
 
         $cash = (float) ($received['cash'] ?? 0);
@@ -132,11 +164,15 @@ class BilanService
             collect($servicesByCategory)->sum('count')
             + collect($productsByCategory)->sum('count')
             + $formationSales['count']
+            + collect($agencySales['by_category'])->sum('count')
         );
         $totalVentesAmount = round(
             (float) collect($servicesByCategory)->sum('total')
             + (float) collect($productsByCategory)->sum('total')
-            + $formationSales['total'],
+            + $formationSales['total']
+            // Agency (D7) : seuls les honoraires comptent dans le CA ; le budget
+            // publicitaire client (pass-through) en est exclu.
+            + $agencySales['total'],
             2
         );
 
@@ -146,14 +182,15 @@ class BilanService
         $opening = $this->openingBalance($date, $agencyId, $agencyIds);
         $closing = $opening + $totalReceived - $expenseTotal;
 
-        if ($agencyId !== null || $agencyIds === null) {
+        // Les soldes stockés sont ceux de l'agence : pas d'écriture pour une vue département.
+        if ($this->department === null && ($agencyId !== null || $agencyIds === null)) {
             $this->storeBalance($date, $agencyId, $opening, $closing);
         }
 
         $agency = $agencyId ? Agency::find($agencyId)?->only('id', 'name') : null;
 
-        // Solde réel trésorerie (tous les comptes de l'agence)
-        $treasuryBalance = $this->treasuryBalance($date, $agencyId, $agencyIds);
+        // Solde réel trésorerie (tous les comptes de l'agence) — sans objet pour un département.
+        $treasuryBalance = $this->department ? null : $this->treasuryBalance($date, $agencyId, $agencyIds);
 
         // Écart entre solde théorique et solde réel
         $gap = $treasuryBalance !== null ? round($closing - $treasuryBalance, 2) : null;
@@ -169,6 +206,9 @@ class BilanService
             'products_by_category' => $productsByCategory,
             'formation_count' => $formationSales['count'],
             'formation_total' => $formationSales['total'],
+            'agency_by_category' => $agencySales['by_category'],
+            'agency_total' => $agencySales['total'],
+            'agency_pass_through_total' => $agencySales['pass_through_total'],
             'total_ventes' => $totalVentes,
             'total_ventes_amount' => $totalVentesAmount,
             'cash_total' => $cash,
@@ -260,6 +300,7 @@ class BilanService
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
             ->where('line_sums.lines_total', '>', 0)
+            ->when($this->department, fn ($q) => $q->whereIn('invoices.id', $this->ledger->invoiceIds($this->department)))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds));
     }
@@ -285,6 +326,8 @@ class BilanService
                     ->whereNull('invoice_items.product_id');
             })
             ->whereNull('invoice_items.product_id')
+            ->whereNull('invoice_items.package_id')
+            ->whereNull('invoice_items.prestation_id')
             ->whereNull('formation_enrollments.id')
             ->selectRaw("
                 coalesce(categories.name, 'Autres') as category,
@@ -334,6 +377,53 @@ class BilanService
     }
 
     /**
+     * Agency : encaissements du jour sur les packages et prestations, par
+     * catégorie Agency. Les lignes de budget publicitaire client (pass-through,
+     * D7/D15) sont totalisées à part et exclues du CA.
+     *
+     * @return array{by_category: array<int, array>, total: float, pass_through_total: float}
+     */
+    private function agencySales(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
+    {
+        $rows = $this->paidLines($date, $agencyId, $agencyIds)
+            ->leftJoin('subscription_packs', 'subscription_packs.id', '=', 'invoice_items.package_id')
+            ->leftJoin('prestations', 'prestations.id', '=', 'invoice_items.prestation_id')
+            ->leftJoin('agency_categories', 'agency_categories.id', '=', DB::raw('coalesce(subscription_packs.category_id, prestations.category_id)'))
+            ->where(fn ($q) => $q->whereNotNull('invoice_items.package_id')->orWhereNotNull('invoice_items.prestation_id'))
+            ->selectRaw("
+                coalesce(agency_categories.name, 'Agency') as sale_category,
+                case when invoice_items.package_id is not null then 'package' else 'prestation' end as item_kind,
+                invoice_items.is_pass_through as item_pass_through,
+                sum(invoice_items.quantity) as count,
+                sum(".self::ALLOCATED.") as total
+            ")
+            // Alias distincts des colonnes réelles (agency_categories.kind) : PostgreSQL
+            // résoudrait sinon le GROUP BY sur la colonne et non sur l'expression.
+            ->groupByRaw("coalesce(agency_categories.name, 'Agency'), case when invoice_items.package_id is not null then 'package' else 'prestation' end, invoice_items.is_pass_through")
+            ->get();
+
+        $passThrough = round((float) $rows->filter(fn ($r) => (bool) $r->item_pass_through)->sum('total'), 2);
+
+        $byCategory = $rows
+            ->reject(fn ($r) => (bool) $r->item_pass_through)
+            ->map(fn ($row) => [
+                'category' => $row->sale_category,
+                'kind' => $row->item_kind,
+                'count' => (int) $row->count,
+                'total' => round((float) $row->total, 2),
+            ])
+            ->sortByDesc('total')
+            ->values()
+            ->all();
+
+        return [
+            'by_category' => $byCategory,
+            'total' => round((float) collect($byCategory)->sum('total'), 2),
+            'pass_through_total' => $passThrough,
+        ];
+    }
+
+    /**
      * Encaissements du jour sur des inscriptions de formation.
      *
      * Part de l'encaissement revenant aux lignes « formation » (ni service ni
@@ -380,6 +470,7 @@ class BilanService
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
             ->whereBetween('invoice_payments.paid_at', $this->dayBounds($date))
+            ->when($this->department, fn ($q) => $q->whereIn('invoices.id', $this->ledger->invoiceIds($this->department)))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->selectRaw('invoice_payments.payment_method, sum(invoice_payments.amount) as total')
@@ -398,6 +489,7 @@ class BilanService
             ->leftJoin('accounting_categories', 'accounting_categories.id', '=', 'accounting_transactions.category_id')
             ->where('accounting_transactions.type', 'expense')
             ->whereBetween('accounting_transactions.transacted_at', $this->dayBounds($date))
+            ->when($this->department, fn ($q) => $q->where('accounting_transactions.department_id', $this->department->id))
             ->when($agencyId, fn ($q) => $q->where('accounting_transactions.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('accounting_transactions.agency_id', $agencyIds))
             ->selectRaw("
@@ -417,6 +509,27 @@ class BilanService
 
     private function openingBalance(Carbon $date, ?string $agencyId, ?array $agencyIds = null): float
     {
+        // Département : solde cumulé de ses encaissements moins ses dépenses avant ce jour.
+        if ($this->department) {
+            $before = $this->dayBounds($date)[0];
+
+            $in = (float) DB::table('invoice_payments')
+                ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
+                ->whereNull('invoices.cancelled_at')
+                ->where('invoices.validation_status', 'validated')
+                ->where('invoice_payments.paid_at', '<', $before)
+                ->whereIn('invoices.id', $this->ledger->invoiceIds($this->department))
+                ->sum('invoice_payments.amount');
+
+            $out = (float) DB::table('accounting_transactions')
+                ->where('type', 'expense')
+                ->where('department_id', $this->department->id)
+                ->where('transacted_at', '<', $before)
+                ->sum('amount');
+
+            return round($in - $out, 2);
+        }
+
         // Vue multi-agences : somme des soldes initiaux de chaque agence, pour que
         // le consolidé corresponde exactement aux tableaux par agence (l'ancienne
         // requête « agency_id nul ET parmi ces agences » ne trouvait jamais rien).
