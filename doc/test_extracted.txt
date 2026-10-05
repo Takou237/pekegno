@@ -1,0 +1,15 @@
+TEST PEKEGNO ACADEMY du 28 septembre 2026 Header Les liens retour ou la liste deroulante ne marche pas. Ca n’affiche pas les sous menus
+Verifier les select
+On doit pour voir cliquer sur le logo d epekegno et rentrer sur le dashboard general
+changer de logo de pekegno AGENCE Lors d el amodification d’une agence on a changé de pays mais ca n’a pas marché. Ca devrait aller canger d epays de cet agence et affecter tous les elements dans ce nouveau pays.
+PAYS Quand don crée un pays et on choisi la monnaie (cas de cote d’ivoire avec la monnaie XOF) Les syteme doit tenir compte de cela lors des facture et devis et tout. Et aussi avoir un système d’équivalence pour la partie PEKEGNO GROUP pour avoir la monnaie dans laquelle le groupe doit s’afficher. 1XAF=1XOF FACTURE (Encaisser) Annuelr une facture ne reiniitailise pas le formulaire et ca renvoie vers une page tres eloigné de l’endroit ou on était. NOUVELLE INSCRIPTION Quan don fait une nouvelle inscription que ca soit le commercial ou la caissiere ou autre, on doit pouvoir appliquer une reduction en % ou en montant fixe à un apprenant. Dans une nouvelle inscription, on doit voir aussi les formation en ligne en plus des presentiel. Bref on doit inserer a cote d’une formation le type en ligne ou en presentiel. Inserer toujours dans la recuperation de la formation, celle qui est en ligne ou presentiel a cote du nom de la formation (Nom de la formation – Type ).
+
+Par defaut selection tous les pays
+VALIDATION DE FACTURE EN LIGNE Manque du menu validation de facture quand on est en mode superadmin UTILISATEUR
+• Quand on crée un utilisateur, directement on devrait lui envoyer un email avec se spareametres et son mot d epasse par defaut.
+
+• L’administrateur doit pouvoir reiniailiser le mot de passe d’un utilisateur • On peut aussi proposer un nom d’utilisateur quand on saisi le nom ou le prenom • Mot de passe oublié doit envoyé un email à l’utilisateur BILAN DU JOUR Dans le bilan du jour il doit avoir les collonnes pour les produits donc 4 produits correspondent à 4colonnes et aussi ressortir une colonne pour les formation. Actuellement tout est a zero et ca l’air de ne pas marcher. Merci de verifier le grand tableau excell dans le syteme. Les colonnes de formation c’est apres la date et ceux des produits cest juste apres formation. Ensuite total vente et les details.etc…
+CHIFFRE D’AFFAIRE Verifier le chiffre d’affaire depuis agence jusqu’à PEKEGNO GROUP. Il ya un soucis labas. Les chiffres ne concordent pas. COMMISSION Une ciassiere doit pouvoir payer une commission (actuellement ce n’est pas possible).
+FILTRE PERIODE Insérer les filtres périodes un peu partout ou cest necessaire comme ceci. Il manque aujoud’hui, hier, etc…
+
+
