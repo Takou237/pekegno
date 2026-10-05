@@ -730,6 +730,25 @@ Aucune pour l'instant ✅ — toutes les décisions D1 → D22 sont validées. A
 
 Le plus récent en haut. Modèle : §8.2.
 
+### 2026-10-05 — Daniel (recette assistée Codebuff)
+
+**Tâches terminées** : recette API **S1 / S2 / S3 → PASS** (doc/test.md) ; seeder `AgencyPackageSeeder` lancé et vérifié ; 12 migrations Agency lancées sur la base locale de Daniel ; reprise D16 exécutée (`Repris : 0 · Anomalies : 0`) ; `AGENCY_SUBSCRIPTIONS_READ_ONLY=true` activé en local (ordre respecté : reprise puis lecture seule).
+**Tâche en cours** : —
+**Fichiers touchés** : `doc/AGENCY_A_FAIRE.md` (ce rapport) ; base de données locale uniquement (pas de code).
+**Migrations ajoutées (à lancer)** : non — les 12 migrations `2026_10_03_*` ont été **lancées sur la base locale de Daniel** (Postgres `pekegno`, port 5433) qui n'en avait aucune. Seeder lancé : 9 packages × 6 départements Agency (2 agences démo × 3 départements) = 54 packages, idempotence vérifiée.
+**Résultats recette (niveau API HTTP réelle, admin@pekegno.com)** :
+- **S1 PASS** : délais d'alerte `30,15,7,1` → `45,3` persistés puis défauts remis (D8) ; catégories « Test » (package) et « Réseaux sociaux » (prestation) créées en 201 ; 7 rôles d'équipe par défaut présents.
+- **S2 PASS** : Starter conforme au flyer (~~370 000~~ 299 000, 4 items, 1 CM + 2 commerciaux, 2 groupes) ; création package 201 ; promotion 10 % J0→J+10 ⇒ prix effectif **90 000** ; modification 200 ; suppression 204 puis 404.
+- **S3 PASS** : Starter ×3 périodes ⇒ contrat `pending` origin `package` **897 000**, prestation **PRS-2026-0001** `validated` avec **4 actions auto-générées**, facture 897 000 `unpaid` ; Shooting ×1 ⇒ 2ᵉ contrat **50 000** + PRS-2026-0002 (1 action) ; `GET /contracts?origin=package` ⇒ 2 contrats pour `brice.client@test.com` ; souscription d'un non-client (caissier) ⇒ **422** « Le client lié doit avoir le rôle client ».
+**Problèmes / pièges rencontrés** :
+- recette déroulée **au niveau API** (curl) faute de navigateur pilotable dans l'environnement : l'équivalence fonctionnelle est démontrée, l'affichage visuel (cartes, onglets, badges) reste à confirmer dans le navigateur ;
+- le shell Windows/Git-Bash corrompt les accents des payloads inline (422 trompeurs « champ obligatoire ») → payloads UTF-8 passés par fichiers ; rien à corriger côté backend ;
+- `agency:migrate-subscriptions` sans `--dry-run` demande une confirmation interactive (prévoir `echo y |` en script) ;
+- 2 agences démo (seeders Organization) portent chacune 3 départements Agency de même nom → 54 packages en local, normal.
+**Questions en suspens** : aucune.
+**Prochaine étape conseillée** : dérouler S4 → S10 dans le navigateur (avec les 2 contrats de Brice déjà en place pour S6+) ; lancer seeder + reprise D16 sur les bases de Mike/préprod si elles ont des subscriptions.
+**Comment tester ce qui a été fait** : Packages ▸ 2 groupes + 4 offres du flyer ; Contrats ▸ onglet « Packages souscrits » (2 contrats `pending`) ; Paramètres Agency ▸ délais d'alerte ; noter que le backend local est désormais en **souscriptions lecture seule** (D1).
+
 ### 2026-10-03 — Implémentation complète (Claude, avec Mike)
 
 **Tâches terminées** : #1 → #52 (toutes), + D19 (commissions dans Paramètres) et D20 (compta / bilan par département), + type affiché sur les cartes de département.
