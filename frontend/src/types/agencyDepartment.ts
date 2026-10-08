@@ -61,6 +61,7 @@ export interface AgencyPackage {
   id: string;
   code: string | null;
   agency_id: string;
+  agency?: { id: string; name: string } | null;
   department_id: string | null;
   category_id: string | null;
   category?: AgencyCategory | null;
@@ -84,7 +85,10 @@ export interface AgencyPackage {
 }
 
 export interface PackagePayload {
-  agency_id: string;
+  /** Omettre si `target_country_ids` est fourni : le package est alors déployé dans tous les pays cochés. */
+  agency_id?: string;
+  /** Duplication : une copie du package est créée dans toutes les agences de ces pays. */
+  target_country_ids?: string[];
   department_id?: string;
   category_id?: string | null;
   name: string;
@@ -245,13 +249,42 @@ export interface RatingSummary {
   distribution: Record<string, number>;
 }
 
+/** Offre de prestation (ex. « Campagne Facebook ») : fiche à laquelle les clients souscrivent. */
+export interface PrestationOffer {
+  id: string;
+  agency_id: string;
+  agency?: { id: string; name: string } | null;
+  department_id: string | null;
+  department?: { id: string; name: string } | null;
+  category_id: string | null;
+  category?: { id: string; name: string; color?: string | null } | null;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  subscriptions_count?: number;
+  subscriptions_rating_avg?: number | null;
+  created_at: string;
+}
+
+export interface PrestationOfferPayload {
+  agency_id?: string;
+  department_id?: string | null;
+  category_id?: string | null;
+  name?: string;
+  description?: string | null;
+  is_active?: boolean;
+}
+
 export interface Prestation {
   id: string;
   reference: string;
   agency_id: string;
+  agency?: { id: string; name: string } | null;
   department_id: string | null;
   category_id: string | null;
   category?: { id: string; name: string; color?: string | null } | null;
+  offer_id: string | null;
+  offer?: { id: string; name: string; department_id?: string | null } | null;
   name: string;
   description: string | null;
   client_id: string;
@@ -291,6 +324,7 @@ export interface Prestation {
 
 export interface PrestationPayload {
   agency_id?: string;
+  offer_id?: string;
   department_id?: string;
   category_id?: string | null;
   name?: string;

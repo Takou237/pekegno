@@ -74,6 +74,7 @@ class Prestation extends Model
         'agency_id',
         'department_id',
         'category_id',
+        'offer_id',
         'name',
         'description',
         'client_id',
@@ -123,6 +124,12 @@ class Prestation extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(AgencyCategory::class, 'category_id');
+    }
+
+    /** Offre de prestation souscrite (null pour les prestations issues d'un package). */
+    public function offer(): BelongsTo
+    {
+        return $this->belongsTo(PrestationOffer::class, 'offer_id');
     }
 
     public function client(): BelongsTo

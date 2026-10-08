@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
+import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
 import { todayLocal } from '@/utils/date';
 import { Modal } from '@/components/ui/Modal';
@@ -9,29 +10,42 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ClientPicker, CommercialPicker } from './Pickers';
-import type { AgencyCategory, Prestation } from '@/types/agencyDepartment';
+import type { AgencyCategory, Prestation, PrestationOffer } from '@/types/agencyDepartment';
+import type { Agency } from '@/types/agency';
 
-/** Création / modification d'une prestation (catégorie, nom, période, client, budget, commercial). */
+/**
+ * Souscription à une offre de prestation (ou édition d'une souscription) :
+ * catégorie et agence héritées de l'offre, le reste (client, période,
+ * budget, commission) saisi à la volée.
+ */
 export function PrestationFormModal({
   isOpen,
   onClose,
   onSaved,
   prestation,
+  offer,
   agencyId,
+  countryId,
   departmentId,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSaved: (p: Prestation) => void;
   prestation?: Prestation | null;
+  /** Offre à laquelle on souscrit : agence, département et catégorie en découlent. */
+  offer?: PrestationOffer | null;
   agencyId?: string;
+  /** Pays de la page : l'agence est alors choisie dans une liste (hors département). */
+  countryId?: string;
   departmentId?: string;
 }) {
   const { t } = useTranslation();
   const [categories, setCategories] = useState<AgencyCategory[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
   const [form, setForm] = useState({
     name: '',
     category_id: '',
+    agency_id: '',
     description: '',
     client_id: '',
     commercial_id: '',
@@ -45,13 +59,25 @@ export function PrestationFormModal({
   const [saving, setSaving] = useState(false);
   const [newCategory, setNewCategory] = useState('');
 
+  // Sans département Agency (vue pays), l'agence doit être choisie : la
+  // prestation appartient toujours à une agence côté backend. Avec une offre,
+  // l'agence est celle de l'offre.
+  const needsAgencyChoice = !agencyId && !offer;
+
   useEffect(() => {
     if (!isOpen) return;
-    agencyDeptApi.categories({ kind: 'prestation', department_id: departmentId }).then(setCategories).catch(() => {});
+    agencyDeptApi
+      .categories({ kind: 'prestation', department_id: departmentId, country_id: countryId })
+      .then(setCategories)
+      .catch(() => {});
+    if (needsAgencyChoice) {
+      agenciesApi.list({ country_id: countryId, per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
+    }
     setError(null);
     setForm({
-      name: prestation?.name ?? '',
-      category_id: prestation?.category_id ?? '',
+      name: prestation?.name ?? (!prestation && offer ? offer.name : ''),
+      category_id: prestation?.category_id ?? offer?.category_id ?? '',
+      agency_id: prestation?.agency_id ?? '',
       description: prestation?.description ?? '',
       client_id: prestation?.client_id ?? '',
       commercial_id: prestation?.commercial_id ?? '',
@@ -61,7 +87,8 @@ export function PrestationFormModal({
       commission_type: prestation?.commission_type ?? '',
       commission_value: prestation?.commission_value ? String(Number(prestation.commission_value)) : '',
     });
-  }, [isOpen, prestation, departmentId]);
+  }, [isOpen, prestation, offer, departmentId, countryId, needsAgencyChoice]);
+
 
   const budgetLocked = !!prestation?.contract_id;
 
@@ -83,7 +110,7 @@ export function PrestationFormModal({
     setError(null);
     const payload = {
       name: form.name,
-      category_id: form.category_id || null,
+      category_id: offer ? undefined : form.category_id || null,
       description: form.description || null,
       client_id: form.client_id,
       commercial_id: form.commercial_id || null,
@@ -96,7 +123,12 @@ export function PrestationFormModal({
     try {
       const saved = prestation
         ? await agencyDeptApi.updatePrestation(prestation.id, payload)
-        : await agencyDeptApi.createPrestation({ ...payload, agency_id: agencyId, department_id: departmentId });
+        : await agencyDeptApi.createPrestation({
+            ...payload,
+            offer_id: offer?.id,
+            agency_id: offer?.agency_id ?? agencyId ?? form.agency_id,
+            department_id: (departmentId ?? offer?.department_id) || undefined,
+          });
       onSaved(saved);
     } catch (err) {
       setError(extractErrorMessage(err, t('common.error')));
@@ -106,21 +138,45 @@ export function PrestationFormModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={prestation ? t('agencyDept.prestations.edit') : t('agencyDept.prestations.new')} maxWidth="max-w-2xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        prestation
+          ? t('agencyDept.prestations.edit')
+          : offer
+            ? t('agencyDept.prestations.newSubscription')
+            : t('agencyDept.prestations.new')
+      }
+      maxWidth="max-w-2xl"
+    >
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {error && <Alert variant="error">{error}</Alert>}
+        {!prestation && offer && (
+          <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+            {t('agencyDept.offers.subscribingTo', { name: offer.name })}
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label={t('agencyDept.name')} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <div className="flex flex-col gap-1.5">
-            <Select label={t('agencyDept.category')} value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
-              <option value="">—</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {!prestation && needsAgencyChoice && (
+            <Select label={t('agencyDept.agency')} required value={form.agency_id} onChange={(e) => setForm({ ...form, agency_id: e.target.value })}>
+              <option value="">{t('services.selectAgency')}</option>
+              {agencies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Select>
-            <div className="flex gap-2">
-              <Input placeholder={t('agencyDept.newCategory')} value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
-              <Button type="button" variant="outline" size="sm" onClick={addCategory}>+</Button>
+          )}
+          {!offer && (
+            <div className="flex flex-col gap-1.5">
+              <Select label={t('agencyDept.category')} value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
+                <option value="">—</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+              <div className="flex gap-2">
+                <Input placeholder={t('agencyDept.newCategory')} value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
+                <Button type="button" variant="outline" size="sm" onClick={addCategory}>+</Button>
+              </div>
             </div>
-          </div>
+          )}
           {!prestation && <ClientPicker value={form.client_id} onChange={(id) => setForm({ ...form, client_id: id })} />}
           <CommercialPicker value={form.commercial_id} onChange={(id) => setForm({ ...form, commercial_id: id })} />
           <Input label={t('agencyDept.startDate')} type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />

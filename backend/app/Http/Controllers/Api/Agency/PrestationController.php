@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Agency;
 
 use App\Http\Controllers\Controller;
+use App\Models\Department;
 use App\Models\Prestation;
+use App\Models\PrestationOffer;
 use App\Services\AgencyAccessService;
 use App\Services\PrestationReviewService;
 use App\Services\PrestationService;
@@ -19,6 +21,8 @@ class PrestationController extends Controller
 {
     private const LIST_RELATIONS = [
         'category:id,name,color',
+        'agency:id,name',
+        'offer:id,name',
         'client:id,first_name,last_name,email',
         'commercial:id,first_name,last_name',
         'package:id,name',
@@ -95,6 +99,7 @@ class PrestationController extends Controller
             'company:id,name',
             'commercial:id,first_name,last_name',
             'package:id,name',
+            'offer:id,name,department_id',
             'contract',
             'contract.invoices.payments',
             'agency:id,name',
@@ -114,7 +119,17 @@ class PrestationController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validated($request);
-        abort_unless($this->access->canAccessAgency($request->user(), $data['agency_id']), 403, 'Agence hors de votre périmètre.');
+
+        // Une souscription appartient à une offre du catalogue : l'agence est
+        // celle de l'offre, le département et la catégorie hérités si absents.
+        $offer = PrestationOffer::query()->find($data['offer_id']);
+        abort_unless($offer !== null, 422, 'Offre de prestation introuvable.');
+        abort_unless($this->access->canAccessAgency($request->user(), $offer->agency_id), 403, 'Agence hors de votre périmètre.');
+
+        $data['agency_id'] = $offer->agency_id;
+        $data['department_id'] = $this->inheritDepartment($data['department_id'] ?? null, $offer);
+        $data['category_id'] = $data['category_id'] ?? $offer->category_id;
+
         abort_unless(\App\Models\User::find($data['client_id'])?->role?->name === 'client', 422, 'Le client lié doit avoir le rôle client.');
 
         // Un commercial ne peut créer une prestation qu'à son nom.
@@ -136,6 +151,12 @@ class PrestationController extends Controller
 
         $data = $this->validated($request, update: true);
         unset($data['agency_id']);
+
+        if (! empty($data['offer_id'])) {
+            $offer = PrestationOffer::query()->find($data['offer_id']);
+            abort_unless($offer !== null, 422, 'Offre de prestation introuvable.');
+            abort_if($offer->agency_id !== $prestation->agency_id, 422, 'L\'offre appartient à une autre agence.');
+        }
 
         $start = $data['start_date'] ?? $prestation->start_date->toDateString();
         $end = $data['end_date'] ?? $prestation->end_date->toDateString();
@@ -230,11 +251,13 @@ class PrestationController extends Controller
 
         return $query
             ->when($request->agency_id, fn ($q, $id) => $q->where('prestations.agency_id', $id))
+            ->when($request->country_id, fn ($q, $id) => $q->whereHas('agency', fn ($a) => $a->where('country_id', $id)))
             ->when($request->department_id, fn ($q, $id) => $q->where('department_id', $id))
             ->when($request->status, fn ($q, $s) => $q->whereIn('status', explode(',', $s)))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))
             ->when($request->commercial_id, fn ($q, $id) => $q->where('commercial_id', $id))
             ->when($request->category_id, fn ($q, $id) => $q->where('category_id', $id))
+            ->when($request->offer_id, fn ($q, $id) => $q->where('prestations.offer_id', $id))
             ->when($request->package_id, fn ($q, $id) => $q->where('package_id', $id))
             ->when($request->from, fn ($q, $d) => $q->whereDate('end_date', '>=', $d))
             ->when($request->to, fn ($q, $d) => $q->whereDate('start_date', '<=', $d))
@@ -242,6 +265,18 @@ class PrestationController extends Controller
                 ->where('name', 'like', "%{$s}%")
                 ->orWhere('reference', 'like', "%{$s}%")
                 ->orWhereHas('client', fn ($c) => $c->where('first_name', 'like', "%{$s}%")->orWhere('last_name', 'like', "%{$s}%"))));
+    }
+
+    /** Département de la souscription : celui demandé s'il appartient à l'agence de l'offre, sinon celui de l'offre. */
+    private function inheritDepartment(?string $departmentId, PrestationOffer $offer): ?string
+    {
+        if ($departmentId === null) {
+            return $offer->department_id;
+        }
+
+        return Department::query()->whereKey($departmentId)->value('agency_id') === $offer->agency_id
+            ? $departmentId
+            : $offer->department_id;
     }
 
     private function trackingRow(Prestation $p): array
@@ -268,7 +303,8 @@ class PrestationController extends Controller
         $required = $update ? 'sometimes' : 'required';
 
         return $request->validate([
-            'agency_id' => [$required, 'uuid', 'exists:agencies,id'],
+            'agency_id' => ['nullable', 'uuid', 'exists:agencies,id'],
+            'offer_id' => [$required, 'uuid', Rule::exists('prestation_offers', 'id')->whereNull('deleted_at')],
             'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
             'category_id' => ['nullable', 'uuid', 'exists:agency_categories,id'],
             'name' => [$required, 'string', 'max:255'],

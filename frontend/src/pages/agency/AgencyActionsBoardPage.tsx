@@ -115,7 +115,7 @@ export default function AgencyActionsBoardPage({ mode }: { mode: 'community' | '
                       )}
                       <p className="text-xs text-gray-400">{personName(a.prestation?.client)}</p>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">{a.quantity} {a.unit ?? ''} {t(`agencyDept.frequency.${a.frequency}`)} · {a.quantity_done} {t('agencyDept.board.done')}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">{a.quantity} × {t(`agencyDept.frequency.${a.frequency}`)} · {a.quantity_done} {t('agencyDept.board.done')}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">{formatCurrency(a.budget)}{a.actual_cost ? ` / ${formatCurrency(a.actual_cost)}` : ''}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{personName(a.assignee)}</td>
                     <td className={`px-4 py-3 whitespace-nowrap ${a.is_overdue ? 'font-medium text-red-600' : 'text-gray-600 dark:text-gray-300'}`}>{a.due_date?.slice(0, 10) ?? '—'}</td>

@@ -130,7 +130,9 @@ const RenewalsPage = lazyWithRetry(() => import('@/pages/agency/RenewalsPage'));
 // Département Agency (doc/AGENCY_A_FAIRE.md)
 const AgencyDeptDashboardPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptDashboardPage'));
 const AgencyDeptPackagesPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptPackagesPage'));
-const PrestationListPage = lazyWithRetry(() => import('@/pages/agency/PrestationListPage'));
+const PrestationOffersPage = lazyWithRetry(() => import('@/pages/agency/PrestationOffersPage'));
+const PrestationOfferSubscriptionsPage = lazyWithRetry(() => import('@/pages/agency/PrestationOfferSubscriptionsPage'));
+const PackageSubscriptionsPage = lazyWithRetry(() => import('@/pages/agency/PackageSubscriptionsPage'));
 const PrestationDetailPage = lazyWithRetry(() => import('@/pages/agency/PrestationDetailPage'));
 const PrestationActionDetailPage = lazyWithRetry(() => import('@/pages/agency/PrestationActionDetailPage'));
 const PrestationTrackingPage = lazyWithRetry(() => import('@/pages/agency/PrestationTrackingPage'));
@@ -359,10 +361,15 @@ export const router = createBrowserRouter([
           { path: 'academy', element: page(<AgencyAcademyPage />, cards) },
           // Agency
           { path: 'packages', element: page(<AgencyDeptPackagesPage />, cards) },
+          { path: 'packages/:packageId/subscriptions', element: page(<PackageSubscriptionsPage />, table) },
           // Une souscription EST un contrat : l'ancienne page redirige vers l'onglet Packages.
           { path: 'subscriptions', element: <Navigate to="../contracts?origin=package" replace /> },
-          { path: 'prestations', element: page(<PrestationListPage />, table) },
+          // Prestations en 3 niveaux : offre → souscriptions → détail.
+          { path: 'prestations', element: page(<PrestationOffersPage />, table) },
           { path: 'prestations/tracking', element: page(<PrestationTrackingPage />, table) },
+          { path: 'prestations/:offerId/subscriptions', element: page(<PrestationOfferSubscriptionsPage />, table) },
+          { path: 'prestations/:offerId/subscriptions/:prestationId', element: page(<PrestationDetailPage />, detail) },
+          // URL historique : détail d'une souscription (pack, liens existants).
           { path: 'prestations/:prestationId', element: page(<PrestationDetailPage />, detail) },
           { path: 'prestations/:prestationId/actions/:actionId', element: page(<PrestationActionDetailPage />, detail) },
           { path: 'client-team', element: page(<ClientTeamPage />, table) },

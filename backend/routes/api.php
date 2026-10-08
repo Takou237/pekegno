@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Agency\ClientTeamController;
 use App\Http\Controllers\Api\Agency\PackageController;
 use App\Http\Controllers\Api\Agency\PrestationActionController;
 use App\Http\Controllers\Api\Agency\PrestationController;
+use App\Http\Controllers\Api\Agency\PrestationOfferController;
 use App\Http\Controllers\Api\Agency\PrestationReviewController;
 use App\Http\Controllers\Api\AgencyController;
 use App\Http\Controllers\Api\AttendanceController;
@@ -488,6 +489,14 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/packages/{package}/subscribe', [PackageController::class, 'subscribe'])->middleware('permission:prestations.creer');
 
     // === Agency — Prestations ===
+    // Offres de prestation (la fiche « Campagne Facebook ») : les souscriptions
+    // clients restent des /prestations, filtrées par offer_id.
+    Route::get('/prestation-offers', [PrestationOfferController::class, 'index'])->middleware('permission:prestations.consulter');
+    Route::post('/prestation-offers', [PrestationOfferController::class, 'store'])->middleware('permission:prestations.creer');
+    Route::get('/prestation-offers/{offer}', [PrestationOfferController::class, 'show'])->middleware('permission:prestations.consulter');
+    Route::put('/prestation-offers/{offer}', [PrestationOfferController::class, 'update'])->middleware('permission:prestations.modifier');
+    Route::delete('/prestation-offers/{offer}', [PrestationOfferController::class, 'destroy'])->middleware('permission:prestations.supprimer');
+
     Route::get('/prestations', [PrestationController::class, 'index'])->middleware('permission:prestations.consulter');
     Route::get('/prestations/tracking', [PrestationController::class, 'tracking'])->middleware('permission:prestations.consulter');
     Route::get('/prestations/tracking/export', [PrestationController::class, 'exportTracking'])->middleware('permission:prestations.exporter');

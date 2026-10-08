@@ -150,7 +150,7 @@ function ActionRow({ action, onSaved }: { action: ClientPrestationAction; onSave
         <div className="min-w-0">
           <p className="font-medium text-gray-900">{action.title}</p>
           <p className="text-xs text-gray-400">
-            {action.quantity} {action.unit ?? ''} {t(`agency.frequency.${action.frequency}`)} · {t(`agency.actionStatus.${action.status}`, action.status)}
+            {action.quantity} × {t(`agency.frequency.${action.frequency}`)} · {t(`agency.actionStatus.${action.status}`, action.status)}
           </p>
         </div>
         <Stars value={rating} onChange={action.can_rate ? setRating : undefined} />

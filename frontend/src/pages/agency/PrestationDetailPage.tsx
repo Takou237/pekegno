@@ -125,8 +125,12 @@ export default function PrestationDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to={`${basePath}/prestations`} className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline dark:text-brand-400">
-        <ArrowLeft className="h-4 w-4" /> {t('nav.prestations')}
+      <Link
+        to={prestation.offer_id ? `${basePath}/prestations/${prestation.offer_id}/subscriptions` : `${basePath}/prestations`}
+        className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline dark:text-brand-400"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {prestation.offer ? prestation.offer.name : t('nav.prestations')}
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -394,7 +398,7 @@ function ActionsTab({ prestation, agencyId, onChanged }: { prestation: Prestatio
                     <p className="text-xs text-gray-400">{t(`agencyDept.actionType.${a.type}`)}{a.platform ? ` · ${a.platform}` : ''}{a.is_pass_through ? ` · ${t('agencyDept.budget.passThroughShort')}` : ''}</p>
                     {a.comment && <p className="mt-1 text-xs italic text-gray-500">« {a.comment} »</p>}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">{a.quantity} {a.unit ?? ''} {t(`agencyDept.frequency.${a.frequency}`)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">{a.quantity} × {t(`agencyDept.frequency.${a.frequency}`)}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <p className="text-gray-700 dark:text-gray-200">{formatCurrency(a.budget)}</p>
                     {a.actual_cost && <p className="text-xs text-gray-400">{t('agencyDept.budget.spent')} {formatCurrency(a.actual_cost)}</p>}
@@ -445,9 +449,8 @@ function ActionsTab({ prestation, agencyId, onChanged }: { prestation: Prestatio
               {ACTION_TYPES.map((a) => <option key={a} value={a}>{t(`agencyDept.actionType.${a}`)}</option>)}
             </Select>
             <Input label={t('agencyDept.actions.platform')} value={form.platform ?? ''} onChange={(e) => setForm({ ...form, platform: e.target.value })} />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Input label={t('agencyDept.quantity')} type="number" min={1} value={form.quantity ?? 1} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} />
-              <Input label={t('agencyDept.unit')} value={form.unit ?? ''} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
               <Select label={t('agencyDept.actions.frequency')} value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value as ActionPayload['frequency'] })}>
                 {FREQUENCIES.map((f) => <option key={f} value={f}>{t(`agencyDept.frequency.${f}`)}</option>)}
               </Select>

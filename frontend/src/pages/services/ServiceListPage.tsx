@@ -18,6 +18,7 @@ import { ServiceFormModal } from '@/components/services/ServiceFormModal';
 import { ServiceDetailModal } from '@/components/services/ServiceDetailModal';
 import { CategoryFormModal } from '@/components/categories/CategoryFormModal';
 import AgencyAcademyFormations from '@/pages/academy/AgencyAcademyFormations';
+import AgencyCatalogTab from '@/pages/services/AgencyCatalogTab';
 import PromotionFormModal from '@/components/promotions/PromotionFormModal';
 import QuickSaleModal from '@/components/invoices/QuickSaleModal';
 import {
@@ -47,7 +48,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const { showToast } = useToast();
   const { countryId } = useParams<{ countryId?: string }>();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState<'services' | 'formations'>('services');
+  const [tab, setTab] = useState<CatalogTab>('services');
 
   const isCommercial = user?.role?.name === 'commercial';
   const isCaissier = user?.role?.name === 'caissier';
@@ -284,23 +285,23 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('academy.title')}</p>
           </div>
         </div>
-        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
-          <button
-            type="button"
-            onClick={() => setTab('services')}
-            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            {t('nav.services')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('formations')}
-            className="inline-flex items-center gap-2 border-b-2 border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 transition-colors dark:text-brand-400"
-          >
-            {t('nav.academy')}
-          </button>
-        </div>
+        <CatalogTabs tab={tab} onChange={setTab} />
         <AgencyAcademyFormations agencyId={effectiveAgencyId} countryId={countryId} />
+      </div>
+    );
+  }
+
+  if (effectiveShowAcademyTabs && tab === 'agency') {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('agencyDept.catalog.title')}</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.catalog.subtitle')}</p>
+          </div>
+        </div>
+        <CatalogTabs tab={tab} onChange={setTab} />
+        <AgencyCatalogTab agencyId={effectiveAgencyId} countryId={countryId} />
       </div>
     );
   }
@@ -346,32 +347,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         </div>
       </div>
 
-      {effectiveShowAcademyTabs && (
-        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
-          <button
-            type="button"
-            onClick={() => setTab('services')}
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-              tab === 'services'
-                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            {t('nav.services')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('formations')}
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-              tab === 'formations'
-                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            {t('nav.academy')}
-          </button>
-        </div>
-      )}
+      {effectiveShowAcademyTabs && <CatalogTabs tab={tab} onChange={setTab} />}
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 lg:flex-row lg:items-end">
         <div className="flex-1">
@@ -681,6 +657,37 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         onClose={() => setQuickSaleOpen(false)}
         agencyId={effectiveAgencyId}
       />
+    </div>
+  );
+}
+
+/** Onglets du catalogue : produits, Academy, Agency (pays / agence). */
+type CatalogTab = 'services' | 'formations' | 'agency';
+
+function CatalogTabs({ tab, onChange }: { tab: CatalogTab; onChange: (tab: CatalogTab) => void }) {
+  const { t } = useTranslation();
+  const tabs: { id: CatalogTab; label: string }[] = [
+    { id: 'services', label: t('nav.services') },
+    { id: 'formations', label: t('nav.academy') },
+    { id: 'agency', label: t('nav.agency') },
+  ];
+
+  return (
+    <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+      {tabs.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onChange(item.id)}
+          className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            tab === item.id
+              ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
     </div>
   );
 }

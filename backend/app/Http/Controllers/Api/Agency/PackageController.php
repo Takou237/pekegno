@@ -3,7 +3,12 @@
 namespace App\Http\Controllers\Api\Agency;
 
 use App\Http\Controllers\Controller;
+use App\Models\Agency;
+use App\Models\AgencyCategory;
+use App\Models\ClientTeamRole;
+use App\Models\Department;
 use App\Models\Promotion;
+use App\Models\Service;
 use App\Models\SubscriptionPack;
 use App\Models\User;
 use App\Services\ActivityLogger;
@@ -14,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /** Packages Agency : catalogue (items, recommandations, promotions) et souscription. */
 class PackageController extends Controller
@@ -32,6 +38,7 @@ class PackageController extends Controller
             ->with(self::RELATIONS)
             ->withCount('contracts')
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
+            ->when($request->country_id, fn ($q, $id) => $q->whereHas('agency', fn ($a) => $a->where('country_id', $id)))
             ->when($request->department_id, fn ($q, $id) => $q->where('department_id', $id))
             ->when($request->category_id, fn ($q, $id) => $q->where('category_id', $id))
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
@@ -51,15 +58,50 @@ class PackageController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validated($request);
-        abort_unless($this->access->canAccessAgency($request->user(), $data['agency_id']), 403, 'Agence hors de votre périmètre.');
+        $targetCountryIds = $data['target_country_ids'] ?? [];
+        unset($data['target_country_ids']);
 
-        $package = DB::transaction(function () use ($data, $request) {
-            $package = SubscriptionPack::create(collect($data)->except(['items', 'recommendations'])->all() + [
-                'code' => SubscriptionPack::generateCode(),
+        $sourceAgencyId = $data['agency_id'] ?? null;
+        abort_unless($sourceAgencyId === null || $this->access->canAccessAgency($request->user(), $sourceAgencyId), 403, 'Agence hors de votre périmètre.');
+
+        // Agences cibles : l'agence de la page (si fournie), plus toutes les agences
+        // des pays cochés (une copie du package par agence, comme les formations).
+        $agencyIds = collect([$sourceAgencyId])
+            ->merge($targetCountryIds
+                ? Agency::query()->whereNull('deleted_at')->whereIn('country_id', $targetCountryIds)->pluck('id')
+                : [])
+            ->filter()
+            ->unique()
+            ->values()
+            ->filter(fn (string $agencyId) => $this->access->canAccessAgency($request->user(), $agencyId))
+            ->values();
+
+        if ($agencyIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'target_country_ids' => 'Aucune agence accessible dans les pays cochés : le package ne peut être créé nulle part.',
             ]);
+        }
 
-            $this->syncChildren($package, $data);
+        $packages = DB::transaction(function () use ($data, $agencyIds) {
+            $created = [];
 
+            foreach ($agencyIds as $agencyId) {
+                $scoped = $this->scopeToAgency($data, $agencyId);
+                $row = collect($scoped)->except(['items', 'recommendations', 'agency_id', 'code'])->all();
+                $package = SubscriptionPack::create($row + [
+                    'agency_id' => $agencyId,
+                    'code' => SubscriptionPack::generateCode(),
+                ]);
+
+                $this->syncChildren($package, $scoped);
+
+                $created[] = $package;
+            }
+
+            return $created;
+        });
+
+        foreach ($packages as $package) {
             $this->logger->log(
                 action: 'created',
                 entityType: 'subscription-pack',
@@ -69,16 +111,15 @@ class PackageController extends Controller
                 request: $request,
                 agencyId: $package->agency_id,
             );
+        }
 
-            return $package;
-        });
-
-        return response()->json($package->fresh()->load(self::RELATIONS), 201);
+        return response()->json($packages[0]->fresh()->load(self::RELATIONS), 201);
     }
 
     public function update(Request $request, SubscriptionPack $package): JsonResponse
     {
         $data = $this->validated($request, update: true);
+        unset($data['target_country_ids']);
 
         DB::transaction(function () use ($package, $data, $request) {
             $old = $package->only(['name', 'price_per_month', 'original_price', 'is_active']);
@@ -210,7 +251,13 @@ class PackageController extends Controller
         $required = $update ? 'sometimes' : 'required';
 
         return $request->validate([
-            'agency_id' => [$required, 'uuid', 'exists:agencies,id'],
+            // L'agence n'est pas obligatoire si des pays cibles sont cochés
+            // (le package est alors créé dans toutes les agences de ces pays).
+            'agency_id' => $update
+                ? ['sometimes', 'nullable', 'uuid', 'exists:agencies,id']
+                : ['nullable', 'uuid', 'exists:agencies,id', 'required_without:target_country_ids'],
+            'target_country_ids' => $update ? ['sometimes', 'nullable', 'array'] : ['nullable', 'array', 'required_without:agency_id'],
+            'target_country_ids.*' => ['uuid', 'exists:countries,id'],
             'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
             'category_id' => ['nullable', 'uuid', 'exists:agency_categories,id'],
             'name' => [$required, 'string', 'max:255'],
@@ -237,7 +284,141 @@ class PackageController extends Controller
             'recommendations.*.label' => ['required', 'string', 'max:255'],
             'recommendations.*.quantity' => ['nullable', 'integer', 'min:1'],
             'recommendations.*.client_team_role_id' => ['nullable', 'uuid', 'exists:client_team_roles,id'],
+        ], [
+            'agency_id.required_without' => 'Cochez au moins un pays où créer le package.',
+            'target_country_ids.required_without' => 'Cochez au moins un pays où créer le package.',
         ]);
+    }
+
+    /**
+     * Réadapte un package à l'agence cible : département de l'agence, catégorie
+     * (recréée dans ce département si besoin), services et rôles d'équipe liés
+     * uniquement s'ils appartiennent bien à cette agence.
+     */
+    private function scopeToAgency(array $data, string $agencyId): array
+    {
+        $data['department_id'] = $this->resolveDepartment($data['department_id'] ?? null, $agencyId);
+        $data['category_id'] = $this->resolveCategory($data['category_id'] ?? null, $data['department_id']);
+
+        if (array_key_exists('items', $data)) {
+            foreach ($data['items'] as $i => $item) {
+                if (!empty($item['service_id']) && !Service::query()->whereKey($item['service_id'])->where('agency_id', $agencyId)->exists()) {
+                    $data['items'][$i]['service_id'] = null;
+                }
+            }
+        }
+
+        if (array_key_exists('recommendations', $data)) {
+            foreach ($data['recommendations'] as $i => $reco) {
+                $data['recommendations'][$i]['client_team_role_id'] = $this->resolveRole(
+                    $reco['client_team_role_id'] ?? null,
+                    $data['department_id'],
+                );
+            }
+        }
+
+        return $data;
+    }
+
+    /** Département de l'agence cible : celui d'origine s'il lui appartient, sinon le département « agency » de l'agence. */
+    private function resolveDepartment(?string $departmentId, string $agencyId): ?string
+    {
+        if ($departmentId !== null) {
+            $department = Department::query()->find($departmentId);
+
+            if ($department !== null && $department->agency_id === $agencyId) {
+                return $department->id;
+            }
+        }
+
+        return Department::query()
+            ->where('agency_id', $agencyId)
+            ->where('type', Department::TYPE_AGENCY)
+            ->orderBy('created_at')
+            ->value('id');
+    }
+
+    /** Catégorie réutilisée si elle vit dans le département cible, sinon trouvée/créée par nom dans ce département. */
+    private function resolveCategory(?string $categoryId, ?string $departmentId): ?string
+    {
+        if ($categoryId === null) {
+            return null;
+        }
+
+        $category = AgencyCategory::query()->find($categoryId);
+
+        if ($category === null) {
+            return null;
+        }
+
+        // Catégorie globale (sans département) : valable partout.
+        if ($category->department_id === null || $category->department_id === $departmentId) {
+            return $category->id;
+        }
+
+        if ($departmentId === null) {
+            return null;
+        }
+
+        $existing = AgencyCategory::query()
+            ->where('department_id', $departmentId)
+            ->where('kind', $category->kind)
+            ->where('name', $category->name)
+            ->first();
+
+        if ($existing !== null) {
+            return $existing->id;
+        }
+
+        return AgencyCategory::create([
+            'department_id' => $departmentId,
+            'kind' => $category->kind,
+            'name' => $category->name,
+            'description' => $category->description,
+            'color' => $category->color,
+            'icon' => $category->icon,
+            'is_active' => $category->is_active,
+            'sort_order' => $category->sort_order,
+        ])->id;
+    }
+
+    /** Rôle d'équipe client : réutilisé s'il appartient au département cible, sinon trouvé/créé par nom. */
+    private function resolveRole(?string $roleId, ?string $departmentId): ?string
+    {
+        if ($roleId === null) {
+            return null;
+        }
+
+        $role = ClientTeamRole::query()->find($roleId);
+
+        if ($role === null) {
+            return null;
+        }
+
+        if ($role->department_id === null || $role->department_id === $departmentId) {
+            return $role->id;
+        }
+
+        if ($departmentId === null) {
+            return null;
+        }
+
+        $existing = ClientTeamRole::query()
+            ->where('department_id', $departmentId)
+            ->where('name', $role->name)
+            ->first();
+
+        if ($existing !== null) {
+            return $existing->id;
+        }
+
+        return ClientTeamRole::create([
+            'department_id' => $departmentId,
+            'name' => $role->name,
+            'description' => $role->description,
+            'color' => $role->color,
+            'is_active' => $role->is_active,
+        ])->id;
     }
 
     private function syncChildren(SubscriptionPack $package, array $data): void

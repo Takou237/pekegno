@@ -14,6 +14,8 @@ import type {
   Prestation,
   PrestationAction,
   PrestationActionExecution,
+  PrestationOffer,
+  PrestationOfferPayload,
   PrestationPayload,
   RatingSummary,
   Review,
@@ -34,7 +36,7 @@ const del = (url: string) => client.delete(url).then(() => undefined);
 /** API du département Agency (backend : app/Http/Controllers/Api/Agency). */
 export const agencyDeptApi = {
   // Catégories (D2)
-  categories: (params: { kind?: AgencyCategoryKind; department_id?: string }) =>
+  categories: (params: { kind?: AgencyCategoryKind; department_id?: string; agency_id?: string; country_id?: string }) =>
     get<{ data: AgencyCategory[] }>('/agency-categories', params).then((r) => r.data),
   createCategory: (payload: Partial<AgencyCategory>) => post<AgencyCategory>('/agency-categories', payload),
   updateCategory: (id: string, payload: Partial<AgencyCategory>) => put<AgencyCategory>(`/agency-categories/${id}`, payload),
@@ -51,6 +53,13 @@ export const agencyDeptApi = {
   deletePromotion: (id: string, promotionId: string) => del(`/packages/${id}/promotions/${promotionId}`),
   subscribe: (id: string, payload: SubscribePayload) =>
     post<{ contract: { id: string; number: string }; prestation: Prestation; invoice: { id: string; number: string } }>(`/packages/${id}/subscribe`, payload),
+
+  // Offres de prestation (le « produit » à souscrire) → /prestation-offers
+  offers: (params: Params) => get<LaravelPage<PrestationOffer>>('/prestation-offers', params),
+  offer: (id: string) => get<PrestationOffer>(`/prestation-offers/${id}`),
+  createOffer: (payload: PrestationOfferPayload) => post<PrestationOffer>('/prestation-offers', payload),
+  updateOffer: (id: string, payload: PrestationOfferPayload) => put<PrestationOffer>(`/prestation-offers/${id}`, payload),
+  deleteOffer: (id: string) => del(`/prestation-offers/${id}`),
 
   // Prestations
   prestations: (params: Params) => get<LaravelPage<Prestation>>('/prestations', params),

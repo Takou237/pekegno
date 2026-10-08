@@ -19,6 +19,10 @@ class AgencyCategoryController extends Controller
         $categories = AgencyCategory::query()
             ->when($request->kind, fn ($q, $kind) => $q->where('kind', $kind))
             ->when($request->department_id, fn ($q, $id) => $q->where(fn ($w) => $w->where('department_id', $id)->orWhereNull('department_id')))
+            // Filtres « vue pays / vue agence » (catalogue Agency) : les catégories
+            // globales (sans département) restent visibles partout.
+            ->when($request->agency_id, fn ($q, $id) => $q->where(fn ($w) => $w->whereHas('department', fn ($d) => $d->where('agency_id', $id))->orWhereNull('department_id')))
+            ->when($request->country_id, fn ($q, $id) => $q->where(fn ($w) => $w->whereHas('department', fn ($d) => $d->whereHas('agency', fn ($a) => $a->where('country_id', $id)))->orWhereNull('department_id')))
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->withCount(['packages', 'prestations'])
             ->orderBy('sort_order')

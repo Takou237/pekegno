@@ -1,46 +1,70 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Search } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgencyDept } from '@/hooks/useAgencyDept';
 import { formatCurrency } from '@/utils/number';
-import { canCreatePrestation } from '@/utils/agencyDeptPermissions';
+import { canCreatePrestation, canEditPrestation } from '@/utils/agencyDeptPermissions';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
-import { SkeletonTable } from '@/components/ui/Skeleton';
+import { SkeletonDetail, SkeletonTable } from '@/components/ui/Skeleton';
 import { PrestationStatusBadge } from '@/components/agencyDept/AgencyBadges';
 import { Stars } from '@/components/agencyDept/StarRating';
-import { PrestationTabs } from '@/components/agencyDept/PrestationTabs';
 import { PrestationFormModal } from '@/components/agencyDept/PrestationFormModal';
-import { PRESTATION_STATUSES, personName, type LaravelPage, type Prestation } from '@/types/agencyDepartment';
+import { OfferFormModal } from '@/components/agencyDept/OfferFormModal';
+import { PRESTATION_STATUSES, personName, type LaravelPage, type Prestation, type PrestationOffer } from '@/types/agencyDepartment';
 
-/** Liste des prestations Agency (§6.4). */
-export default function PrestationListPage() {
+/**
+ * Niveau 2 des prestations : les souscriptions clients d'une offre, puis le
+ * clic sur une ligne mène au détail (niveau 3).
+ */
+export default function PrestationOfferSubscriptionsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { departmentId, agencyId, basePath } = useAgencyDept();
+  const { offerId } = useParams<{ offerId: string }>();
 
+  const [offer, setOffer] = useState<PrestationOffer | null>(null);
   const [result, setResult] = useState<LaravelPage<Prestation> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editOfferOpen, setEditOfferOpen] = useState(false);
+
+  const loadOffer = useCallback(() => {
+    if (!offerId) return;
+    agencyDeptApi
+      .offer(offerId)
+      .then(setOffer)
+      .catch((e) => setError(extractErrorMessage(e, t('common.error'))));
+  }, [offerId, t]);
 
   const load = useCallback(() => {
-    if (!departmentId) return;
+    if (!offerId) return;
     agencyDeptApi
-      .prestations({ department_id: departmentId, search: search || undefined, status: status || undefined, page, per_page: 15 })
+      .prestations({
+        offer_id: offerId,
+        search: search || undefined,
+        status: status || undefined,
+        page,
+        per_page: 15,
+      })
       .then(setResult)
       .catch((e) => setError(extractErrorMessage(e, t('common.error'))));
-  }, [departmentId, search, status, page, t]);
+  }, [offerId, search, status, page, t]);
+
+  useEffect(() => {
+    loadOffer();
+  }, [loadOffer]);
 
   useEffect(() => {
     const timer = setTimeout(load, 250);
@@ -49,17 +73,36 @@ export default function PrestationListPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.prestations')}</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.prestations.subtitle')}</p>
-        </div>
-        {canCreatePrestation(user) && (
-          <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /> {t('agencyDept.prestations.new')}</Button>
-        )}
-      </div>
+      <Link to={`${basePath}/prestations`} className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline dark:text-brand-400">
+        <ArrowLeft className="h-4 w-4" /> {t('agencyDept.offers.title')}
+      </Link>
 
-      <PrestationTabs />
+      {!offer ? (
+        <SkeletonDetail />
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{offer.name}</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {t('agencyDept.offers.subscriptionsHint')}
+              {offer.category ? ` · ${offer.category.name}` : ''}
+              {offer.description ? ` · ${offer.description}` : ''}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {canEditPrestation(user) && (
+              <Button variant="outline" onClick={() => setEditOfferOpen(true)}>
+                <Pencil className="h-4 w-4" /> {t('common.edit')}
+              </Button>
+            )}
+            {canCreatePrestation(user) && (
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4" /> {t('agencyDept.prestations.newSubscription')}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <div className="relative min-w-60 flex-1">
@@ -97,13 +140,14 @@ export default function PrestationListPage() {
                 {result.data.map((p) => {
                   const budget = Number(p.budget);
                   const pct = budget > 0 ? Math.min(100, (p.budget_allocated / budget) * 100) : 0;
+                  const to = `${basePath}/prestations/${offerId}/subscriptions/${p.id}`;
                   return (
-                    <tr key={p.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => navigate(`${basePath}/prestations/${p.id}`)}>
+                    <tr key={p.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => navigate(to)}>
                       <td className="px-4 py-3">
-                        <Link to={`${basePath}/prestations/${p.id}`} className="font-medium text-gray-900 hover:underline dark:text-white" onClick={(e) => e.stopPropagation()}>
+                        <Link to={to} className="font-medium text-gray-900 hover:underline dark:text-white" onClick={(e) => e.stopPropagation()}>
                           {p.name}
                         </Link>
-                        <p className="text-xs text-gray-400">{p.reference}{p.category ? ` · ${p.category.name}` : ''}{p.package ? ` · ${p.package.name}` : ''}</p>
+                        <p className="text-xs text-gray-400">{p.reference}{p.category ? ` · ${p.category.name}` : ''}</p>
                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{personName(p.client)}</td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{personName(p.commercial)}</td>
@@ -133,13 +177,25 @@ export default function PrestationListPage() {
 
       <PrestationFormModal
         isOpen={createOpen}
+        offer={offer}
+        agencyId={agencyId ?? offer?.agency_id}
+        departmentId={departmentId ?? offer?.department_id ?? undefined}
         onClose={() => setCreateOpen(false)}
-        agencyId={agencyId}
-        departmentId={departmentId}
         onSaved={(p) => {
           setCreateOpen(false);
-          navigate(`${basePath}/prestations/${p.id}`);
+          setPage(1);
+          load();
+          navigate(`${basePath}/prestations/${offerId}/subscriptions/${p.id}`);
         }}
+      />
+
+      <OfferFormModal
+        isOpen={editOfferOpen}
+        offer={offer}
+        agencyId={agencyId}
+        departmentId={departmentId}
+        onClose={() => setEditOfferOpen(false)}
+        onSaved={(o) => { setOffer(o); load(); }}
       />
     </div>
   );

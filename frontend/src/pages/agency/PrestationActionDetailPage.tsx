@@ -465,7 +465,7 @@ export default function PrestationActionDetailPage() {
           <div className="flex flex-col gap-1 rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
             <span className="text-xs text-gray-400 uppercase font-medium">Fréquence & Rythme</span>
             <p className="text-base font-semibold text-gray-900 dark:text-white">
-              {action.quantity} {action.unit ?? ''} {t(`agencyDept.frequency.${action.frequency}`)}
+              {action.quantity} × {t(`agencyDept.frequency.${action.frequency}`)}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {weeks.length} {action.frequency === 'per_month' ? 'mois' : 'semaines'} au total
@@ -1021,18 +1021,13 @@ export default function PrestationActionDetailPage() {
               onChange={(e) => setActionForm({ ...actionForm, platform: e.target.value })}
             />
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Input
                 label={t('agencyDept.quantity')}
                 type="number"
                 min={1}
                 value={actionForm.quantity ?? 1}
                 onChange={(e) => setActionForm({ ...actionForm, quantity: Number(e.target.value) })}
-              />
-              <Input
-                label={t('agencyDept.unit')}
-                value={actionForm.unit ?? ''}
-                onChange={(e) => setActionForm({ ...actionForm, unit: e.target.value })}
               />
               <Select
                 label={t('agencyDept.actions.frequency')}

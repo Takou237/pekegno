@@ -16,7 +16,6 @@ import { Pagination } from '@/components/ui/Pagination';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { PrestationStatusBadge } from '@/components/agencyDept/AgencyBadges';
 import { Stars } from '@/components/agencyDept/StarRating';
-import { PrestationTabs } from '@/components/agencyDept/PrestationTabs';
 import { ReasonModal } from '@/components/agencyDept/ReasonModal';
 import {
   PRESTATION_STATUSES,
@@ -122,7 +121,6 @@ export default function PrestationTrackingPage() {
         <Button variant="outline" onClick={exportCsv}><Download className="h-4 w-4" /> {t('common.export')}</Button>
       </div>
 
-      <PrestationTabs />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="relative lg:col-span-2">

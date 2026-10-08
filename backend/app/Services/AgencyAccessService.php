@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Commercial;
 use App\Models\Prestation;
+use App\Models\PrestationOffer;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -38,6 +39,30 @@ class AgencyAccessService
     public function canAccess(?User $user, Prestation $prestation): bool
     {
         return $this->scopePrestations(Prestation::query()->whereKey($prestation->id), $user)->exists();
+    }
+
+    /**
+     * Périmètre des offres de prestation : catalogue visible par tous les
+     * rôles de l'agence (un commercial doit pouvoir souscrire une offre).
+     */
+    public function scopeOffers(Builder $query, ?User $user): Builder
+    {
+        $agencyIds = $this->scope->agencyIds($user);
+
+        if ($agencyIds !== null) {
+            $query->whereIn('prestation_offers.agency_id', $agencyIds);
+        }
+
+        return $query;
+    }
+
+    public function canAccessOffer(?User $user, ?string $offerId): bool
+    {
+        if ($offerId === null) {
+            return false;
+        }
+
+        return $this->scopeOffers(PrestationOffer::query()->whereKey($offerId), $user)->exists();
     }
 
     public function authorize(?User $user, Prestation $prestation): void

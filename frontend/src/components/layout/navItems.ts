@@ -207,7 +207,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavIte
         { to: 'prospects', label: t('nav.prospects'), icon: Users, end: false },
         { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
         { to: 'packages', label: t('nav.packages'), icon: Package, end: false },
-        // « Suivi des prestations » est un onglet de la page Prestations.
+        // Onglet « Suivi des prestations » retiré : la page Prestations suffit (route /prestations/tracking encore accessible).
         { to: 'prestations', label: t('nav.prestations'), icon: Briefcase, end: false },
         { to: 'client-team', label: t('nav.clientTeam'), icon: UserCheck, end: false },
         { to: 'contracts', label: t('nav.contracts'), icon: FileText, end: false },

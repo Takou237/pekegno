@@ -14,6 +14,7 @@ use App\Models\Department;
 use App\Models\Invoice;
 use App\Models\Prestation;
 use App\Models\PrestationAction;
+use App\Models\PrestationOffer;
 use App\Models\Role;
 use App\Models\Subscription;
 use App\Models\SubscriptionPack;
@@ -44,6 +45,8 @@ class AgencyDepartmentTest extends TestCase
 
     private Department $department;
 
+    private PrestationOffer $offer;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -59,6 +62,11 @@ class AgencyDepartmentTest extends TestCase
         $this->department = Department::factory()->create([
             'agency_id' => $this->agency->id,
             'type' => Department::TYPE_AGENCY,
+        ]);
+        $this->offer = PrestationOffer::create([
+            'agency_id' => $this->agency->id,
+            'department_id' => $this->department->id,
+            'name' => 'Campagne Facebook',
         ]);
     }
 
@@ -141,6 +149,7 @@ class AgencyDepartmentTest extends TestCase
     {
         return $this->postJson('/api/prestations', array_merge([
             'agency_id' => $this->agency->id,
+            'offer_id' => $this->offer->id,
             'department_id' => $this->department->id,
             'name' => 'Lancement réseaux sociaux',
             'client_id' => $client->id,
