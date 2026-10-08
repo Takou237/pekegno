@@ -320,6 +320,30 @@ class ContractService
         return $newContract;
     }
 
+    /**
+     * Une facture d'abonnement (package) annulée/rejetée avant l'activation
+     * invalide la souscription : on résilie le contrat encore en attente et sa
+     * prestation liée pour que le client puisse souscrire de nouveau au package.
+     */
+    public function cancelPendingForInvoice(Invoice $invoice, string $reason): void
+    {
+        if (! $invoice->contract_id) {
+            return;
+        }
+
+        $contract = Contract::find($invoice->contract_id);
+
+        if (! $contract || ! in_array($contract->status, [Contract::STATUS_PENDING, Contract::STATUS_DRAFT], true)) {
+            return;
+        }
+
+        $this->terminate($contract, $reason);
+
+        if ($contract->prestation_id) {
+            Prestation::whereKey($contract->prestation_id)->update(['status' => Prestation::STATUS_CANCELLED]);
+        }
+    }
+
     public function terminate(Contract $contract, string $reason): Contract
     {
         $oldStatus = $contract->status;

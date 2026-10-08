@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\Client\ClientInvoiceController;
 use App\Http\Controllers\Api\Client\ClientLearnerController;
 use App\Http\Controllers\Api\Client\ClientLearnerObservationController;
 use App\Http\Controllers\Api\Client\ClientOrderController;
+use App\Http\Controllers\Api\Client\ClientPackageSubscriptionController;
 use App\Http\Controllers\Api\Client\ClientPrestationController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CommercialController;
@@ -96,6 +97,8 @@ Route::prefix('public')->group(function () {
     Route::get('/products/{product}', [PublicCatalogController::class, 'product']);
     Route::get('/courses', [PublicCatalogController::class, 'courses']);
     Route::get('/courses/{course}', [PublicCatalogController::class, 'course']);
+    Route::get('/packages', [PublicCatalogController::class, 'packages']);
+    Route::get('/packages/{package}', [PublicCatalogController::class, 'package']);
     Route::get('/agencies/{agency}/payment-methods', [PublicCatalogController::class, 'agencyPaymentMethods']);
 });
 
@@ -132,8 +135,9 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::get('/client/invoices', [ClientInvoiceController::class, 'index']);
     Route::get('/client/invoices/{invoice}', [ClientInvoiceController::class, 'show']);
     Route::post('/client/invoices/{invoice}/payment-proof', [ClientInvoiceController::class, 'uploadProof']);
-    Route::get('/client/invoices/{invoice}/receipt', [ClientInvoiceController::class, 'receipt']);
-    Route::delete('/client/invoices/{invoice}', [ClientInvoiceController::class, 'destroy']);
+        Route::get('/client/invoices/{invoice}/receipt', [ClientInvoiceController::class, 'receipt']);
+        Route::delete('/client/invoices/{invoice}', [ClientInvoiceController::class, 'destroy']);
+        Route::post('/client/packages/{package}/subscribe', ClientPackageSubscriptionController::class);
     Route::get('/client/enrollments', [ClientEnrollmentController::class, 'index']);
     Route::post('/client/enrollments', [ClientEnrollmentController::class, 'store']);
     Route::get('/client/learner-profile', [ClientLearnerController::class, 'show']);
@@ -142,6 +146,7 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::get('/client/prestations', [ClientPrestationController::class, 'index']);
     Route::get('/client/prestations/{prestation}', [ClientPrestationController::class, 'show']);
     Route::get('/client/prestations/{prestation}/actions', [ClientPrestationController::class, 'actions']);
+    Route::put('/client/prestations/{prestation}/review', [ClientPrestationController::class, 'reviewPrestation']);
     Route::put('/client/prestation-actions/{action}/review', [ClientPrestationController::class, 'review']);
     Route::get('/client/notifications', [AgencyNotificationController::class, 'index']);
     Route::post('/client/notifications/read-all', [AgencyNotificationController::class, 'markAllRead']);

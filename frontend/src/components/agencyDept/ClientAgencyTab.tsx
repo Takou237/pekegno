@@ -31,7 +31,10 @@ export function ClientAgencyTab({ clientId, departmentId, basePath }: { clientId
       </Block>
       <Block title={t('nav.prestations')}>
         {prestations.length === 0 ? <Empty /> : prestations.map((p) => (
-          <Row key={p.id} to={`${basePath}/prestations/${p.id}`} left={p.name} right={<PrestationStatusBadge status={p.status} />} sub={p.rating_avg ? <Stars value={Number(p.rating_avg)} size="h-3 w-3" /> : formatCurrency(p.budget)} />
+          <Row key={p.id} to={`${basePath}/prestations/${p.id}`} left={p.name} right={<PrestationStatusBadge status={p.status} />} sub={(() => {
+            const rating = p.display_rating_avg ?? Number(p.rating_avg || 0);
+            return rating ? <Stars value={rating} size="h-3 w-3" /> : formatCurrency(p.budget);
+          })()} />
         ))}
       </Block>
       <Block title={t('nav.contracts')}>

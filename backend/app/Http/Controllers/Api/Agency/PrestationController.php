@@ -82,7 +82,7 @@ class PrestationController extends Controller
             foreach ($rows as $r) {
                 fwrite($out, $line([
                     $r['reference'], $r['name'], $r['client'], $r['category'], $r['commercial'],
-                    $r['start_date'], $r['end_date'], $r['rating_avg'], $r['rating_count'], $r['status'], $r['status_reason'],
+                    $r['start_date'], $r['end_date'], $r['display_rating_avg'], $r['display_rating_count'], $r['status'], $r['status_reason'],
                 ]));
             }
             fclose($out);
@@ -180,7 +180,28 @@ class PrestationController extends Controller
     {
         $this->access->authorize($request->user(), $prestation);
 
-        return response()->json($this->prestations->submit($prestation));
+        $data = $request->validate([
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
+            'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
+            'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
+            'proof' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
+        ]);
+
+        // Une preuve photo est exigée dès qu'un montant est déclaré (encaissement réel).
+        if (($data['amount_paid'] ?? 0) > 0 && ! $request->hasFile('proof')) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'proof' => 'Une preuve de paiement est obligatoire pour déclarer un montant encaissé.',
+            ]);
+        }
+
+        $prestation = $this->prestations->submit(
+            $prestation,
+            $data,
+            $request->file('proof'),
+            $request->user(),
+        );
+
+        return response()->json($prestation->load(self::LIST_RELATIONS));
     }
 
     /** D9 : chef d'agence (son périmètre) ou direction — permission prestations.valider. */
@@ -292,6 +313,9 @@ class PrestationController extends Controller
             'end_date' => $p->end_date?->toDateString(),
             'rating_avg' => $p->rating_avg !== null ? (float) $p->rating_avg : null,
             'rating_count' => $p->rating_count,
+            'display_rating_avg' => $p->display_rating_avg,
+            'display_rating_count' => $p->display_rating_count,
+            'has_direct_rating' => $p->hasDirectRating(),
             'status' => $p->status,
             'status_reason' => $p->status_reason,
             'allowed_transitions' => Prestation::TRANSITIONS[$p->status] ?? [],

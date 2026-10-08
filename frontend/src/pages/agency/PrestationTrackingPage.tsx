@@ -169,12 +169,18 @@ export default function PrestationTrackingPage() {
                         <p className="text-xs text-gray-400">{row.reference} · {row.client ?? '—'} · {row.start_date} → {row.end_date}</p>
                       </td>
                       <td className="px-4 py-3">
-                        {row.rating_avg != null ? (
-                          <span className="inline-flex items-center gap-2">
-                            <Stars value={row.rating_avg} size="h-3.5 w-3.5" />
-                            <span className="text-xs text-gray-500">{row.rating_avg.toFixed(1)} ({row.rating_count})</span>
-                          </span>
-                        ) : <span className="text-xs text-gray-400">{t('agencyDept.reviews.none')}</span>}
+                        {(() => {
+                          const rating = row.display_rating_avg ?? row.rating_avg;
+                          return rating != null ? (
+                            <span className="inline-flex items-center gap-2">
+                              <Stars value={Number(rating)} size="h-3.5 w-3.5" />
+                              <span className="text-xs text-gray-500">
+                                {Number(rating).toFixed(1)} ({row.display_rating_count ?? row.rating_count})
+                                {row.has_direct_rating && <span className="ml-1 text-brand-600" title={t('agencyDept.tracking.directRating')}>★</span>}
+                              </span>
+                            </span>
+                          ) : <span className="text-xs text-gray-400">{t('agencyDept.reviews.none')}</span>;
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">

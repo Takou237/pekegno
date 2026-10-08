@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play, Tag, ShoppingCart } from 'lucide-react';
+import { agencyDeptApi } from '@/api/agencyDepartment.api';
+import type { AgencyPackage } from '@/types/agencyDepartment';
+import { PackageSubscribeModal } from '@/components/packages/PackageSubscribeModal';
+import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
+import { canSubscribePackage } from '@/utils/agencyDeptPermissions';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { categoriesApi } from '@/api/categories.api';
@@ -48,7 +53,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const { showToast } = useToast();
   const { countryId } = useParams<{ countryId?: string }>();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState<CatalogTab>('services');
+  const [tab, setTab] = useState<'services' | 'formations' | 'packages'>('services');
 
   const isCommercial = user?.role?.name === 'commercial';
   const isCaissier = user?.role?.name === 'caissier';
@@ -75,6 +80,9 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const effectiveAgencyId = agencyId || ownAgencyId || undefined;
   const effectiveShowAcademyTabs =
     showAcademyTabs || Boolean(countryId) || ((isCommercial || isCaissier) && Boolean(effectiveAgencyId));
+
+  // C4 : onglet Packages réservé aux rôles autorisés à vendre/souscrire.
+  const showPackagesTab = canSubscribePackage(user);
 
   const servicesBase = agencyId
     ? countryId
@@ -113,6 +121,35 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [promoService, setPromoService] = useState<Service | null>(null);
   const [promoEditing, setPromoEditing] = useState<Promotion | null>(null);
   const [quickSaleOpen, setQuickSaleOpen] = useState(false);
+  const [packages, setPackages] = useState<AgencyPackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [packagesError, setPackagesError] = useState<string | null>(null);
+  const [subscribeTarget, setSubscribeTarget] = useState<AgencyPackage | null>(null);
+
+  const canSubscribe = canSubscribePackage(user) && !agencyId;
+
+  const fetchPackages = useCallback(async () => {
+    setPackagesLoading(true);
+    setPackagesError(null);
+    try {
+      // is_public concerne le portail client (PC1) : le catalogue staff affiche tous
+      // les packages actifs du périmètre (agence de l'utilisateur quand elle est connue).
+      const rows = await agencyDeptApi.packages({
+        is_active: true,
+        agency_id: effectiveAgencyId || undefined,
+      });
+      setPackages(rows);
+    } catch (error) {
+      setPackagesError(extractErrorMessage(error, t('services.loadFailed')));
+    } finally {
+      setPackagesLoading(false);
+    }
+  }, [effectiveAgencyId]);
+
+  useEffect(() => {
+    if (tab !== 'packages') return;
+    fetchPackages();
+  }, [tab, fetchPackages]);
   const canPromoteService = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     user?.role?.name ?? ''
   );
@@ -276,16 +313,103 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     return null;
   };
 
-  if (effectiveShowAcademyTabs && tab === 'formations') {
+  if (tab === 'packages') {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.academy')}</h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('academy.title')}</p>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.packages')}</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.packages.subscribeHint')}</p>
           </div>
         </div>
-        <CatalogTabs tab={tab} onChange={setTab} />
+        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={() => setTab('services')}
+            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            {t('nav.services')}
+          </button>
+          {effectiveShowAcademyTabs && (
+            <button
+              type="button"
+              onClick={() => setTab('formations')}
+              className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+            >
+              {t('nav.academy')}
+            </button>
+          )}
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 border-b-2 border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 transition-colors dark:text-brand-400"
+          >
+            {t('nav.packages')}
+          </button>
+        </div>
+        {packagesLoading ? (
+          <SkeletonCards />
+        ) : packagesError ? (
+          <p className="text-sm text-error-500">{packagesError}</p>
+        ) : packages.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.packages.empty')}</p>
+        ) : (
+          groupPackagesByCategory(packages, t('agencyDept.packages.uncategorized')).map((group) => (
+            <section key={group.name} className="flex flex-col gap-3">
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <Tag className="h-4 w-4" /> {group.name}
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {group.items.map((pkg) => (
+                  <PackageCard
+                    key={pkg.id}
+                    pkg={pkg}
+                    canManage={false}
+                    canSubscribe={canSubscribe && pkg.is_active}
+                    showAgency={!effectiveAgencyId}
+                    onSubscribe={() => setSubscribeTarget(pkg)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        )}
+        {subscribeTarget && (
+          <PackageSubscribeModal
+            pkg={subscribeTarget}
+            departmentId={undefined}
+            onClose={() => setSubscribeTarget(null)}
+            onDone={() => { setSubscribeTarget(null); fetchPackages(); }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (tab === 'packages') {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.packages')}</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.packages.subscribeHint')}</p>
+          </div>
+        </div>
+        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={() => setTab('services')}
+            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            {t('nav.services')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('formations')}
+            className="inline-flex items-center gap-2 border-b-2 border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 transition-colors dark:text-brand-400"
+          >
+            {t('nav.academy')}
+          </button>
+        </div>
         <AgencyAcademyFormations agencyId={effectiveAgencyId} countryId={countryId} />
       </div>
     );
@@ -347,7 +471,43 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         </div>
       </div>
 
-      {effectiveShowAcademyTabs && <CatalogTabs tab={tab} onChange={setTab} />}
+      {(effectiveShowAcademyTabs || showPackagesTab) && (
+        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={() => setTab('services')}
+            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              tab === 'services'
+                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            {t('nav.services')}
+          </button>
+          {effectiveShowAcademyTabs && (
+            <button
+              type="button"
+              onClick={() => setTab('formations')}
+              className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                tab === 'formations'
+                  ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              {t('nav.academy')}
+            </button>
+          )}
+          {showPackagesTab && (
+            <button
+              type="button"
+              onClick={() => setTab('packages')}
+              className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+            >
+              {t('nav.packages')}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 lg:flex-row lg:items-end">
         <div className="flex-1">

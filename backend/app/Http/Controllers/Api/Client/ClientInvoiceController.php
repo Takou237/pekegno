@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
 use App\Services\ActivityLogger;
+use App\Services\ContractService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ClientInvoiceController extends Controller
 {
-    public function __construct(private readonly ActivityLogger $logger) {}
+    public function __construct(
+        private readonly ActivityLogger $logger,
+        private readonly ContractService $contracts,
+    ) {}
 
     #[OA\Get(
         path: '/api/client/invoices',
@@ -159,6 +163,10 @@ class ClientInvoiceController extends Controller
         abort_if($invoice->validation_status !== Invoice::VALIDATION_REJECTED, 422, 'Seule une facture rejetée peut être supprimée.');
 
         $number = $invoice->number;
+
+        // Facture de souscription rejetée puis supprimée par le client : on résilie
+        // le contrat en attente pour qu'il puisse souscrire de nouveau au package.
+        $this->contracts->cancelPendingForInvoice($invoice, "Facture {$number} supprimée par le client");
 
         $invoice->paymentProofs()->delete();
         $invoice->payments()->delete();

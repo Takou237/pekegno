@@ -81,8 +81,10 @@ export default function PrestationsPage() {
                     {p.package ? ` · ${p.package.name}` : ''}
                   </p>
                   <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-                    <Stars value={Math.round(p.rating_avg ?? 0)} size={14} />
-                    {p.rating_avg != null ? `${p.rating_avg.toFixed(1)} · ${t('agency.reviews', { count: p.rating_count })}` : t('agency.notRated')}
+                    <Stars value={Math.round(p.display_rating_avg ?? 0)} size={14} />
+                    {p.display_rating_avg != null
+                      ? `${Number(p.display_rating_avg).toFixed(1)} · ${t('agency.reviews', { count: p.display_rating_count })}`
+                      : t('agency.notRated')}
                   </div>
                 </div>
                 {openId === p.id ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
@@ -112,12 +114,66 @@ function PrestationActions({ prestationId, onRated }: { prestationId: string; on
 
   return (
     <div className="border-t border-gray-100 px-5 py-4">
-      {!detail.can_rate && <p className="mb-3 text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{t('agency.rateLater')}</p>}
+      <PrestationRating prestation={detail} onSaved={() => { load(); onRated(); }} />
+      {!detail.can_rate && <p className="mt-3 mb-3 text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{t('agency.rateLater')}</p>}
       <ul className="divide-y divide-gray-100">
         {(detail.actions ?? []).map((a) => (
           <ActionRow key={a.id} action={a} onSaved={() => { load(); onRated(); }} />
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * N4/D23 : note globale directe du client sur la prestation. Elle prime sur
+ * la moyenne des notes d'actions dans tout l'affichage.
+ */
+function PrestationRating({ prestation, onSaved }: { prestation: ClientPrestation; onSaved: () => void }) {
+  const { t } = useTranslation();
+  const [rating, setRating] = useState(prestation.client_direct_rating ?? 0);
+  const [comment, setComment] = useState(prestation.client_direct_comment ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const dirty = rating !== (prestation.client_direct_rating ?? 0) || comment !== (prestation.client_direct_comment ?? '');
+
+  if (!prestation.can_rate) return null;
+
+  async function save() {
+    if (!rating) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await agencyApi.ratePrestation(prestation.id, rating, comment);
+      onSaved();
+    } catch {
+      setError(t('agency.rateError'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mb-3 rounded-lg bg-brand-50/60 border border-brand-100 px-3 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-medium text-gray-800">{t('agency.ratePrestation')}</p>
+        <Stars value={rating} onChange={setRating} size={20} />
+      </div>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        <input
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder={t('agency.commentPlaceholder')}
+          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
+        <Button size="sm" onClick={save} isLoading={saving} disabled={!rating || !dirty}>
+          {prestation.client_direct_rating != null ? t('agency.updateRating') : t('agency.rate')}
+        </Button>
+      </div>
+      {prestation.client_direct_rated_at && (
+        <p className="mt-1 text-xs text-gray-500">{t('agency.ratedOn', { date: formatDate(prestation.client_direct_rated_at) })}</p>
+      )}
+      {error && <p className="mt-1 text-xs text-error-600">{error}</p>}
     </div>
   );
 }

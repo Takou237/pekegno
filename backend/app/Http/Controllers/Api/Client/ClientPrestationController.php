@@ -12,7 +12,8 @@ use Illuminate\Http\Request;
 
 /**
  * Portail client — « Mes prestations » Agency et notation 5★ par action
- * (D5 client uniquement, D11 une note par action modifiable, D12 en cours / terminée).
+ * (D5 client uniquement, D11 une note par action modifiable, D12 en cours / terminée)
+ * et note globale directe sur la prestation (N1-N3, D23).
  */
 class ClientPrestationController extends Controller
 {
@@ -81,6 +82,47 @@ class ClientPrestationController extends Controller
         ]);
     }
 
+    /**
+     * N3 (D23) : note globale directe du client sur la prestation.
+     * Écrase/ajoute la note du client ; prioritaire sur la moyenne des
+     * notes d'actions pour l'affichage (`display_rating_*`).
+     */
+    public function reviewPrestation(Request $request, Prestation $prestation): JsonResponse
+    {
+        $this->authorizeClient($request, $prestation);
+
+        abort_unless($prestation->isRateable(), 422, 'La prestation doit être en cours ou terminée pour être notée.');
+
+        $data = $request->validate([
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $existingRating = $prestation->client_direct_rating;
+
+        $prestation->update([
+            'client_direct_rating' => (int) $data['rating'],
+            'client_direct_comment' => $data['comment'] ?? null,
+            'client_direct_rated_at' => now(),
+            'client_direct_rated_by' => $request->user()->id,
+        ]);
+
+        $this->reviews->logPrestationRating($prestation, $request->user(), $existingRating, (int) $data['rating']);
+
+        return response()->json([
+            'review' => [
+                'rating' => $prestation->client_direct_rating,
+                'comment' => $prestation->client_direct_comment,
+                'updated_at' => $prestation->client_direct_rated_at,
+            ],
+            'rating_summary' => $this->reviews->summaryForPrestation($prestation),
+            'display_rating' => [
+                'avg' => $prestation->display_rating_avg,
+                'count' => $prestation->display_rating_count,
+            ],
+        ]);
+    }
+
     private function authorizeClient(Request $request, Prestation $prestation): void
     {
         abort_unless(
@@ -131,6 +173,11 @@ class ClientPrestationController extends Controller
             'contract' => $p->contract?->only('id', 'number', 'status'),
             'rating_avg' => $p->rating_avg !== null ? (float) $p->rating_avg : null,
             'rating_count' => $p->rating_count,
+            'client_direct_rating' => $p->client_direct_rating,
+            'client_direct_comment' => $p->client_direct_comment,
+            'client_direct_rated_at' => $p->client_direct_rated_at?->toIso8601String(),
+            'display_rating_avg' => $p->display_rating_avg,
+            'display_rating_count' => $p->display_rating_count,
             'can_rate' => $p->isRateable(),
             'actions_count' => $p->actions_count ?? null,
         ];

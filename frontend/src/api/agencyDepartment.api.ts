@@ -51,8 +51,27 @@ export const agencyDeptApi = {
   addPromotion: (id: string, payload: { type: 'amount' | 'percent'; promo_price?: number; discount_percent?: number; start_date: string; end_date: string }) =>
     post(`/packages/${id}/promotions`, payload),
   deletePromotion: (id: string, promotionId: string) => del(`/packages/${id}/promotions/${promotionId}`),
-  subscribe: (id: string, payload: SubscribePayload) =>
-    post<{ contract: { id: string; number: string }; prestation: Prestation; invoice: { id: string; number: string } }>(`/packages/${id}/subscribe`, payload),
+  subscribe: (id: string, payload: SubscribePayload) => {
+    // Multipart : la preuve de paiement est une photo jointe à la souscription.
+    const formData = new FormData();
+    const append = (key: string, value: unknown) => {
+      if (value === undefined || value === null || value === '') return;
+      formData.append(key, String(value));
+    };
+    append('client_id', payload.client_id);
+    append('commercial_id', payload.commercial_id);
+    append('department_id', payload.department_id);
+    append('start_date', payload.start_date);
+    append('periods', payload.periods);
+    append('auto_renew', payload.auto_renew === undefined ? undefined : payload.auto_renew ? '1' : '0');
+    append('advance', payload.advance);
+    append('payment_type', payload.payment_type);
+    if (payload.proof_file) formData.append('proof_file', payload.proof_file);
+    return post<{ contract: { id: string; number: string }; prestation: Prestation; invoice: { id: string; number: string } }>(
+      `/packages/${id}/subscribe`,
+      formData,
+    );
+  },
 
   // Offres de prestation (le « produit » à souscrire) → /prestation-offers
   offers: (params: Params) => get<LaravelPage<PrestationOffer>>('/prestation-offers', params),
@@ -69,6 +88,22 @@ export const agencyDeptApi = {
   deletePrestation: (id: string) => del(`/prestations/${id}`),
   transition: (id: string, action: 'submit' | 'validate' | 'reject' | 'back-to-draft' | 'start' | 'suspend' | 'resume' | 'cancel' | 'complete', reason?: string) =>
     post<Prestation>(`/prestations/${id}/${action}`, reason ? { reason } : {}),
+  submitWithProof: (
+    id: string,
+    payload: { amount_paid?: number; payment_type?: string; treasury_account_id?: string; proof?: File },
+  ) => {
+    // Multipart : la preuve de paiement est une photo jointe à la soumission.
+    const formData = new FormData();
+    const append = (key: string, value: unknown) => {
+      if (value === undefined || value === null || value === '') return;
+      formData.append(key, String(value));
+    };
+    append('amount_paid', payload.amount_paid);
+    append('payment_type', payload.payment_type);
+    append('treasury_account_id', payload.treasury_account_id);
+    if (payload.proof) formData.append('proof', payload.proof);
+    return post<Prestation>(`/prestations/${id}/submit`, formData);
+  },
   tracking: (params: Params) => get<LaravelPage<TrackingRow>>('/prestations/tracking', params),
   exportTracking: (params: Params) => client.get('/prestations/tracking/export', { params, responseType: 'blob' }).then((r) => r.data as Blob),
 

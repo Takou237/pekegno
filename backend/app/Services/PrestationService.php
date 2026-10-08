@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\Contract;
+use App\Models\PaymentProof;
 use App\Models\Prestation;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -76,9 +78,84 @@ class PrestationService
         return $prestation->fresh();
     }
 
-    public function submit(Prestation $prestation): Prestation
-    {
-        return $this->transition($prestation, Prestation::STATUS_PENDING_VALIDATION);
+    /**
+     * Soumission d'une prestation. Sans preuve : simple transition de statut
+     * (le contrat et la facture sont créés à la validation). Avec preuve : le
+     * vendeur déclare le montant encaissé, la preuve est jointe et le contrat +
+     * la facture sont créés immédiatement — la facture naît « en attente », le
+     * caissier encaissera l'avance en acceptant la preuve (workflow PaymentProof).
+     *
+     * @param  array{amount_paid?: ?float, payment_type?: ?string, treasury_account_id?: ?string}  $options
+     */
+    public function submit(
+        Prestation $prestation,
+        array $options = [],
+        ?UploadedFile $proof = null,
+        ?User $actor = null,
+    ): Prestation {
+        if ($proof === null) {
+            return $this->transition($prestation, Prestation::STATUS_PENDING_VALIDATION);
+        }
+
+        if (! $actor) {
+            throw ValidationException::withMessages(['proof' => 'Un acteur est requis pour soumettre une preuve de paiement.']);
+        }
+
+        $amountPaid = round((float) ($options['amount_paid'] ?? 0), 2);
+        $paymentType = $options['payment_type'] ?? 'cash';
+
+        return DB::transaction(function () use ($prestation, $amountPaid, $paymentType, $proof, $actor) {
+            $prestation = $this->transition($prestation, Prestation::STATUS_PENDING_VALIDATION);
+
+            // Contrat + facture créés dès la soumission (si pas déjà liés) : la
+            // facture reste en attente de validation jusqu'à l'examen de la preuve.
+            $contract = $prestation->contract_id
+                ? $prestation->contract
+                : $this->contracts->createFromPrestation($prestation);
+
+            $invoice = $this->invoicing->invoiceForPrestation(
+                $contract,
+                $prestation->fresh(),
+                $actor->id,
+                $paymentType,
+                $amountPaid > 0 ? $amountPaid : null,
+                true,
+            );
+
+            $path = $proof->store('payment-proofs', 'public');
+
+            $paymentProof = PaymentProof::create([
+                'invoice_id' => $invoice->id,
+                'submitted_by' => $actor->id,
+                'payment_method' => $paymentType ?? 'cash',
+                'phone_number_used' => null,
+                'reference' => null,
+                'file_path' => $path,
+                'status' => PaymentProof::STATUS_PENDING,
+            ]);
+
+            $prestation->update([
+                'declared_advance_amount' => $amountPaid,
+                'declared_total_paid' => $amountPaid >= (float) $invoice->total_amount,
+                'payment_proof_id' => $paymentProof->id,
+                'submitted_with_proof_at' => now(),
+            ]);
+
+            $this->logger->log(
+                action: 'submitted_with_proof',
+                entityType: 'prestation',
+                entityId: $prestation->id,
+                description: "Prestation {$prestation->reference} soumise avec preuve de paiement (facture {$invoice->number})",
+                newValues: [
+                    'invoice' => $invoice->number,
+                    'declared_advance' => $amountPaid,
+                    'payment_proof' => $paymentProof->id,
+                ],
+                agencyId: $prestation->agency_id,
+            );
+
+            return $prestation->fresh();
+        });
     }
 
     /** D9 : la validation (chef d'agence / direction) crée le contrat et sa facture. */

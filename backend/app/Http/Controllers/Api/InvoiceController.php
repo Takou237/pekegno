@@ -18,7 +18,9 @@ use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
 use App\Services\CommissionService;
+use App\Services\ContractService;
 use App\Services\InvoiceNumberGenerator;
+use App\Services\InvoiceRejectionNotifier;
 use App\Services\PaymentService;
 use App\Services\PendingInvoiceNotifier;
 use App\Services\SaleAgencyResolver;
@@ -45,6 +47,8 @@ class InvoiceController extends Controller
         private readonly SellerProfileService $sellerProfiles,
         private readonly PendingInvoiceNotifier $pendingNotifier,
         private readonly SaleAgencyResolver $agencyResolver,
+        private readonly InvoiceRejectionNotifier $rejections,
+        private readonly ContractService $contracts,
     ) {}
 
     private function scopeByRole($query, ?User $user)
@@ -77,21 +81,22 @@ class InvoiceController extends Controller
             // Filtrer sur la seule agence laissait les ventes d'un commercial d'une
             // agence sans caissier affecté (ex. Yaoundé Centre) en attente
             // indéfiniment, invisibles de la validation — sauf pour l'admin.
-            // Seules les factures encore en attente sont concernées : le registre
-            // des factures validées reste borné aux agences du caissier.
-            $pendingCountryIds = Agency::whereIn('id', $agencyIds)
+            // L'élargissement vaut pour tous les statuts : limité aux seules factures
+            // pending, une facture sortait du périmètre du caissier au moment même où
+            // il la validait et disparaissait de son onglet Factures.
+            $countryIds = Agency::whereIn('id', $agencyIds)
                 ->whereNotNull('country_id')
                 ->pluck('country_id')
                 ->unique()
                 ->values();
 
-            return $query->where(function ($q) use ($agencyIds, $pendingCountryIds) {
+            return $query->where(function ($q) use ($agencyIds, $countryIds) {
                 $q->whereIn('agency_id', $agencyIds)
                     ->orWhereNull('agency_id')
-                    ->when($pendingCountryIds->isNotEmpty(), fn ($q) => $q->orWhere(function ($q) use ($pendingCountryIds) {
-                        $q->where('validation_status', Invoice::VALIDATION_PENDING)
-                            ->whereHas('agency', fn ($a) => $a->whereIn('country_id', $pendingCountryIds));
-                    }));
+                    ->when($countryIds->isNotEmpty(), fn ($q) => $q->orWhere(fn ($q) => $q->whereHas(
+                        'agency',
+                        fn ($a) => $a->whereIn('country_id', $countryIds),
+                    )));
             });
         }
 
@@ -692,7 +697,11 @@ class InvoiceController extends Controller
 
         $this->logger->log('rejected', 'invoice', $invoice->id, "Facture {$invoice->number} rejetée : {$reason}", agencyId: $invoice->agency_id);
 
-        $this->sendStatusNotification($invoice);
+        $this->rejections->notify($invoice, $reason);
+
+        // Souscription rejetée avant activation : le contrat en attente est résilié
+        // pour permettre au client de souscrire de nouveau au package.
+        $this->contracts->cancelPendingForInvoice($invoice, "Facture {$invoice->number} rejetée");
 
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
     }
@@ -727,6 +736,11 @@ class InvoiceController extends Controller
         $invoice->save();
 
         $this->logger->log('cancelled', 'invoice', $invoice->id, "Facture {$invoice->number} annulée", agencyId: $invoice->agency_id);
+
+        // Une facture de souscription annulée avant l'activation invalide la
+        // souscription : on résilie le contrat encore en attente et sa prestation
+        // pour que le client puisse souscrire de nouveau au même package.
+        $this->contracts->cancelPendingForInvoice($invoice, "Facture {$invoice->number} annulée");
 
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
     }

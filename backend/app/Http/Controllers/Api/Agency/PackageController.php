@@ -213,16 +213,29 @@ class PackageController extends Controller
             'auto_renew' => ['sometimes', 'boolean'],
             'advance' => ['nullable', 'numeric', 'min:0.01'],
             'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
-            'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
+            // Preuve de paiement (photo) : examinée par le caissier avant validation.
+            'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
         ]);
 
         abort_unless($this->access->canAccessAgency($request->user(), $package->agency_id), 403, 'Agence hors de votre périmètre.');
 
         // Un commercial vend en son nom propre.
+        $isCommercial = $request->user()->role?->name === 'commercial';
         $commercialId = $data['commercial_id'] ?? null;
-        if ($request->user()->role?->name === 'commercial') {
+        if ($isCommercial) {
             $own = $this->access->commercialIds($request->user());
             $commercialId = $commercialId && in_array($commercialId, $own, true) ? $commercialId : ($own[0] ?? null);
+        }
+
+        // La facture d'un commercial naît « pending » : encaissement différé jusqu'à
+        // l'acceptation de la preuve par le caissier (identique aux ventes, §P1-P5).
+        $proofPath = null;
+        if ($request->hasFile('proof_file')) {
+            $proofPath = $request->file('proof_file')->store('payment-proofs', 'public');
+        } elseif ($isCommercial) {
+            throw ValidationException::withMessages([
+                'proof_file' => 'Une preuve de paiement est obligatoire pour une souscription effectuée par un commercial.',
+            ]);
         }
 
         $result = $this->packages->subscribe(
@@ -236,7 +249,13 @@ class PackageController extends Controller
             autoRenew: (bool) ($data['auto_renew'] ?? false),
             advance: isset($data['advance']) ? (float) $data['advance'] : null,
             paymentType: $data['payment_type'] ?? null,
-            treasuryAccountId: $data['treasury_account_id'] ?? null,
+            needsValidation: $isCommercial,
+            paymentProof: $proofPath !== null ? [
+                'file_path' => $proofPath,
+                'payment_method' => $data['payment_type'] ?? 'cash',
+                'phone_number_used' => null,
+                'reference' => null,
+            ] : null,
         );
 
         return response()->json([

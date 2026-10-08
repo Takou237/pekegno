@@ -17,6 +17,22 @@ export interface CartItemPayload {
   quantity?: number;
 }
 
+export interface PackageContract {
+  id: string;
+  number: string;
+  start_date: string;
+  end_date: string;
+  amount: number | string;
+  status: string;
+}
+
+export interface PackagePrestation {
+  id: string;
+  reference: string | null;
+  name: string;
+  status: string;
+}
+
 export const clientApi = {
   async getOrders(): Promise<PaginatedResponse<Order>> {
     const { data } = await client.get('/client/orders');
@@ -60,6 +76,26 @@ export const clientApi = {
 
   async checkout(payload: { agency_id: string; lines: CheckoutLine[] }): Promise<{ order: Order; invoice: Invoice }> {
     const { data } = await client.post('/client/checkout', payload);
+    return data;
+  },
+
+  /**
+   * Souscription du client connecté à un package du catalogue public.
+   * Crée contrat + prestation + facture « pending » : le paiement se fait ensuite
+   * depuis « Mes factures » (preuve de paiement examinée par l'agence).
+   */
+  async subscribeToPackage(
+    packageId: string,
+    payload: {
+      periods: number;
+      start_date?: string;
+      payment_type?: string;
+      payment_method?: string;
+      advance?: number;
+      auto_renew?: boolean;
+    },
+  ): Promise<{ contract: PackageContract; prestation: PackagePrestation; invoice: Invoice }> {
+    const { data } = await client.post(`/client/packages/${packageId}/subscribe`, payload);
     return data;
   },
 

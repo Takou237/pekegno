@@ -27,9 +27,20 @@ export interface ClientPrestation {
   contract: { id: string; number: string; status: string } | null;
   rating_avg: number | null;
   rating_count: number;
+  client_direct_rating: number | null;
+  client_direct_comment: string | null;
+  client_direct_rated_at: string | null;
+  display_rating_avg: number | null;
+  display_rating_count: number;
   can_rate: boolean;
   actions_count?: number | null;
-  rating_summary?: { avg: number | null; count: number; distribution: Record<string, number> };
+  rating_summary?: {
+    avg: number | null;
+    count: number;
+    distribution: Record<string, number>;
+    has_direct_rating: boolean;
+    direct_rating: number | null;
+  };
   actions?: ClientPrestationAction[];
 }
 
@@ -56,6 +67,15 @@ export const agencyApi = {
   async rateAction(actionId: string, rating: number, comment?: string) {
     const { data } = await client.put(`/client/prestation-actions/${actionId}/review`, { rating, comment: comment || null });
     return data as { prestation: { rating_avg: number | null; rating_count: number } };
+  },
+  /** N4/D23 : note globale directe sur la prestation (modifiable). */
+  async ratePrestation(prestationId: string, rating: number, comment?: string) {
+    const { data } = await client.put(`/client/prestations/${prestationId}/review`, { rating, comment: comment || null });
+    return data as {
+      review: { rating: number; comment: string | null; updated_at: string | null };
+      rating_summary: { avg: number | null; count: number; has_direct_rating: boolean; direct_rating: number | null };
+      display_rating: { avg: number | null; count: number };
+    };
   },
   async notifications(): Promise<{ data: ClientNotification[]; unread_count: number }> {
     const { data } = await client.get('/client/notifications');

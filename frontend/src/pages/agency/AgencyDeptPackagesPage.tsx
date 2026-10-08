@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Tag, Trash2 } from 'lucide-react';
+import { Plus, Tag, Trash2, X } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +18,7 @@ import { Alert } from '@/components/ui/Alert';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ClientPicker, CommercialPicker } from '@/components/agencyDept/Pickers';
+import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
 import { PackageCard } from '@/components/agencyDept/PackageCard';
 import { PackageFormModal } from '@/components/agencyDept/PackageFormModal';
 import type { AgencyPackage } from '@/types/agencyDepartment';
@@ -56,15 +57,10 @@ export default function AgencyDeptPackagesPage() {
     load();
   }, [load]);
 
-  const grouped = useMemo(() => {
-    const groups = new Map<string, { name: string; items: AgencyPackage[] }>();
-    for (const p of packages) {
-      const key = p.category_id ?? 'none';
-      if (!groups.has(key)) groups.set(key, { name: p.category?.name ?? t('agencyDept.packages.uncategorized'), items: [] });
-      groups.get(key)!.items.push(p);
-    }
-    return [...groups.values()];
-  }, [packages, t]);
+  const grouped = useMemo(
+    () => groupPackagesByCategory(packages, t('agencyDept.packages.uncategorized')),
+    [packages, t],
+  );
 
   function openCreate() {
     setEditing(null);
@@ -171,6 +167,27 @@ export default function AgencyDeptPackagesPage() {
     </div>
   );
 
+  function updateList<K extends 'items' | 'recommendations'>(key: K, index: number, patch: Partial<PackageForm[K][number]>) {
+    setForm((f) => ({ ...f, [key]: f[key].map((row, i) => (i === index ? { ...row, ...patch } : row)) }));
+  }
+
+  function removeFromList(key: 'items' | 'recommendations', index: number) {
+    setForm((f) => ({ ...f, [key]: f[key].filter((_, i) => i !== index) }));
+  }
+}
+
+function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+      {label}
+      <textarea
+        rows={2}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm font-normal dark:border-gray-700 dark:text-white"
+      />
+    </label>
+  );
 }
 
 function PromotionModal({ pkg, onClose, onSaved }: { pkg: AgencyPackage; onClose: () => void; onSaved: () => void }) {

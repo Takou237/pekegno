@@ -5,10 +5,13 @@ import { ChevronDown, Globe, Building2, FolderTree, Bell, Menu, ImageIcon, FileT
 import { useOrgContext } from '@/context/OrgContext';
 import { useAuth } from '@/hooks/useAuth';
 import { invoicesApi } from '@/api/invoices.api';
+import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { formatCurrency } from '@/utils/number';
+import { formatRelativeDate } from '@/utils/date';
 import { UserMenu } from '@/components/common/UserMenu';
 import { Spinner } from '@/components/ui/Spinner';
 import type { Invoice } from '@/types/invoice';
+import type { AgencyNotification } from '@/types/agencyDepartment';
 import { BrandLogo } from '@/components/common/BrandLogo';
 
 const CAN_VALIDATE_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence', 'caissier']);
@@ -105,8 +108,27 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   const [pendingTotal, setPendingTotal] = useState(0);
   const [validatedInvoices, setValidatedInvoices] = useState<Invoice[]>([]);
   const [validatedUnseenTotal, setValidatedUnseenTotal] = useState(0);
+  // Notifications persistées côté backend (agency_notifications) : rejet d'une
+  // facture avec motif, alertes prestation, etc. Lues par la cloche du commercial.
+  const [messages, setMessages] = useState<AgencyNotification[]>([]);
+  const [messagesUnread, setMessagesUnread] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  const refreshMessages = useCallback(() => {
+    agencyDeptApi
+      .notifications()
+      .then((res) => {
+        setMessages(res.data.slice(0, 8));
+        setMessagesUnread(res.unread_count);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!isCommercial) return;
+    refreshMessages();
+  }, [isCommercial, refreshMessages, location.pathname]);
 
   useEffect(() => {
     if (!canValidate) return;
@@ -406,6 +428,12 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                     if (next && isCommercial && user) {
                       localStorage.setItem(seenValidatedKey(user.id), new Date().toISOString());
                       setValidatedUnseenTotal(0);
+                      if (messagesUnread > 0) {
+                        agencyDeptApi
+                          .markAllNotificationsRead()
+                          .then(() => setMessagesUnread(0))
+                          .catch(() => {});
+                      }
                     }
                     return next;
                   })
@@ -414,13 +442,13 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                 aria-label={t('contextBar.notifications')}
               >
                 <Bell className="h-4.5 w-4.5" />
-                {(canValidate ? pendingTotal : validatedUnseenTotal) > 0 && (
+                {(canValidate ? pendingTotal : validatedUnseenTotal + messagesUnread) > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                    {(canValidate ? pendingTotal : validatedUnseenTotal) > 99
+                    {(canValidate ? pendingTotal : validatedUnseenTotal + messagesUnread) > 99
                       ? '99+'
                       : canValidate
                         ? pendingTotal
-                        : validatedUnseenTotal}
+                        : validatedUnseenTotal + messagesUnread}
                   </span>
                 )}
               </button>
@@ -471,6 +499,59 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
               {notifOpen && !canValidate && isCommercial && (
                 <div className="fixed inset-x-3 top-16 z-40 rounded-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
                   <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
+                    {t('contextBar.notifications')}
+                  </div>
+
+                  {messages.length > 0 && (
+                    <>
+                      <div className="border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
+                        {t('contextBar.recentAlerts')}
+                      </div>
+                      <ul className="max-h-56 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
+                        {messages.map((msg) => {
+                          const target =
+                            msg.entity_type === 'invoice' && msg.entity_id
+                              ? `/invoices/${msg.entity_id}`
+                              : null;
+                          const content = (
+                            <>
+                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium text-gray-800 dark:text-gray-100">
+                                  {msg.title}
+                                </span>
+                                {msg.body && (
+                                  <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-gray-500 dark:text-gray-400">
+                                    {msg.body}
+                                  </span>
+                                )}
+                                <span className="mt-1 block text-[11px] text-gray-400">
+                                  {formatRelativeDate(msg.created_at)}
+                                </span>
+                              </span>
+                            </>
+                          );
+                          return (
+                            <li key={msg.id}>
+                              {target ? (
+                                <Link
+                                  to={target}
+                                  onClick={() => setNotifOpen(false)}
+                                  className="flex w-full gap-2.5 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                                >
+                                  {content}
+                                </Link>
+                              ) : (
+                                <div className="flex gap-2.5 px-4 py-2.5">{content}</div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  )}
+
+                  <div className="border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
                     {t('contextBar.validatedInvoices')}
                   </div>
                   {validatedInvoices.length === 0 ? (

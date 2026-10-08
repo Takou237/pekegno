@@ -376,3 +376,66 @@ export interface Cart {
   total: number;
   count: number;
 }
+
+export type PackageBillingPeriod = 'monthly' | 'quarterly' | 'yearly' | 'one_shot';
+
+export interface PublicPackageItem {
+  id: string;
+  label: string;
+  quantity: number | null;
+  frequency: string | null;
+  action_type: string | null;
+}
+
+export interface PublicPackageRecommendation {
+  id: string;
+  label: string;
+  quantity: number;
+  teamRole: { id: string; name: string } | null;
+}
+
+export interface PublicPackagePromotion {
+  type: string;
+  promo_price: string | null;
+  discount_percent: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean;
+}
+
+/** Une agence qui propose le package (choix de l'agence avant souscription). */
+export interface PublicPackageAgency {
+  id: string;
+  name: string;
+  city: string | null;
+  country: string | null;
+  phone: string | null;
+  email: string | null;
+  /** Pack propre à cette agence : c'est celui-ci qui est souscrit. */
+  package_id: string;
+}
+
+/** Package du catalogue public : consultation libre, souscription depuis la fiche (client connecté). */
+export interface PublicPackage {
+  id: string;
+  code: string | null;
+  name: string;
+  tagline: string | null;
+  description: string | null;
+  prerequisites: string | null;
+  price_per_month: string;
+  original_price: string | null;
+  price_is_starting_from: boolean;
+  effective_price: string;
+  billing_period: PackageBillingPeriod;
+  min_duration_months: number | null;
+  cover_image: string | null;
+  category: Category | null;
+  agency: { id: string; name: string; city: string | null; country: string | null; phone?: string | null; email?: string | null } | null;
+  items: PublicPackageItem[];
+  recommendations: PublicPackageRecommendation[];
+  promotions: PublicPackagePromotion[];
+  /** Packs homonymes regroupés : une seule carte par nom dans le catalogue. */
+  agencies: PublicPackageAgency[];
+  agency_count: number;
+}
