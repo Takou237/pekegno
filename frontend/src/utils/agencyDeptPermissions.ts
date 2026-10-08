@@ -13,17 +13,26 @@ export function canManagePackages(user: User | null): boolean {
   return MANAGERS.includes(role(user));
 }
 
+/** C4 : souscription d'un client à un package — commercial et caissier (min), managers ok. */
+export function canSubscribePackage(user: User | null): boolean {
+  return [...MANAGERS, 'commercial', 'caissier'].includes(role(user));
+}
+
+/** K1/K2 : le caissier crée et valide directement les prestations de son périmètre. */
 export function canCreatePrestation(user: User | null): boolean {
-  return [...MANAGERS, 'commercial'].includes(role(user));
+  return [...MANAGERS, 'commercial', 'caissier'].includes(role(user));
 }
 
 export function canEditPrestation(user: User | null): boolean {
   return MANAGERS.includes(role(user));
 }
 
-/** D9 : chef d'agence + direction (le super-admin a toutes les permissions). */
+/**
+ * D9 : chef d'agence + direction (le super-admin a toutes les permissions).
+ * K1/K2 : le caissier valide aussi directement (demande « créer et valider »).
+ */
 export function canValidatePrestation(user: User | null): boolean {
-  return ['super-admin', 'direction-generale', 'responsable-agence'].includes(role(user));
+  return ['super-admin', 'direction-generale', 'responsable-agence', 'caissier'].includes(role(user));
 }
 
 export function canManageActions(user: User | null): boolean {

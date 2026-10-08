@@ -35,6 +35,15 @@ export function RatingSummaryCard({ summary }: { summary: RatingSummary | null |
         <Stars value={summary?.avg ?? 0} />
         <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('agencyDept.reviews.count', { count })}</span>
       </div>
+      {summary?.has_direct_rating && (
+        <div className="rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-xs text-brand-700 sm:w-44">
+          <span className="block font-semibold">{t('agencyDept.reviews.directFromClient')}</span>
+          <span className="mt-1 flex items-center gap-2">
+            <Stars value={summary.direct_rating ?? 0} size="h-3.5 w-3.5" />
+            {summary.direct_rating}/5
+          </span>
+        </div>
+      )}
       <div className="flex flex-1 flex-col gap-1">
         {[5, 4, 3, 2, 1].map((star) => {
           const n = Number(summary?.distribution?.[star] ?? 0);

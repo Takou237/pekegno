@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Contract;
 use App\Models\Invoice;
+use App\Models\PaymentProof;
 use App\Models\Prestation;
 use App\Models\PrestationAction;
 use App\Models\SubscriptionPack;
@@ -32,6 +33,9 @@ class PackageService
     }
 
     /**
+     * @param  ?array{file_path: string, payment_method: string, phone_number_used?: ?string, reference?: ?string}  $paymentProof
+     *         Preuve photo jointe à la souscription : créée en « pending » et examinée
+     *         par le caissier avant validation de la facture.
      * @return array{contract: Contract, prestation: Prestation, invoice: Invoice}
      */
     public function subscribe(
@@ -45,7 +49,8 @@ class PackageService
         bool $autoRenew = false,
         ?float $advance = null,
         ?string $paymentType = null,
-        ?string $treasuryAccountId = null,
+        bool $needsValidation = false,
+        ?array $paymentProof = null,
     ): array {
         if (! $package->is_active) {
             throw ValidationException::withMessages(['package' => 'Ce package est inactif.']);
@@ -75,7 +80,7 @@ class PackageService
 
         return DB::transaction(function () use (
             $package, $client, $start, $periods, $commercialId, $actorUserId, $departmentId,
-            $autoRenew, $advance, $paymentType, $treasuryAccountId, $unitPrice
+            $autoRenew, $advance, $paymentType, $needsValidation, $paymentProof, $unitPrice
         ) {
             $package->loadMissing('items');
 
@@ -85,7 +90,16 @@ class PackageService
 
             $prestation = $this->generatePrestation($package, $contract, $actorUserId);
 
-            $invoice = $this->invoicing->invoiceForPackage($contract, $package, $periods, $unitPrice, $actorUserId);
+            $invoice = $this->invoicing->invoiceForPackage(
+                $contract,
+                $package,
+                $periods,
+                $unitPrice,
+                $actorUserId,
+                $paymentType,
+                $advance !== null && $advance > 0 ? $advance : null,
+                $needsValidation,
+            );
 
             $this->logger->log(
                 action: 'subscribed',
@@ -96,8 +110,25 @@ class PackageService
                 agencyId: $contract->agency_id,
             );
 
-            if ($advance !== null && $advance > 0) {
-                $this->payments->applyPayment($invoice, $advance, $paymentType ?? 'cash', true, $actorUserId, $treasuryAccountId);
+            // Preuve photo de paiement : reste « pending » jusqu'à l'examen par le
+            // caissier, qui encaisse l'avance au moment d'accepter la preuve.
+            if ($paymentProof !== null) {
+                PaymentProof::create([
+                    'invoice_id' => $invoice->id,
+                    'submitted_by' => $actorUserId,
+                    'payment_method' => $paymentProof['payment_method'] ?? ($paymentType ?? 'cash'),
+                    'phone_number_used' => $paymentProof['phone_number_used'] ?? null,
+                    'reference' => $paymentProof['reference'] ?? null,
+                    'file_path' => $paymentProof['file_path'],
+                    'status' => PaymentProof::STATUS_PENDING,
+                ]);
+            }
+
+            // Encaissement immédiat seulement si la facture est définitive. Une facture
+            // en attente de validation garde l'avance en « declared_advance » : elle sera
+            // encaissée par PaymentProofController quand le caissier acceptera la preuve.
+            if (! $needsValidation && $advance !== null && $advance > 0) {
+                $this->payments->applyPayment($invoice, $advance, $paymentType ?? 'cash', true, $actorUserId);
             }
 
             return [

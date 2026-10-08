@@ -64,6 +64,7 @@ export interface AgencyPackage {
   department_id: string | null;
   category_id: string | null;
   category?: AgencyCategory | null;
+  agency?: { id: string; name: string } | null;
   name: string;
   tagline: string | null;
   description: string | null;
@@ -110,6 +111,8 @@ export interface SubscribePayload {
   auto_renew?: boolean;
   advance?: number;
   payment_type?: 'cash' | 'om' | 'momo' | 'mobile';
+  /** Preuve de paiement (photo) : envoyée en multipart, examinée par le caissier. */
+  proof_file?: File;
 }
 
 export interface PersonRef {
@@ -243,6 +246,8 @@ export interface RatingSummary {
   avg: number | null;
   count: number;
   distribution: Record<string, number>;
+  has_direct_rating?: boolean;
+  direct_rating?: number | null;
 }
 
 export interface Prestation {
@@ -280,8 +285,17 @@ export interface Prestation {
   status_reason: string | null;
   rating_avg: string | null;
   rating_count: number;
+  client_direct_rating?: number | null;
+  client_direct_comment?: string | null;
+  client_direct_rated_at?: string | null;
+  display_rating_avg?: number | null;
+  display_rating_count?: number;
   validated_at: string | null;
   validator?: PersonRef | null;
+  declared_advance_amount?: number | string | null;
+  declared_total_paid?: boolean;
+  payment_proof_id?: string | null;
+  submitted_with_proof_at?: string | null;
   actions?: PrestationAction[];
   team_members?: TeamMember[];
   rating_summary?: RatingSummary;
@@ -315,6 +329,9 @@ export interface TrackingRow {
   end_date: string;
   rating_avg: number | null;
   rating_count: number;
+  display_rating_avg: number | null;
+  display_rating_count: number;
+  has_direct_rating: boolean;
   status: PrestationStatus;
   status_reason: string | null;
   allowed_transitions: PrestationStatus[];

@@ -8,6 +8,8 @@ use App\Models\Agency;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
 use App\Services\ActivityLogger;
+use App\Services\ContractService;
+use App\Services\InvoiceRejectionNotifier;
 use App\Services\PaymentService;
 use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +30,8 @@ class PaymentProofController extends Controller
     public function __construct(
         private readonly ActivityLogger $logger,
         private readonly PaymentService $paymentService,
+        private readonly InvoiceRejectionNotifier $rejections,
+        private readonly ContractService $contracts,
     ) {}
 
     #[OA\Get(
@@ -292,7 +296,12 @@ class PaymentProofController extends Controller
 
         $this->logger->log('rejected', 'invoice', $invoice->id, "Facture {$invoice->number} rejetée : {$reason}");
 
-        $this->sendStatusNotification($invoice);
+        $this->rejections->notify($invoice, $reason);
+
+        // Une souscription dont la facture est rejetée avant activation est
+        // abandonnée : le contrat en attente est résilié pour permettre au client
+        // de souscrire de nouveau au package.
+        $this->contracts->cancelPendingForInvoice($invoice, "Facture {$invoice->number} rejetée");
     }
 
     private function sendStatusNotification(Invoice $invoice): void

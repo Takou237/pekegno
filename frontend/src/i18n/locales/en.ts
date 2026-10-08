@@ -451,6 +451,7 @@ export default {
     validatedInvoices: 'Recently validated invoices',
     noValidated: 'No recently validated invoice.',
     seeAllInvoices: 'See all my invoices',
+    recentAlerts: 'Recent alerts',
   },
 
   departmentTypes: {
@@ -2648,6 +2649,17 @@ export default {
       cancelled: 'Cancel',
       rejected: 'Reject',
     },
+    submitProof: {
+      title: 'Submit the prestation',
+      hint: 'Declare the amount collected and attach the payment proof. The invoice will be created pending validation by the cashier.',
+      amountPaid: 'Amount collected',
+      treasuryAccount: 'Treasury account',
+      proofHint: 'Transaction screenshot (OM / MoMo) — reviewed by the cashier before validation.',
+      amountRequiresProof: 'A proof is required as soon as an amount is declared.',
+      withoutProof: 'Submit without proof',
+      withProof: 'Submit with proof',
+      done: 'Prestation submitted.',
+    },
     actionStatus: {
       todo: 'To do',
       in_progress: 'In progress',
@@ -2814,11 +2826,13 @@ export default {
       empty: 'The client has not rated any action yet.',
       none: 'Not rated yet',
       byAction: 'Ratings per action',
-      clientOnly: 'Only the client rates, from the client portal (one rating per action, editable).',
+      directFromClient: "Client's direct rating",
+      clientOnly: 'Only the client rates, from the client portal (one overall rating for the service, one per action, all editable).',
     },
     tracking: {
       subtitle: 'Tracking board: engagement, client rating, status and reason.',
       notes: 'Ratings',
+      directRating: "Client's direct rating (takes precedence over the action average)",
       reason: 'Reason',
       change: 'Change…',
       anyRating: 'Any rating',

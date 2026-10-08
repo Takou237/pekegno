@@ -93,9 +93,24 @@ class Prestation extends Model
         'validated_by',
         'validated_at',
         'created_by',
+        'declared_advance_amount',
+        'declared_total_paid',
+        'payment_proof_id',
+        'submitted_with_proof_at',
+        'client_direct_rating',
+        'client_direct_comment',
+        'client_direct_rated_at',
+        'client_direct_rated_by',
     ];
 
-    protected $appends = ['budget_allocated', 'budget_remaining', 'budget_spent', 'pass_through_budget'];
+    protected $appends = [
+        'budget_allocated',
+        'budget_remaining',
+        'budget_spent',
+        'pass_through_budget',
+        'display_rating_avg',
+        'display_rating_count',
+    ];
 
     protected function casts(): array
     {
@@ -107,6 +122,11 @@ class Prestation extends Model
             'rating_avg' => 'decimal:1',
             'rating_count' => 'integer',
             'validated_at' => 'datetime',
+            'declared_advance_amount' => 'decimal:2',
+            'declared_total_paid' => 'boolean',
+            'submitted_with_proof_at' => 'datetime',
+            'client_direct_rating' => 'integer',
+            'client_direct_rated_at' => 'datetime',
         ];
     }
 
@@ -150,9 +170,20 @@ class Prestation extends Model
         return $this->belongsTo(Contract::class);
     }
 
+    public function paymentProof(): BelongsTo
+    {
+        return $this->belongsTo(PaymentProof::class);
+    }
+
     public function validator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'validated_by');
+    }
+
+    /** N2/D23 : auteur de la note globale directe du client. */
+    public function directRater(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'client_direct_rated_by');
     }
 
     public function creator(): BelongsTo
@@ -217,6 +248,31 @@ class Prestation extends Model
     public function isRateable(): bool
     {
         return in_array($this->status, self::RATEABLE_STATUSES, true);
+    }
+
+    /** N2/D23 : true si le client a posé une note globale directe. */
+    public function hasDirectRating(): bool
+    {
+        return $this->client_direct_rating !== null;
+    }
+
+    /**
+     * Note affichée : la note directe du client prime sur la moyenne des
+     * notes d'actions (D23). Utilisée par le staff pour ne pas afficher deux
+     * chiffres contradictoires.
+     */
+    public function getDisplayRatingAvgAttribute(): ?float
+    {
+        if ($this->client_direct_rating !== null) {
+            return (float) $this->client_direct_rating;
+        }
+
+        return $this->rating_avg !== null ? (float) $this->rating_avg : null;
+    }
+
+    public function getDisplayRatingCountAttribute(): int
+    {
+        return $this->client_direct_rating !== null ? 1 : (int) $this->rating_count;
     }
 
     public function scopeOfAgencies(Builder $query, ?array $agencyIds): Builder

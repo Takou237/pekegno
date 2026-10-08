@@ -94,7 +94,8 @@ export interface CommercialStats {
   commercial: Pick<
     Commercial,
     'id' | 'first_name' | 'last_name' | 'email' | 'points_balance' | 'commission_type' | 'commission_value' | 'is_active'
-  >;
+  > &
+    Pick<Commercial, 'agency_id' | 'agency'>;
   turnover: number;
   sales_count: number;
   commissions: number;

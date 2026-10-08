@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Check, Pencil, Percent, Plus, Tag, Trash2, UserPlus, X } from 'lucide-react';
+import { Plus, Tag, Trash2, X } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +18,7 @@ import { Alert } from '@/components/ui/Alert';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ClientPicker, CommercialPicker } from '@/components/agencyDept/Pickers';
+import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
 import {
   ACTION_TYPES,
   FREQUENCIES,
@@ -104,15 +105,10 @@ export default function AgencyDeptPackagesPage() {
     load();
   }, [load]);
 
-  const grouped = useMemo(() => {
-    const groups = new Map<string, { name: string; items: AgencyPackage[] }>();
-    for (const p of packages) {
-      const key = p.category_id ?? 'none';
-      if (!groups.has(key)) groups.set(key, { name: p.category?.name ?? t('agencyDept.packages.uncategorized'), items: [] });
-      groups.get(key)!.items.push(p);
-    }
-    return [...groups.values()];
-  }, [packages, t]);
+  const grouped = useMemo(
+    () => groupPackagesByCategory(packages, t('agencyDept.packages.uncategorized')),
+    [packages, t],
+  );
 
   function openCreate() {
     setEditing(null);
@@ -378,88 +374,6 @@ function TextArea({ label, value, onChange }: { label: string; value: string; on
         className="rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm font-normal dark:border-gray-700 dark:text-white"
       />
     </label>
-  );
-}
-
-function PackageCard({
-  pkg,
-  canManage,
-  canSubscribe,
-  onEdit,
-  onPromo,
-  onSubscribe,
-  onDelete,
-}: {
-  pkg: AgencyPackage;
-  canManage: boolean;
-  canSubscribe: boolean;
-  onEdit: () => void;
-  onPromo: () => void;
-  onSubscribe: () => void;
-  onDelete: () => void;
-}) {
-  const { t } = useTranslation();
-  const price = Number(pkg.price_per_month);
-  const hasPromo = pkg.effective_price < price;
-  const original = pkg.original_price ? Number(pkg.original_price) : null;
-
-  return (
-    <div className={`flex flex-col rounded-2xl border-2 bg-white p-5 dark:bg-gray-900 ${pkg.is_active ? 'border-amber-300/70 dark:border-amber-500/40' : 'border-gray-100 opacity-60 dark:border-gray-800'}`}>
-      <div className="text-center">
-        <h3 className="text-lg font-bold uppercase text-gray-900 dark:text-white">{pkg.name}</h3>
-        {pkg.tagline && <p className="mt-1 text-sm font-medium uppercase text-gray-500 dark:text-gray-400">{pkg.tagline}</p>}
-        {hasPromo && <span className="mt-2 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">{t('agencyDept.packages.promoActive')}</span>}
-      </div>
-
-      <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm text-gray-600 dark:text-gray-300">
-        {pkg.items.map((item) => (
-          <li key={item.id ?? item.label} className="flex gap-2">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-            <span>{item.label}</span>
-          </li>
-        ))}
-      </ul>
-
-      {pkg.recommendations.length > 0 && (
-        <div className="mt-4 rounded-lg bg-amber-50 p-3 text-xs dark:bg-amber-500/10">
-          <p className="font-semibold uppercase text-amber-800 dark:text-amber-300">{t('agencyDept.packages.recommendations')}</p>
-          {pkg.recommendations.map((r) => (
-            <p key={r.id ?? r.label} className="uppercase text-amber-900 dark:text-amber-200">
-              {String(r.quantity ?? 1).padStart(2, '0')} {r.label}
-            </p>
-          ))}
-        </div>
-      )}
-
-      {pkg.prerequisites && <p className="mt-3 text-xs text-gray-500 dark:text-gray-400"><strong>{t('agencyDept.packages.prerequisites')} :</strong> {pkg.prerequisites}</p>}
-
-      <div className="mt-4 text-center">
-        {(original || hasPromo) && (
-          <p className="text-sm text-gray-400 line-through">{formatCurrency(hasPromo ? price : original)}</p>
-        )}
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-          {pkg.price_is_starting_from && <span className="mr-1 text-xs font-normal text-gray-500">{t('agencyDept.packages.from')}</span>}
-          {formatCurrency(pkg.effective_price)}
-          <span className="text-xs font-normal text-gray-500"> / {t(`agencyDept.billingPeriod.${pkg.billing_period}`)}</span>
-        </p>
-        {pkg.contracts_count !== undefined && (
-          <p className="text-xs text-gray-400">{t('agencyDept.packages.contractsCount', { count: pkg.contracts_count })}</p>
-        )}
-      </div>
-
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
-        {canSubscribe && (
-          <Button size="sm" onClick={onSubscribe}><UserPlus className="h-4 w-4" /> {t('agencyDept.packages.subscribe')}</Button>
-        )}
-        {canManage && (
-          <>
-            <Button size="sm" variant="outline" onClick={onEdit} title={t('common.edit')}><Pencil className="h-4 w-4" /></Button>
-            <Button size="sm" variant="outline" onClick={onPromo} title={t('agencyDept.packages.promotions')}><Percent className="h-4 w-4" /></Button>
-            <Button size="sm" variant="ghost" onClick={onDelete} title={t('common.delete')}><Trash2 className="h-4 w-4" /></Button>
-          </>
-        )}
-      </div>
-    </div>
   );
 }
 

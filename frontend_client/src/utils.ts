@@ -39,6 +39,16 @@ export function classNames(...classes: (string | false | null | undefined)[]): s
   return classes.filter(Boolean).join(' ');
 }
 
+export function packagePeriodLabel(billingPeriod: string): string {
+  const map: Record<string, string> = {
+    monthly: 'packages.periodMonthly',
+    quarterly: 'packages.periodQuarterly',
+    yearly: 'packages.periodYearly',
+    one_shot: 'packages.periodOneShot',
+  };
+  return map[billingPeriod] ?? 'packages.periodMonthly';
+}
+
 const YOUTUBE_REGEX = /(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/;
 
 export function isYouTubeUrl(url: string | null | undefined): boolean {

@@ -115,7 +115,15 @@ export default function PrestationListPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {p.rating_avg ? <span className="inline-flex items-center gap-1"><Stars value={Number(p.rating_avg)} size="h-3.5 w-3.5" /><span className="text-xs text-gray-500">{Number(p.rating_avg).toFixed(1)}</span></span> : '—'}
+                        {(() => {
+                          const rating = p.display_rating_avg ?? Number(p.rating_avg || 0);
+                          return rating ? (
+                            <span className="inline-flex items-center gap-1">
+                              <Stars value={rating} size="h-3.5 w-3.5" />
+                              <span className="text-xs text-gray-500">{rating.toFixed(1)}</span>
+                            </span>
+                          ) : '—';
+                        })()}
                       </td>
                       <td className="px-4 py-3"><PrestationStatusBadge status={p.status} /></td>
                     </tr>

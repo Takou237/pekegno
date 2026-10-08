@@ -793,7 +793,17 @@ class CommercialController extends Controller
             ->sum('invoice_items.quantity');
 
         return response()->json([
-            'commercial' => $commercial->only(['id', 'first_name', 'last_name', 'email', 'points_balance', 'commission_type', 'commission_value', 'is_active']),
+            'commercial' => array_merge(
+                $commercial->only(['id', 'first_name', 'last_name', 'email', 'points_balance', 'commission_type', 'commission_value', 'is_active']),
+                [
+                    'agency_id' => $commercial->agency_id,
+                    // Agence du commercial : indispensable pour l'en-tête du tableau
+                    // de bord « moi » (sinon « No agency » alors que le profil en a une).
+                    'agency' => $commercial->agency
+                        ? ['id' => $commercial->agency->id, 'name' => $commercial->agency->name]
+                        : null,
+                ],
+            ),
             'turnover' => round((float) (clone $base)->sum('total_amount'), 2),
             'sales_count' => $salesCount,
             // Solde restant : commissions gagnées sur factures payées − versements effectués.

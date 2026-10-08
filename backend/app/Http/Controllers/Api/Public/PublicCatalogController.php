@@ -9,6 +9,7 @@ use App\Models\Country;
 use App\Models\Course;
 use App\Models\Product;
 use App\Models\Service;
+use App\Models\SubscriptionPack;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -236,6 +237,110 @@ class PublicCatalogController extends Controller
         return response()->json($payload);
     }
 
+    /**
+     * D24 : le catalogue Packages du portail client couvre toute la plateforme.
+     * Seuls les packs publics et actifs sont exposés — aucune souscription ici.
+     */
+    public function packages(Request $request): JsonResponse
+    {
+        $packages = SubscriptionPack::query()
+            ->with(['category:id,name,icon,color', 'agency:id,name,city,country,phone,email', 'items', 'recommendations.teamRole:id,name', 'promotions'])
+            ->where('is_public', true)
+            ->where('is_active', true)
+            ->when($request->filled('search'), function ($q) use ($request) {
+                // Comparaison insensible à la casse : `like` est sensible à la casse sur PostgreSQL
+                // alors qu'il ne l'est pas sur SQLite (tests) — on normalise des deux côtés.
+                $needle = '%' . mb_strtolower($request->string('search')->toString()) . '%';
+                $q->where(fn ($inner) => $inner
+                    ->whereRaw('lower(name) like ?', [$needle])
+                    ->orWhereRaw('lower(tagline) like ?', [$needle])
+                    ->orWhereRaw('lower(code) like ?', [$needle]));
+            })
+            ->when($request->filled('agency_id'), fn ($q, $value) => $q->where('agency_id', $value))
+            ->when($request->filled('category_id'), fn ($q, $value) => $q->where('category_id', $value))
+            ->when($request->filled('country_id'), function ($q) use ($request) {
+                $q->where(function ($inner) use ($request) {
+                    $inner->whereNull('agency_id')
+                        ->orWhereHas('agency', fn ($agency) => $agency->where('country_id', $request->country_id));
+                });
+            })
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->when($request->filled('per_page'), fn ($q) => $q->take(min($request->integer('per_page', 50), 100)))
+            ->get();
+
+        // Une seule carte par nom : les packs homonymes des différentes agences sont
+        // regroupés. L'exemplaire principal porte le prix, `agencies` liste toutes les
+        // agences (avec leur propre `package_id`) pour que le client choisisse la sienne.
+        $grouped = $packages->groupBy('name')->map(function ($group) {
+            $payload = $this->serializePackage($group->first());
+            $agencies = $group
+                ->map(fn (SubscriptionPack $pack) => $this->agencyOffer($pack))
+                ->filter()
+                ->unique('id')
+                ->values();
+            $payload['agencies'] = $agencies;
+            $payload['agency_count'] = $agencies->count();
+
+            return $payload;
+        })->values();
+
+        return response()->json($grouped);
+    }
+
+    public function package(string $package): JsonResponse
+    {
+        $model = SubscriptionPack::query()
+            ->with(['category:id,name,icon,color', 'agency:id,name,city,country,phone,email', 'items', 'recommendations.teamRole:id,name', 'promotions'])
+            ->where('is_public', true)
+            ->where('is_active', true)
+            ->where('id', $package)
+            ->firstOrFail();
+
+        $payload = $this->serializePackage($model);
+
+        $siblings = SubscriptionPack::query()
+            ->with('agency:id,name,city,country,phone,email')
+            ->where('is_public', true)
+            ->where('is_active', true)
+            ->where('name', $model->name)
+            ->orderBy('sort_order')
+            ->get();
+
+        $agencies = $siblings
+            ->map(fn (SubscriptionPack $pack) => $this->agencyOffer($pack))
+            ->filter()
+            ->unique('id')
+            ->values();
+
+        // L'agence du pack consulté passe en premier.
+        $agencies = $agencies->sortBy(fn (array $offer) => $offer['package_id'] === $model->id ? 0 : 1)->values();
+
+        $payload['agencies'] = $agencies;
+        $payload['agency_count'] = $agencies->count();
+
+        return response()->json($payload);
+    }
+
+    /** Offre d'une agence pour un pack homonyme : permet au client de souscrire « son » pack. */
+    private function agencyOffer(SubscriptionPack $package): ?array
+    {
+        $agency = $package->agency;
+        if (! $agency) {
+            return null;
+        }
+
+        return [
+            'id' => $agency->id,
+            'name' => $agency->name,
+            'city' => $agency->city,
+            'country' => $agency->country,
+            'phone' => $agency->phone,
+            'email' => $agency->email,
+            'package_id' => $package->id,
+        ];
+    }
+
     public function agencyPaymentMethods(Agency $agency): JsonResponse
     {
         $methods = AgencyPaymentMethod::query()
@@ -346,6 +451,63 @@ class PublicCatalogController extends Controller
                     'country' => $c->agency->country,
                 ] : null)->filter()->values()
                 : null,
+        ];
+    }
+
+    private function serializePackage(SubscriptionPack $package): array
+    {
+        return [
+            'id' => $package->id,
+            'code' => $package->code,
+            'name' => $package->name,
+            'tagline' => $package->tagline,
+            'description' => $package->description,
+            'prerequisites' => $package->prerequisites,
+            'price_per_month' => (string) $package->price_per_month,
+            'original_price' => $package->original_price !== null ? (string) $package->original_price : null,
+            'price_is_starting_from' => (bool) $package->price_is_starting_from,
+            'effective_price' => (string) $package->effective_price,
+            'billing_period' => $package->billing_period,
+            'min_duration_months' => $package->min_duration_months,
+            'cover_image' => $package->cover_image,
+            'category' => $package->category ? [
+                'id' => $package->category->id,
+                'name' => $package->category->name,
+                'icon' => $package->category->icon,
+                'color' => $package->category->color,
+            ] : null,
+            'agency' => $package->agency ? [
+                'id' => $package->agency->id,
+                'name' => $package->agency->name,
+                'city' => $package->agency->city,
+                'country' => $package->agency->country,
+                'phone' => $package->agency->phone,
+                'email' => $package->agency->email,
+            ] : null,
+            'items' => $package->items->map(fn ($item) => [
+                'id' => $item->id,
+                'label' => $item->label,
+                'quantity' => $item->quantity,
+                'frequency' => $item->frequency,
+                'action_type' => $item->action_type,
+            ]),
+            'recommendations' => $package->recommendations->map(fn ($recommendation) => [
+                'id' => $recommendation->id,
+                'label' => $recommendation->label,
+                'quantity' => $recommendation->quantity,
+                'teamRole' => $recommendation->teamRole ? [
+                    'id' => $recommendation->teamRole->id,
+                    'name' => $recommendation->teamRole->name,
+                ] : null,
+            ]),
+            'promotions' => $package->promotions->map(fn ($promotion) => [
+                'type' => $promotion->type,
+                'promo_price' => $promotion->promo_price !== null ? (string) $promotion->promo_price : null,
+                'discount_percent' => $promotion->discount_percent !== null ? (string) $promotion->discount_percent : null,
+                'start_date' => $promotion->start_date?->toISOString(),
+                'end_date' => $promotion->end_date?->toISOString(),
+                'is_active' => $promotion->isActive(),
+            ]),
         ];
     }
 }

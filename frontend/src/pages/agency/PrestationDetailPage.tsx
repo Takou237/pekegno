@@ -27,6 +27,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ActionStatusBadge, ContractStatusBadge, PrestationStatusBadge } from '@/components/agencyDept/AgencyBadges';
 import { RatingSummaryCard, Stars } from '@/components/agencyDept/StarRating';
 import { ReasonModal } from '@/components/agencyDept/ReasonModal';
+import { SubmitWithProofModal } from '@/components/agencyDept/SubmitWithProofModal';
 import { EmployeePicker } from '@/components/agencyDept/Pickers';
 import { PrestationFormModal } from '@/components/agencyDept/PrestationFormModal';
 import { BudgetBar } from './AgencyDeptDashboardPage';
@@ -74,6 +75,7 @@ export default function PrestationDetailPage() {
   const [tab, setTab] = useState<Tab>('summary');
   const [editOpen, setEditOpen] = useState(false);
   const [reasonFor, setReasonFor] = useState<PrestationStatus | null>(null);
+  const [submitOpen, setSubmitOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -106,7 +108,9 @@ export default function PrestationDetailPage() {
   }
 
   function onTransitionClick(target: PrestationStatus) {
-    if (STATUSES_REQUIRING_REASON.includes(target)) {
+    if (target === 'pending_validation') {
+      setSubmitOpen(true);
+    } else if (STATUSES_REQUIRING_REASON.includes(target)) {
       setReasonFor(target);
     } else {
       runTransition(target);
@@ -200,6 +204,14 @@ export default function PrestationDetailPage() {
         onConfirm={(reason) => reasonFor && runTransition(reasonFor, reason)}
         isLoading={busy}
       />
+
+      {submitOpen && (
+        <SubmitWithProofModal
+          prestation={prestation}
+          onClose={() => setSubmitOpen(false)}
+          onDone={load}
+        />
+      )}
     </div>
   );
 }

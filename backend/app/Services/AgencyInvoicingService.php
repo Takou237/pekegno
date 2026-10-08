@@ -19,8 +19,14 @@ class AgencyInvoicingService
     public function __construct(private readonly InvoiceNumberGenerator $numberGenerator) {}
 
     /** Facture d'une prestation : honoraires + budget publicitaire (pass-through). */
-    public function invoiceForPrestation(Contract $contract, Prestation $prestation, ?string $actorUserId): Invoice
-    {
+    public function invoiceForPrestation(
+        Contract $contract,
+        Prestation $prestation,
+        ?string $actorUserId,
+        ?string $paymentType = null,
+        ?float $declaredAdvance = null,
+        bool $needsValidation = false,
+    ): Invoice {
         $budget = (float) $prestation->budget;
         $passThrough = min($budget, $prestation->pass_through_budget);
         $fees = round($budget - $passThrough, 2);
@@ -53,12 +59,23 @@ class AgencyInvoicingService
             $prestation->commercial_id,
             $actorUserId,
             "Contrat {$contract->number} — prestation {$prestation->reference}",
+            $paymentType,
+            $declaredAdvance,
+            $needsValidation,
         );
     }
 
     /** Facture d'une souscription à un package : prix effectif × nombre de périodes. */
-    public function invoiceForPackage(Contract $contract, SubscriptionPack $package, int $periods, float $unitPrice, ?string $actorUserId): Invoice
-    {
+    public function invoiceForPackage(
+        Contract $contract,
+        SubscriptionPack $package,
+        int $periods,
+        float $unitPrice,
+        ?string $actorUserId,
+        ?string $paymentType = null,
+        ?float $declaredAdvance = null,
+        bool $needsValidation = false,
+    ): Invoice {
         return $this->create(
             $contract,
             [[
@@ -71,11 +88,22 @@ class AgencyInvoicingService
             $contract->commercial_id,
             $actorUserId,
             "Contrat {$contract->number} — package {$package->name}",
+            $paymentType,
+            $declaredAdvance,
+            $needsValidation,
         );
     }
 
-    private function create(Contract $contract, array $lines, ?string $commercialId, ?string $actorUserId, string $comment): Invoice
-    {
+    private function create(
+        Contract $contract,
+        array $lines,
+        ?string $commercialId,
+        ?string $actorUserId,
+        string $comment,
+        ?string $paymentType = null,
+        ?float $declaredAdvance = null,
+        bool $needsValidation = false,
+    ): Invoice {
         $client = User::find($contract->client_id);
         $total = round(collect($lines)->sum(fn ($l) => $l['unit_price'] * $l['quantity']), 2);
         $sellerUserId = $commercialId ? Commercial::whereKey($commercialId)->value('user_id') : null;
@@ -89,12 +117,18 @@ class AgencyInvoicingService
             'commercial_id' => $commercialId,
             'seller_user_id' => $sellerUserId ?? $actorUserId,
             'invoice_date' => now(),
-            'payment_type' => null,
+            'payment_type' => $paymentType,
             'total_amount' => $total,
             'amount_paid' => 0,
+            // Avance déclarée par le vendeur : encaissée seulement quand un caissier
+            // accepte la preuve de paiement (PaymentProofController::markInvoiceValidated).
+            'declared_advance' => $declaredAdvance,
             'discount' => 0,
             'vat_rate' => 0,
             'status' => 'unpaid',
+            // Souscription faite par un commercial : la facture naît en attente, le
+            // caissier la valide après examen de la preuve photo.
+            'validation_status' => $needsValidation ? Invoice::VALIDATION_PENDING : Invoice::VALIDATION_VALIDATED,
             'comment' => $comment,
         ]);
 

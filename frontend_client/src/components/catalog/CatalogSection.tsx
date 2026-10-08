@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { publicApi } from '@/api/public.api';
 import { formatCurrency, displayPrice } from '@/utils';
+import { PackageCard, groupPackagesByCategory } from '@/components/catalog/PackageCard';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import Pagination from '@/components/ui/Pagination';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
-import { Search, SlidersHorizontal, ShoppingCart, GraduationCap, MapPin } from 'lucide-react';
-import type { Country, Agency, Service, Product, PublicCourse } from '@/types';
+import { Search, SlidersHorizontal, ShoppingCart, GraduationCap, MapPin, Tag } from 'lucide-react';
+import type { Country, Agency, Service, Product, PublicCourse, PublicPackage } from '@/types';
 
 type CatalogItem =
   | (Service & { type: 'service' })
@@ -26,8 +27,10 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
   const { addItem } = useCart();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const typeParam = searchParams.get('type') ?? 'all';
   const [items, setItems] = useState<CatalogItem[]>([]);
+  const [packages, setPackages] = useState<PublicPackage[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +44,7 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
     { key: 'all', label: t('catalog.typeAll') },
     { key: 'formation', label: t('catalog.typeFormations') },
     { key: 'product', label: t('catalog.typeProducts') },
+    { key: 'package', label: t('catalog.typePackages') },
   ];
 
   const setType = (key: string) => {
@@ -64,6 +68,7 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
       publicApi.getServices(params).then((services) => services.map((s) => ({ ...s, type: 'service' as const }))),
       publicApi.getProducts(params).then((products) => products.map((p) => ({ ...p, type: 'product' as const }))),
       publicApi.getCourses(params).then((courses) => courses.map((c) => ({ ...c, type: 'course' as const }))),
+      publicApi.getPackages(params).then((pkgs) => setPackages(pkgs)),
     ])
       .then(([services, products, courses]) => setItems([...services, ...products, ...courses]))
       .catch(() => setItems([]))
@@ -79,6 +84,7 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
   }, [selectedCountry]);
 
   const filtered = items.filter((item) => {
+    if (typeParam === 'package') return false;
     const matchesSearch =
       !search ||
       item.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -88,6 +94,19 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
     if (typeParam === 'product') return item.type === 'product' || item.type === 'service';
     return true;
   });
+
+  const filteredPackages =
+    typeParam === 'package'
+      ? packages.filter((pkg) => {
+          if (!search) return true;
+          const q = search.toLowerCase();
+          return (
+            pkg.name.toLowerCase().includes(q) ||
+            (pkg.tagline ?? '').toLowerCase().includes(q) ||
+            (pkg.description ?? '').toLowerCase().includes(q)
+          );
+        })
+      : [];
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const safePage = Math.min(page, totalPages);
@@ -170,6 +189,36 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
 
       {loading ? (
         <SkeletonCards />
+      ) : typeParam === 'package' ? (
+        filteredPackages.length === 0 ? (
+          <div className="text-center py-16 text-gray-500">{t('catalog.noResults')}</div>
+        ) : (
+          <>
+            <p className="text-sm text-gray-600 mb-4">
+              {t('catalog.showing', { from: 1, to: filteredPackages.length, total: filteredPackages.length })}
+            </p>
+            <div className="flex flex-col gap-6">
+              {groupPackagesByCategory(filteredPackages, t('packages.uncategorized')).map((group) => (
+                <section key={group.name} className="flex flex-col gap-3">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                    <Tag className="h-4 w-4" /> {group.name}
+                  </h2>
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {group.items.map((pkg) => (
+                      <PackageCard
+                        key={pkg.id}
+                        pkg={pkg}
+                        showAgency={!selectedAgency}
+                        onOpen={(p) => navigate(`/packages/${p.id}`)}
+                        onSubscribe={(p) => navigate(`/packages/${p.id}?subscribe=1`)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </>
+        )
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-500">{t('catalog.noResults')}</div>
       ) : (

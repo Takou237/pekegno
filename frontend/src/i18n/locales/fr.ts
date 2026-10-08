@@ -456,6 +456,7 @@ export default {
     validatedInvoices: 'Factures validées récemment',
     noValidated: 'Aucune facture validée récemment.',
     seeAllInvoices: 'Voir toutes mes factures',
+    recentAlerts: 'Alertes récentes',
   },
 
   departmentTypes: {
@@ -2661,6 +2662,17 @@ export default {
       cancelled: 'Annuler',
       rejected: 'Rejeter',
     },
+    submitProof: {
+      title: 'Soumettre la prestation',
+      hint: "Déclarez le montant encaissé et joignez la preuve de paiement. La facture sera créée en attente de validation par le caissier.",
+      amountPaid: 'Montant encaissé',
+      treasuryAccount: 'Compte trésorerie',
+      proofHint: 'Capture de la transaction (OM / MoMo) — examinée par le caissier avant validation.',
+      amountRequiresProof: 'Une preuve est obligatoire dès qu\'un montant est déclaré.',
+      withoutProof: 'Soumettre sans preuve',
+      withProof: 'Soumettre avec preuve',
+      done: 'Prestation soumise.',
+    },
     actionStatus: {
       todo: 'À faire',
       in_progress: 'En cours',
@@ -2827,11 +2839,13 @@ export default {
       empty: "Le client n'a encore noté aucune action.",
       none: 'Pas encore noté',
       byAction: 'Notes par action',
-      clientOnly: 'Seul le client note, depuis son espace client (une note par action, modifiable).',
+      directFromClient: 'Note directe du client',
+      clientOnly: 'Seul le client note, depuis son espace client (une note globale sur la prestation, une par action, modifiables).',
     },
     tracking: {
       subtitle: 'Grand tableau de suivi : prestation, note du client, statut et motif.',
       notes: 'Notes',
+      directRating: 'Note directe du client (prioritaire sur la moyenne des actions)',
       reason: 'Motif',
       change: 'Changer…',
       anyRating: 'Toutes les notes',

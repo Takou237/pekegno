@@ -46,6 +46,8 @@ export default function CommercialSelfDashboardPage() {
         commission_type: s.commercial.commission_type,
         commission_value: s.commercial.commission_value,
         is_active: s.commercial.is_active,
+        agency_id: s.commercial.agency_id,
+        agency: s.commercial.agency,
       };
       setCommercial(mine);
       const invRes = await invoicesApi.list({ commercial_id: s.commercial.id, per_page: 10 });

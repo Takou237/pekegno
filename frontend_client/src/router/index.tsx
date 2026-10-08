@@ -7,6 +7,7 @@ import { FullPageSpinner } from '@/components/ui/Spinner';
 
 const HomePage = lazy(() => import('@/pages/public/HomePage'));
 const ProductDetailPage = lazy(() => import('@/pages/public/ProductDetailPage'));
+const PackageDetailPage = lazy(() => import('@/pages/public/PackageDetailPage'));
 const CartPage = lazy(() => import('@/pages/public/CartPage'));
 const PaymentPage = lazy(() => import('@/pages/public/PaymentPage'));
 const LoginPage = lazy(() => import('@/pages/public/LoginPage'));
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { index: true, element: <SuspenseWrapper><HomePage /></SuspenseWrapper> },
       { path: 'catalogue', element: <Navigate to="/" replace /> },
       { path: 'produits/:slug', element: <SuspenseWrapper><ProductDetailPage /></SuspenseWrapper> },
+      { path: 'packages/:id', element: <SuspenseWrapper><PackageDetailPage /></SuspenseWrapper> },
       { path: 'panier', element: <SuspenseWrapper><CartPage /></SuspenseWrapper> },
       { path: 'paiement/:orderId', element: <SuspenseWrapper><PaymentPage /></SuspenseWrapper> },
       { path: 'connexion', element: <GuestRoute><SuspenseWrapper><LoginPage /></SuspenseWrapper></GuestRoute> },

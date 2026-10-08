@@ -83,10 +83,29 @@ class PrestationReviewService
         ]);
     }
 
-    /** @return array{avg: float|null, count: int, distribution: array<int, int>} */
+    /** @return array{avg: float|null, count: int, distribution: array<int, int>, has_direct_rating: bool, direct_rating: int|null} */
     public function summaryForPrestation(Prestation $prestation): array
     {
-        return $this->summarize(PrestationActionReview::where('prestation_id', $prestation->id));
+        return $this->summarize(PrestationActionReview::where('prestation_id', $prestation->id)) + [
+            'has_direct_rating' => $prestation->hasDirectRating(),
+            'direct_rating' => $prestation->client_direct_rating,
+        ];
+    }
+
+    /** N3/D23 : journalise la note globale directe du client sur la prestation. */
+    public function logPrestationRating(Prestation $prestation, User $client, ?int $oldRating, int $newRating): void
+    {
+        $this->logger->log(
+            action: $oldRating !== null ? 'prestation_review_updated' : 'prestation_review_created',
+            entityType: 'prestation',
+            entityId: $prestation->id,
+            description: $oldRating !== null
+                ? "Note globale de la prestation « {$prestation->name} » modifiée : {$oldRating}★ → {$newRating}★"
+                : "Prestation « {$prestation->name} » notée {$newRating}★ par le client",
+            oldValues: $oldRating !== null ? ['rating' => $oldRating] : null,
+            newValues: ['rating' => $newRating],
+            agencyId: $prestation->agency_id,
+        );
     }
 
     /**
