@@ -509,6 +509,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     // === Agency — Actions des prestations (D4) ===
     Route::get('/prestations/{prestation}/actions', [PrestationActionController::class, 'index'])->middleware('permission:prestation-actions.consulter');
+    Route::get('/prestations/{prestation}/actions/{action}', [PrestationActionController::class, 'show'])->middleware('permission:prestation-actions.consulter');
     Route::post('/prestations/{prestation}/actions', [PrestationActionController::class, 'store'])->middleware('permission:prestation-actions.creer');
     Route::put('/prestation-actions/{action}', [PrestationActionController::class, 'update'])->middleware('permission:prestation-actions.modifier');
     Route::delete('/prestation-actions/{action}', [PrestationActionController::class, 'destroy'])->middleware('permission:prestation-actions.supprimer');
@@ -517,6 +518,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/prestation-actions/{action}/comments', [PrestationActionController::class, 'storeComment'])->middleware('permission:prestation-actions.modifier');
     Route::get('/prestation-actions/{action}/logs', [PrestationActionController::class, 'logs'])->middleware('permission:prestation-actions.consulter');
     Route::post('/prestation-actions/{action}/logs', [PrestationActionController::class, 'storeLog'])->middleware('permission:prestation-actions.modifier');
+    Route::get('/prestation-actions/{action}/executions', [PrestationActionController::class, 'executions'])->middleware('permission:prestation-actions.consulter');
+    Route::post('/prestation-actions/{action}/executions', [PrestationActionController::class, 'storeExecution'])->middleware('permission:prestation-actions.modifier');
+    Route::put('/prestation-action-executions/{execution}', [PrestationActionController::class, 'updateExecution'])->middleware('permission:prestation-actions.modifier');
+    Route::delete('/prestation-action-executions/{execution}', [PrestationActionController::class, 'destroyExecution'])->middleware('permission:prestation-actions.modifier');
 
     // === Agency — Notes 5★ (lecture seule staff, D5) ===
     Route::get('/prestations/{prestation}/reviews', [PrestationReviewController::class, 'index'])->middleware('permission:prestations.consulter');

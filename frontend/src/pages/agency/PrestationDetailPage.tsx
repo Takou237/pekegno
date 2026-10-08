@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, MessageSquare, Pencil, Plus, Trash2, Crown, ListChecks } from 'lucide-react';
+import { ArrowLeft, ExternalLink, MessageSquare, Pencil, Plus, Trash2, Crown, ListChecks } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { activityLogsApi } from '@/api/activityLogs.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -270,12 +270,14 @@ function SummaryTab({ prestation, basePath }: { prestation: Prestation; basePath
   );
 }
 
-const emptyAction: ActionPayload = { title: '', type: 'other', quantity: 1, frequency: 'once', budget: 0, is_pass_through: false };
+const emptyAction: ActionPayload = { title: '', type: 'other', quantity: 1, frequency: 'per_week', budget: 0, is_pass_through: false };
 
 function ActionsTab({ prestation, agencyId, onChanged }: { prestation: Prestation; agencyId?: string; onChanged: () => void }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { basePath } = useAgencyDept();
+  const navigate = useNavigate();
   const [actions, setActions] = useState<PrestationAction[]>([]);
   const [budget, setBudget] = useState({ total: 0, allocated: 0, remaining: 0, spent: 0 });
   const [formOpen, setFormOpen] = useState(false);
@@ -376,9 +378,19 @@ function ActionsTab({ prestation, agencyId, onChanged }: { prestation: Prestatio
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {actions.map((a) => (
-                <tr key={a.id} className={a.status === 'cancelled' ? 'opacity-50' : ''}>
+                <tr
+                  key={a.id}
+                  onClick={() => navigate(`${basePath}/prestations/${prestation.id}/actions/${a.id}`)}
+                  className={`cursor-pointer transition-colors hover:bg-gray-50/80 dark:hover:bg-gray-800/50 ${a.status === 'cancelled' ? 'opacity-50' : ''}`}
+                >
                   <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900 dark:text-white">{a.title}</p>
+                    <Link
+                      to={`${basePath}/prestations/${prestation.id}/actions/${a.id}`}
+                      className="font-semibold text-gray-900 hover:text-brand-600 hover:underline dark:text-white dark:hover:text-brand-400"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {a.title}
+                    </Link>
                     <p className="text-xs text-gray-400">{t(`agencyDept.actionType.${a.type}`)}{a.platform ? ` · ${a.platform}` : ''}{a.is_pass_through ? ` · ${t('agencyDept.budget.passThroughShort')}` : ''}</p>
                     {a.comment && <p className="mt-1 text-xs italic text-gray-500">« {a.comment} »</p>}
                   </td>
@@ -390,7 +402,7 @@ function ActionsTab({ prestation, agencyId, onChanged }: { prestation: Prestatio
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{personName(a.assignee)}</td>
                   <td className={`px-4 py-3 whitespace-nowrap ${a.is_overdue ? 'font-medium text-red-600' : 'text-gray-600 dark:text-gray-300'}`}>{a.due_date?.slice(0, 10) ?? '—'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">{a.progress ? `${a.progress.done}/${a.progress.expected}` : '—'}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     {canExecute && !locked ? (
                       <select
                         value={a.status}
@@ -404,8 +416,13 @@ function ActionsTab({ prestation, agencyId, onChanged }: { prestation: Prestatio
                     )}
                   </td>
                   <td className="px-4 py-3">{a.rating ? <Stars value={a.rating} size="h-3.5 w-3.5" /> : '—'}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
+                      <Link to={`${basePath}/prestations/${prestation.id}/actions/${a.id}`}>
+                        <Button variant="ghost" size="sm" title="Voir la gestion complète de l'action">
+                          <ExternalLink className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                        </Button>
+                      </Link>
                       <Button variant="ghost" size="sm" onClick={() => setDetail(a)} title={t('agencyDept.actions.followUp')}><MessageSquare className="h-4 w-4" /></Button>
                       {canExecute && !locked && <Button variant="ghost" size="sm" onClick={() => openForm(a)}><Pencil className="h-4 w-4" /></Button>}
                       {canManage && !locked && <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(a)}><Trash2 className="h-4 w-4" /></Button>}

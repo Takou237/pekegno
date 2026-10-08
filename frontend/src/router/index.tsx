@@ -132,6 +132,7 @@ const AgencyDeptDashboardPage = lazyWithRetry(() => import('@/pages/agency/Agenc
 const AgencyDeptPackagesPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptPackagesPage'));
 const PrestationListPage = lazyWithRetry(() => import('@/pages/agency/PrestationListPage'));
 const PrestationDetailPage = lazyWithRetry(() => import('@/pages/agency/PrestationDetailPage'));
+const PrestationActionDetailPage = lazyWithRetry(() => import('@/pages/agency/PrestationActionDetailPage'));
 const PrestationTrackingPage = lazyWithRetry(() => import('@/pages/agency/PrestationTrackingPage'));
 const AgencyActionsBoardPage = lazyWithRetry(() => import('@/pages/agency/AgencyActionsBoardPage'));
 const ClientTeamPage = lazyWithRetry(() => import('@/pages/agency/ClientTeamPage'));
@@ -363,6 +364,7 @@ export const router = createBrowserRouter([
           { path: 'prestations', element: page(<PrestationListPage />, table) },
           { path: 'prestations/tracking', element: page(<PrestationTrackingPage />, table) },
           { path: 'prestations/:prestationId', element: page(<PrestationDetailPage />, detail) },
+          { path: 'prestations/:prestationId/actions/:actionId', element: page(<PrestationActionDetailPage />, detail) },
           { path: 'client-team', element: page(<ClientTeamPage />, table) },
           { path: 'contracts', element: page(<ContractListPage />, table) },
           { path: 'contracts/:contractId', element: page(<ContractDetailPage />, detail) },

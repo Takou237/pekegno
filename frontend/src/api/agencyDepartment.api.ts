@@ -13,6 +13,7 @@ import type {
   PackagePayload,
   Prestation,
   PrestationAction,
+  PrestationActionExecution,
   PrestationPayload,
   RatingSummary,
   Review,
@@ -20,6 +21,7 @@ import type {
   TeamMember,
   TeamOverviewRow,
   TrackingRow,
+  WeekSummary,
 } from '@/types/agencyDepartment';
 
 type Params = Record<string, string | number | boolean | undefined | null>;
@@ -66,6 +68,8 @@ export const agencyDeptApi = {
     get<{ data: PrestationAction[]; budget: { total: number; allocated: number; remaining: number; spent: number } }>(`/prestations/${prestationId}/actions`),
   actionsBoard: (params: Params) =>
     get<LaravelPage<PrestationAction> & { budget: { allocated: number; spent: number; pass_through: number } }>('/prestation-actions/board', params),
+  actionDetail: (prestationId: string, actionId: string) =>
+    get<{ action: PrestationAction; progress: { done: number; expected: number; percent: number }; weeks: WeekSummary[] }>(`/prestations/${prestationId}/actions/${actionId}`),
   createAction: (prestationId: string, payload: ActionPayload) => post<PrestationAction>(`/prestations/${prestationId}/actions`, payload),
   updateAction: (id: string, payload: ActionPayload) => put<PrestationAction>(`/prestation-actions/${id}`, payload),
   deleteAction: (id: string) => del(`/prestation-actions/${id}`),
@@ -75,6 +79,11 @@ export const agencyDeptApi = {
   actionLogs: (id: string) => get<{ data: ActionLog[]; progress: { done: number; expected: number; percent: number } }>(`/prestation-actions/${id}/logs`),
   addActionLog: (id: string, payload: { done_at: string; quantity_done?: number; proof_url?: string; cost?: number; note?: string }) =>
     post<ActionLog>(`/prestation-actions/${id}/logs`, payload),
+  actionExecutions: (actionId: string, params?: Params) =>
+    get<{ data: PrestationActionExecution[]; weeks: WeekSummary[]; progress: { done: number; expected: number; percent: number } }>(`/prestation-actions/${actionId}/executions`, params),
+  createExecution: (actionId: string, payload: Partial<PrestationActionExecution>) => post<PrestationActionExecution>(`/prestation-actions/${actionId}/executions`, payload),
+  updateExecution: (executionId: string, payload: Partial<PrestationActionExecution>) => put<PrestationActionExecution>(`/prestation-action-executions/${executionId}`, payload),
+  deleteExecution: (executionId: string) => del(`/prestation-action-executions/${executionId}`),
 
   // Équipe client
   teamRoles: (params: { department_id?: string }) => get<{ data: ClientTeamRole[] }>('/client-team-roles', params).then((r) => r.data),

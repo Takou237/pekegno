@@ -269,7 +269,7 @@ export default function AgencyDeptPackagesPage() {
               )}
             </div>
             <Select label={t('agencyDept.packages.billingPeriod')} value={form.billing_period} onChange={(e) => setForm({ ...form, billing_period: e.target.value as BillingPeriod })}>
-              {(['monthly', 'quarterly', 'yearly', 'one_shot'] as BillingPeriod[]).map((b) => (
+              {(['monthly', 'quarterly', 'yearly'] as BillingPeriod[]).map((b) => (
                 <option key={b} value={b}>{t(`agencyDept.billingPeriod.${b}`)}</option>
               ))}
             </Select>
@@ -297,7 +297,7 @@ export default function AgencyDeptPackagesPage() {
               <div key={i} className="grid gap-2 sm:grid-cols-[1fr_70px_130px_100px_150px_auto]">
                 <Input placeholder={t('agencyDept.packages.itemLabel')} value={item.label} onChange={(e) => updateList('items', i, { label: e.target.value })} />
                 <Input placeholder="Qté" type="number" min={1} value={item.quantity ?? ''} onChange={(e) => updateList('items', i, { quantity: e.target.value ? Number(e.target.value) : null })} />
-                <Select value={item.frequency ?? 'once'} onChange={(e) => updateList('items', i, { frequency: e.target.value as PackageItem['frequency'] })}>
+                <Select value={item.frequency ?? 'per_month'} onChange={(e) => updateList('items', i, { frequency: e.target.value as PackageItem['frequency'] })}>
                   {FREQUENCIES.map((f) => <option key={f} value={f}>{t(`agencyDept.frequency.${f}`)}</option>)}
                 </Select>
                 <Input placeholder={t('agencyDept.unit')} value={item.unit ?? ''} onChange={(e) => updateList('items', i, { unit: e.target.value })} />

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Agency;
 use App\Http\Controllers\Controller;
 use App\Models\Prestation;
 use App\Models\PrestationAction;
+use App\Models\PrestationActionExecution;
 use App\Services\AgencyAccessService;
 use App\Services\PrestationActionService;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +37,24 @@ class PrestationActionController extends Controller
                 'remaining' => $prestation->budget_remaining,
                 'spent' => $prestation->budget_spent,
             ],
+        ]);
+    }
+
+    public function show(Request $request, Prestation $prestation, PrestationAction $action): JsonResponse
+    {
+        $this->access->authorize($request->user(), $prestation);
+
+        $this->actions->ensureExecutionsGenerated($action);
+
+        return response()->json([
+            'action' => $action->load([
+                'assignee:id,first_name,last_name',
+                'reviews:id,prestation_action_id,rating,comment,updated_at',
+                'prestation:id,name,reference,status,client_id,agency_id,department_id,start_date,end_date,budget',
+                'prestation.client:id,first_name,last_name',
+            ]),
+            'progress' => $this->actions->progress($action),
+            'weeks' => $this->actions->getWeeksSummary($action),
         ]);
     }
 
@@ -169,6 +188,79 @@ class PrestationActionController extends Controller
         $log = $this->actions->logExecution($action, $request->user(), $data + ['quantity_done' => $data['quantity_done'] ?? 1]);
 
         return response()->json($log->load('author:id,first_name,last_name'), 201);
+    }
+
+    public function executions(Request $request, PrestationAction $action): JsonResponse
+    {
+        $this->access->authorize($request->user(), $action->prestation);
+
+        $this->actions->ensureExecutionsGenerated($action);
+
+        $query = $action->executions()
+            ->with(['assignee:id,first_name,last_name', 'user:id,first_name,last_name'])
+            ->when($request->week, fn ($q, $w) => $q->where('week_number', $w))
+            ->when($request->status, fn ($q, $s) => $q->where('status', $s))
+            ->when($request->boolean('overdue'), fn ($q) => $q->where('status', '!=', PrestationActionExecution::STATUS_DONE)->where('status', '!=', PrestationActionExecution::STATUS_CANCELLED)->where(function ($sq) {
+                $sq->whereDate('scheduled_date', '<', today())->orWhereDate('week_end_date', '<', today());
+            }))
+            ->orderBy('week_number')
+            ->orderBy('occurrence_number');
+
+        return response()->json([
+            'data' => $query->get(),
+            'weeks' => $this->actions->getWeeksSummary($action),
+            'progress' => $this->actions->progress($action),
+        ]);
+    }
+
+    public function storeExecution(Request $request, PrestationAction $action): JsonResponse
+    {
+        $this->access->authorize($request->user(), $action->prestation);
+
+        $data = $request->validate([
+            'week_number' => ['nullable', 'integer', 'min:1'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'scheduled_date' => ['nullable', 'date'],
+            'status' => ['sometimes', Rule::in(PrestationActionExecution::STATUSES)],
+            'done_at' => ['nullable', 'date'],
+            'proof_url' => ['nullable', 'string', 'max:2048'],
+            'actual_cost' => ['nullable', 'numeric', 'min:0'],
+            'note' => ['nullable', 'string', 'max:2000'],
+            'assigned_to' => ['nullable', 'uuid', 'exists:users,id'],
+        ]);
+
+        $execution = $this->actions->addManualExecution($action, $request->user(), $data);
+
+        return response()->json($execution, 201);
+    }
+
+    public function updateExecution(Request $request, PrestationActionExecution $execution): JsonResponse
+    {
+        $this->access->authorize($request->user(), $execution->action->prestation);
+
+        $data = $request->validate([
+            'title' => ['sometimes', 'string', 'max:255'],
+            'scheduled_date' => ['nullable', 'date'],
+            'status' => ['sometimes', Rule::in(PrestationActionExecution::STATUSES)],
+            'done_at' => ['nullable', 'date'],
+            'proof_url' => ['nullable', 'string', 'max:2048'],
+            'actual_cost' => ['nullable', 'numeric', 'min:0'],
+            'note' => ['nullable', 'string', 'max:2000'],
+            'assigned_to' => ['nullable', 'uuid', 'exists:users,id'],
+        ]);
+
+        $updated = $this->actions->updateExecution($execution, $request->user(), $data);
+
+        return response()->json($updated);
+    }
+
+    public function destroyExecution(Request $request, PrestationActionExecution $execution): JsonResponse
+    {
+        $this->access->authorize($request->user(), $execution->action->prestation);
+
+        $this->actions->deleteExecution($execution);
+
+        return response()->json(null, 204);
     }
 
     private function validated(Request $request, bool $update = false): array

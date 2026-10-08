@@ -180,6 +180,43 @@ export interface ActionLog {
   author?: PersonRef | null;
 }
 
+export type ExecutionStatus = 'todo' | 'in_progress' | 'done' | 'cancelled';
+
+export interface PrestationActionExecution {
+  id: string;
+  prestation_action_id: string;
+  week_number: number;
+  week_start_date: string | null;
+  week_end_date: string | null;
+  occurrence_number: number;
+  title: string | null;
+  status: ExecutionStatus;
+  scheduled_date: string | null;
+  done_at: string | null;
+  proof_url: string | null;
+  actual_cost: number | null;
+  note: string | null;
+  is_manual: boolean;
+  is_overdue?: boolean;
+  user_id: string | null;
+  user?: PersonRef | null;
+  assigned_to: string | null;
+  assignee?: PersonRef | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WeekSummary {
+  week_number: number;
+  week_start_date: string | null;
+  week_end_date: string | null;
+  total: number;
+  done: number;
+  overdue: number;
+  is_current: boolean;
+  percent: number;
+}
+
 export interface ClientTeamRole {
   id: string;
   department_id: string | null;
@@ -369,7 +406,8 @@ export const STATUSES_REQUIRING_REASON: PrestationStatus[] = ['suspended', 'canc
 
 export const ACTION_TYPES: ActionType[] = ['community_management', 'advertising', 'content_production', 'coaching', 'strategy', 'other'];
 export const ACTION_STATUSES: ActionStatus[] = ['todo', 'in_progress', 'done', 'validated', 'blocked', 'cancelled'];
-export const FREQUENCIES: Frequency[] = ['per_day', 'per_week', 'per_month', 'once'];
+export const FREQUENCIES: Frequency[] = ['per_day', 'per_week', 'per_month'];
+export const BILLING_PERIODS: BillingPeriod[] = ['monthly', 'quarterly', 'yearly'];
 export const PRESTATION_STATUSES: PrestationStatus[] = [
   'draft', 'pending_validation', 'validated', 'in_progress', 'completed', 'suspended', 'cancelled', 'rejected',
 ];

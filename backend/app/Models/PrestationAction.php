@@ -111,6 +111,13 @@ class PrestationAction extends Model
         return $this->hasMany(PrestationActionReview::class);
     }
 
+    public function executions(): HasMany
+    {
+        return $this->hasMany(PrestationActionExecution::class)
+            ->orderBy('week_number')
+            ->orderBy('occurrence_number');
+    }
+
     public function getQuantityDoneAttribute(): int
     {
         return (int) $this->logs()->sum('quantity_done');
