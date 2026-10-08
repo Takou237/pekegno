@@ -11,7 +11,6 @@ import {
   Briefcase,
   FileText,
   Calculator,
-  CalendarCheck,
   UserCheck,
   BarChart3,
   GraduationCap,
@@ -54,7 +53,6 @@ function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType?: 
     { to: 'invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
     { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
     { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
-    { to: 'subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
     { to: 'teams', label: t('nav.users'), icon: Users, end: false },
     { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },
   ];

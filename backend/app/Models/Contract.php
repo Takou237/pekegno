@@ -148,10 +148,7 @@ class Contract extends Model
 
     public static function generateNextNumber(): string
     {
-        $last = static::withTrashed()->orderByDesc('number')->value('number');
-        $next = $last ? ((int) substr($last, 4)) + 1 : 1;
-
-        return 'CTR-'.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
+        return app(\App\Services\ContractService::class)->generateNextNumber();
     }
 
     public function scopeOfStatus(Builder $query, string $status): Builder

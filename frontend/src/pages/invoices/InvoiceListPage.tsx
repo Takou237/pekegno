@@ -26,10 +26,6 @@ import type { Invoice, InvoiceStatus } from '@/types/invoice';
 import type { Agency, PaginationMeta } from '@/types/agency';
 import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
-export function invoiceDetailPath(invoiceId: string, agencyId?: string): string {
-  return agencyId ? `/agencies/${agencyId}/invoices/${invoiceId}` : `/invoices/${invoiceId}`;
-}
-
 export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   const { t } = useTranslation();
   switch (status) {
@@ -49,12 +45,15 @@ export default function InvoiceListPage({
   enrollmentOnly,
   newInvoicePath,
   contractDepartmentId,
+  departmentId,
 }: {
   fixedAgencyId?: string;
   enrollmentOnly?: boolean;
   newInvoicePath?: string;
   /** Agency : factures des contrats (packages / prestations) de ce département. */
   contractDepartmentId?: string;
+  /** Liste ouverte dans un département : le détail y reste aussi. */
+  departmentId?: string;
 }) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
@@ -65,7 +64,11 @@ export default function InvoiceListPage({
   // ce pays uniquement, et détail ouvert sous le même pays.
   const { countryId: routeCountryId } = useParams<{ countryId?: string }>();
   const countryId = fixedAgencyId ? undefined : routeCountryId;
-  const listBase = countryId ? `/countries/${countryId}/invoices` : invoiceListPath(fixedAgencyId);
+  const listBase = departmentId
+    ? `/departments/${departmentId}/invoices`
+    : countryId
+      ? `/countries/${countryId}/invoices`
+      : invoiceListPath(fixedAgencyId);
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -153,7 +156,7 @@ export default function InvoiceListPage({
   }
 
   function openInvoice(invoiceId: string) {
-    navigate(countryId ? `${listBase}/${invoiceId}` : invoiceDetailPath(invoiceId, fixedAgencyId), { state: origin });
+    navigate(`${listBase}/${invoiceId}`, { state: origin });
   }
 
   async function handleExport() {

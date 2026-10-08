@@ -80,7 +80,6 @@ const AccountingPage = lazyWithRetry(() => import('@/pages/accounting/Accounting
 const AgencyAccountingPage = lazyWithRetry(() => import('@/pages/accounting/AgencyAccountingPage'));
 const DailyBilanPage = lazyWithRetry(() => import('@/pages/bilans/DailyBilanPage'));
 const SubscriptionListPage = lazyWithRetry(() => import('@/pages/subscriptions/SubscriptionListPage'));
-const AgencySubscriptionsPage = lazyWithRetry(() => import('@/pages/subscriptions/AgencySubscriptionsPage'));
 const CommercialReportPage = lazyWithRetry(() => import('@/pages/commercials/CommercialReportPage'));
 const SubscriptionsReportPage = lazyWithRetry(() => import('@/pages/reports/SubscriptionsReportPage'));
 const CustomersReportPage = lazyWithRetry(() => import('@/pages/reports/CustomersReportPage'));
@@ -184,7 +183,6 @@ const agencyChildren: RouteObject[] = [
   { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },
   { path: 'accounting', element: page(<AgencyAccountingPage />, table) },
   { path: 'bilans', element: page(<DailyBilanPage />, table) },
-  { path: 'subscriptions', element: page(<AgencySubscriptionsPage />, table) },
   { path: 'teams', element: page(<AgencyTeamsPage />, table) },
   { path: 'promotions', element: page(<AgencyPromotionsPage />, cards) },
   { path: 'settings', element: page(<AgencySettingsPage />, detail) },
@@ -278,7 +276,6 @@ export const router = createBrowserRouter([
           { path: 'employees/report', element: page(<CommercialReportPage mode="employee" />, table) },
           { path: 'accounting', element: page(<AccountingPage />, table) },
           { path: 'bilans', element: page(<DailyBilanPage />, table) },
-          { path: 'subscriptions', element: page(<SubscriptionListPage />, table) },
           { path: 'invoices', element: page(<InvoiceListPage />, table) },
           { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: 'invoices/:id', element: page(<InvoiceDetailPage />, detail) },
@@ -318,6 +315,9 @@ export const router = createBrowserRouter([
             path: 'invoices',
             element: page(<ByDepartmentType pages={{ agency: <AgencyDeptInvoicesPage /> }} fallback={<AcademyInvoicesPage />} />, table),
           },
+          // Détail d'une facture : on reste dans le département (la route
+          // /agencies/... redirige vers le pays et fait perdre le contexte).
+          { path: 'invoices/:invoiceId', element: page(<InvoiceDetailPage />, detail) },
           {
             path: 'receivables',
             element: page(<ByDepartmentType pages={{ agency: <AgencyDeptReceivablesPage /> }} fallback={<AcademyReceivablesPage />} />, table),

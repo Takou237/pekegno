@@ -9,6 +9,7 @@ use App\Models\Prestation;
 use App\Models\Setting;
 use App\Models\SubscriptionPack;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ContractService
 {
@@ -21,10 +22,29 @@ class ContractService
 
     public function generateNextNumber(): string
     {
-        $last = Contract::withTrashed()->orderByDesc('number')->value('number');
-        $next = $last ? ((int) substr($last, 4)) + 1 : 1;
+        return DB::transaction(function () {
+            // Verrou conseil PostgreSQL : exclusion mutuelle sur la séquence CTR-XXXXX.
+            if (DB::getDriverName() === 'pgsql') {
+                DB::select('SELECT pg_advisory_xact_lock(?)', [$this->numberLockKey()]);
+            }
 
-        return 'CTR-'.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
+            $max = 0;
+            $numbers = Contract::withTrashed()->where('number', 'like', 'CTR-%')->pluck('number');
+            foreach ($numbers as $number) {
+                // N'ignore que les numéros normalisés (les références
+                // atypiques type CTR-TEST-0001 ne faussent pas la séquence).
+                if (preg_match('/^CTR-(\d+)$/', (string) $number, $matches)) {
+                    $max = max($max, (int) $matches[1]);
+                }
+            }
+
+            return 'CTR-'.str_pad((string) ($max + 1), 5, '0', STR_PAD_LEFT);
+        });
+    }
+
+    private function numberLockKey(): int
+    {
+        return crc32('contract:number');
     }
 
     /**
@@ -33,24 +53,26 @@ class ContractService
      */
     public function createFromPrestation(Prestation $prestation): Contract
     {
-        $contract = Contract::create([
-            'number' => $this->generateNextNumber(),
-            'client_id' => $prestation->client_id,
-            'company_id' => $prestation->company_id,
-            'agency_id' => $prestation->agency_id,
-            'department_id' => $prestation->department_id,
-            'pack_id' => $prestation->package_id,
-            'origin' => Contract::ORIGIN_PRESTATION,
-            'prestation_id' => $prestation->id,
-            'commercial_id' => $prestation->commercial_id,
-            'start_date' => $prestation->start_date->toDateString(),
-            'end_date' => $prestation->end_date->toDateString(),
-            'billing_cycle' => 'one_shot',
-            'amount' => $prestation->budget,
-            'budget_allocated' => $prestation->budget,
-            'status' => Contract::STATUS_PENDING,
-            'auto_renew' => false,
-        ]);
+        $contract = DB::transaction(function () use ($prestation) {
+            return Contract::create([
+                'number' => $this->generateNextNumber(),
+                'client_id' => $prestation->client_id,
+                'company_id' => $prestation->company_id,
+                'agency_id' => $prestation->agency_id,
+                'department_id' => $prestation->department_id,
+                'pack_id' => $prestation->package_id,
+                'origin' => Contract::ORIGIN_PRESTATION,
+                'prestation_id' => $prestation->id,
+                'commercial_id' => $prestation->commercial_id,
+                'start_date' => $prestation->start_date->toDateString(),
+                'end_date' => $prestation->end_date->toDateString(),
+                'billing_cycle' => 'one_shot',
+                'amount' => $prestation->budget,
+                'budget_allocated' => $prestation->budget,
+                'status' => Contract::STATUS_PENDING,
+                'auto_renew' => false,
+            ]);
+        });
 
         $prestation->update(['contract_id' => $contract->id]);
 
@@ -249,26 +271,28 @@ class ContractService
             ? $startDate->copy()->addDays(max(1, $contract->start_date->diffInDays($contract->end_date)))
             : $this->calculateEndDate($startDate, $contract->billing_cycle);
 
-        $newContract = Contract::create([
-            'number' => $this->generateNextNumber(),
-            'client_id' => $contract->client_id,
-            'company_id' => $contract->company_id,
-            'agency_id' => $contract->agency_id,
-            'department_id' => $contract->department_id,
-            'pack_id' => $contract->pack_id,
-            'origin' => $contract->origin ?? Contract::ORIGIN_MANUAL,
-            'commercial_id' => $contract->commercial_id,
-            'start_date' => $startDate->toDateString(),
-            'end_date' => $endDate->toDateString(),
-            'billing_cycle' => $contract->billing_cycle,
-            'amount' => $contract->amount,
-            'budget_allocated' => $contract->budget_allocated,
-            'status' => $isAgency ? Contract::STATUS_PENDING : Contract::STATUS_ACTIVE,
-            'auto_renew' => $contract->auto_renew,
-            'renewal_count' => $contract->renewal_count + 1,
-            'parent_contract_id' => $contract->id,
-            'notes' => $contract->notes,
-        ]);
+        $newContract = DB::transaction(function () use ($contract, $startDate, $endDate, $isAgency) {
+            return Contract::create([
+                'number' => $this->generateNextNumber(),
+                'client_id' => $contract->client_id,
+                'company_id' => $contract->company_id,
+                'agency_id' => $contract->agency_id,
+                'department_id' => $contract->department_id,
+                'pack_id' => $contract->pack_id,
+                'origin' => $contract->origin ?? Contract::ORIGIN_MANUAL,
+                'commercial_id' => $contract->commercial_id,
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+                'billing_cycle' => $contract->billing_cycle,
+                'amount' => $contract->amount,
+                'budget_allocated' => $contract->budget_allocated,
+                'status' => $isAgency ? Contract::STATUS_PENDING : Contract::STATUS_ACTIVE,
+                'auto_renew' => $contract->auto_renew,
+                'renewal_count' => $contract->renewal_count + 1,
+                'parent_contract_id' => $contract->id,
+                'notes' => $contract->notes,
+            ]);
+        });
 
         $originalServices = ContractServiceModel::where('contract_id', $contract->id)->get();
 

@@ -9,5 +9,5 @@ export default function AcademyInvoicesPage() {
   const { departmentId } = useParams<{ departmentId?: string }>();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
   const newInvoicePath = departmentId ? `/departments/${departmentId}/invoices/new` : undefined;
-  return <InvoiceListPage fixedAgencyId={agencyId} enrollmentOnly newInvoicePath={newInvoicePath} />;
+  return <InvoiceListPage fixedAgencyId={agencyId} departmentId={departmentId} enrollmentOnly newInvoicePath={newInvoicePath} />;
 }
