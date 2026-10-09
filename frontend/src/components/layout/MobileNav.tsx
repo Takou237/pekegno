@@ -33,7 +33,11 @@ export function MobileNav({ isOpen, onClose, contextTitle, contextItems = [], co
     return () => { cancelled = true; };
   }, [roleName]);
 
-  const mainItems = getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge);
+  const mainItems = getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge).map((item) =>
+    // Garde-fou : jamais de pastille rouge sur le menu Factures en connexion
+    // commercial (ni caissier), même si un badge était passé par erreur.
+    roleName === 'commercial' || roleName === 'caissier' ? { ...item, badge: undefined } : item,
+  );
   const fullName =
     [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username || '—';
 

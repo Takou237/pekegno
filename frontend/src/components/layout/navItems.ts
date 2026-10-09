@@ -163,6 +163,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     return [
       ...baseItems,
       { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
+      // Commercial : menu Factures SANS pastille rouge (pas de badge impayés).
       invoiceItem(t),
       { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
       catalogItem(t),

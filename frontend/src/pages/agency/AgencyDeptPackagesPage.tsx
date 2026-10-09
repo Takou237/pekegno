@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Tag, Trash2 } from 'lucide-react';
+import { Plus, Search, Tag, Trash2 } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,6 +41,8 @@ export default function AgencyDeptPackagesPage() {
   const [promoTarget, setPromoTarget] = useState<AgencyPackage | null>(null);
   const [subscribeTarget, setSubscribeTarget] = useState<AgencyPackage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AgencyPackage | null>(null);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
 
   const load = useCallback(() => {
     if (!departmentId) return;
@@ -56,10 +58,29 @@ export default function AgencyDeptPackagesPage() {
     load();
   }, [load]);
 
-  const grouped = useMemo(
-    () => groupPackagesByCategory(packages, t('agencyDept.packages.uncategorized')),
-    [packages, t],
-  );
+  const categories = useMemo(() => {
+    const names = new Set<string>();
+    for (const p of packages) if (p.category?.name) names.add(p.category.name);
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [packages]);
+
+  const grouped = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = packages.filter((p) => {
+      if (
+        q &&
+        !(
+          p.name.toLowerCase().includes(q) ||
+          (p.code ?? '').toLowerCase().includes(q) ||
+          (p.tagline ?? '').toLowerCase().includes(q)
+        )
+      )
+        return false;
+      if (categoryFilter && p.category?.name !== categoryFilter) return false;
+      return true;
+    });
+    return groupPackagesByCategory(filtered, t('agencyDept.packages.uncategorized'));
+  }, [packages, search, categoryFilter, t]);
 
   function openCreate() {
     setEditing(null);
@@ -99,9 +120,33 @@ export default function AgencyDeptPackagesPage() {
 
       {error && <Alert variant="error">{error}</Alert>}
 
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            className="pl-9"
+            placeholder={t('common.search')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {categories.length > 0 && (
+          <div className="sm:w-48">
+            <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+              <option value="">{t('services.allCategories')}</option>
+              {categories.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+      </div>
+
       {loading ? (
         <SkeletonCards />
-      ) : packages.length === 0 ? (
+      ) : grouped.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-gray-700">
           {t('agencyDept.packages.empty')}
         </p>

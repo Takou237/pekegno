@@ -1,5 +1,5 @@
 import { client } from './client';
-import type { Country, Agency, Service, Product, PublicCourse, AgencyPaymentMethod, PublicPackage } from '@/types';
+import type { Country, Agency, Service, Product, PublicCourse, AgencyPaymentMethod, PublicPackage, PublicOffer } from '@/types';
 
 export const publicApi = {
   async getCountries(): Promise<Country[]> {
@@ -54,6 +54,12 @@ export const publicApi = {
 
   async getPackage(id: string): Promise<PublicPackage> {
     const { data } = await client.get<PublicPackage>(`/public/packages/${id}`);
+    return data;
+  },
+
+  /** Offres de prestation Agency (onglet Packages du catalogue public). */
+  async getOffers(params?: { country_id?: string; agency_id?: string; category_id?: string; search?: string; per_page?: number }): Promise<PublicOffer[]> {
+    const { data } = await client.get<PublicOffer[]>('/public/offers', { params });
     return data;
   },
 };

@@ -60,6 +60,8 @@ class PackageController extends Controller
         $data = $this->validated($request);
         $targetCountryIds = $data['target_country_ids'] ?? [];
         unset($data['target_country_ids']);
+        // Public par défaut : un package créé apparaît aussitôt sur le site public.
+        $data['is_public'] = $data['is_public'] ?? true;
 
         $sourceAgencyId = $data['agency_id'] ?? null;
         abort_unless($sourceAgencyId === null || $this->access->canAccessAgency($request->user(), $sourceAgencyId), 403, 'Agence hors de votre périmètre.');

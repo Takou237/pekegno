@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\City;
 use App\Models\Country;
 use App\Models\Product;
+use App\Models\PrestationOffer;
 use App\Models\Promotion;
 use App\Models\Service;
 use App\Models\SubscriptionPack;
@@ -387,6 +388,36 @@ class Phase2PublicApiTest extends TestCase
         $this->assertCount(2, $payload['agencies']);
         $this->assertSame($second->id, $payload['agencies'][0]['package_id'], 'agence du pack consulté en premier');
         $this->assertContains($first->id, array_column($payload['agencies'], 'package_id'));
+    }
+
+    // ─── Offres de prestation Agency (onglet Packages du site public) ───────
+
+    public function test_public_offers_include_only_active(): void
+    {
+        PrestationOffer::create(['agency_id' => $this->agencyIn('CMR')->id, 'name' => 'Instagram Boost', 'is_active' => true]);
+        PrestationOffer::create(['agency_id' => $this->agencyIn('CMR')->id, 'name' => 'Inactive', 'is_active' => false]);
+
+        $offers = $this->getJson('/api/public/offers')->assertOk()->json();
+
+        $this->assertCount(1, $offers);
+        $this->assertSame('Instagram Boost', $offers[0]['name']);
+        $this->assertSame(0, $offers[0]['subscriptions_count']);
+    }
+
+    public function test_public_offers_are_filterable_by_country_and_search(): void
+    {
+        PrestationOffer::create(['agency_id' => $this->agencyIn('CMR')->id, 'name' => 'Boost Cameroun', 'is_active' => true]);
+        PrestationOffer::create(['agency_id' => $this->agencyIn('CIV')->id, 'name' => 'Boost Ivoire', 'is_active' => true]);
+
+        $cmrCountryId = Country::where('code', 'CMR')->firstOrFail()->id;
+
+        $offers = $this->getJson('/api/public/offers?country_id='.$cmrCountryId)->assertOk()->json();
+        $this->assertCount(1, $offers);
+        $this->assertSame('Boost Cameroun', $offers[0]['name']);
+
+        $search = $this->getJson('/api/public/offers?search=ivoire')->assertOk()->json();
+        $this->assertCount(1, $search);
+        $this->assertSame('Boost Ivoire', $search[0]['name']);
     }
 
     private function publicProduct(array $overrides = []): Product

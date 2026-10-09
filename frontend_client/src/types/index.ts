@@ -415,6 +415,17 @@ export interface PublicPackageAgency {
   package_id: string;
 }
 
+/** Offre de prestation Agency sur le catalogue public (lecture seule). */
+export interface PublicOffer {
+  id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  subscriptions_count: number;
+  category: { id: string; name: string; color: string | null } | null;
+  agency: { id: string; name: string; city: string | null; country: string | null } | null;
+}
+
 /** Package du catalogue public : consultation libre, souscription depuis la fiche (client connecté). */
 export interface PublicPackage {
   id: string;

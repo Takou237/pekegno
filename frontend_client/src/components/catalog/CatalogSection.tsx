@@ -4,12 +4,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { publicApi } from '@/api/public.api';
 import { formatCurrency, displayPrice } from '@/utils';
 import { PackageCard, groupPackagesByCategory } from '@/components/catalog/PackageCard';
+import { OfferSubscribeModal } from '@/components/packages/OfferSubscribeModal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import Pagination from '@/components/ui/Pagination';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { Search, SlidersHorizontal, ShoppingCart, GraduationCap, MapPin, Tag } from 'lucide-react';
-import type { Country, Agency, Service, Product, PublicCourse, PublicPackage } from '@/types';
+import { Search, SlidersHorizontal, ShoppingCart, GraduationCap, MapPin, Tag, UserPlus } from 'lucide-react';
+import type { Country, Agency, Service, Product, PublicCourse, PublicPackage, PublicOffer } from '@/types';
 
 type CatalogItem =
   | (Service & { type: 'service' })
@@ -25,12 +27,14 @@ interface CatalogSectionProps {
 export default function CatalogSection({ title }: CatalogSectionProps) {
   const { t } = useTranslation();
   const { addItem } = useCart();
+  const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const typeParam = searchParams.get('type') ?? 'all';
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [packages, setPackages] = useState<PublicPackage[]>([]);
+  const [offers, setOffers] = useState<PublicOffer[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +43,7 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(8);
+  const [subscribeOffer, setSubscribeOffer] = useState<PublicOffer | null>(null);
 
   const types = [
     { key: 'all', label: t('catalog.typeAll') },
@@ -69,6 +74,7 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
       publicApi.getProducts(params).then((products) => products.map((p) => ({ ...p, type: 'product' as const }))),
       publicApi.getCourses(params).then((courses) => courses.map((c) => ({ ...c, type: 'course' as const }))),
       publicApi.getPackages(params).then((pkgs) => setPackages(pkgs)),
+      publicApi.getOffers(params).then(setOffers).catch(() => setOffers([])),
     ])
       .then(([services, products, courses]) => setItems([...services, ...products, ...courses]))
       .catch(() => setItems([]))
@@ -108,6 +114,18 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
         })
       : [];
 
+  const filteredOffers =
+    typeParam === 'package'
+      ? offers.filter((offer) => {
+          if (!search) return true;
+          const q = search.toLowerCase();
+          return (
+            offer.name.toLowerCase().includes(q) ||
+            (offer.description ?? '').toLowerCase().includes(q)
+          );
+        })
+      : [];
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const safePage = Math.min(page, totalPages);
   const start = (safePage - 1) * perPage;
@@ -137,6 +155,18 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
   const goToPage = (p: number) => {
     setPage(p);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Souscription à une prestation — même logique que l'inscription à une
+  // formation : sans connexion → /connexion, sinon modale puis suivi depuis
+  // « Mes prestations ».
+  const handleOfferSubscribe = (offer: PublicOffer) => {
+    if (!isAuthenticated) {
+      showToast(t('offers.loginToSubscribe'), 'info');
+      navigate('/connexion');
+      return;
+    }
+    setSubscribeOffer(offer);
   };
 
   return (
@@ -190,13 +220,15 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
       {loading ? (
         <SkeletonCards />
       ) : typeParam === 'package' ? (
-        filteredPackages.length === 0 ? (
+        filteredPackages.length === 0 && filteredOffers.length === 0 ? (
           <div className="text-center py-16 text-gray-500">{t('catalog.noResults')}</div>
         ) : (
           <>
-            <p className="text-sm text-gray-600 mb-4">
-              {t('catalog.showing', { from: 1, to: filteredPackages.length, total: filteredPackages.length })}
-            </p>
+            {filteredPackages.length > 0 && (
+              <p className="text-sm text-gray-600 mb-4">
+                {t('catalog.showing', { from: 1, to: filteredPackages.length, total: filteredPackages.length })}
+              </p>
+            )}
             <div className="flex flex-col gap-6">
               {groupPackagesByCategory(filteredPackages, t('packages.uncategorized')).map((group) => (
                 <section key={group.name} className="flex flex-col gap-3">
@@ -217,6 +249,56 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
                 </section>
               ))}
             </div>
+
+            <section className="flex flex-col gap-3 mt-6">
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                <Tag className="h-4 w-4" /> {t('catalog.offers')}
+              </h2>
+              {filteredOffers.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500">{t('catalog.noOffers')}</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredOffers.map((offer) => (
+                    <div
+                      key={offer.id}
+                      className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow group flex flex-col"
+                    >
+                      <div className="h-48 bg-gradient-to-br from-brand-50 to-brand-100 flex items-center justify-center">
+                        <span className="text-4xl font-bold text-brand-200">{offer.name[0]}</span>
+                      </div>
+                      <div className="p-5 flex flex-col flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">
+                            {t('catalog.offers')}
+                          </span>
+                          {offer.category && <span className="text-xs text-gray-400">{offer.category.name}</span>}
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-brand-600 transition-colors">
+                          {offer.name}
+                        </h3>
+                        {offer.description && (
+                          <p className="text-sm text-gray-500 line-clamp-2 mb-3 flex-1">{offer.description}</p>
+                        )}
+                        {offer.agency && (
+                          <p className="flex items-center gap-1 text-xs text-gray-400 mb-4">
+                            <MapPin size={12} />
+                            {offer.agency.name}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOfferSubscribe(offer)}
+                          className="mt-auto inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+                        >
+                          <UserPlus size={16} />
+                          {t('offers.subscribe')}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </>
         )
       ) : filtered.length === 0 ? (
@@ -307,6 +389,17 @@ export default function CatalogSection({ title }: CatalogSectionProps) {
             <Pagination page={safePage} totalPages={totalPages} onChange={goToPage} />
           </div>
         </>
+      )}
+
+      {subscribeOffer && (
+        <OfferSubscribeModal
+          offer={subscribeOffer}
+          onClose={() => setSubscribeOffer(null)}
+          onDone={() => {
+            setSubscribeOffer(null);
+            navigate('/mon-compte/prestations');
+          }}
+        />
       )}
     </div>
   );

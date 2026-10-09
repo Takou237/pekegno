@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\Client\ClientEnrollmentController;
 use App\Http\Controllers\Api\Client\ClientInvoiceController;
 use App\Http\Controllers\Api\Client\ClientLearnerController;
 use App\Http\Controllers\Api\Client\ClientLearnerObservationController;
+use App\Http\Controllers\Api\Client\ClientOfferSubscriptionController;
 use App\Http\Controllers\Api\Client\ClientOrderController;
 use App\Http\Controllers\Api\Client\ClientPackageSubscriptionController;
 use App\Http\Controllers\Api\Client\ClientPrestationController;
@@ -99,6 +100,7 @@ Route::prefix('public')->group(function () {
     Route::get('/courses/{course}', [PublicCatalogController::class, 'course']);
     Route::get('/packages', [PublicCatalogController::class, 'packages']);
     Route::get('/packages/{package}', [PublicCatalogController::class, 'package']);
+    Route::get('/offers', [PublicCatalogController::class, 'offers']);
     Route::get('/agencies/{agency}/payment-methods', [PublicCatalogController::class, 'agencyPaymentMethods']);
 });
 
@@ -138,6 +140,7 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
         Route::get('/client/invoices/{invoice}/receipt', [ClientInvoiceController::class, 'receipt']);
         Route::delete('/client/invoices/{invoice}', [ClientInvoiceController::class, 'destroy']);
         Route::post('/client/packages/{package}/subscribe', ClientPackageSubscriptionController::class);
+        Route::post('/client/offers/{offer}/subscribe', ClientOfferSubscriptionController::class);
     Route::get('/client/enrollments', [ClientEnrollmentController::class, 'index']);
     Route::post('/client/enrollments', [ClientEnrollmentController::class, 'store']);
     Route::get('/client/learner-profile', [ClientLearnerController::class, 'show']);

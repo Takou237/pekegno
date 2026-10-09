@@ -7,6 +7,7 @@ use App\Models\Agency;
 use App\Models\AgencyPaymentMethod;
 use App\Models\Country;
 use App\Models\Course;
+use App\Models\PrestationOffer;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\SubscriptionPack;
@@ -341,6 +342,37 @@ class PublicCatalogController extends Controller
         ];
     }
 
+    /**
+     * Offres de prestation Agency pour l'onglet Packages du site public :
+     * seules les offres actives sont exposées (lecture seule, aucune
+     * souscription ici — comme les packs, la souscription se fait en agence
+     * ou depuis l'espace client).
+     */
+    public function offers(Request $request): JsonResponse
+    {
+        $offers = PrestationOffer::query()
+            ->with(['category:id,name,color', 'agency:id,name,city,country'])
+            ->withCount('subscriptions')
+            ->where('is_active', true)
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $needle = '%'.mb_strtolower($request->string('search')->toString()).'%';
+                $q->where(fn ($inner) => $inner
+                    ->whereRaw('lower(name) like ?', [$needle])
+                    ->orWhereRaw('lower(description) like ?', [$needle]));
+            })
+            ->when($request->filled('agency_id'), fn ($q, $value) => $q->where('agency_id', $value))
+            ->when($request->filled('category_id'), fn ($q, $value) => $q->where('category_id', $value))
+            ->when($request->filled('country_id'), function ($q) use ($request) {
+                $q->whereHas('agency', fn ($agency) => $agency->where('country_id', $request->country_id));
+            })
+            ->orderBy('name')
+            ->when($request->filled('per_page'), fn ($q) => $q->take(min($request->integer('per_page', 50), 100)))
+            ->get()
+            ->map(fn (PrestationOffer $offer) => $this->serializeOffer($offer));
+
+        return response()->json($offers);
+    }
+
     public function agencyPaymentMethods(Agency $agency): JsonResponse
     {
         $methods = AgencyPaymentMethod::query()
@@ -451,6 +483,28 @@ class PublicCatalogController extends Controller
                     'country' => $c->agency->country,
                 ] : null)->filter()->values()
                 : null,
+        ];
+    }
+
+    private function serializeOffer(PrestationOffer $offer): array
+    {
+        return [
+            'id' => $offer->id,
+            'name' => $offer->name,
+            'description' => $offer->description,
+            'is_active' => (bool) $offer->is_active,
+            'subscriptions_count' => $offer->subscriptions_count ?? 0,
+            'category' => $offer->category ? [
+                'id' => $offer->category->id,
+                'name' => $offer->category->name,
+                'color' => $offer->category->color,
+            ] : null,
+            'agency' => $offer->agency ? [
+                'id' => $offer->agency->id,
+                'name' => $offer->agency->name,
+                'city' => $offer->agency->city,
+                'country' => $offer->agency->country,
+            ] : null,
         ];
     }
 
