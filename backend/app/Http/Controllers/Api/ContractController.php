@@ -288,14 +288,15 @@ class ContractController extends Controller
     public function pdf(Contract $contract): Response
     {
         $contract->load([
-            'client:id,first_name,last_name,email,phone,address',
+            'client:id,first_name,last_name,email,phone,address,city,country',
             'company:id,name',
-            'agency:id,name,city,address,phone,email',
-            'pack:id,name,tagline',
+            'agency:id,code,name,city,address,phone,email',
+            'pack:id,name,tagline,description',
             'pack.items',
             'prestation:id,reference,name,description,budget,start_date,end_date',
             'prestation.actions',
             'commercial:id,first_name,last_name',
+            'services.service:id,name,code,price',
             'invoices',
         ]);
 
