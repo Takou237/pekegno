@@ -2780,6 +2780,8 @@ export default {
       advance: 'Advance collected (optional)',
       paymentType: 'Payment method',
       autoRenew: 'Auto-renew',
+      isPublic: 'Publish to the online catalog',
+      isPublicHint: 'Visible to clients on the public site without logging in.',
       delete: 'Delete package',
       deleteConfirm: 'Delete “{{name}}”? If it has contracts it will only be deactivated.',
     },

@@ -36,6 +36,7 @@ interface PackageForm {
   billing_period: BillingPeriod;
   min_duration_months: string;
   is_active: boolean;
+  is_public: boolean;
   items: PackageItem[];
   recommendations: PackageRecommendation[];
 }
@@ -52,6 +53,7 @@ const emptyForm: PackageForm = {
   billing_period: 'monthly',
   min_duration_months: '',
   is_active: true,
+  is_public: false,
   items: [],
   recommendations: [],
 };
@@ -113,6 +115,7 @@ export function PackageFormModal({
             billing_period: editing.billing_period,
             min_duration_months: editing.min_duration_months ? String(editing.min_duration_months) : '',
             is_active: editing.is_active,
+            is_public: editing.is_public,
             items: editing.items.map((i) => ({ label: i.label, quantity: i.quantity, frequency: i.frequency, unit: i.unit, action_type: i.action_type, service_id: i.service_id })),
             recommendations: editing.recommendations.map((r) => ({ label: r.label, quantity: r.quantity, client_team_role_id: r.client_team_role_id })),
           }
@@ -186,6 +189,7 @@ export function PackageFormModal({
       billing_period: form.billing_period,
       min_duration_months: form.min_duration_months ? Number(form.min_duration_months) : null,
       is_active: form.is_active,
+      is_public: form.is_public,
       items: form.items.filter((i) => i.label.trim()),
       recommendations: form.recommendations.filter((r) => r.label.trim()),
     };
@@ -241,6 +245,10 @@ export function PackageFormModal({
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
               {t('common.active')}
+            </label>
+            <label className="flex items-center gap-2" title={t('agencyDept.packages.isPublicHint')}>
+              <input type="checkbox" checked={form.is_public} onChange={(e) => setForm({ ...form, is_public: e.target.checked })} />
+              {t('agencyDept.packages.isPublic')}
             </label>
           </div>
         </div>

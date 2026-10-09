@@ -87,4 +87,6 @@ export interface ServiceListParams {
   sort_by?: 'name' | 'price' | 'created_at';
   sort_order?: 'asc' | 'desc';
   with?: string;
+  is_seminar?: boolean | string | number;
+  type?: 'service' | 'product' | 'formation' | 'seminar';
 }

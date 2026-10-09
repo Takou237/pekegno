@@ -50,10 +50,12 @@ class ServiceController extends Controller
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
             new OA\Parameter(name: 'sort_by', in: 'query', schema: new OA\Schema(type: 'string', enum: ['name', 'price', 'created_at'], default: 'name')),
             new OA\Parameter(name: 'sort_order', in: 'query', schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], default: 'asc')),
+            new OA\Parameter(name: 'is_seminar', in: 'query', schema: new OA\Schema(type: 'boolean')),
+            new OA\Parameter(name: 'type', in: 'query', schema: new OA\Schema(type: 'string', enum: ['service', 'product', 'formation', 'seminar'])),
         ],
         responses: [
-            new OA\Response(response: 200, description: 'Liste paginée des services'),
-            new OA\Response(response: 403, description: 'Non autorisé'),
+            new OA\Response(response: 200, description: 'Liste paginǸe des services'),
+            new OA\Response(response: 403, description: 'Non autorisǸ'),
         ]
     )]
     public function index(Request $request): AnonymousResourceCollection
@@ -63,7 +65,16 @@ class ServiceController extends Controller
         $query = Service::with(array_merge($defaultWith, $this->parseWith($request)))
             ->search($request->input('search'))
             ->when($request->category_id, fn ($q, $v) => $q->where('category_id', $v))
-            ->when($request->agency_id, fn ($q, $v) => $q->availableIn($v));
+            ->when($request->agency_id, fn ($q, $v) => $q->availableIn($v))
+            ->when($request->filled('is_seminar'), fn ($q) => $q->where('is_seminar', $request->boolean('is_seminar')))
+            ->when($request->filled('type'), function ($q) use ($request) {
+                $type = $request->input('type');
+                if ($type === 'formation' || $type === 'seminar') {
+                    $q->where('is_seminar', true);
+                } elseif ($type === 'service' || $type === 'product') {
+                    $q->where('is_seminar', false);
+                }
+            });
 
         $sortBy = $request->input('sort_by', 'name');
         $sortOrder = $request->input('sort_order', 'asc');

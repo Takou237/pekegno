@@ -2792,6 +2792,8 @@ export default {
       advance: 'Avance encaissée (facultatif)',
       paymentType: 'Moyen de paiement',
       autoRenew: 'Renouvellement automatique',
+      isPublic: 'Publier sur le catalogue en ligne',
+      isPublicHint: 'Visible par les clients sur le site public sans connexion.',
       delete: 'Supprimer le package',
       deleteConfirm: 'Supprimer « {{name}} » ? S’il a des contrats, il sera seulement désactivé.',
     },

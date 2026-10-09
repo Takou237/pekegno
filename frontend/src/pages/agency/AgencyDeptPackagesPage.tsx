@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Tag, Trash2, X } from 'lucide-react';
+import { Plus, Tag, Trash2 } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
@@ -164,28 +164,6 @@ export default function AgencyDeptPackagesPage() {
         onCancel={() => setDeleteTarget(null)}
       />
     </div>
-  );
-
-  function updateList<K extends 'items' | 'recommendations'>(key: K, index: number, patch: Partial<PackageForm[K][number]>) {
-    setForm((f) => ({ ...f, [key]: f[key].map((row, i) => (i === index ? { ...row, ...patch } : row)) }));
-  }
-
-  function removeFromList(key: 'items' | 'recommendations', index: number) {
-    setForm((f) => ({ ...f, [key]: f[key].filter((_, i) => i !== index) }));
-  }
-}
-
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-      {label}
-      <textarea
-        rows={2}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm font-normal dark:border-gray-700 dark:text-white"
-      />
-    </label>
   );
 }
 

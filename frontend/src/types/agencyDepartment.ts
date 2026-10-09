@@ -65,7 +65,6 @@ export interface AgencyPackage {
   department_id: string | null;
   category_id: string | null;
   category?: AgencyCategory | null;
-  agency?: { id: string; name: string } | null;
   name: string;
   tagline: string | null;
   description: string | null;
@@ -102,6 +101,7 @@ export interface PackagePayload {
   billing_period?: BillingPeriod;
   min_duration_months?: number | null;
   is_active?: boolean;
+  is_public?: boolean;
   items?: PackageItem[];
   recommendations?: PackageRecommendation[];
 }
