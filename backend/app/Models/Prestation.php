@@ -57,7 +57,7 @@ class Prestation extends Model
 
     /** Transitions autorisées : statut courant => statuts cibles. */
     public const TRANSITIONS = [
-        self::STATUS_DRAFT => [self::STATUS_PENDING_VALIDATION, self::STATUS_CANCELLED],
+        self::STATUS_DRAFT => [self::STATUS_PENDING_VALIDATION, self::STATUS_VALIDATED, self::STATUS_CANCELLED],
         self::STATUS_PENDING_VALIDATION => [self::STATUS_VALIDATED, self::STATUS_REJECTED, self::STATUS_DRAFT, self::STATUS_CANCELLED],
         self::STATUS_REJECTED => [self::STATUS_DRAFT],
         self::STATUS_VALIDATED => [self::STATUS_IN_PROGRESS, self::STATUS_SUSPENDED, self::STATUS_CANCELLED],

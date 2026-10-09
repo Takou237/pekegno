@@ -19,7 +19,6 @@ import { SkeletonCards } from '@/components/ui/Skeleton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ClientPicker, CommercialPicker } from '@/components/agencyDept/Pickers';
 import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
-import { PackageCard } from '@/components/agencyDept/PackageCard';
 import { PackageFormModal } from '@/components/agencyDept/PackageFormModal';
 import type { AgencyPackage } from '@/types/agencyDepartment';
 

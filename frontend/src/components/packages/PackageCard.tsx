@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Pencil, Percent, Trash2, UserPlus } from 'lucide-react';
 import { formatCurrency } from '@/utils/number';
@@ -17,6 +18,8 @@ export function PackageCard({
   onEdit,
   onPromo,
   onSubscribe,
+  onOpen,
+  onSubscriptions,
   onDelete,
 }: {
   pkg: AgencyPackage;
@@ -27,6 +30,10 @@ export function PackageCard({
   onEdit?: () => void;
   onPromo?: () => void;
   onSubscribe?: () => void;
+  /** Clic sur la carte : page « Souscriptions du pack ». */
+  onOpen?: () => void;
+  /** Lien/bouton « N souscriptions ». */
+  onSubscriptions?: () => void;
   onDelete?: () => void;
 }) {
   const { t } = useTranslation();
@@ -34,8 +41,18 @@ export function PackageCard({
   const hasPromo = pkg.effective_price < price;
   const original = pkg.original_price ? Number(pkg.original_price) : null;
 
+  function handleOpen(e: MouseEvent) {
+    if (!onOpen) return;
+    const el = e.target as HTMLElement;
+    if (el.closest('button, a, input, label, select')) return;
+    onOpen();
+  }
+
   return (
-    <div className={`flex flex-col rounded-2xl border-2 bg-white p-5 dark:bg-gray-900 ${pkg.is_active ? 'border-amber-300/70 dark:border-amber-500/40' : 'border-gray-100 opacity-60 dark:border-gray-800'}`}>
+    <div
+      onClick={handleOpen}
+      className={`flex flex-col rounded-2xl border-2 bg-white p-5 dark:bg-gray-900 ${pkg.is_active ? 'border-amber-300/70 dark:border-amber-500/40' : 'border-gray-100 opacity-60 dark:border-gray-800'} ${onOpen ? 'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md' : ''}`}
+    >
       <div className="text-center">
         <h3 className="text-lg font-bold uppercase text-gray-900 dark:text-white">{pkg.name}</h3>
         {pkg.code && <p className="mt-0.5 text-xs uppercase tracking-widest text-gray-400">{pkg.code}</p>}
@@ -75,9 +92,17 @@ export function PackageCard({
           {formatCurrency(pkg.effective_price)}
           <span className="text-xs font-normal text-gray-500"> / {t(`agencyDept.billingPeriod.${pkg.billing_period}`)}</span>
         </p>
-        {pkg.contracts_count !== undefined && pkg.contracts_count !== null && (
+        {pkg.contracts_count !== undefined && pkg.contracts_count !== null && onSubscriptions ? (
+          <button
+            type="button"
+            onClick={onSubscriptions}
+            className="text-xs text-brand-600 hover:underline dark:text-brand-400"
+          >
+            {t('agencyDept.packages.subscriptionsCount', { count: pkg.contracts_count })}
+          </button>
+        ) : pkg.contracts_count !== undefined && pkg.contracts_count !== null ? (
           <p className="text-xs text-gray-400">{t('agencyDept.packages.contractsCount', { count: pkg.contracts_count })}</p>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-4 flex flex-wrap justify-center gap-2">

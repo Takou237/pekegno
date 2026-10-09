@@ -152,7 +152,7 @@ export default {
     subscriptions: 'Abonnements',
     commercialReport: 'Rapport commercial',
     audit: 'Audit',
-    academy: 'Academy',
+    academy: 'Formations',
     statAca: 'Stat Aca',
     register: 'Inscription',
     unpaidBadge: '{{count}} impayé(s)',
@@ -461,7 +461,7 @@ export default {
   },
 
   departmentTypes: {
-    academy: 'Academy',
+    academy: 'Formations',
     agency: 'Agency',
     store: 'Store',
     studio: 'Studio',

@@ -53,7 +53,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const { showToast } = useToast();
   const { countryId } = useParams<{ countryId?: string }>();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState<'services' | 'formations' | 'packages'>('services');
+  const [tab, setTab] = useState<'services' | 'formations' | 'prestations'>('services');
 
   const isCommercial = user?.role?.name === 'commercial';
   const isCaissier = user?.role?.name === 'caissier';
@@ -402,15 +402,22 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
           >
             {t('nav.services')}
           </button>
+          {effectiveShowAcademyTabs && (
+            <button
+              type="button"
+              onClick={() => setTab('formations')}
+              className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+            >
+              {t('nav.academy')}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setTab('formations')}
             className="inline-flex items-center gap-2 border-b-2 border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 transition-colors dark:text-brand-400"
           >
-            {t('nav.academy')}
+            {t('nav.packages')}
           </button>
         </div>
-        <AgencyAcademyFormations agencyId={effectiveAgencyId} countryId={countryId} />
       </div>
     );
   }
