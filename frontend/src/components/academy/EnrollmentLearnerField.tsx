@@ -32,6 +32,13 @@ interface EnrollmentLearnerFieldProps {
   onNewLearnerChange: (next: NewLearnerFormState) => void;
   error?: string;
   allowCreate?: boolean;
+  /** Surcharge des libellés (par défaut : vocabulaire « apprenant » Academy). */
+  existingLabel?: string;
+  createLabel?: string;
+  fieldLabel?: string;
+  searchPlaceholder?: string;
+  newInfoLabel?: string;
+  newHintText?: string;
 }
 
 export function EnrollmentLearnerField({
@@ -44,8 +51,20 @@ export function EnrollmentLearnerField({
   onNewLearnerChange,
   error,
   allowCreate = true,
+  existingLabel,
+  createLabel,
+  fieldLabel,
+  searchPlaceholder,
+  newInfoLabel,
+  newHintText,
 }: EnrollmentLearnerFieldProps) {
   const { t } = useTranslation();
+  const resolvedExisting = existingLabel ?? t('academy.learnerExisting');
+  const resolvedCreate = createLabel ?? t('academy.learnerCreateNew');
+  const resolvedFieldLabel = fieldLabel ?? `${t('academy.learner')} *`;
+  const resolvedPlaceholder = searchPlaceholder ?? t('academy.searchLearnerPlaceholder');
+  const resolvedInfo = newInfoLabel ?? t('academy.newLearnerInfo');
+  const resolvedHint = newHintText ?? t('academy.newLearnerHint');
 
   function set<K extends keyof NewLearnerFormState>(key: K, value: string) {
     onNewLearnerChange({ ...newLearner, [key]: value });
@@ -64,7 +83,7 @@ export function EnrollmentLearnerField({
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
             }`}
           >
-            {t('academy.learnerExisting')}
+            {resolvedExisting}
           </button>
           <button
             type="button"
@@ -76,15 +95,15 @@ export function EnrollmentLearnerField({
             }`}
           >
             <UserPlus className="h-4 w-4" />
-            {t('academy.learnerCreateNew')}
+            {resolvedCreate}
           </button>
         </div>
       )}
 
       {mode === 'existing' ? (
         <Autocomplete
-          label={`${t('academy.learner')} *`}
-          placeholder={t('academy.searchLearnerPlaceholder')}
+          label={resolvedFieldLabel}
+          placeholder={resolvedPlaceholder}
           value={learnerUserId}
           onChange={onLearnerUserIdChange}
           fetchOptions={fetchOptions}
@@ -93,7 +112,7 @@ export function EnrollmentLearnerField({
       ) : (
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('academy.newLearnerInfo')}
+            {resolvedInfo}
           </span>
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -127,7 +146,7 @@ export function EnrollmentLearnerField({
               onChange={(value) => set('country', value)}
             />
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500">{t('academy.newLearnerHint')}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">{resolvedHint}</p>
           {error && <p className="text-sm text-error-500">{error}</p>}
         </div>
       )}

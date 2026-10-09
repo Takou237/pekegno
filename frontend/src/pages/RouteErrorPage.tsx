@@ -40,6 +40,16 @@ export default function RouteErrorPage() {
 
   const kind = offline ? 'offline' : chunkError ? 'load' : 'generic';
   const Icon = kind === 'offline' ? WifiOff : kind === 'load' ? RefreshCw : AlertTriangle;
+  const detail =
+    kind === 'generic'
+      ? isRouteErrorResponse(error)
+        ? `${error.status} ${error.statusText}`
+        : error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : null
+      : null;
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-20 text-center">
@@ -52,6 +62,12 @@ export default function RouteErrorPage() {
       <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
         {t(`routeError.${kind}Desc`)}
       </p>
+      {detail && (
+        <details className="mt-4 max-w-md rounded-lg bg-gray-50 px-3 py-2 text-left text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+          <summary className="cursor-pointer font-medium">Détails</summary>
+          <p className="mt-1 break-words">{detail}</p>
+        </details>
+      )}
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Button onClick={() => window.location.reload()}>{t('routeError.retry')}</Button>
         <Button variant="outline" onClick={() => window.location.assign('/')}>

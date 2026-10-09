@@ -113,7 +113,6 @@ export default function PackageSubscriptionsPage() {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {result.data.map((p) => {
                   const budget = Number(p.budget);
-                  const pct = budget > 0 ? Math.min(100, (p.budget_allocated / budget) * 100) : 0;
                   const to = `${basePath}/prestations/${p.id}`;
                   return (
                     <tr key={p.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => navigate(to)}>
@@ -125,12 +124,15 @@ export default function PackageSubscriptionsPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{personName(p.client)}</td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{personName(p.commercial)}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">{p.start_date.slice(0, 10)} → {p.end_date.slice(0, 10)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">{p.start_date ? p.start_date.slice(0, 10) : '—'} → {p.end_date ? p.end_date.slice(0, 10) : '—'}</td>
                       <td className="px-4 py-3">
-                        <p className="whitespace-nowrap text-gray-700 dark:text-gray-200">{formatCurrency(budget)}</p>
-                        <div className="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                          <div className="h-full bg-brand-500" style={{ width: `${pct}%` }} />
-                        </div>
+                        <p className="whitespace-nowrap font-medium text-gray-900 dark:text-white">{formatCurrency(budget)}</p>
+                        <p className="whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                          {t('agencyDept.budget.spent')} : {formatCurrency(p.budget_spent)}
+                        </p>
+                        <p className="whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                          {t('agencyDept.budget.remaining')} : {formatCurrency(p.budget_remaining)}
+                        </p>
                       </td>
                       <td className="px-4 py-3">
                         {(() => {

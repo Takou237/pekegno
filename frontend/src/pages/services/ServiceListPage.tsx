@@ -7,7 +7,7 @@ import type { AgencyPackage, LaravelPage, PrestationOffer } from '@/types/agency
 import { Stars } from '@/components/agencyDept/StarRating';
 import { PackageSubscribeModal } from '@/components/packages/PackageSubscribeModal';
 import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
-import { canSubscribePackage } from '@/utils/agencyDeptPermissions';
+import { canSubscribePackage, canCreatePrestation } from '@/utils/agencyDeptPermissions';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { categoriesApi } from '@/api/categories.api';
@@ -26,6 +26,7 @@ import { ServiceDetailModal } from '@/components/services/ServiceDetailModal';
 import { CategoryFormModal } from '@/components/categories/CategoryFormModal';
 import AgencyCatalogTab from '@/pages/services/AgencyCatalogTab';
 import FormationEnrollmentModal from '@/components/academy/FormationEnrollmentModal';
+import { PrestationFormModal } from '@/components/agencyDept/PrestationFormModal';
 import PromotionFormModal from '@/components/promotions/PromotionFormModal';
 import QuickSaleModal from '@/components/invoices/QuickSaleModal';
 import {
@@ -130,6 +131,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [packagesError, setPackagesError] = useState<string | null>(null);
   const [offers, setOffers] = useState<LaravelPage<PrestationOffer> | null>(null);
   const [subscribeTarget, setSubscribeTarget] = useState<AgencyPackage | null>(null);
+  const [offerSubscribeTarget, setOfferSubscribeTarget] = useState<PrestationOffer | null>(null);
   const [packageSearch, setPackageSearch] = useState('');
   const [packageCategory, setPackageCategory] = useState('');
   const [packageAgency, setPackageAgency] = useState('');
@@ -142,6 +144,18 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [enrollCourse, setEnrollCourse] = useState<Course | null>(null);
 
   const canSubscribe = canSubscribePackage(user) && !agencyId;
+
+  // Clic sur une prestation du catalogue : le caissier / commercial souscrit
+  // directement un client (formulaire) au lieu d'ouvrir la page département.
+  function handleOfferOpen(offer: PrestationOffer) {
+    if ((isCommercial || isCaissier) && canCreatePrestation(user)) {
+      setOfferSubscribeTarget(offer);
+      return;
+    }
+    if (offer.department_id) {
+      navigate(`/departments/${offer.department_id}/prestations/${offer.id}/subscriptions`);
+    }
+  }
 
   const fetchPackages = useCallback(async () => {
     setPackagesLoading(true);
@@ -560,11 +574,12 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
                     {filteredCatalogOffers.data.map((o) => {
                       const count = o.subscriptions_count ?? 0;
                       const avg = o.subscriptions_rating_avg ? Number(o.subscriptions_rating_avg) : null;
+                      const clickable = Boolean(o.department_id) || ((isCommercial || isCaissier) && canCreatePrestation(user));
                       return (
                         <tr
                           key={o.id}
-                          className={o.department_id ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}
-                          onClick={() => o.department_id && navigate(`/departments/${o.department_id}/prestations/${o.id}/subscriptions`)}
+                          className={clickable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}
+                          onClick={() => handleOfferOpen(o)}
                         >
                           <td className="px-4 py-3">
                             <span className="font-medium text-gray-900 dark:text-white">{o.name}</span>
@@ -607,6 +622,21 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             departmentId={undefined}
             onClose={() => setSubscribeTarget(null)}
             onDone={() => { setSubscribeTarget(null); fetchPackages(); }}
+          />
+        )}
+
+        {offerSubscribeTarget && (
+          <PrestationFormModal
+            isOpen
+            onClose={() => setOfferSubscribeTarget(null)}
+            offer={offerSubscribeTarget}
+            agencyId={effectiveAgencyId}
+            countryId={countryId}
+            onSaved={() => {
+              setOfferSubscribeTarget(null);
+              fetchPackages();
+              showToast(t('agencyDept.saved'), 'success');
+            }}
           />
         )}
       </div>

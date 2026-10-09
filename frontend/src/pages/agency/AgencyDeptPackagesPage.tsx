@@ -17,7 +17,9 @@ import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { ClientPicker, CommercialPicker } from '@/components/agencyDept/Pickers';
+import { CommercialPicker } from '@/components/agencyDept/Pickers';
+import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
+import { clientsApi } from '@/api/clients.api';
 import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
 import { PackageFormModal } from '@/components/agencyDept/PackageFormModal';
 import type { AgencyPackage } from '@/types/agencyDepartment';
@@ -192,6 +194,7 @@ export default function AgencyDeptPackagesPage() {
         <SubscribeModal
           pkg={subscribeTarget}
           departmentId={departmentId}
+          agencyId={agencyId}
           onClose={() => setSubscribeTarget(null)}
           onDone={(prestationId) => {
             setSubscribeTarget(null);
@@ -291,17 +294,21 @@ function PromotionModal({ pkg, onClose, onSaved }: { pkg: AgencyPackage; onClose
 function SubscribeModal({
   pkg,
   departmentId,
+  agencyId,
   onClose,
   onDone,
 }: {
   pkg: AgencyPackage;
   departmentId?: string;
+  agencyId?: string;
   onClose: () => void;
   onDone: (prestationId: string) => void;
 }) {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [clientId, setClientId] = useState('');
+  const [clientMode, setClientMode] = useState<LearnerMode>('existing');
+  const [newClient, setNewClient] = useState<NewLearnerFormState>(emptyNewLearnerForm);
   const [commercialId, setCommercialId] = useState('');
   const [start, setStart] = useState(todayLocal());
   const [periods, setPeriods] = useState('1');
@@ -313,13 +320,40 @@ function SubscribeModal({
 
   const total = pkg.effective_price * Number(periods || 0);
 
+  async function clientOptions(query: string) {
+    const rows = await clientsApi.search(query.trim());
+    return rows.map((c) => ({
+      id: c.id,
+      label: c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email,
+      subtitle: c.email,
+    }));
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
+      // Comme l'inscription à une formation : création du client à la volée.
+      let resolvedClientId = clientId;
+      if (clientMode === 'new') {
+        if (!newClient.first_name.trim() || !newClient.last_name.trim()) {
+          setError(t('academy.newLearnerRequired'));
+          setSaving(false);
+          return;
+        }
+        const created = await clientsApi.create({
+          first_name: newClient.first_name.trim(),
+          last_name: newClient.last_name.trim(),
+          email: newClient.email.trim(),
+          phone: newClient.phone.trim() || null,
+          country: newClient.country || undefined,
+          registered_agency_id: agencyId,
+        });
+        resolvedClientId = created.id;
+      }
       const res = await agencyDeptApi.subscribe(pkg.id, {
-        client_id: clientId,
+        client_id: resolvedClientId,
         commercial_id: commercialId || undefined,
         department_id: departmentId,
         start_date: start,
@@ -342,7 +376,20 @@ function SubscribeModal({
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {error && <Alert variant="error">{error}</Alert>}
         <p className="text-xs text-gray-500 dark:text-gray-400">{t('agencyDept.packages.subscribeHint')}</p>
-        <ClientPicker value={clientId} onChange={setClientId} />
+        <EnrollmentLearnerField
+          mode={clientMode}
+          onModeChange={setClientMode}
+          learnerUserId={clientId}
+          onLearnerUserIdChange={setClientId}
+          fetchOptions={clientOptions}
+          newLearner={newClient}
+          onNewLearnerChange={setNewClient}
+          existingLabel={t('agencyDept.clientExisting')}
+          createLabel={t('clients.createClient')}
+          fieldLabel={`${t('agencyDept.client')} *`}
+          searchPlaceholder={t('clients.searchPlaceholder')}
+          newInfoLabel={t('clients.createTitle')}
+        />
         <CommercialPicker value={commercialId} onChange={setCommercialId} />
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label={t('agencyDept.startDate')} type="date" required value={start} onChange={(e) => setStart(e.target.value)} />
@@ -361,7 +408,7 @@ function SubscribeModal({
         <p className="text-right text-sm font-semibold text-gray-900 dark:text-white">{t('agencyDept.total')} : {formatCurrency(total)}</p>
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="submit" isLoading={saving} disabled={!clientId}>{t('common.confirm')}</Button>
+          <Button type="submit" isLoading={saving} disabled={clientMode === 'existing' && !clientId}>{t('common.confirm')}</Button>
         </div>
       </form>
     </Modal>

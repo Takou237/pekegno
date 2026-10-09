@@ -137,6 +137,7 @@ const PrestationDetailPage = lazyWithRetry(() => import('@/pages/agency/Prestati
 const PrestationActionDetailPage = lazyWithRetry(() => import('@/pages/agency/PrestationActionDetailPage'));
 const PrestationTrackingPage = lazyWithRetry(() => import('@/pages/agency/PrestationTrackingPage'));
 const AgencyActionsBoardPage = lazyWithRetry(() => import('@/pages/agency/AgencyActionsBoardPage'));
+const AgencyActionsPage = lazyWithRetry(() => import('@/pages/agency/AgencyActionsPage'));
 const ClientTeamPage = lazyWithRetry(() => import('@/pages/agency/ClientTeamPage'));
 const AgencyDeptInvoicesPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptInvoicesPage'));
 const AgencyDeptReceivablesPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptReceivablesPage'));
@@ -377,6 +378,7 @@ export const router = createBrowserRouter([
           { path: 'contracts/:contractId', element: page(<ContractDetailPage />, detail) },
           { path: 'community', element: page(<AgencyActionsBoardPage mode="community" />, table) },
           { path: 'advertising', element: page(<AgencyActionsBoardPage mode="advertising" />, table) },
+          { path: 'actions', element: page(<AgencyActionsPage />, table) },
           { path: 'renewals', element: page(<RenewalsPage />, table) },
           // Store
           { path: 'catalog', element: page(<ComingSoonPage />, cards) },
