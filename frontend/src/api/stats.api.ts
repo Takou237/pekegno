@@ -45,7 +45,7 @@ export const statsApi = {
     return data;
   },
 
-  async topCommercials(params: { limit?: number; from?: string } = {}): Promise<TopCommercial[]> {
+  async topCommercials(params: { limit?: number; from?: string; to?: string } = {}): Promise<TopCommercial[]> {
     const { data } = await client.get<TopCommercial[]>('/stats/top-commercials', { params });
     return data;
   },

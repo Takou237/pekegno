@@ -57,6 +57,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const isCommercial = currentUser?.role?.name === 'commercial';
+  const isSuperAdmin = currentUser?.role?.name === 'super-admin';
   // Caissier / admin (super-admin, direction-generale) sont des validateurs :
   // une vente de guichet qu'ils saisissent est validée directement, donc le
   // vendeur par défaut est leur propre compte et aucune preuve de paiement
@@ -251,6 +252,11 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
     }
     if (Number(advance) > totals.total) {
       setErrors({ advance: t('invoices.advanceExceedsTotal') });
+      return;
+    }
+    // Super-admin : avance obligatoire (montant encaissé à la création).
+    if (isSuperAdmin && !(Number(advance) > 0)) {
+      setErrors({ advance: t('invoices.advanceRequired') });
       return;
     }
     if (isCommercial && !proofFile) {
@@ -507,10 +513,11 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
             />
           )}
           <Input
-            label={t('invoices.advance')}
+            label={`${t('invoices.advance')}${isSuperAdmin ? ' *' : ''}`}
             type="number"
             min={0}
             step="0.01"
+            required={isSuperAdmin}
             value={advance}
             onChange={(e) => setAdvance(e.target.value)}
             error={errors.advance}

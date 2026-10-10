@@ -35,6 +35,8 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
     ? [payment.receiver.first_name, payment.receiver.last_name].filter(Boolean).join(' ') || payment.receiver.email
     : null;
 
+  const discount = Number(invoice.discount ?? 0);
+
   const row = (label: string, value: string, strong = false) => (
     <tr>
       <td className={`border border-gray-800 px-3 py-1.5 ${strong ? 'font-bold' : ''}`}>{label}</td>
@@ -83,6 +85,7 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
           {receiver && row('Encaissé par', receiver)}
           {payment.comment && row('Commentaire', payment.comment)}
           {row(`Montant total de la facture (${cur})`, formatNumber(total))}
+          {discount > 0 && row(`Remise globale (${cur})`, `- ${formatNumber(discount)}`)}
           {row(`Déjà versé avant ce reçu (${cur})`, formatNumber(paidBefore))}
           {row(`Montant de ce versement (${cur})`, formatNumber(amount), true)}
           {row(`Total versé à ce jour (${cur})`, formatNumber(paidToDate))}

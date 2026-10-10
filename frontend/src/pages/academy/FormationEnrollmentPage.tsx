@@ -90,6 +90,7 @@ export default function FormationEnrollmentPage() {
   const currency = useAgencyCurrency(agencyId);
   const { user: currentUser } = useAuth();
   const isCommercial = currentUser?.role?.name === 'commercial';
+  const isSuperAdmin = currentUser?.role?.name === 'super-admin';
   const isSellerUser = isCommercial || currentUser?.role?.name === 'caissier';
 
   const [enrollments, setEnrollments] = useState<FormationEnrollment[]>([]);
@@ -231,22 +232,27 @@ export default function FormationEnrollmentPage() {
 
   const sellerOptions = useCallback(
     async (query: string) => {
-      if (!agencyId) return [];
       type SellerEntry = {
         user_id: string;
         name: string;
         email: string;
         kind: 'commercial' | 'employe' | 'trainer';
       };
+      const q = query.trim();
+      // Recherche côté serveur (nom/email) : la liste des 100 premiers ne
+      // contient pas forcément le vendeur cherché (« Ca » → Carlos…).
       const [commercials, employees, trainers] = await Promise.all([
-        commercialsApi.list({ agency_id: agencyId, per_page: 100 }),
-        employeesApi.list({ agency_id: agencyId, per_page: 100 }),
-        academyApi.trainers({ agency_id: agencyId, per_page: 100 }),
+        (q ? commercialsApi.search(q) : commercialsApi.list({ agency_id: agencyId, per_page: 100 }).then((r) => r.data)).catch(() => []),
+        (q ? employeesApi.search(q) : employeesApi.list({ agency_id: agencyId, per_page: 100 }).then((r) => r.data)).catch(() => []),
+        academyApi.trainers({ agency_id: agencyId, search: q || undefined, per_page: 100 }).then((r) => r.data).catch(() => []),
       ]);
+      const commercialRows = Array.isArray(commercials) ? commercials : [];
+      const employeeRows = Array.isArray(employees) ? employees : [];
+      const trainerRows = Array.isArray(trainers) ? trainers : [];
       const entries: SellerEntry[] = [
-        ...commercials.data.map((c) => ({ user_id: c.user_id, name: `${c.first_name} ${c.last_name}`.trim(), email: c.email ?? '', kind: 'commercial' as const })),
-        ...employees.data.map((e) => ({ user_id: e.user_id, name: `${e.first_name} ${e.last_name}`.trim(), email: e.email ?? '', kind: 'employe' as const })),
-        ...trainers.data
+        ...commercialRows.map((c) => ({ user_id: c.user_id, name: `${c.first_name} ${c.last_name}`.trim(), email: c.email ?? '', kind: 'commercial' as const })),
+        ...employeeRows.map((e) => ({ user_id: e.user_id, name: `${e.first_name} ${e.last_name}`.trim(), email: e.email ?? '', kind: 'employe' as const })),
+        ...trainerRows
           .filter((tr) => tr.user_id)
           .map((tr) => ({
             user_id: tr.user_id as string,
@@ -254,7 +260,7 @@ export default function FormationEnrollmentPage() {
             email: tr.email ?? '',
             kind: 'trainer' as const,
           })),
-        ...trainers.data
+        ...trainerRows
           .filter((tr) => !tr.user_id && tr.id)
           .map((tr) => ({
             user_id: SELLER_TRAINER_PREFIX + tr.id,
@@ -268,9 +274,9 @@ export default function FormationEnrollmentPage() {
         new Map(entries.map((entry) => [entry.user_id, entry])).values(),
       );
 
-      const q = query.trim().toLowerCase();
+      const ql = q.toLowerCase();
       const filtered = q
-        ? all.filter((o) => o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q))
+        ? all.filter((o) => o.name.toLowerCase().includes(ql) || o.email.toLowerCase().includes(ql))
         : all;
       return filtered.map((o) => {
         const kindLabel =
@@ -335,6 +341,13 @@ export default function FormationEnrollmentPage() {
       // création de l'inscription (comme pour une vente). Non requis en édition.
       if (!editing && isCommercial && !proofFile) {
         setFormError(t('invoices.proofRequiredForSale'));
+        setIsSubmitting(false);
+        return;
+      }
+      // Super-admin : avance (montant versé) obligatoire à la création.
+      if (!editing && isSuperAdmin && !(Number(form.amount_paid) > 0)) {
+        setFormError(t('invoices.advanceRequired'));
+        setFieldErrors({ amount_paid: t('invoices.advanceRequired') });
         setIsSubmitting(false);
         return;
       }
@@ -758,10 +771,11 @@ export default function FormationEnrollmentPage() {
           {!editing && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-              label={`${t('academy.amountPaid')} (${currencyLabel(currency)})`}
+              label={`${t('academy.amountPaid')} (${currencyLabel(currency)})${isSuperAdmin ? ' *' : ''}`}
               type="number"
               min={0}
               placeholder="0"
+              required={isSuperAdmin}
               value={form.amount_paid}
               onChange={(e) => setForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
               error={fieldErrors.amount_paid}

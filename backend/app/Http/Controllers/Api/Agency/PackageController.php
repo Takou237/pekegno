@@ -219,6 +219,13 @@ class PackageController extends Controller
             'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
         ]);
 
+        // Super-admin : avance obligatoire (preuve retirée de l'écran).
+        if ($request->user()?->role?->name === 'super-admin' && empty($data['advance'])) {
+            throw ValidationException::withMessages([
+                'advance' => "L'avance est obligatoire.",
+            ]);
+        }
+
         abort_unless($this->access->canAccessAgency($request->user(), $package->agency_id), 403, 'Agence hors de votre périmètre.');
 
         // Un commercial vend en son nom propre.

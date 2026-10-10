@@ -12,6 +12,7 @@ use App\Models\CommissionEntry;
 use App\Models\CommissionPayment;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Models\Setting;
 use App\Models\Trainer;
 use App\Models\User;
 use App\Services\ActivityLogger;
@@ -305,6 +306,12 @@ class CommercialController extends Controller
     {
         $data = $request->validated();
 
+        // Commission par défaut du réseau (20 %) si non précisée.
+        $data['commission_type'] ??= Setting::get('default_commission_type', 'percent');
+        if (! array_key_exists('commission_value', $data) || $data['commission_value'] === null) {
+            $data['commission_value'] = Setting::get('default_commission_value', 20);
+        }
+
         $commercial = DB::transaction(function () use ($data, $request) {
             $commercial = Commercial::create($data);
 
@@ -516,6 +523,14 @@ class CommercialController extends Controller
 
         $commercials = $this->scopeByRole(Commercial::query(), $request->user())
             ->kind($request->input('kind', $this->defaultKind($request)))
+            ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
+            ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $s = $request->input('search');
+                $q->where(fn ($inner) => $inner->where('first_name', 'like', "%{$s}%")
+                    ->orWhere('last_name', 'like', "%{$s}%")
+                    ->orWhere('email', 'like', "%{$s}%"));
+            })
             ->addSelect([
                 'sales_count' => Invoice::query()
                     ->selectRaw('count(*)')
@@ -543,6 +558,7 @@ class CommercialController extends Controller
                     'is_trainer' => false,
                     'sales_count' => (int) $commercial->sales_count,
                     'turnover' => round((float) $commercial->turnover, 2),
+                    'commission_total' => round((float) ($commercial->commission_total ?? 0), 2),
                 ];
             });
 
@@ -556,6 +572,12 @@ class CommercialController extends Controller
             $trainers = Trainer::query()
                 ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
                 ->when($agencyScope !== null, fn ($q) => $q->whereIn('agency_id', $agencyScope))
+                ->when($request->filled('search'), function ($q) use ($request) {
+                    $s = $request->input('search');
+                    $q->where(fn ($inner) => $inner->where('first_name', 'like', "%{$s}%")
+                        ->orWhere('last_name', 'like', "%{$s}%")
+                        ->orWhere('email', 'like', "%{$s}%"));
+                })
                 ->get();
 
             $commercials = $commercials->concat(
@@ -627,6 +649,7 @@ class CommercialController extends Controller
             'is_trainer' => true,
             'sales_count' => $invoices->count(),
             'turnover' => round((float) $invoices->sum('total_amount'), 2),
+            'commission_total' => 0,
         ];
     }
 

@@ -37,6 +37,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
 
   const isCommercial = user?.role?.name === 'commercial';
   const isCaissier = user?.role?.name === 'caissier';
+  const isSuperAdmin = user?.role?.name === 'super-admin';
 
   const [clientId, setClientId] = useState('');
   const [clientMode, setClientMode] = useState<LearnerMode>('existing');
@@ -90,7 +91,8 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
   const total = pkg.effective_price * Number(periods || 0);
   const advanceValue = advance ? Number(advance) : 0;
   // La preuve est obligatoire pour un commercial (le backend la refuse sinon).
-  const canSubmit = Boolean(clientMode === 'new' || clientId) && Number(periods) >= 1 && (!isCommercial || Boolean(proofFile));
+  // Super-admin : avance obligatoire + preuve retirée (pas de capture OM/MoMo).
+  const canSubmit = Boolean(clientMode === 'new' || clientId) && Number(periods) >= 1 && (!isCommercial || Boolean(proofFile)) && (!isSuperAdmin || advanceValue > 0);
 
   async function clientOptions(query: string) {
     const rows = await clientsApi.search(query.trim());
@@ -104,6 +106,10 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canSubmit || saving) return;
+    if (isSuperAdmin && !(Number(advance) > 0)) {
+      setError(t('invoices.advanceRequired'));
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -196,9 +202,10 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
             onChange={(e) => setPeriods(e.target.value)}
           />
           <Input
-            label={t('agencyDept.packages.advance')}
+            label={`${t('agencyDept.packages.advance')}${isSuperAdmin ? ' *' : ''}`}
             type="number"
             min={0}
+            required={isSuperAdmin}
             value={advance}
             onChange={(e) => setAdvance(e.target.value)}
           />
@@ -214,8 +221,9 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
         </div>
 
         {/* Preuve de paiement : obligatoire pour le commercial, inutile pour
-            le caissier (c'est lui qui valide et encaisse). */}
-        {!isCaissier && (
+            le caissier (c'est lui qui valide et encaisse) et retirée pour le
+            super-admin. */}
+        {!isCaissier && !isSuperAdmin && (
         <div className="flex flex-col gap-2">
           <p className="text-xs text-gray-500 dark:text-gray-400">{t('invoices.paymentProofHint')}</p>
           <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-4 text-sm text-gray-500 hover:border-brand-500 hover:text-brand-700 dark:border-gray-700 dark:text-gray-400">

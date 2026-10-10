@@ -31,6 +31,7 @@ export interface AgencyStats {
   top_commercials: {
     id: string;
     full_name: string;
+    points_balance: number;
     turnover: number;
     sales_count: number;
   }[];

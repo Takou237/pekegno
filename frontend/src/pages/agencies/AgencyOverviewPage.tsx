@@ -23,6 +23,7 @@ import { currentLocale } from '@/i18n';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
+import { PeriodPicker, defaultPeriod, type Period } from '@/components/ui/PeriodPicker';
 import type { Agency } from '@/types/agency';
 import type { Service } from '@/types/service';
 import type { AgencyStats, MonthlyRevenuePoint } from '@/types/stats';
@@ -47,6 +48,7 @@ export default function AgencyOverviewPage() {
   const [agencyStats, setAgencyStats] = useState<AgencyStats | null>(null);
   const [monthly, setMonthly] = useState<MonthlyRevenuePoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [period, setPeriod] = useState<Period>(defaultPeriod());
 
   useEffect(() => {
     if (!agencyId) return;
@@ -68,13 +70,13 @@ export default function AgencyOverviewPage() {
         .list({ agency_id: agencyId, sort_by: 'created_at', sort_order: 'desc', per_page: 4 })
         .then((r) => setLatestServices(r.data))
         .catch(() => setLatestServices([])),
-      statsApi.agency(agencyId).then(setAgencyStats).catch(() => setAgencyStats(null)),
+      statsApi.agency(agencyId, { from: period.from, to: period.to }).then(setAgencyStats).catch(() => setAgencyStats(null)),
       statsApi
         .monthlyRevenue({ months: 12, agencyId })
         .then(setMonthly)
         .catch(() => setMonthly([])),
     ]).finally(() => setIsLoading(false));
-  }, [agencyId]);
+  }, [agencyId, period]);
 
   if (isLoading) {
     return (
@@ -123,6 +125,10 @@ export default function AgencyOverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{agency.name}</h1>
+        <PeriodPicker value={period} onChange={setPeriod} />
+      </div>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, to, color, bg }) => (
           <Link
@@ -209,6 +215,7 @@ export default function AgencyOverviewPage() {
                 <tr>
                   <th className="pb-2 pr-4 font-medium">{t('dashboard.commercials')}</th>
                   <th className="pb-2 pr-4 font-medium">{t('dashboard.salesCount')}</th>
+                  <th className="pb-2 pr-4 font-medium">{t('commercials.colPoints')}</th>
                   <th className="pb-2 text-right font-medium">{t('dashboard.revenue')}</th>
                 </tr>
               </thead>
@@ -217,6 +224,7 @@ export default function AgencyOverviewPage() {
                   <tr key={c.id}>
                     <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{c.full_name}</td>
                     <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.sales_count}</td>
+                    <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.points_balance ?? 0}</td>
                     <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
                       {formatPrice(String(c.turnover))}
                     </td>

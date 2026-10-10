@@ -3,13 +3,14 @@
 namespace App\Services;
 
 use App\Models\SellerProfile;
+use App\Models\Setting;
 use App\Models\User;
 
 /**
  * Garantit l'existence du profil vendeur d'un membre de l'agence qui vend
  * (formateurs notamment) : les formateurs sont des employés de l'agence, ils
- * peuvent vendre et percevoir des commissions — mais aucun taux n'est inventé :
- * le profil est créé avec commission_type=none, le taux se règle ensuite.
+ * peuvent vendre et percevoir des commissions — avec la commission par défaut
+ * du réseau (20 %, voir réglages).
  */
 class SellerProfileService
 {
@@ -39,8 +40,8 @@ class SellerProfileService
             'user_id' => $user->id,
             'agency_id' => $agencyId,
             'kind' => SellerProfile::KIND_EMPLOYEE,
-            'commission_type' => 'none',
-            'commission_value' => 0,
+            'commission_type' => Setting::get('default_commission_type', 'percent'),
+            'commission_value' => Setting::get('default_commission_value', 20),
             'is_active' => true,
         ]);
     }

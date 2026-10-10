@@ -120,7 +120,7 @@ export default function PEKEGNOGroupDashboard() {
       { key: 'topProducts', fn: () => statsApi.topProducts({ limit: 5, ...range }) },
       { key: 'topAgencies', fn: () => statsApi.topAgencies({ limit: 5, ...range }) },
       { key: 'training', fn: () => statsApi.trainingGroup() },
-      { key: 'invoices', fn: () => invoicesApi.list({ per_page: 8 }) },
+      { key: 'invoices', fn: () => invoicesApi.list({ per_page: 8, ...range }) },
     ];
 
     Promise.allSettled(results.map((r) => r.fn()))
@@ -356,7 +356,7 @@ export default function PEKEGNOGroupDashboard() {
                       {formatCurrency(c.turnover)}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {c.sales_count} {t('dashboard.sales')}
+                      {c.sales_count} {t('dashboard.sales')} · {c.points_balance} pts
                     </p>
                   </div>
                 </div>

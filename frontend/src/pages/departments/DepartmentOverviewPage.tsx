@@ -32,6 +32,7 @@ import { formatCurrency } from '@/utils/number';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
+import { PeriodPicker, defaultPeriod, type Period } from '@/components/ui/PeriodPicker';
 import { currentLocale } from '@/i18n';
 import type { Department } from '@/types/department';
 import type { Invoice, InvoiceStatus } from '@/types/invoice';
@@ -191,6 +192,7 @@ export default function DepartmentOverviewPage() {
   const { t } = useTranslation();
   const { department, departmentId, agencyId } = useOutletContext<DepartmentLayoutContext>();
   const [usersCount, setUsersCount] = useState<number | null>(null);
+  const [period, setPeriod] = useState<Period>(defaultPeriod());
   const [academy, setAcademy] = useState<{
     summary: TrainingReportResponse['summary'];
     avgAttendance: number;
@@ -343,9 +345,9 @@ export default function DepartmentOverviewPage() {
   const fetchBusiness = useCallback(async () => {
     if (isAcademy || !agencyId) return;
     const [statsRes, monthlyRes, invoicesRes, clientsRes, commercialsRes] = await Promise.allSettled([
-      statsApi.agency(agencyId),
+      statsApi.agency(agencyId, { from: period.from, to: period.to }),
       statsApi.monthlyRevenue({ months: 12, agencyId }),
-      invoicesApi.list({ agency_id: agencyId, per_page: 5 }),
+      invoicesApi.list({ agency_id: agencyId, per_page: 5, from: period.from, to: period.to }),
       client.get<{ meta?: { total?: number } }>('/clients', {
         params: { agency_id: agencyId, per_page: 1 },
       }),
@@ -367,7 +369,7 @@ export default function DepartmentOverviewPage() {
       commercialsCount:
         commercialsRes.status === 'fulfilled' ? commercialsRes.value.data.meta?.total ?? 0 : 0,
     });
-  }, [isAcademy, agencyId]);
+  }, [isAcademy, agencyId, period]);
 
   useEffect(() => {
     if (isAcademy && agencyId) {
@@ -678,6 +680,12 @@ export default function DepartmentOverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {!isAcademy && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{department.name}</h1>
+          <PeriodPicker value={period} onChange={setPeriod} />
+        </div>
+      )}
       {isAcademy ? (
         academy && !academy.isLoading ? (
           <>
@@ -824,6 +832,7 @@ export default function DepartmentOverviewPage() {
                     <tr>
                       <th className="pb-2 pr-4 font-medium">{t('dashboard.commercials')}</th>
                       <th className="pb-2 pr-4 font-medium">{t('dashboard.salesCount')}</th>
+                      <th className="pb-2 pr-4 font-medium">{t('commercials.colPoints')}</th>
                       <th className="pb-2 text-right font-medium">{t('dashboard.turnover')}</th>
                     </tr>
                   </thead>
@@ -832,6 +841,7 @@ export default function DepartmentOverviewPage() {
                       <tr key={c.id}>
                         <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">{c.full_name}</td>
                         <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.sales_count}</td>
+                        <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.points_balance ?? 0}</td>
                         <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
                           {formatCurrency(c.turnover)}
                         </td>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CalendarDays, CheckCircle2 } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
@@ -29,6 +29,11 @@ export default function TeamTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Super-admin : page « Mon suivi » retirée du parcours.
+  if (user?.role?.name === 'super-admin') {
+    return <Navigate to="/" replace />;
+  }
 
   const load = useCallback(() => {
     setLoading(true);

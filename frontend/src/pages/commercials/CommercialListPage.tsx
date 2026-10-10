@@ -3,6 +3,7 @@ import { Search, Pencil, Eye, Trash2, UserPlus, Download, Trophy, Star, BadgeChe
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { commercialsApi } from '@/api/commercials.api';
+import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,7 +31,7 @@ export interface CommercialApiLike {
   remove: (id: string) => Promise<void>;
   adjustPoints: (id: string, points: number, reason?: string) => Promise<{ message: string; points_balance: number }>;
   stats: (id: string, params?: { from?: string; to?: string }) => Promise<import('@/types/commercial').CommercialStats>;
-  ranking?: (params?: { limit?: number }) => Promise<RankingEntry[]>;
+  ranking?: (params?: { limit?: number; from?: string; to?: string; search?: string; agency_id?: string; is_active?: boolean }) => Promise<RankingEntry[]>;
 }
 
 export type CommercialListMode = 'commercial' | 'employee';
@@ -79,6 +80,12 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
   const [rankingOpen, setRankingOpen] = useState(false);
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
   const [rankingLoading, setRankingLoading] = useState(false);
+  const [rankingSearch, setRankingSearch] = useState('');
+  const [rankingFrom, setRankingFrom] = useState('');
+  const [rankingTo, setRankingTo] = useState('');
+  const [rankingAgency, setRankingAgency] = useState(fixedAgencyId ?? '');
+  const [rankingStatus, setRankingStatus] = useState('all');
+  const [rankingAgencies, setRankingAgencies] = useState<{ id: string; name: string }[]>([]);
 
   const [deleteTarget, setDeleteTarget] = useState<Commercial | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -209,17 +216,46 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
     }
   }
 
-  async function openRanking() {
-    setRankingOpen(true);
+  async function fetchRanking() {
     setRankingLoading(true);
     try {
-      setRanking(await (commercialApi.ranking ?? commercialsApi.ranking)({ limit: 50 }));
+      setRanking(
+        await (commercialApi.ranking ?? commercialsApi.ranking)({
+          limit: 50,
+          from: rankingFrom || undefined,
+          to: rankingTo || undefined,
+          search: rankingSearch.trim() || undefined,
+          agency_id: rankingAgency || undefined,
+          is_active: rankingStatus === 'all' ? undefined : rankingStatus === 'active',
+        }),
+      );
     } catch (error) {
       showToast(extractErrorMessage(error, t(`${ns}.loadFailed`)), 'error');
     } finally {
       setRankingLoading(false);
     }
   }
+
+  async function openRanking() {
+    setRankingOpen(true);
+    if (rankingAgencies.length === 0 && !fixedAgencyId) {
+      agenciesApi
+        .list({ per_page: 200 })
+        .then((res) => setRankingAgencies((res.data ?? []).map((a) => ({ id: a.id, name: a.name }))))
+        .catch(() => {});
+    }
+    await fetchRanking();
+  }
+
+  // Recharge le classement quand les filtres changent (recherche avec délai).
+  useEffect(() => {
+    if (!rankingOpen) return;
+    const timeout = setTimeout(() => {
+      fetchRanking();
+    }, 350);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rankingSearch, rankingFrom, rankingTo, rankingAgency, rankingStatus]);
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -505,8 +541,44 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
         isOpen={rankingOpen}
         onClose={() => setRankingOpen(false)}
         title={t(`${ns}.rankingPoints`)}
-        maxWidth="max-w-xl"
+        maxWidth="max-w-3xl"
       >
+        <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="col-span-2 sm:col-span-1 lg:col-span-1">
+            <Input
+              placeholder={t(`${ns}.searchPlaceholder`)}
+              value={rankingSearch}
+              onChange={(e) => setRankingSearch(e.target.value)}
+            />
+          </div>
+          {!fixedAgencyId && (
+            <Select value={rankingAgency} onChange={(e) => setRankingAgency(e.target.value)}>
+              <option value="">{t('reports.allAgencies')}</option>
+              {rankingAgencies.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          )}
+          <Input
+            type="date"
+            value={rankingFrom}
+            max={rankingTo || undefined}
+            onChange={(e) => setRankingFrom(e.target.value)}
+          />
+          <Input
+            type="date"
+            value={rankingTo}
+            min={rankingFrom || undefined}
+            onChange={(e) => setRankingTo(e.target.value)}
+          />
+          <Select value={rankingStatus} onChange={(e) => setRankingStatus(e.target.value)}>
+            <option value="all">{t('common.selectAll')}</option>
+            <option value="active">{t('common.active')}</option>
+            <option value="inactive">{t('common.inactive')}</option>
+          </Select>
+        </div>
         {rankingLoading ? (
           <SkeletonTable rows={4} />
         ) : ranking.length === 0 ? (
@@ -523,6 +595,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
                   <th className="px-4 py-2 font-medium">{t(`${ns}.colPoints`)}</th>
                   <th className="px-4 py-2 font-medium">{t(`${ns}.statsSales`)}</th>
                   <th className="px-4 py-2 text-right font-medium">{t(`${ns}.statsTurnover`)}</th>
+                  <th className="px-4 py-2 text-right font-medium">{t(`${ns}.colCommission`)}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -546,6 +619,9 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
                     <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">{r.sales_count}</td>
                     <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
                       {formatCurrency(r.turnover)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-medium text-gray-800 dark:text-gray-100">
+                      {formatCurrency(r.commission_total ?? 0)}
                     </td>
                   </tr>
                 ))}
