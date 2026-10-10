@@ -1,5 +1,6 @@
 import { client } from './client';
 import type { Order, Invoice, FormationEnrollment, Attendance, LearnerObservation, LearnerProfile, PaginatedResponse, PaymentProof, Cart } from '@/types';
+import type { ClientPrestation } from './agency.api';
 
 export interface CheckoutLine {
   line_type?: 'catalog' | 'manual';
@@ -123,6 +124,19 @@ export const clientApi = {
     const { data } = await client.post(`/client/invoices/${invoiceId}/payment-proof`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return data;
+  },
+
+  /**
+   * Souscription à une offre de prestation (onglet Packages) — miroir de
+   * l'inscription à une formation : la prestation naît en attente de
+   * validation, le contrat et la facture suivent à la validation par l'agence.
+   */
+  async subscribeToOffer(
+    offerId: string,
+    payload: { budget: number; start_date: string; end_date: string; description?: string },
+  ): Promise<{ prestation: ClientPrestation }> {
+    const { data } = await client.post(`/client/offers/${offerId}/subscribe`, payload);
     return data;
   },
 

@@ -45,6 +45,7 @@ import {
   type PrestationAction,
   type PrestationStatus,
   type Review,
+  type TeamDirectoryMember,
 } from '@/types/agencyDepartment';
 import type { ActivityLog } from '@/types/activityLog';
 
@@ -611,7 +612,9 @@ function TeamTab({ prestation, agencyId, departmentId }: { prestation: Prestatio
   const { showToast } = useToast();
   const [members, setMembers] = useState(prestation.team_members ?? []);
   const [roles, setRoles] = useState<ClientTeamRole[]>([]);
+  const [directory, setDirectory] = useState<TeamDirectoryMember[]>([]);
   const [userId, setUserId] = useState('');
+  const [directoryId, setDirectoryId] = useState('');
   const [roleId, setRoleId] = useState('');
   const [isLead, setIsLead] = useState(false);
   const canManage = canManageTeam(user);
@@ -623,14 +626,21 @@ function TeamTab({ prestation, agencyId, departmentId }: { prestation: Prestatio
   useEffect(() => {
     load();
     agencyDeptApi.teamRoles({ department_id: departmentId }).then(setRoles).catch(() => {});
-  }, [load, departmentId]);
+    agencyDeptApi.teamMembers({ agency_id: agencyId, department_id: departmentId, per_page: 100 }).then((r) => setDirectory(r.data)).catch(() => setDirectory([]));
+  }, [load, agencyId, departmentId]);
 
   async function add(e: FormEvent) {
     e.preventDefault();
-    if (!userId) return;
+    if (!userId && !directoryId) return;
     try {
-      await agencyDeptApi.addTeamMember(prestation.id, { user_id: userId, client_team_role_id: roleId || null, is_lead: isLead });
+      await agencyDeptApi.addTeamMember(prestation.id, {
+        user_id: directoryId ? undefined : userId,
+        team_member_id: directoryId || undefined,
+        client_team_role_id: roleId || null,
+        is_lead: isLead,
+      });
       setUserId('');
+      setDirectoryId('');
       setIsLead(false);
       load();
     } catch (err) {
@@ -651,8 +661,18 @@ function TeamTab({ prestation, agencyId, departmentId }: { prestation: Prestatio
     <div className="flex flex-col gap-4">
       {canManage && (
         <Card title={t('agencyDept.team.add')}>
-          <form onSubmit={add} className="grid gap-3 sm:grid-cols-[1fr_220px_auto_auto] sm:items-end">
-            <EmployeePicker agencyId={agencyId} value={userId} onChange={setUserId} />
+          <form onSubmit={add} className="grid gap-3 sm:grid-cols-2 sm:items-end">
+            <div className="sm:col-span-2">
+              <Select label={t('agencyDept.team.directoryTab')} value={directoryId} onChange={(e) => { setDirectoryId(e.target.value); if (e.target.value) setUserId(''); }}>
+                <option value="">—</option>
+                {directory.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.first_name} {d.last_name}{d.user_id ? '' : ` · ${t('agencyDept.team.withoutAccount')}`}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <EmployeePicker agencyId={agencyId} value={userId} onChange={(id) => { setUserId(id); if (id) setDirectoryId(''); }} />
             <Select label={t('agencyDept.team.role')} value={roleId} onChange={(e) => setRoleId(e.target.value)}>
               <option value="">—</option>
               {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -660,7 +680,7 @@ function TeamTab({ prestation, agencyId, departmentId }: { prestation: Prestatio
             <label className="flex items-center gap-2 pb-2.5 text-sm text-gray-700 dark:text-gray-300">
               <input type="checkbox" checked={isLead} onChange={(e) => setIsLead(e.target.checked)} /> {t('agencyDept.team.lead')}
             </label>
-            <Button type="submit" disabled={!userId}><Plus className="h-4 w-4" /> {t('common.add')}</Button>
+            <Button type="submit" disabled={!userId && !directoryId}><Plus className="h-4 w-4" /> {t('common.add')}</Button>
           </form>
           {roles.length === 0 && <p className="mt-2 text-xs text-gray-500">{t('agencyDept.team.noRolesHint')}</p>}
         </Card>
@@ -670,17 +690,24 @@ function TeamTab({ prestation, agencyId, departmentId }: { prestation: Prestatio
           <p className="text-sm text-gray-500">{t('agencyDept.team.empty')}</p>
         ) : (
           <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-            {members.map((m) => (
+            {members.map((m) => {
+              const displayName = personName(m.user) !== '—'
+                ? personName(m.user)
+                : m.team_member
+                  ? `${m.team_member.first_name} ${m.team_member.last_name}`.trim() || '—'
+                  : '—';
+              return (
               <li key={m.id} className="flex items-center justify-between gap-3 py-3">
                 <div>
                   <p className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
-                    {personName(m.user)} {m.is_lead && <Crown className="h-4 w-4 text-amber-500" />}
+                    {displayName} {m.is_lead && <Crown className="h-4 w-4 text-amber-500" />}
                   </p>
-                  <p className="text-xs text-gray-500">{m.team_role?.name ?? '—'} · {m.user?.email}</p>
+                  <p className="text-xs text-gray-500">{m.team_role?.name ?? '—'} · {m.user?.email ?? ''}</p>
                 </div>
                 {canManage && <Button variant="ghost" size="sm" onClick={() => remove(m.id)}><Trash2 className="h-4 w-4" /></Button>}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </Card>

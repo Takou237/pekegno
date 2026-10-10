@@ -237,13 +237,56 @@ export interface ClientTeamRole {
 export interface TeamMember {
   id: string;
   prestation_id: string;
-  user_id: string;
+  user_id: string | null;
+  team_member_id: string | null;
   client_team_role_id: string | null;
   is_lead: boolean;
   start_date: string | null;
   end_date: string | null;
   user?: PersonRef;
   team_role?: ClientTeamRole | null;
+  team_member?: TeamDirectoryMember | null;
+}
+
+/** Équipier de l'annuaire Agency (avec ou sans compte lié). */
+export interface TeamDirectoryMember {
+  id: string;
+  agency_id: string | null;
+  department_id: string | null;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  user_id: string | null;
+  commission_type: 'none' | 'percent' | 'fixed';
+  commission_value: string | null;
+  is_active: boolean;
+  user?: PersonRef | null;
+  agency?: { id: string; name: string } | null;
+  department?: { id: string; name: string } | null;
+}
+
+export interface TeamMission {
+  id: string;
+  reference: string;
+  name: string;
+  department_id: string | null;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+  client: string | null;
+  agency: string | null;
+  roles: Array<{ role: string | null; is_lead: boolean }>;
+}
+
+export interface TeamMissionAction {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  due_date: string | null;
+  is_overdue: boolean;
+  prestation: { id: string; reference: string; name: string; department_id: string | null } | null;
 }
 
 export interface RatingSummary {

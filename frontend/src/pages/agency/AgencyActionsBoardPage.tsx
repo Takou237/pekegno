@@ -13,19 +13,46 @@ import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { ActionStatusBadge } from '@/components/agencyDept/AgencyBadges';
-import { ACTION_STATUSES, personName, type LaravelPage, type PrestationAction } from '@/types/agencyDepartment';
+import { ACTION_STATUSES, personName, type ActionType, type LaravelPage, type PrestationAction } from '@/types/agencyDepartment';
 
 /**
- * Vues transverses des actions (§6.5) :
- * - « Community Management » : actions de type community_management / content_production ;
- * - « Publicité » : actions de type advertising + budget pub (pass-through).
+ * Vues transverses des actions (§6.5), réunies sous le menu « Suivi des
+ * actions » : Toutes, Community Management (community + contenu), Publicité
+ * et chaque autre type d'action (production, coaching, stratégie, autres).
  */
-export default function AgencyActionsBoardPage({ mode }: { mode: 'community' | 'advertising' }) {
+export type ActionsBoardMode = 'community' | 'advertising' | 'all' | ActionType;
+
+export default function AgencyActionsBoardPage({ mode }: { mode: ActionsBoardMode }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
   const { departmentId, basePath } = useAgencyDept();
-  const types = mode === 'advertising' ? 'advertising' : 'community_management,content_production';
+  const types =
+    mode === 'advertising'
+      ? 'advertising'
+      : mode === 'community'
+        ? 'community_management,content_production'
+        : mode === 'all'
+          ? undefined
+          : mode;
+
+  const title =
+    mode === 'advertising'
+      ? t('nav.advertising')
+      : mode === 'community'
+        ? t('nav.communityManagement')
+        : mode === 'all'
+          ? t('nav.actionsBoard')
+          : t(`agencyDept.actionType.${mode}`);
+  const subtitle =
+    mode === 'advertising'
+      ? t('agencyDept.board.advertisingSubtitle')
+      : mode === 'community'
+        ? t('agencyDept.board.communitySubtitle')
+        : mode === 'all'
+          ? t('agencyDept.board.allSubtitle')
+          : t('agencyDept.board.typeSubtitle', { type: t(`agencyDept.actionType.${mode}`) });
+  const showPassThrough = mode === 'advertising' || mode === 'all';
 
   const [result, setResult] = useState<(LaravelPage<PrestationAction> & { budget: { allocated: number; spent: number; pass_through: number } }) | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,15 +85,15 @@ export default function AgencyActionsBoardPage({ mode }: { mode: 'community' | '
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{mode === 'advertising' ? t('nav.advertising') : t('nav.communityManagement')}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t(`agencyDept.board.${mode}Subtitle`)}</p>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
       </div>
 
       {result && (
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat label={t('agencyDept.budget.allocated')} value={formatCurrency(result.budget.allocated)} />
           <Stat label={t('agencyDept.budget.spent')} value={formatCurrency(result.budget.spent)} />
-          {mode === 'advertising' && <Stat label={t('agencyDept.budget.passThrough')} value={formatCurrency(result.budget.pass_through)} />}
+          {showPassThrough && <Stat label={t('agencyDept.budget.passThrough')} value={formatCurrency(result.budget.pass_through)} />}
         </div>
       )}
 

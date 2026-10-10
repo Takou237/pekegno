@@ -415,6 +415,7 @@ function ConsolidatedView({ consolidated, t }: {
               <tr>
                 <th className="px-5 py-3 font-medium">{t('bilans.agency')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.formationsCol')}</th>
+                <th className="px-5 py-3 text-right font-medium">{t('bilans.prestationsCol')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.cashTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.omTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.momoTotal')}</th>
@@ -429,6 +430,7 @@ function ConsolidatedView({ consolidated, t }: {
                 <tr key={ab.agency_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{ab.agency?.name ?? '—'}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.formation_total ?? 0)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(agencyTotal(ab))}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.cash_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.om_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.momo_total)}</td>
@@ -441,6 +443,7 @@ function ConsolidatedView({ consolidated, t }: {
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
                 <td className="px-5 py-3 text-gray-800 dark:text-gray-100">{t('bilans.totalGeneral')}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_formations)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(agencies.reduce((s, a) => s + agencyTotal(a), 0))}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_cash)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_om)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_momo)}</td>
@@ -518,6 +521,12 @@ function formationTotal(day: BilanAgency): number {
   return (day.formation_total ?? 0) + formationServices;
 }
 
+// Argent des prestations (packages + offres Agency encaissés, hors budget
+// pub client) : champ dédié dans les vues consolidée et période.
+function agencyTotal(day: BilanAgency): number {
+  return (day.agency_by_category ?? []).reduce((sum, a) => sum + a.total, 0);
+}
+
 function expenseCategoryTotal(day: BilanAgency, name: string): number {
   return day.expenses_by_category.filter((e) => e.name === name).reduce((sum, e) => sum + e.total, 0);
 }
@@ -541,10 +550,11 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-            <tr>
-              <th className="sticky left-0 z-10 bg-white px-4 py-3 font-medium dark:bg-gray-900">{t('bilans.date')}</th>
-              <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.formationsCol')}</th>
-              {saleCols.map((c) => (
+              <tr>
+                <th className="sticky left-0 z-10 bg-white px-4 py-3 font-medium dark:bg-gray-900">{t('bilans.date')}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.formationsCol')}</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.prestationsCol')}</th>
+                {saleCols.map((c) => (
                 <th key={c} className="whitespace-nowrap px-4 py-3 text-right font-medium">{c}</th>
               ))}
               {productCols.map((c) => (
@@ -571,6 +581,9 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
                 </td>
                 <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
                   {formationTotal(d) > 0 ? formatCurrency(formationTotal(d)) : '—'}
+                </td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
+                  {agencyTotal(d) > 0 ? formatCurrency(agencyTotal(d)) : '—'}
                 </td>
                 {saleCols.map((c) => {
                   const v = categoryTotal(d, c);
@@ -613,6 +626,7 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
             <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold dark:border-gray-700 dark:bg-gray-800/50">
               <td className="sticky left-0 z-10 bg-gray-50 px-4 py-3 dark:bg-gray-800/50">{t('bilans.periodTotalRow')}</td>
               <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => formationTotal(d)))}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => agencyTotal(d)))}</td>
               {saleCols.map((c) => (
                 <td key={c} className="px-4 py-3 text-right">{formatCurrency(sum((d) => categoryTotal(d, c)))}</td>
               ))}
@@ -657,6 +671,7 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
   const header: string[] = [t('bilans.date')];
   for (const { block, saleCols, productCols, expenseCols } of perBlock) {
     header.push(`${block.title} - ${t('bilans.formationsCol')}`);
+    header.push(`${block.title} - ${t('bilans.prestationsCol')}`);
     for (const c of saleCols) header.push(`${block.title} - ${c}`);
     for (const c of productCols) header.push(`${block.title} - ${c}`);
     header.push(`${block.title} - ${t('bilans.totalVentesCol')}`);
@@ -677,6 +692,7 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
     for (const { saleCols, productCols, expenseCols, byDate } of perBlock) {
       const day = byDate[date];
       row.push(day ? formationTotal(day) : 0);
+      row.push(day ? (day.agency_by_category ?? []).reduce((s, a) => s + a.total, 0) : 0);
       for (const c of saleCols) row.push(day ? categoryTotal(day, c) : 0);
       for (const c of productCols) row.push(day ? productCategoryTotal(day, c) : 0);
       row.push(day ? day.total_ventes_amount : 0);
@@ -695,6 +711,7 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
   const totalRow: (string | number)[] = [t('bilans.periodTotalRow')];
   for (const { block, saleCols, productCols, expenseCols } of perBlock) {
     totalRow.push(block.days.reduce((s, d) => s + formationTotal(d), 0));
+    totalRow.push(block.days.reduce((s, d) => s + (d.agency_by_category ?? []).reduce((x, a) => x + a.total, 0), 0));
     for (const c of saleCols) totalRow.push(block.days.reduce((s, d) => s + categoryTotal(d, c), 0));
     for (const c of productCols) totalRow.push(block.days.reduce((s, d) => s + productCategoryTotal(d, c), 0));
     totalRow.push(block.days.reduce((s, d) => s + d.total_ventes_amount, 0));

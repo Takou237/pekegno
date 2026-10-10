@@ -24,7 +24,11 @@ export function Sidebar() {
     return () => { cancelled = true; };
   }, [roleName]);
 
-  const mainItems = getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge);
+  const mainItems = getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge).map((item) =>
+    // Garde-fou : jamais de pastille rouge sur le menu Factures en connexion
+    // commercial (ni caissier), même si un badge était passé par erreur.
+    roleName === 'commercial' || roleName === 'caissier' ? { ...item, badge: undefined } : item,
+  );
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-100 bg-white px-4 py-6 dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-0 lg:flex lg:h-screen lg:overflow-y-auto">

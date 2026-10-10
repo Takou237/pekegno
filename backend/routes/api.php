@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Agency\AgencyNotificationController;
 use App\Http\Controllers\Api\Agency\AgencyReportController;
 use App\Http\Controllers\Api\Agency\AgencySettingsController;
 use App\Http\Controllers\Api\Agency\ClientTeamController;
+use App\Http\Controllers\Api\Agency\TeamMemberController;
 use App\Http\Controllers\Api\Agency\PackageController;
 use App\Http\Controllers\Api\Agency\PrestationActionController;
 use App\Http\Controllers\Api\Agency\PrestationController;
@@ -39,6 +40,7 @@ use App\Http\Controllers\Api\Client\ClientEnrollmentController;
 use App\Http\Controllers\Api\Client\ClientInvoiceController;
 use App\Http\Controllers\Api\Client\ClientLearnerController;
 use App\Http\Controllers\Api\Client\ClientLearnerObservationController;
+use App\Http\Controllers\Api\Client\ClientOfferSubscriptionController;
 use App\Http\Controllers\Api\Client\ClientOrderController;
 use App\Http\Controllers\Api\Client\ClientPackageSubscriptionController;
 use App\Http\Controllers\Api\Client\ClientPrestationController;
@@ -99,7 +101,7 @@ Route::prefix('public')->group(function () {
     Route::get('/courses/{course}', [PublicCatalogController::class, 'course']);
     Route::get('/packages', [PublicCatalogController::class, 'packages']);
     Route::get('/packages/{package}', [PublicCatalogController::class, 'package']);
-    Route::get('/prestation-offers', [PublicCatalogController::class, 'prestationOffers']);
+    Route::get('/offers', [PublicCatalogController::class, 'offers']);
     Route::get('/agencies/{agency}/payment-methods', [PublicCatalogController::class, 'agencyPaymentMethods']);
 });
 
@@ -139,6 +141,7 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
         Route::get('/client/invoices/{invoice}/receipt', [ClientInvoiceController::class, 'receipt']);
         Route::delete('/client/invoices/{invoice}', [ClientInvoiceController::class, 'destroy']);
         Route::post('/client/packages/{package}/subscribe', ClientPackageSubscriptionController::class);
+        Route::post('/client/offers/{offer}/subscribe', ClientOfferSubscriptionController::class);
     Route::get('/client/enrollments', [ClientEnrollmentController::class, 'index']);
     Route::post('/client/enrollments', [ClientEnrollmentController::class, 'store']);
     Route::get('/client/learner-profile', [ClientLearnerController::class, 'show']);
@@ -553,6 +556,17 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/prestations/{prestation}/team', [ClientTeamController::class, 'storeMember'])->middleware('permission:equipe-client.gerer');
     Route::put('/prestation-team-members/{member}', [ClientTeamController::class, 'updateMember'])->middleware('permission:equipe-client.gerer');
     Route::delete('/prestation-team-members/{member}', [ClientTeamController::class, 'destroyMember'])->middleware('permission:equipe-client.gerer');
+    // Annuaire des équipiers (avec ou sans compte) + missions du connecté.
+    Route::get('/team-members', [TeamMemberController::class, 'index'])->middleware('permission:equipe-client.consulter');
+    Route::post('/team-members', [TeamMemberController::class, 'store'])->middleware('permission:equipe-client.gerer');
+    Route::put('/team-members/{teamMember}', [TeamMemberController::class, 'update'])->middleware('permission:equipe-client.gerer');
+    Route::delete('/team-members/{teamMember}', [TeamMemberController::class, 'destroy'])->middleware('permission:equipe-client.gerer');
+    Route::get('/team-members/available-users', [TeamMemberController::class, 'availableUsers'])->middleware('permission:equipe-client.gerer');
+    Route::post('/team-members/{teamMember}/link', [TeamMemberController::class, 'linkUser'])->middleware('permission:equipe-client.gerer');
+    Route::delete('/team-members/{teamMember}/link', [TeamMemberController::class, 'unlinkUser'])->middleware('permission:equipe-client.gerer');
+    Route::post('/team-members/{teamMember}/account', [TeamMemberController::class, 'createAccount'])->middleware('permission:equipe-client.gerer');
+    // Suivi personnel : données strictement limitées au connecté, sans permission requise.
+    Route::get('/team/missions', [ClientTeamController::class, 'missions']);
 
     // === Agency — Rapports, notifications, réglages ===
     Route::get('/reports/agency', AgencyReportController::class)->middleware('permission:reports.consulter,prestations.consulter');

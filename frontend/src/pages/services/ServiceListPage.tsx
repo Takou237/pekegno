@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play, Tag, ShoppingCart } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, Eye, Copy, Download, ArrowUpDown, Building2, MapPin, Play, Tag, ShoppingCart, GraduationCap, UserPlus } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
+import { academyApi, type Course } from '@/api/academy.api';
 import type { AgencyPackage, LaravelPage, PrestationOffer } from '@/types/agencyDepartment';
 import { Stars } from '@/components/agencyDept/StarRating';
 import { PackageSubscribeModal } from '@/components/packages/PackageSubscribeModal';
 import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
-import { canSubscribePackage } from '@/utils/agencyDeptPermissions';
+import { canSubscribePackage, canCreatePrestation } from '@/utils/agencyDeptPermissions';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { categoriesApi } from '@/api/categories.api';
@@ -24,7 +25,8 @@ import { ServiceFormModal } from '@/components/services/ServiceFormModal';
 import { ServiceDetailModal } from '@/components/services/ServiceDetailModal';
 import { CategoryFormModal } from '@/components/categories/CategoryFormModal';
 import AgencyCatalogTab from '@/pages/services/AgencyCatalogTab';
-import AgencyAcademyFormations from '@/pages/academy/AgencyAcademyFormations';
+import FormationEnrollmentModal from '@/components/academy/FormationEnrollmentModal';
+import { PrestationFormModal } from '@/components/agencyDept/PrestationFormModal';
 import PromotionFormModal from '@/components/promotions/PromotionFormModal';
 import QuickSaleModal from '@/components/invoices/QuickSaleModal';
 import {
@@ -35,6 +37,7 @@ import {
   canViewAgencies,
 } from '@/utils/catalogPermissions';
 import { canExportData } from '@/utils/exportPermissions';
+import { canEnrollLearners } from '@/utils/academyPermissions';
 import { currentLocale } from '@/i18n';
 import { commercialsApi } from '@/api/commercials.api';
 import type { Service } from '@/types/service';
@@ -128,8 +131,31 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [packagesError, setPackagesError] = useState<string | null>(null);
   const [offers, setOffers] = useState<LaravelPage<PrestationOffer> | null>(null);
   const [subscribeTarget, setSubscribeTarget] = useState<AgencyPackage | null>(null);
+  const [offerSubscribeTarget, setOfferSubscribeTarget] = useState<PrestationOffer | null>(null);
+  const [packageSearch, setPackageSearch] = useState('');
+  const [packageCategory, setPackageCategory] = useState('');
+  const [packageAgency, setPackageAgency] = useState('');
+
+  // Formations Academy (cours réels) affichées dans l'onglet « Formations » :
+  // les Pages Produits (pays, agence, catalogue staff) montrent ainsi les
+  // mêmes formations que /departments/:id/courses.
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [enrollCourse, setEnrollCourse] = useState<Course | null>(null);
 
   const canSubscribe = canSubscribePackage(user) && !agencyId;
+
+  // Clic sur une prestation du catalogue : le caissier / commercial souscrit
+  // directement un client (formulaire) au lieu d'ouvrir la page département.
+  function handleOfferOpen(offer: PrestationOffer) {
+    if ((isCommercial || isCaissier) && canCreatePrestation(user)) {
+      setOfferSubscribeTarget(offer);
+      return;
+    }
+    if (offer.department_id) {
+      navigate(`/departments/${offer.department_id}/prestations/${offer.id}/subscriptions`);
+    }
+  }
 
   const fetchPackages = useCallback(async () => {
     setPackagesLoading(true);
@@ -167,6 +193,27 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     if (tab !== 'packages') return;
     fetchPackages();
   }, [tab, fetchPackages]);
+
+  const fetchCourses = useCallback(async () => {
+    setCoursesLoading(true);
+    try {
+      const res = await academyApi.courses({
+        agency_id: effectiveAgencyId,
+        country_id: countryId,
+        per_page: 50,
+      });
+      setCourses(res.data ?? []);
+    } catch {
+      setCourses([]);
+    } finally {
+      setCoursesLoading(false);
+    }
+  }, [effectiveAgencyId, countryId]);
+
+  useEffect(() => {
+    if (tab !== 'formations' || !effectiveShowAcademyTabs) return;
+    fetchCourses();
+  }, [tab, effectiveShowAcademyTabs, fetchCourses]);
   const canPromoteService = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     user?.role?.name ?? ''
   );
@@ -278,6 +325,70 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     return `${new Intl.NumberFormat(currentLocale()).format(Number(value))} ${currencyLabel()}`;
   }
 
+  // Recherche locale dans l'onglet Packages (packs + prestations).
+  const catalogQuery = packageSearch.trim().toLowerCase();
+
+  // Options des filtres : dérivées des données chargées (packs + offres).
+  const packageCategories = useMemo(() => {
+    const names = new Set<string>();
+    for (const p of packages) if (p.category?.name) names.add(p.category.name);
+    if (offers) for (const o of offers.data) if (o.category?.name) names.add(o.category.name);
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [packages, offers]);
+  const packageAgencies = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of packages) if (p.agency) map.set(p.agency.id, p.agency.name);
+    if (offers) for (const o of offers.data) if (o.agency) map.set(o.agency.id, o.agency.name);
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [packages, offers]);
+
+  const filteredCatalogPackages = packages.filter((p) => {
+    if (
+      catalogQuery &&
+      !(
+        p.name.toLowerCase().includes(catalogQuery) ||
+        (p.code ?? '').toLowerCase().includes(catalogQuery) ||
+        (p.tagline ?? '').toLowerCase().includes(catalogQuery)
+      )
+    )
+      return false;
+    if (packageCategory && p.category?.name !== packageCategory) return false;
+    if (packageAgency && p.agency_id !== packageAgency) return false;
+    return true;
+  });
+  const filteredCatalogOffers =
+    offers
+      ? {
+          ...offers,
+          data: offers.data.filter((o) => {
+            if (
+              catalogQuery &&
+              !(
+                o.name.toLowerCase().includes(catalogQuery) ||
+                (o.description ?? '').toLowerCase().includes(catalogQuery)
+              )
+            )
+              return false;
+            if (packageCategory && o.category?.name !== packageCategory) return false;
+            if (packageAgency && o.agency_id !== packageAgency) return false;
+            return true;
+          }),
+        }
+      : offers;
+  // Garde-fou : l'onglet « Produits » n'affiche jamais de formations, même si
+  // l'API en retournait (une formation = is_seminar ou type formation).
+  const visibleServices =
+    tab === 'services'
+      ? services.filter((s) => !s.is_seminar && (s as { type?: string }).type !== 'formation')
+      : services;
+
+  function formatCoursePrice(value: number | null | undefined): string {
+    if (value == null) return '—';
+    return `${new Intl.NumberFormat(currentLocale()).format(Number(value))} ${currencyLabel()}`;
+  }
+
   function handlePromoSaved(saved: Promotion) {
     setServices((prev) =>
       prev.map((service) =>
@@ -365,14 +476,59 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             {t('nav.packages')}
           </button>
         </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            value={packageSearch}
+            onChange={(e) => setPackageSearch(e.target.value)}
+            placeholder={t('common.search')}
+            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+        </div>
+        {(packageCategories.length > 0 || (!effectiveAgencyId && packageAgencies.length > 0)) && (
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {packageCategories.length > 0 && (
+              <div className="sm:w-48">
+                <Select
+                  label={t('services.category')}
+                  value={packageCategory}
+                  onChange={(e) => setPackageCategory(e.target.value)}
+                >
+                  <option value="">{t('services.allCategories')}</option>
+                  {packageCategories.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            {!effectiveAgencyId && packageAgencies.length > 0 && (
+              <div className="sm:w-48">
+                <Select
+                  label={t('services.agency')}
+                  value={packageAgency}
+                  onChange={(e) => setPackageAgency(e.target.value)}
+                >
+                  <option value="">{t('services.allAgencies')}</option>
+                  {packageAgencies.map((agency) => (
+                    <option key={agency.id} value={agency.id}>
+                      {agency.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+          </div>
+        )}
         {packagesLoading ? (
           <SkeletonCards />
         ) : packagesError ? (
           <p className="text-sm text-error-500">{packagesError}</p>
-        ) : packages.length === 0 ? (
+        ) : filteredCatalogPackages.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.packages.empty')}</p>
         ) : (
-          groupPackagesByCategory(packages, t('agencyDept.packages.uncategorized')).map((group) => (
+          groupPackagesByCategory(filteredCatalogPackages, t('agencyDept.packages.uncategorized')).map((group) => (
             <section key={group.name} className="flex flex-col gap-3">
               <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 <Tag className="h-4 w-4" /> {group.name}
@@ -398,9 +554,9 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             <Tag className="h-4 w-4" /> {t('nav.prestations')}
           </h2>
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-            {!offers ? (
+            {!filteredCatalogOffers ? (
               <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
-            ) : offers.data.length === 0 ? (
+            ) : filteredCatalogOffers.data.length === 0 ? (
               <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.offers.empty')}</p>
             ) : (
               <div className="overflow-x-auto">
@@ -415,14 +571,15 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {offers.data.map((o) => {
+                    {filteredCatalogOffers.data.map((o) => {
                       const count = o.subscriptions_count ?? 0;
                       const avg = o.subscriptions_rating_avg ? Number(o.subscriptions_rating_avg) : null;
+                      const clickable = Boolean(o.department_id) || ((isCommercial || isCaissier) && canCreatePrestation(user));
                       return (
                         <tr
                           key={o.id}
-                          className={o.department_id ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}
-                          onClick={() => o.department_id && navigate(`/departments/${o.department_id}/prestations/${o.id}/subscriptions`)}
+                          className={clickable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}
+                          onClick={() => handleOfferOpen(o)}
                         >
                           <td className="px-4 py-3">
                             <span className="font-medium text-gray-900 dark:text-white">{o.name}</span>
@@ -467,42 +624,21 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             onDone={() => { setSubscribeTarget(null); fetchPackages(); }}
           />
         )}
-      </div>
-    );
-  }
 
-  if (effectiveShowAcademyTabs && tab === 'formations') {
-    return (
-      <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.academy')}</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('academy.coursesSubtitle')}</p>
-        </div>
-        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
-          <button
-            type="button"
-            onClick={() => setTab('services')}
-            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            {t('nav.services')}
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 border-b-2 border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 transition-colors dark:text-brand-400"
-          >
-            {t('nav.academy')}
-          </button>
-          {showPackagesTab && (
-            <button
-              type="button"
-              onClick={() => setTab('packages')}
-              className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              {t('nav.packages')}
-            </button>
-          )}
-        </div>
-        <AgencyAcademyFormations agencyId={effectiveAgencyId} countryId={countryId} />
+        {offerSubscribeTarget && (
+          <PrestationFormModal
+            isOpen
+            onClose={() => setOfferSubscribeTarget(null)}
+            offer={offerSubscribeTarget}
+            agencyId={effectiveAgencyId}
+            countryId={countryId}
+            onSaved={() => {
+              setOfferSubscribeTarget(null);
+              fetchPackages();
+              showToast(t('agencyDept.saved'), 'success');
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -669,16 +805,85 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         </div>
       </div>
 
+      {tab === 'formations' && effectiveShowAcademyTabs && (
+        <div className="flex flex-col gap-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <GraduationCap className="h-4 w-4" /> {t('nav.academy')}
+          </h2>
+          {coursesLoading ? (
+            <SkeletonCards />
+          ) : courses.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-gray-700">
+              {t('services.empty')}
+            </p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {courses.map((course) => (
+                <div
+                  key={course.id}
+                  className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+                >
+                  {course.cover_image ? (
+                    <div
+                      className="h-32 w-full shrink-0 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${course.cover_image})` }}
+                      role="img"
+                      aria-label={course.name}
+                    />
+                  ) : (
+                    <div className="flex h-32 w-full shrink-0 items-center justify-center bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/40 dark:to-purple-800/40">
+                      <GraduationCap className="h-8 w-8 text-purple-400" />
+                    </div>
+                  )}
+                  <div className="flex flex-1 flex-col p-5">
+                    <p className="truncate font-semibold text-gray-900 dark:text-white">{course.name}</p>
+                    <p className="mt-0.5 truncate text-xs text-gray-400">
+                      {course.code}
+                      {course.categories?.[0] ? ` · ${course.categories[0].name}` : ''}
+                    </p>
+                    {course.description && (
+                      <p className="mt-3 line-clamp-2 flex-1 text-sm text-gray-500 dark:text-gray-400">
+                        {course.description}
+                      </p>
+                    )}
+                    <div className="mt-4 flex items-baseline gap-2">
+                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {formatCoursePrice(course.effective_price ?? course.price)}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
+                      <span className="inline-flex items-center gap-1.5 truncate text-sm text-gray-500 dark:text-gray-400">
+                        <Building2 className="h-4 w-4 shrink-0 text-gray-400" />
+                        <span className="truncate">{course.agency?.name ?? '—'}</span>
+                      </span>
+                      {canEnrollLearners(user) && (
+                        <Button size="sm" variant="outline" onClick={() => setEnrollCourse(course)} title={t('academy.newEnrollment')}>
+                          <UserPlus className="h-4 w-4" />
+                          {t('academy.newEnrollment')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* En onglet Formations sans services de type formation : pas de bloc
+          « Aucun service » sous les formations Academy. */}
+      {!(tab === 'formations' && !isLoading && !loadError && visibleServices.length === 0) && (
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <SkeletonCards />
         ) : loadError ? (
           <p className="p-6 text-sm text-error-500">{loadError}</p>
-        ) : services.length === 0 ? (
+        ) : visibleServices.length === 0 ? (
           <p className="p-6 text-sm text-gray-500 dark:text-gray-400">{t('services.empty')}</p>
         ) : (
           <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
-            {services.map((service) => (
+            {visibleServices.map((service) => (
               <div
                 key={service.id}
                 onClick={() => openDetail(service)}
@@ -854,6 +1059,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
           </div>
         )}
       </div>
+      )}
 
       <ServiceFormModal
         isOpen={formModalState.open || Boolean(duplicateSource)}
@@ -909,6 +1115,20 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         onClose={() => setQuickSaleOpen(false)}
         agencyId={effectiveAgencyId}
       />
+
+      {enrollCourse && (
+        <FormationEnrollmentModal
+          isOpen={Boolean(enrollCourse)}
+          onClose={() => setEnrollCourse(null)}
+          agencyId={effectiveAgencyId}
+          countryId={countryId}
+          presetCourseId={enrollCourse.id}
+          onSaved={() => {
+            setEnrollCourse(null);
+            fetchCourses();
+          }}
+        />
+      )}
     </div>
   );
 }

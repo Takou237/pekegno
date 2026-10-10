@@ -113,6 +113,7 @@ export interface CommissionEntry {
   updated_at: string;
   invoice?: { id: string; number: string; total_amount: number };
   beneficiary?: { id: string; first_name: string; last_name: string } | null;
+  teamMember?: { id: string; first_name: string; last_name: string } | null;
   sellerProfile?: {
     id: string;
     kind: string;

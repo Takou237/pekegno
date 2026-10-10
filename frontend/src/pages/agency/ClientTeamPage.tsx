@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { PrestationStatusBadge } from '@/components/agencyDept/AgencyBadges';
+import TeamDirectoryTab from '@/components/agencyDept/TeamDirectoryTab';
 import { personName, type ClientTeamRole, type TeamOverviewRow } from '@/types/agencyDepartment';
 
 /**
@@ -17,7 +18,8 @@ import { personName, type ClientTeamRole, type TeamOverviewRow } from '@/types/a
  */
 export default function ClientTeamPage() {
   const { t } = useTranslation();
-  const { departmentId, basePath } = useAgencyDept();
+  const { departmentId, agencyId, basePath } = useAgencyDept();
+  const [tab, setTab] = useState<'assignments' | 'directory'>('assignments');
   const [rows, setRows] = useState<TeamOverviewRow[] | null>(null);
   const [roles, setRoles] = useState<ClientTeamRole[]>([]);
   const [roleId, setRoleId] = useState('');
@@ -46,12 +48,35 @@ export default function ClientTeamPage() {
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.clientTeam')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.team.subtitle')}</p>
         </div>
-        <Select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-          <option value="">{t('agencyDept.team.allRoles')}</option>
-          {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-        </Select>
+        {tab === 'assignments' && (
+          <Select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+            <option value="">{t('agencyDept.team.allRoles')}</option>
+            {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </Select>
+        )}
       </div>
 
+      <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+        {(['assignments', 'directory'] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={`inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              tab === id
+                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            {t(id === 'assignments' ? 'agencyDept.team.assignmentsTab' : 'agencyDept.team.directoryTab')}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'directory' ? (
+        <TeamDirectoryTab agencyId={agencyId} departmentId={departmentId} />
+      ) : (
+        <>
       {error && <Alert variant="error">{error}</Alert>}
 
       {!rows ? (
@@ -90,6 +115,8 @@ export default function ClientTeamPage() {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

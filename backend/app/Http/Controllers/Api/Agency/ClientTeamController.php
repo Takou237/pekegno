@@ -93,7 +93,7 @@ class ClientTeamController extends Controller
         $this->access->authorize($request->user(), $prestation);
 
         return response()->json([
-            'data' => $prestation->teamMembers()->with('user:id,first_name,last_name,email', 'teamRole:id,name,color')->get(),
+            'data' => $prestation->teamMembers()->with('user:id,first_name,last_name,email', 'teamRole:id,name,color', 'teamMember:id,first_name,last_name,user_id')->get(),
         ]);
     }
 
@@ -102,15 +102,27 @@ class ClientTeamController extends Controller
         $this->access->authorize($request->user(), $prestation);
 
         $data = $request->validate([
-            'user_id' => ['required', 'uuid', 'exists:users,id'],
+            'user_id' => ['nullable', 'uuid', 'exists:users,id', 'required_without:team_member_id'],
+            'team_member_id' => ['nullable', 'uuid', 'exists:team_members,id'],
             'client_team_role_id' => ['nullable', 'uuid', 'exists:client_team_roles,id'],
             'is_lead' => ['sometimes', 'boolean'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
         ]);
 
+        // Affectation depuis l'annuaire : le compte est résolu (membre sans
+        // compte → user_id null, présent dans l'équipe mais non assignable).
+        $teamMember = ! empty($data['team_member_id'])
+            ? \App\Models\TeamMember::findOrFail($data['team_member_id'])
+            : null;
+
+        if ($teamMember && empty($data['user_id'])) {
+            $data['user_id'] = $teamMember->user_id;
+        }
+
         $exists = $prestation->teamMembers()
-            ->where('user_id', $data['user_id'])
+            ->when($data['user_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id))
+            ->when($teamMember, fn ($q) => $q->where('team_member_id', $teamMember->id))
             ->where('client_team_role_id', $data['client_team_role_id'] ?? null)
             ->exists();
         abort_if($exists, 422, 'Ce membre a déjà ce rôle sur la prestation.');
@@ -127,7 +139,7 @@ class ClientTeamController extends Controller
             agencyId: $prestation->agency_id,
         );
 
-        return response()->json($member->load('user:id,first_name,last_name,email', 'teamRole:id,name,color'), 201);
+        return response()->json($member->load('user:id,first_name,last_name,email', 'teamRole:id,name,color', 'teamMember:id,first_name,last_name'), 201);
     }
 
     public function updateMember(Request $request, PrestationTeamMember $member): JsonResponse
@@ -203,5 +215,109 @@ class ClientTeamController extends Controller
         })->values();
 
         return response()->json(['data' => $data]);
+    }
+
+    /**
+     * Suivi de l'équipier connecté : ses prestations (affectations directes
+     * ou via son profil d'annuaire) et ses actions ouvertes à faire.
+     */
+    public function missions(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $memberIds = \App\Models\TeamMember::query()
+            ->where('user_id', $user->id)
+            ->pluck('id');
+
+        $affectations = PrestationTeamMember::query()
+            ->where(fn ($q) => $q
+                ->where('user_id', $user->id)
+                ->when($memberIds->isNotEmpty(), fn ($w) => $w->orWhereIn('team_member_id', $memberIds)))
+            ->with([
+                'teamRole:id,name,color',
+                'teamMember:id,first_name,last_name',
+                'prestation:id,reference,name,status,client_id,agency_id,department_id,start_date,end_date',
+                'prestation.client:id,first_name,last_name',
+                'prestation.agency:id,name',
+            ])
+            ->get();
+
+        $prestationIds = $affectations->pluck('prestation_id')->filter()->unique()->values();
+
+        $actions = PrestationAction::query()
+            ->where('assigned_to', $user->id)
+            ->whereNotIn('status', PrestationAction::FINISHED_STATUSES)
+            ->with('prestation:id,reference,name,department_id')
+            ->orderBy('due_date')
+            ->get()
+            ->map(fn ($a) => [
+                'id' => $a->id,
+                'title' => $a->title,
+                'type' => $a->type,
+                'status' => $a->status,
+                'due_date' => $a->due_date,
+                'is_overdue' => (bool) $a->is_overdue,
+                'prestation' => $a->prestation ? [
+                    'id' => $a->prestation->id,
+                    'reference' => $a->prestation->reference,
+                    'name' => $a->prestation->name,
+                    'department_id' => $a->prestation->department_id,
+                ] : null,
+            ])
+            ->values();
+
+        // Prestations liées uniquement par des actions assignées (sans
+        // affectation à l'équipe) : elles apparaissent quand même au suivi.
+        $missingIds = $actions->pluck('prestation.id')->filter()->unique()
+            ->diff($prestationIds)->values();
+
+        $extraPrestations = $missingIds->isEmpty() ? collect() : Prestation::query()
+            ->whereKey($missingIds)
+            ->with(['client:id,first_name,last_name', 'agency:id,name'])
+            ->get()
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'reference' => $p->reference,
+                'name' => $p->name,
+                'department_id' => $p->department_id,
+                'status' => $p->status,
+                'start_date' => $p->start_date,
+                'end_date' => $p->end_date,
+                'client' => $p->client ? trim($p->client->first_name.' '.$p->client->last_name) : null,
+                'agency' => $p->agency?->name,
+                'roles' => [],
+            ])
+            ->values();
+
+        return response()->json([
+            'prestations' => $affectations
+                ->groupBy('prestation_id')
+                ->map(function ($rows) {
+                    $p = $rows->first()->prestation;
+
+                    return [
+                        'id' => $p?->id,
+                        'reference' => $p?->reference,
+                        'name' => $p?->name,
+                        'department_id' => $p?->department_id,
+                        'status' => $p?->status,
+                        'start_date' => $p?->start_date,
+                        'end_date' => $p?->end_date,
+                        'client' => $p?->client ? trim($p->client->first_name.' '.$p->client->last_name) : null,
+                        'agency' => $p?->agency?->name,
+                        'roles' => $rows->map(fn ($m) => [
+                            'role' => $m->teamRole?->name,
+                            'is_lead' => (bool) $m->is_lead,
+                        ])->values(),
+                    ];
+                })
+                ->filter(fn ($p) => $p['id'] !== null)
+                ->values()
+                ->toBase()
+                ->merge($extraPrestations)
+                ->values(),
+            'actions' => $actions,
+            'open_actions' => $actions->count(),
+        ]);
     }
 }

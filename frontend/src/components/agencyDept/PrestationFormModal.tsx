@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { ClientPicker, CommercialPicker } from './Pickers';
+import { CommercialPicker } from './Pickers';
+import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
+import { clientsApi } from '@/api/clients.api';
 import type { AgencyCategory, Prestation, PrestationOffer } from '@/types/agencyDepartment';
 import type { Agency } from '@/types/agency';
 
@@ -58,6 +60,8 @@ export function PrestationFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [newCategory, setNewCategory] = useState('');
+  const [clientMode, setClientMode] = useState<LearnerMode>('existing');
+  const [newClient, setNewClient] = useState<NewLearnerFormState>(emptyNewLearnerForm);
 
   // Sans département Agency (vue pays), l'agence doit être choisie : la
   // prestation appartient toujours à une agence côté backend. Avec une offre,
@@ -74,6 +78,8 @@ export function PrestationFormModal({
       agenciesApi.list({ country_id: countryId, per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
     }
     setError(null);
+    setClientMode('existing');
+    setNewClient(emptyNewLearnerForm);
     setForm({
       name: prestation?.name ?? (!prestation && offer ? offer.name : ''),
       category_id: prestation?.category_id ?? offer?.category_id ?? '',
@@ -104,15 +110,48 @@ export function PrestationFormModal({
     }
   }
 
+  async function clientOptions(query: string) {
+    const rows = await clientsApi.search(query.trim());
+    return rows.map((c) => ({
+      id: c.id,
+      label: c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email,
+      subtitle: c.email,
+    }));
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    // Comme l'inscription à une formation : création du client à la volée.
+    let resolvedClientId = form.client_id;
+    if (!prestation && clientMode === 'new') {
+      if (!newClient.first_name.trim() || !newClient.last_name.trim()) {
+        setError(t('academy.newLearnerRequired'));
+        setSaving(false);
+        return;
+      }
+      try {
+        const created = await clientsApi.create({
+          first_name: newClient.first_name.trim(),
+          last_name: newClient.last_name.trim(),
+          email: newClient.email.trim(),
+          phone: newClient.phone.trim() || null,
+          country: newClient.country || undefined,
+          registered_agency_id: offer?.agency_id ?? agencyId ?? form.agency_id ?? undefined,
+        });
+        resolvedClientId = created.id;
+      } catch (err) {
+        setError(extractErrorMessage(err, t('common.error')));
+        setSaving(false);
+        return;
+      }
+    }
     const payload = {
       name: form.name,
       category_id: offer ? undefined : form.category_id || null,
       description: form.description || null,
-      client_id: form.client_id,
+      client_id: resolvedClientId,
       commercial_id: form.commercial_id || null,
       start_date: form.start_date,
       end_date: form.end_date,
@@ -177,7 +216,24 @@ export function PrestationFormModal({
               </div>
             </div>
           )}
-          {!prestation && <ClientPicker value={form.client_id} onChange={(id) => setForm({ ...form, client_id: id })} />}
+          {!prestation && (
+            <div className="sm:col-span-2">
+              <EnrollmentLearnerField
+                mode={clientMode}
+                onModeChange={setClientMode}
+                learnerUserId={form.client_id}
+                onLearnerUserIdChange={(id) => setForm({ ...form, client_id: id })}
+                fetchOptions={clientOptions}
+                newLearner={newClient}
+                onNewLearnerChange={setNewClient}
+                existingLabel={t('agencyDept.clientExisting')}
+                createLabel={t('clients.createClient')}
+                fieldLabel={`${t('agencyDept.client')} *`}
+                searchPlaceholder={t('clients.searchPlaceholder')}
+                newInfoLabel={t('clients.createTitle')}
+              />
+            </div>
+          )}
           <CommercialPicker value={form.commercial_id} onChange={(id) => setForm({ ...form, commercial_id: id })} />
           <Input label={t('agencyDept.startDate')} type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
           <Input label={t('agencyDept.endDate')} type="date" required value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
@@ -209,7 +265,7 @@ export function PrestationFormModal({
         </label>
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="submit" isLoading={saving} disabled={!prestation && !form.client_id}>{t('common.save')}</Button>
+          <Button type="submit" isLoading={saving} disabled={!prestation && clientMode === 'existing' && !form.client_id}>{t('common.save')}</Button>
         </div>
       </form>
     </Modal>

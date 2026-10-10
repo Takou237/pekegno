@@ -58,6 +58,7 @@ const ClientDetailPage = lazyWithRetry(() => import('@/pages/clients/ClientDetai
 const CommercialListPage = lazyWithRetry(() => import('@/pages/commercials/CommercialListPage'));
 const CommercialDetailPage = lazyWithRetry(() => import('@/pages/commercials/CommercialDetailPage'));
 const CommercialSelfDashboardPage = lazyWithRetry(() => import('@/pages/commercials/CommercialSelfDashboardPage'));
+const TeamTrackingPage = lazyWithRetry(() => import('@/pages/team/TeamTrackingPage'));
 const CommercialCommissionsPage = lazyWithRetry(() => import('@/pages/commercials/CommercialCommissionsPage'));
 const AgencyCommercialsPage = lazyWithRetry(() => import('@/pages/commercials/AgencyCommercialsPage'));
 const CountryCommercialsPage = lazyWithRetry(() => import('@/pages/commercials/CountryCommercialsPage'));
@@ -69,6 +70,8 @@ const AgencyCommercialReportPage = lazyWithRetry(
 );
 const InvoiceListPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceListPage'));
 const PendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/PendingInvoicesPage'));
+const CountryPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/CountryPendingInvoicesPage'));
+const DepartmentPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/DepartmentPendingInvoicesPage'));
 const InvoiceFormPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceFormPage'));
 const QuickSalePage = lazyWithRetry(() => import('@/pages/invoices/QuickSalePage'));
 const InvoiceDetailPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceDetailPage'));
@@ -137,6 +140,7 @@ const PrestationDetailPage = lazyWithRetry(() => import('@/pages/agency/Prestati
 const PrestationActionDetailPage = lazyWithRetry(() => import('@/pages/agency/PrestationActionDetailPage'));
 const PrestationTrackingPage = lazyWithRetry(() => import('@/pages/agency/PrestationTrackingPage'));
 const AgencyActionsBoardPage = lazyWithRetry(() => import('@/pages/agency/AgencyActionsBoardPage'));
+const AgencyActionsPage = lazyWithRetry(() => import('@/pages/agency/AgencyActionsPage'));
 const ClientTeamPage = lazyWithRetry(() => import('@/pages/agency/ClientTeamPage'));
 const AgencyDeptInvoicesPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptInvoicesPage'));
 const AgencyDeptReceivablesPage = lazyWithRetry(() => import('@/pages/agency/AgencyDeptReceivablesPage'));
@@ -225,6 +229,7 @@ export const router = createBrowserRouter([
           { path: '/clients/:id', element: page(<ClientDetailPage />, detail) },
           { path: '/commercials', element: page(<CommercialListPage />, table) },
           { path: '/commercial/dashboard', element: page(<CommercialSelfDashboardPage />, dashboard) },
+          { path: '/team/tracking', element: page(<TeamTrackingPage />, dashboard) },
           { path: '/commercial/commissions', element: page(<CommercialCommissionsPage />, dashboard) },
           { path: '/commercials/report', element: page(<CommercialReportPage />, table) },
           { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },
@@ -282,6 +287,7 @@ export const router = createBrowserRouter([
           { path: 'accounting', element: page(<AccountingPage />, table) },
           { path: 'bilans', element: page(<DailyBilanPage />, table) },
           { path: 'invoices', element: page(<InvoiceListPage />, table) },
+          { path: 'invoices/pending', element: page(<CountryPendingInvoicesPage />, table) },
           { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: 'invoices/:id', element: page(<InvoiceDetailPage />, detail) },
           { path: 'receivables', element: page(<ReceivablesPage />, table) },
@@ -323,6 +329,7 @@ export const router = createBrowserRouter([
           // Détail d'une facture : on reste dans le département (la route
           // /agencies/... redirige vers le pays et fait perdre le contexte).
           { path: 'invoices/:invoiceId', element: page(<InvoiceDetailPage />, detail) },
+          { path: 'invoices/pending', element: page(<DepartmentPendingInvoicesPage />, table) },
           {
             path: 'receivables',
             element: page(<ByDepartmentType pages={{ agency: <AgencyDeptReceivablesPage /> }} fallback={<AcademyReceivablesPage />} />, table),
@@ -379,6 +386,7 @@ export const router = createBrowserRouter([
           { path: 'contracts/:contractId', element: page(<ContractDetailPage />, detail) },
           { path: 'community', element: page(<AgencyActionsBoardPage mode="community" />, table) },
           { path: 'advertising', element: page(<AgencyActionsBoardPage mode="advertising" />, table) },
+          { path: 'actions', element: page(<AgencyActionsPage />, table) },
           { path: 'renewals', element: page(<RenewalsPage />, table) },
           // Store
           { path: 'catalog', element: page(<ComingSoonPage />, cards) },

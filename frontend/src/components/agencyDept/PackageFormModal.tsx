@@ -53,7 +53,9 @@ const emptyForm: PackageForm = {
   billing_period: 'monthly',
   min_duration_months: '',
   is_active: true,
-  is_public: false,
+  // Public par défaut : un package créé apparaît aussitôt sur le site public
+  // (la case reste décochable pour le retirer du site).
+  is_public: true,
   items: [],
   recommendations: [],
 };

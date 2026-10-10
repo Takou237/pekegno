@@ -93,6 +93,10 @@ class CommissionService
      */
     public function recordForPayment(Invoice $invoice, InvoicePayment $payment, ?string $actorUserId = null): void
     {
+        // Équipiers de la prestation : commissions propres, cumulables avec
+        // celles du commercial (pas de retour anticipé).
+        $this->recordTeamRates($invoice, $payment);
+
         // Agency (D17) : une prestation hors package porte son propre taux.
         if ($this->recordPrestationRate($invoice, $payment) > 0) {
             return;
@@ -286,6 +290,93 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
         });
 
         return 1;
+    }
+
+    /**
+     * Commissions des équipiers affectés à la prestation (annuaire, avec ou
+     * sans compte) : taux propre de chaque membre sur la même base
+     * d'honoraires que le taux commercial. Cumulable avec les autres moteurs.
+     */
+    public function recordTeamRates(Invoice $invoice, InvoicePayment $payment): int
+    {
+        $prestationId = $invoice->items()->whereNotNull('prestation_id')->value('prestation_id');
+        $prestation = $prestationId ? Prestation::find($prestationId) : null;
+
+        if (! $prestation) {
+            return 0;
+        }
+
+        $invoiceTotal = (float) $invoice->total_amount;
+        if ($invoiceTotal <= 0) {
+            return 0;
+        }
+
+        $feesTotal = (float) $invoice->items()->where('is_pass_through', false)->sum('line_total');
+        $paidShare = (float) $payment->amount / $invoiceTotal;
+        $base = round($feesTotal * $paidShare, 2);
+
+        $members = $prestation->teamMembers()
+            ->whereNotNull('team_member_id')
+            ->with('teamMember')
+            ->get()
+            ->map(fn ($m) => $m->teamMember)
+            ->filter(fn ($tm) => $tm
+                && $tm->is_active
+                && $tm->commission_type !== 'none'
+                && $tm->commission_value !== null);
+
+        $count = 0;
+
+        foreach ($members as $tm) {
+            $amount = $tm->commissionFor($base, $paidShare);
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $exists = CommissionEntry::query()
+                ->where('invoice_payment_id', $payment->id)
+                ->where('beneficiary_team_member_id', $tm->id)
+                ->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            DB::transaction(function () use ($invoice, $payment, $prestation, $tm, $base, $amount) {
+                CommissionEntry::create([
+                    'invoice_id' => $invoice->id,
+                    'invoice_payment_id' => $payment->id,
+                    'commission_rule_id' => null,
+                    'rule_snapshot' => [
+                        'source' => 'team-member',
+                        'team_member_id' => $tm->id,
+                        'prestation_id' => $prestation->id,
+                        'commission_type' => $tm->commission_type,
+                        'commission_value' => (float) $tm->commission_value,
+                    ],
+                    'beneficiary_team_member_id' => $tm->id,
+                    'base_amount' => $base,
+                    'amount' => $amount,
+                    'category' => 'agency',
+                    'product_id' => $prestation->id,
+                    'product_type' => 'prestation',
+                    'status' => CommissionEntry::STATUS_CALCULATED,
+                ]);
+
+                $this->logger->log(
+                    action: 'commission',
+                    entityType: 'invoice',
+                    entityId: $invoice->id,
+                    description: "Commission de {$amount} FCFA (équipier {$tm->full_name}, prestation {$prestation->reference}) sur la facture {$invoice->number}",
+                    newValues: ['team_member_id' => $tm->id, 'amount' => $amount, 'payment_id' => $payment->id],
+                );
+            });
+
+            $count++;
+        }
+
+        return $count;
     }
 
     private function ruleMatchesInvoice(CommissionRule $rule, Invoice $invoice): bool

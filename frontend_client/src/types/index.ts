@@ -415,26 +415,15 @@ export interface PublicPackageAgency {
   package_id: string;
 }
 
-/** Une agence qui propose une prestation (offre) du catalogue public. */
-export interface PublicPrestationOfferAgency {
-  id: string;
-  name: string;
-  city: string | null;
-  country: string | null;
-  phone: string | null;
-  email: string | null;
-  /** Offre propre à cette agence. */
-  offer_id: string;
-}
-
-/** Prestation du catalogue public : fiche sans prix, souscrite en agence. */
-export interface PublicPrestationOffer {
+/** Offre de prestation Agency sur le catalogue public (lecture seule). */
+export interface PublicOffer {
   id: string;
   name: string;
   description: string | null;
-  category: Pick<Category, 'id' | 'name' | 'color'> | null;
-  agencies: PublicPrestationOfferAgency[];
-  agency_count: number;
+  is_active: boolean;
+  subscriptions_count: number;
+  category: { id: string; name: string; color: string | null } | null;
+  agency: { id: string; name: string; city: string | null; country: string | null } | null;
 }
 
 /** Package du catalogue public : consultation libre, souscription depuis la fiche (client connecté). */

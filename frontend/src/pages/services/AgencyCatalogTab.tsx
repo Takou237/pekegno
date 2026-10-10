@@ -12,7 +12,10 @@ import { Alert } from '@/components/ui/Alert';
 import { SkeletonCards, SkeletonTable } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { PackageCard } from '@/components/agencyDept/PackageCard';
+// Même carte que la page département et l'onglet Packages du catalogue staff
+// (caissier / commercial) : rendu strictement identique.
+import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
+import { PackageSubscribeModal } from '@/components/packages/PackageSubscribeModal';
 import { PackageFormModal } from '@/components/agencyDept/PackageFormModal';
 import { OfferFormModal } from '@/components/agencyDept/OfferFormModal';
 import { Stars } from '@/components/agencyDept/StarRating';
@@ -41,6 +44,7 @@ export default function AgencyCatalogTab({ agencyId, countryId }: { agencyId?: s
   const [editing, setEditing] = useState<AgencyPackage | null>(null);
   const [offerFormOpen, setOfferFormOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AgencyPackage | null>(null);
+  const [subscribeTarget, setSubscribeTarget] = useState<AgencyPackage | null>(null);
 
   const scope = { agency_id: agencyId, country_id: countryId };
 
@@ -64,15 +68,9 @@ export default function AgencyCatalogTab({ agencyId, countryId }: { agencyId?: s
     load();
   }, [load]);
 
-  const grouped = (() => {
-    const groups = new Map<string, { name: string; items: AgencyPackage[] }>();
-    for (const p of packages) {
-      const key = p.agency_id ?? 'none';
-      if (!groups.has(key)) groups.set(key, { name: p.agency?.name ?? t('agencyDept.agency'), items: [] });
-      groups.get(key)!.items.push(p);
-    }
-    return [...groups.values()];
-  })();
+  // Même regroupement que l'onglet Packages du catalogue staff (caissier) :
+  // par catégorie, pas par agence.
+  const grouped = groupPackagesByCategory(packages, t('agencyDept.packages.uncategorized'));
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -116,18 +114,20 @@ export default function AgencyCatalogTab({ agencyId, countryId }: { agencyId?: s
         ) : (
           grouped.map((group) => (
             <div key={group.name} className="flex flex-col gap-3">
-              {grouped.length > 1 && (
-                <p className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">{group.name}</p>
-              )}
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <Tag className="h-4 w-4" /> {group.name}
+              </h2>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {group.items.map((p) => (
                   <PackageCard
                     key={p.id}
                     pkg={p}
                     canManage={canManage}
-                    canSubscribe={false}
+                    canSubscribe={canCreate && p.is_active}
                     showAgency={!agencyId}
                     onEdit={() => { setEditing(p); setFormOpen(true); }}
+                    onPromo={undefined}
+                    onSubscribe={() => setSubscribeTarget(p)}
                     onDelete={() => setDeleteTarget(p)}
                   />
                 ))}
@@ -257,6 +257,15 @@ export default function AgencyCatalogTab({ agencyId, countryId }: { agencyId?: s
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {subscribeTarget && (
+        <PackageSubscribeModal
+          pkg={subscribeTarget}
+          departmentId={undefined}
+          onClose={() => setSubscribeTarget(null)}
+          onDone={() => { setSubscribeTarget(null); load(); }}
+        />
+      )}
     </div>
   );
 }

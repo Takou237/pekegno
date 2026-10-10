@@ -21,6 +21,9 @@ import type {
   Review,
   SubscribePayload,
   TeamMember,
+  TeamDirectoryMember,
+  TeamMission,
+  TeamMissionAction,
   TeamOverviewRow,
   TrackingRow,
   WeekSummary,
@@ -136,10 +139,20 @@ export const agencyDeptApi = {
   deleteTeamRole: (id: string) => del(`/client-team-roles/${id}`),
   seedTeamRoles: (department_id: string) => post<{ data: ClientTeamRole[] }>('/client-team-roles/defaults', { department_id }),
   team: (prestationId: string) => get<{ data: TeamMember[] }>(`/prestations/${prestationId}/team`).then((r) => r.data),
-  addTeamMember: (prestationId: string, payload: { user_id: string; client_team_role_id?: string | null; is_lead?: boolean }) =>
+  addTeamMember: (prestationId: string, payload: { user_id?: string | null; team_member_id?: string | null; client_team_role_id?: string | null; is_lead?: boolean }) =>
     post<TeamMember>(`/prestations/${prestationId}/team`, payload),
   removeTeamMember: (memberId: string) => del(`/prestation-team-members/${memberId}`),
   teamOverview: (params: Params) => get<{ data: TeamOverviewRow[] }>('/client-team', params).then((r) => r.data),
+  // Annuaire des équipiers (avec ou sans compte)
+  teamMembers: (params: Params) => get<LaravelPage<TeamDirectoryMember>>('/team-members', params),
+  createTeamMember: (payload: Omit<Partial<TeamDirectoryMember>, 'commission_value'> & { commission_value?: number | string | null }) => post<TeamDirectoryMember>('/team-members', payload),
+  updateTeamMember: (id: string, payload: Omit<Partial<TeamDirectoryMember>, 'commission_value'> & { commission_value?: number | string | null }) => put<TeamDirectoryMember>(`/team-members/${id}`, payload),
+  deleteTeamMember: (id: string) => del(`/team-members/${id}`),
+  teamMemberUsers: (params?: { agency_id?: string; search?: string }) => get<Array<{ id: string; first_name: string | null; last_name: string | null; email: string | null }>>('/team-members/available-users', params),
+  linkTeamMemberUser: (id: string, user_id: string) => post<TeamDirectoryMember>(`/team-members/${id}/link`, { user_id }),
+  unlinkTeamMemberUser: (id: string) => del(`/team-members/${id}/link`),
+  createTeamMemberAccount: (id: string, email: string) => post<TeamDirectoryMember>(`/team-members/${id}/account`, { email }),
+  teamMissions: () => get<{ prestations: TeamMission[]; actions: TeamMissionAction[]; open_actions: number }>('/team/missions'),
 
   // Notes (lecture seule staff, D5)
   reviews: (prestationId: string) => get<{ data: Review[]; summary: RatingSummary }>(`/prestations/${prestationId}/reviews`),

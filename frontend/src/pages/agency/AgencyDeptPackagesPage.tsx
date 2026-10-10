@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Tag, Trash2 } from 'lucide-react';
+import { Plus, Search, Tag, Trash2 } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,7 +17,9 @@ import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { ClientPicker, CommercialPicker } from '@/components/agencyDept/Pickers';
+import { CommercialPicker } from '@/components/agencyDept/Pickers';
+import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
+import { clientsApi } from '@/api/clients.api';
 import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
 import { PackageFormModal } from '@/components/agencyDept/PackageFormModal';
 import type { AgencyPackage } from '@/types/agencyDepartment';
@@ -41,6 +43,8 @@ export default function AgencyDeptPackagesPage() {
   const [promoTarget, setPromoTarget] = useState<AgencyPackage | null>(null);
   const [subscribeTarget, setSubscribeTarget] = useState<AgencyPackage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AgencyPackage | null>(null);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
 
   const load = useCallback(() => {
     if (!departmentId) return;
@@ -56,10 +60,29 @@ export default function AgencyDeptPackagesPage() {
     load();
   }, [load]);
 
-  const grouped = useMemo(
-    () => groupPackagesByCategory(packages, t('agencyDept.packages.uncategorized')),
-    [packages, t],
-  );
+  const categories = useMemo(() => {
+    const names = new Set<string>();
+    for (const p of packages) if (p.category?.name) names.add(p.category.name);
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [packages]);
+
+  const grouped = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = packages.filter((p) => {
+      if (
+        q &&
+        !(
+          p.name.toLowerCase().includes(q) ||
+          (p.code ?? '').toLowerCase().includes(q) ||
+          (p.tagline ?? '').toLowerCase().includes(q)
+        )
+      )
+        return false;
+      if (categoryFilter && p.category?.name !== categoryFilter) return false;
+      return true;
+    });
+    return groupPackagesByCategory(filtered, t('agencyDept.packages.uncategorized'));
+  }, [packages, search, categoryFilter, t]);
 
   function openCreate() {
     setEditing(null);
@@ -99,9 +122,33 @@ export default function AgencyDeptPackagesPage() {
 
       {error && <Alert variant="error">{error}</Alert>}
 
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            className="pl-9"
+            placeholder={t('common.search')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {categories.length > 0 && (
+          <div className="sm:w-48">
+            <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+              <option value="">{t('services.allCategories')}</option>
+              {categories.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+      </div>
+
       {loading ? (
         <SkeletonCards />
-      ) : packages.length === 0 ? (
+      ) : grouped.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-gray-700">
           {t('agencyDept.packages.empty')}
         </p>
@@ -147,6 +194,7 @@ export default function AgencyDeptPackagesPage() {
         <SubscribeModal
           pkg={subscribeTarget}
           departmentId={departmentId}
+          agencyId={agencyId}
           onClose={() => setSubscribeTarget(null)}
           onDone={(prestationId) => {
             setSubscribeTarget(null);
@@ -246,17 +294,21 @@ function PromotionModal({ pkg, onClose, onSaved }: { pkg: AgencyPackage; onClose
 function SubscribeModal({
   pkg,
   departmentId,
+  agencyId,
   onClose,
   onDone,
 }: {
   pkg: AgencyPackage;
   departmentId?: string;
+  agencyId?: string;
   onClose: () => void;
   onDone: (prestationId: string) => void;
 }) {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [clientId, setClientId] = useState('');
+  const [clientMode, setClientMode] = useState<LearnerMode>('existing');
+  const [newClient, setNewClient] = useState<NewLearnerFormState>(emptyNewLearnerForm);
   const [commercialId, setCommercialId] = useState('');
   const [start, setStart] = useState(todayLocal());
   const [periods, setPeriods] = useState('1');
@@ -268,13 +320,40 @@ function SubscribeModal({
 
   const total = pkg.effective_price * Number(periods || 0);
 
+  async function clientOptions(query: string) {
+    const rows = await clientsApi.search(query.trim());
+    return rows.map((c) => ({
+      id: c.id,
+      label: c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email,
+      subtitle: c.email,
+    }));
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
+      // Comme l'inscription à une formation : création du client à la volée.
+      let resolvedClientId = clientId;
+      if (clientMode === 'new') {
+        if (!newClient.first_name.trim() || !newClient.last_name.trim()) {
+          setError(t('academy.newLearnerRequired'));
+          setSaving(false);
+          return;
+        }
+        const created = await clientsApi.create({
+          first_name: newClient.first_name.trim(),
+          last_name: newClient.last_name.trim(),
+          email: newClient.email.trim(),
+          phone: newClient.phone.trim() || null,
+          country: newClient.country || undefined,
+          registered_agency_id: agencyId,
+        });
+        resolvedClientId = created.id;
+      }
       const res = await agencyDeptApi.subscribe(pkg.id, {
-        client_id: clientId,
+        client_id: resolvedClientId,
         commercial_id: commercialId || undefined,
         department_id: departmentId,
         start_date: start,
@@ -297,7 +376,20 @@ function SubscribeModal({
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {error && <Alert variant="error">{error}</Alert>}
         <p className="text-xs text-gray-500 dark:text-gray-400">{t('agencyDept.packages.subscribeHint')}</p>
-        <ClientPicker value={clientId} onChange={setClientId} />
+        <EnrollmentLearnerField
+          mode={clientMode}
+          onModeChange={setClientMode}
+          learnerUserId={clientId}
+          onLearnerUserIdChange={setClientId}
+          fetchOptions={clientOptions}
+          newLearner={newClient}
+          onNewLearnerChange={setNewClient}
+          existingLabel={t('agencyDept.clientExisting')}
+          createLabel={t('clients.createClient')}
+          fieldLabel={`${t('agencyDept.client')} *`}
+          searchPlaceholder={t('clients.searchPlaceholder')}
+          newInfoLabel={t('clients.createTitle')}
+        />
         <CommercialPicker value={commercialId} onChange={setCommercialId} />
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label={t('agencyDept.startDate')} type="date" required value={start} onChange={(e) => setStart(e.target.value)} />
@@ -316,7 +408,7 @@ function SubscribeModal({
         <p className="text-right text-sm font-semibold text-gray-900 dark:text-white">{t('agencyDept.total')} : {formatCurrency(total)}</p>
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="submit" isLoading={saving} disabled={!clientId}>{t('common.confirm')}</Button>
+          <Button type="submit" isLoading={saving} disabled={clientMode === 'existing' && !clientId}>{t('common.confirm')}</Button>
         </div>
       </form>
     </Modal>

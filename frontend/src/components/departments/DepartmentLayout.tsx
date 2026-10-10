@@ -11,10 +11,12 @@ import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
 import { DepartmentSwitcher } from '@/components/departments/DepartmentSwitcher';
 import { getDepartmentItems, navLinkClass } from '@/components/layout/navItems';
+import { useAuth } from '@/hooks/useAuth';
 import type { Department } from '@/types/department';
 
 export function DepartmentLayout() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { departmentId } = useParams<{ departmentId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
@@ -51,8 +53,8 @@ export function DepartmentLayout() {
   }, [loadDepartment]);
 
   const subItems = useMemo(
-    () => (department?.type ? getDepartmentItems(t, department.type) : []),
-    [department?.type, t],
+    () => (department?.type ? getDepartmentItems(t, department.type, user?.role?.name) : []),
+    [department?.type, user?.role?.name, t],
   );
 
   const backButton = (
