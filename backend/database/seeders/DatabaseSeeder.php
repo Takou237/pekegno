@@ -38,6 +38,7 @@ class DatabaseSeeder extends Seeder
             BackfillFinancialsSeeder::class,
             DemoExtras2Seeder::class,
             DemoExtras3Seeder::class,
+            PrestationOfferSeeder::class,
         ]);
     }
 }

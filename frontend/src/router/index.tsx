@@ -243,6 +243,8 @@ export const router = createBrowserRouter([
           { path: '/opportunities/:id', element: page(<OpportunityDetailPage />, detail) },
           { path: '/bilans', element: page(<DailyBilanPage />, table) },
           { path: '/subscriptions', element: page(<SubscriptionListPage />, table) },
+          { path: '/contracts', element: page(<ContractListPage global />, table) },
+          { path: '/contracts/:contractId', element: page(<ContractDetailPage global />, detail) },
           { path: '/reports/subscriptions', element: page(<SubscriptionsReportPage />, table) },
           { path: '/reports/customers', element: page(<CustomersReportPage />, table) },
           { path: '/reports/comparison', element: page(<ComparisonReportPage />, table) },

@@ -51,6 +51,7 @@ export interface Contract {
   client?: { id: string; first_name: string; last_name: string; email?: string; name?: string };
   company?: { id: string; name: string } | null;
   agency?: { id: string; name: string; code?: string };
+  department?: { id: string; name: string } | null;
   pack?: { id: string; name: string } | null;
   prestation?: { id: string; reference: string; name: string; status: string; budget?: string } | null;
   commercial?: { id: string; first_name: string; last_name: string } | null;

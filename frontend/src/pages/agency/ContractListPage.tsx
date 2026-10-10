@@ -27,10 +27,16 @@ const ORIGIN_TABS: Array<ContractOrigin | ''> = ['', 'package', 'prestation'];
  * Contrats du département (§6.8). Une souscription à un package EST un contrat
  * (D1) : l'onglet « Packages » remplace l'ancienne page « Souscriptions ».
  * L'onglet actif est dans l'URL (`?origin=package`).
+ *
+ * Mode global (`global`): tous les contrats du périmètre de l'utilisateur
+ * (super-admin / direction) sans filtrer sur un département, avec la colonne
+ * Agence, depuis /contracts.
  */
-export default function ContractListPage() {
+export default function ContractListPage({ global = false }: { global?: boolean }) {
   const { t } = useTranslation();
   const { departmentId, basePath } = useAgencyDept();
+
+  const listPath = global ? '/contracts' : `${basePath}/contracts`;
 
   const [result, setResult] = useState<LaravelPage<Contract> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +49,7 @@ export default function ContractListPage() {
   const load = useCallback(() => {
     contractsApi
       .list({
-        department_id: departmentId,
+        ...(global ? {} : { department_id: departmentId }),
         status: status || undefined,
         origin: (originFilter || undefined) as ContractOrigin | undefined,
         search: search || undefined,
@@ -52,7 +58,7 @@ export default function ContractListPage() {
       })
       .then(setResult)
       .catch((e) => setError(extractErrorMessage(e, t('common.error'))));
-  }, [departmentId, status, originFilter, search, page, t]);
+  }, [global, departmentId, status, originFilter, search, page, t]);
 
   useEffect(() => {
     const timer = setTimeout(load, 250);
@@ -69,11 +75,13 @@ export default function ContractListPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.contracts')}</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.contracts.subtitle')}</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {global ? t('contracts.subtitle') : t('agencyDept.contracts.subtitle')}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
-          {originFilter === 'package' && (
+          {!global && originFilter === 'package' && (
             <Link to={`${basePath}/packages`}><Button><Plus className="h-4 w-4" /> {t('agencyDept.packages.subscribe')}</Button></Link>
           )}
         </div>
@@ -118,6 +126,7 @@ export default function ContractListPage() {
                 <tr>
                   <th className="px-4 py-3 font-medium">N°</th>
                   <th className="px-4 py-3 font-medium">{t('agencyDept.client')}</th>
+                  {global && <th className="px-4 py-3 font-medium">{t('contracts.agency')}</th>}
                   <th className="px-4 py-3 font-medium">{t('agencyDept.contracts.originCol')}</th>
                   <th className="px-4 py-3 font-medium">{t('agencyDept.contracts.object')}</th>
                   <th className="px-4 py-3 font-medium">{t('agencyDept.amount')}</th>
@@ -129,15 +138,29 @@ export default function ContractListPage() {
                 {result.data.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="px-4 py-3">
-                      <Link to={`${basePath}/contracts/${c.id}`} className="font-medium text-brand-600 hover:underline">{c.number}</Link>
+                      <Link to={`${listPath}/${c.id}`} className="font-medium text-brand-600 hover:underline">{c.number}</Link>
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{c.client ? `${c.client.first_name} ${c.client.last_name}` : '—'}</td>
+                    {global && (
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                        {c.agency?.name ?? '—'}
+                        {c.department ? <span className="text-xs text-gray-400"> · {c.department.name}</span> : null}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{t(`agencyDept.contracts.origin.${c.origin ?? 'manual'}`)}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                       {c.prestation ? (
-                        <Link to={`${basePath}/prestations/${c.prestation.id}`} className="hover:underline">{c.prestation.name}</Link>
+                        global ? (
+                          c.prestation.name
+                        ) : (
+                          <Link to={`${basePath}/prestations/${c.prestation.id}`} className="hover:underline">{c.prestation.name}</Link>
+                        )
                       ) : c.pack ? (
-                        <Link to={`${basePath}/packages/${c.pack.id}/subscriptions`} className="hover:underline">{c.pack.name}</Link>
+                        global ? (
+                          c.pack.name
+                        ) : (
+                          <Link to={`${basePath}/packages/${c.pack.id}/subscriptions`} className="hover:underline">{c.pack.name}</Link>
+                        )
                       ) : '—'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200">{formatCurrency(c.amount)}</td>

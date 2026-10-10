@@ -17,13 +17,15 @@ import { ReasonModal } from '@/components/agencyDept/ReasonModal';
 import { BILLING_CYCLE_LABELS, CONTRACT_STATUS_COLORS, CONTRACT_STATUS_LABELS, type Contract } from '@/types/contract';
 
 /** Fiche contrat : 3 parties (Pekegno · client · prestation/package), factures, PDF, cycle de vie. */
-export default function ContractDetailPage() {
+export default function ContractDetailPage({ global = false }: { global?: boolean }) {
   const { contractId } = useParams<{ contractId: string }>();
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { basePath } = useAgencyDept();
+
+  const contractsPath = global ? '/contracts' : `${basePath}/contracts`;
 
   const [contract, setContract] = useState<Contract | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export default function ContractDetailPage() {
     try {
       const child = await contractsApi.renew(contract.id);
       showToast(t('agencyDept.contracts.renewed'), 'success');
-      navigate(`${basePath}/contracts/${child.id}`);
+      navigate(`${contractsPath}/${child.id}`);
     } catch (e) {
       showToast(extractErrorMessage(e, t('common.error')), 'error');
     }
@@ -92,7 +94,7 @@ export default function ContractDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to={`${basePath}/contracts`} className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline dark:text-brand-400">
+      <Link to={contractsPath} className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline dark:text-brand-400">
         <ArrowLeft className="h-4 w-4" /> {t('nav.contracts')}
       </Link>
 
@@ -133,7 +135,7 @@ export default function ContractDetailPage() {
             c.prestation ? `${t('agencyDept.prestation')} ${c.prestation.reference} — ${c.prestation.name}` : c.pack ? `${t('nav.packages')} : ${c.pack.name}` : t('agencyDept.contracts.origin.manual'),
             c.commercial ? `${t('agencyDept.commercial')} : ${c.commercial.first_name} ${c.commercial.last_name}` : '',
           ]}
-          link={c.prestation ? `${basePath}/prestations/${c.prestation.id}` : undefined}
+          link={!global && c.prestation ? `${basePath}/prestations/${c.prestation.id}` : undefined}
         />
       </div>
 
@@ -144,8 +146,8 @@ export default function ContractDetailPage() {
         <Info label={t('agencyDept.contracts.activatedAt')} value={c.activated_at?.slice(0, 10) ?? '—'} />
         <Info label={t('agencyDept.packages.autoRenew')} value={c.auto_renew ? t('common.yes') : t('common.no')} />
         <Info label={t('agencyDept.contracts.signed')} value={c.signed_document_path ? <a className="text-brand-600 hover:underline" href={c.signed_document_path.startsWith('http') ? c.signed_document_path : `/storage/${c.signed_document_path}`} target="_blank" rel="noreferrer">{c.signed_at?.slice(0, 10) ?? t('common.yes')}</a> : t('agencyDept.contracts.notSigned')} />
-        <Info label={t('agencyDept.contracts.parent')} value={c.parent_contract ? <Link className="text-brand-600 hover:underline" to={`${basePath}/contracts/${c.parent_contract.id}`}>{c.parent_contract.number}</Link> : '—'} />
-        <Info label={t('agencyDept.contracts.children')} value={c.child_contracts?.length ? c.child_contracts.map((ch) => <Link key={ch.id} className="mr-2 text-brand-600 hover:underline" to={`${basePath}/contracts/${ch.id}`}>{ch.number}</Link>) : '—'} />
+        <Info label={t('agencyDept.contracts.parent')} value={c.parent_contract ? <Link className="text-brand-600 hover:underline" to={`${contractsPath}/${c.parent_contract.id}`}>{c.parent_contract.number}</Link> : '—'} />
+        <Info label={t('agencyDept.contracts.children')} value={c.child_contracts?.length ? c.child_contracts.map((ch) => <Link key={ch.id} className="mr-2 text-brand-600 hover:underline" to={`${contractsPath}/${ch.id}`}>{ch.number}</Link>) : '—'} />
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">

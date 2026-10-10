@@ -24,6 +24,7 @@ import { ServiceFormModal } from '@/components/services/ServiceFormModal';
 import { ServiceDetailModal } from '@/components/services/ServiceDetailModal';
 import { CategoryFormModal } from '@/components/categories/CategoryFormModal';
 import AgencyCatalogTab from '@/pages/services/AgencyCatalogTab';
+import AgencyAcademyFormations from '@/pages/academy/AgencyAcademyFormations';
 import PromotionFormModal from '@/components/promotions/PromotionFormModal';
 import QuickSaleModal from '@/components/invoices/QuickSaleModal';
 import {
@@ -466,6 +467,42 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             onDone={() => { setSubscribeTarget(null); fetchPackages(); }}
           />
         )}
+      </div>
+    );
+  }
+
+  if (effectiveShowAcademyTabs && tab === 'formations') {
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.academy')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('academy.coursesSubtitle')}</p>
+        </div>
+        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={() => setTab('services')}
+            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            {t('nav.services')}
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 border-b-2 border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 transition-colors dark:text-brand-400"
+          >
+            {t('nav.academy')}
+          </button>
+          {showPackagesTab && (
+            <button
+              type="button"
+              onClick={() => setTab('packages')}
+              className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+            >
+              {t('nav.packages')}
+            </button>
+          )}
+        </div>
+        <AgencyAcademyFormations agencyId={effectiveAgencyId} countryId={countryId} />
       </div>
     );
   }

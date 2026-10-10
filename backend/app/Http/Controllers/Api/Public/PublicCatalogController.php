@@ -7,6 +7,7 @@ use App\Models\Agency;
 use App\Models\AgencyPaymentMethod;
 use App\Models\Country;
 use App\Models\Course;
+use App\Models\PrestationOffer;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\SubscriptionPack;
@@ -320,6 +321,63 @@ class PublicCatalogController extends Controller
         $payload['agency_count'] = $agencies->count();
 
         return response()->json($payload);
+    }
+
+    /**
+     * Prestations du catalogue client : les offres actives de toutes les
+     * agences, regroupées par nom (une carte par prestation). Comme pour les
+     * packages, `agencies` liste les agences qui proposent la prestation.
+     */
+    public function prestationOffers(Request $request): JsonResponse
+    {
+        $offers = PrestationOffer::query()
+            ->with(['category:id,name,color', 'agency:id,name,city,country,phone,email'])
+            ->where('is_active', true)
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $needle = '%' . mb_strtolower($request->string('search')->toString()) . '%';
+                $q->where(fn ($inner) => $inner
+                    ->whereRaw('lower(name) like ?', [$needle])
+                    ->orWhereRaw('lower(description) like ?', [$needle]));
+            })
+            ->when($request->filled('agency_id'), fn ($q, $value) => $q->where('agency_id', $value))
+            ->when($request->filled('category_id'), fn ($q, $value) => $q->where('category_id', $value))
+            ->when($request->filled('country_id'), function ($q) use ($request) {
+                $q->where(fn ($inner) => $inner->whereHas('agency', fn ($agency) => $agency->where('country_id', $request->country_id)));
+            })
+            ->orderBy('name')
+            ->get();
+
+        $grouped = $offers->groupBy('name')->map(function ($group) {
+            $offer = $group->first();
+            $agencies = $group
+                ->map(fn (PrestationOffer $item) => $item->agency ? [
+                    'id' => $item->agency->id,
+                    'name' => $item->agency->name,
+                    'city' => $item->agency->city,
+                    'country' => $item->agency->country,
+                    'phone' => $item->agency->phone,
+                    'email' => $item->agency->email,
+                    'offer_id' => $item->id,
+                ] : null)
+                ->filter()
+                ->unique('id')
+                ->values();
+
+            return [
+                'id' => $offer->id,
+                'name' => $offer->name,
+                'description' => $offer->description,
+                'category' => $offer->category ? [
+                    'id' => $offer->category->id,
+                    'name' => $offer->category->name,
+                    'color' => $offer->category->color,
+                ] : null,
+                'agencies' => $agencies,
+                'agency_count' => $agencies->count(),
+            ];
+        })->values();
+
+        return response()->json($grouped);
     }
 
     /** Offre d'une agence pour un pack homonyme : permet au client de souscrire « son » pack. */

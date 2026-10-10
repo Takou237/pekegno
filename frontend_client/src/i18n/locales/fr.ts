@@ -33,6 +33,7 @@ export default {
     typeFormations: 'Formations',
     typeServices: 'Services',
     typeProducts: 'Produits',
+    typePrestations: 'Prestations',
     typePackages: 'Packages',
     showing: 'Affichage de {{from}}–{{to}} sur {{total}} résultats',
     perPage: 'Résultats par page',

@@ -33,6 +33,7 @@ export default {
     typeFormations: 'Training',
     typeServices: 'Services',
     typeProducts: 'Products',
+    typePrestations: 'Services',
     typePackages: 'Packages',
     showing: 'Showing {{from}}–{{to}} of {{total}} results',
     perPage: 'Results per page',

@@ -99,6 +99,7 @@ Route::prefix('public')->group(function () {
     Route::get('/courses/{course}', [PublicCatalogController::class, 'course']);
     Route::get('/packages', [PublicCatalogController::class, 'packages']);
     Route::get('/packages/{package}', [PublicCatalogController::class, 'package']);
+    Route::get('/prestation-offers', [PublicCatalogController::class, 'prestationOffers']);
     Route::get('/agencies/{agency}/payment-methods', [PublicCatalogController::class, 'agencyPaymentMethods']);
 });
 

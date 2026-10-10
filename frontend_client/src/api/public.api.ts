@@ -1,5 +1,5 @@
 import { client } from './client';
-import type { Country, Agency, Service, Product, PublicCourse, AgencyPaymentMethod, PublicPackage } from '@/types';
+import type { Country, Agency, Service, Product, PublicCourse, AgencyPaymentMethod, PublicPackage, PublicPrestationOffer } from '@/types';
 
 export const publicApi = {
   async getCountries(): Promise<Country[]> {
@@ -54,6 +54,11 @@ export const publicApi = {
 
   async getPackage(id: string): Promise<PublicPackage> {
     const { data } = await client.get<PublicPackage>(`/public/packages/${id}`);
+    return data;
+  },
+
+  async getPrestationOffers(params?: { country_id?: string; agency_id?: string; category_id?: string; search?: string }): Promise<PublicPrestationOffer[]> {
+    const { data } = await client.get<PublicPrestationOffer[]>('/public/prestation-offers', { params });
     return data;
   },
 };
