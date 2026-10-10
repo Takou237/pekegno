@@ -59,6 +59,7 @@ const CommercialListPage = lazyWithRetry(() => import('@/pages/commercials/Comme
 const CommercialDetailPage = lazyWithRetry(() => import('@/pages/commercials/CommercialDetailPage'));
 const CommercialSelfDashboardPage = lazyWithRetry(() => import('@/pages/commercials/CommercialSelfDashboardPage'));
 const TeamTrackingPage = lazyWithRetry(() => import('@/pages/team/TeamTrackingPage'));
+const TeamPrestationScope = lazyWithRetry(() => import('@/pages/team/TeamPrestationScope'));
 const CommercialCommissionsPage = lazyWithRetry(() => import('@/pages/commercials/CommercialCommissionsPage'));
 const AgencyCommercialsPage = lazyWithRetry(() => import('@/pages/commercials/AgencyCommercialsPage'));
 const CountryCommercialsPage = lazyWithRetry(() => import('@/pages/commercials/CountryCommercialsPage'));
@@ -230,6 +231,14 @@ export const router = createBrowserRouter([
           { path: '/commercials', element: page(<CommercialListPage />, table) },
           { path: '/commercial/dashboard', element: page(<CommercialSelfDashboardPage />, dashboard) },
           { path: '/team/tracking', element: page(<TeamTrackingPage />, dashboard) },
+          {
+            path: '/team/prestations/:prestationId',
+            element: page(<TeamPrestationScope />, detail),
+            children: [
+              { index: true, element: page(<PrestationDetailPage />, detail) },
+              { path: 'actions/:actionId', element: page(<PrestationActionDetailPage />, detail) },
+            ],
+          },
           { path: '/commercial/commissions', element: page(<CommercialCommissionsPage />, dashboard) },
           { path: '/commercials/report', element: page(<CommercialReportPage />, table) },
           { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },

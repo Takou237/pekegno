@@ -6,6 +6,8 @@ export interface DepartmentOutletContext {
   departmentId?: string;
   agencyId?: string;
   refreshDepartment?: () => void;
+  /** Pages dédiées de l'équipier (/team/…) : les liens restent dans cet espace. */
+  teamMode?: boolean;
 }
 
 /** Contexte fourni par DepartmentLayout aux pages d'un département. */
@@ -17,5 +19,6 @@ export function useAgencyDept() {
     departmentId,
     agencyId: ctx?.agencyId ?? ctx?.department?.agency_id,
     basePath: departmentId ? `/departments/${departmentId}` : '',
+    teamMode: ctx?.teamMode ?? false,
   };
 }
