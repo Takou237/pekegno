@@ -69,6 +69,8 @@ const AgencyCommercialReportPage = lazyWithRetry(
 );
 const InvoiceListPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceListPage'));
 const PendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/PendingInvoicesPage'));
+const CountryPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/CountryPendingInvoicesPage'));
+const DepartmentPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/DepartmentPendingInvoicesPage'));
 const InvoiceFormPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceFormPage'));
 const QuickSalePage = lazyWithRetry(() => import('@/pages/invoices/QuickSalePage'));
 const InvoiceDetailPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceDetailPage'));
@@ -281,6 +283,7 @@ export const router = createBrowserRouter([
           { path: 'accounting', element: page(<AccountingPage />, table) },
           { path: 'bilans', element: page(<DailyBilanPage />, table) },
           { path: 'invoices', element: page(<InvoiceListPage />, table) },
+          { path: 'invoices/pending', element: page(<CountryPendingInvoicesPage />, table) },
           { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: 'invoices/:id', element: page(<InvoiceDetailPage />, detail) },
           { path: 'receivables', element: page(<ReceivablesPage />, table) },
@@ -322,6 +325,7 @@ export const router = createBrowserRouter([
           // Détail d'une facture : on reste dans le département (la route
           // /agencies/... redirige vers le pays et fait perdre le contexte).
           { path: 'invoices/:invoiceId', element: page(<InvoiceDetailPage />, detail) },
+          { path: 'invoices/pending', element: page(<DepartmentPendingInvoicesPage />, table) },
           {
             path: 'receivables',
             element: page(<ByDepartmentType pages={{ agency: <AgencyDeptReceivablesPage /> }} fallback={<AcademyReceivablesPage />} />, table),

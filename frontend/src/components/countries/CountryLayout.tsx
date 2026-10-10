@@ -17,6 +17,7 @@ import {
   DollarSign,
   UserCheck,
   ArrowLeft,
+  ClipboardCheck,
 } from 'lucide-react';
 import { countriesApi } from '@/api/countries.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -33,6 +34,7 @@ function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
     { to: 'agencies', label: t('nav.agencies'), icon: FolderTree, end: false },
     { to: 'services', label: t('nav.services'), icon: Package, end: false },
     { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
+    { to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
     { to: 'receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
     { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
     { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },

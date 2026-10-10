@@ -42,7 +42,17 @@ function SourceLabel({ source }: { source: InvoiceSource | null }) {
   return <span>{t(key)}</span>;
 }
 
-export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
+export default function PendingInvoicesPage({
+  fixedAgencyId,
+  fixedCountryId,
+  departmentId,
+}: {
+  fixedAgencyId?: string;
+  /** Vue pays : périmètre du pays + filtre agences restreint au pays. */
+  fixedCountryId?: string;
+  /** Vue département : factures des contrats du département (+ agence fixée). */
+  departmentId?: string;
+}) {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
@@ -74,8 +84,11 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
 
   useEffect(() => {
     if (!canViewAgencies(currentUser)) return;
-    agenciesApi.list({ per_page: 100 }).then((res) => setAgencies(res.data ?? [])).catch(() => {});
-  }, [currentUser]);
+    agenciesApi
+      .list({ per_page: 100, country_id: fixedCountryId || undefined })
+      .then((res) => setAgencies(res.data ?? []))
+      .catch(() => {});
+  }, [currentUser, fixedCountryId]);
 
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +97,8 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
       const response = await invoicesApi.list({
         validation_status: 'pending',
         agency_id: agencyId || undefined,
+        country_id: !agencyId ? fixedCountryId || undefined : undefined,
+        contract_department_id: departmentId || undefined,
         page,
         per_page: 15,
       });
@@ -94,7 +109,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, page, t]);
+  }, [agencyId, fixedCountryId, departmentId, page, t]);
 
   useEffect(() => {
     fetchInvoices();
@@ -198,9 +213,18 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
     }
   }
 
-  const backPath = fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices` : '/invoices';
+  // Chemins de retour / détail selon le contexte : on reste dans le pays,
+  // le département ou l'agence d'origine au lieu de sortir vers le global.
+  const scopeBase = departmentId
+    ? `/departments/${departmentId}`
+    : fixedCountryId
+      ? `/countries/${fixedCountryId}`
+      : fixedAgencyId
+        ? `/agencies/${fixedAgencyId}`
+        : '';
+  const backPath = `${scopeBase}/invoices` || '/invoices';
   // Liste de validations d'origine : y revenir après avoir ouvert une facture.
-  const pendingListPath = fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/pending` : '/invoices/pending';
+  const pendingListPath = `${scopeBase}/invoices/pending` || '/invoices/pending';
 
   return (
     <div className="flex flex-col gap-6">
@@ -261,7 +285,7 @@ export default function PendingInvoicesPage({ fixedAgencyId }: { fixedAgencyId?:
                   <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="px-5 py-3">
                       <Link
-                        to={fixedAgencyId ? `/agencies/${fixedAgencyId}/invoices/${inv.id}` : `/invoices/${inv.id}`}
+                        to={scopeBase ? `${scopeBase}/invoices/${inv.id}` : `/invoices/${inv.id}`}
                         state={{ from: withInvoiceFilters(pendingListPath, searchParams) }}
                         className="inline-flex items-center gap-1.5 font-medium text-gray-800 hover:text-brand-600 dark:text-gray-100"
                       >
