@@ -64,6 +64,11 @@ function invoiceItem(t: TranslateFn, badge?: number): NavItem {
   return { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false, badge, isPathActive: isInvoiceActive };
 }
 
+/** Suivi personnel : prestations et actions liées au connecté (tous les rôles). */
+function trackingItem(t: TranslateFn): NavItem {
+  return { to: '/team/tracking', label: t('agencyDept.team.myMissions'), icon: UserCheck, end: true };
+}
+
 export function getMainItems(t: TranslateFn, roleName: string | null | undefined, agencyId?: string, unpaidBadge?: number): NavItem[] {
   const baseItems: NavItem[] = [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
@@ -79,6 +84,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (ADMIN_ROLES.includes(roleName ?? '')) {
     return [
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+      trackingItem(t),
       { to: '/countries', label: t('nav.geography'), icon: Globe, end: false },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       { to: '/academy', label: t('nav.statAca'), icon: GraduationCap, end: false },
@@ -96,6 +102,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (roleName === 'responsable-agence') {
     return [
       ...baseItems,
+      trackingItem(t),
       { to: '/agencies', label: t('nav.myAgencies'), icon: Building2, end: false },
       { to: '/departments', label: t('nav.departments'), icon: FolderTree, end: false },
       ...(agencyId
@@ -118,6 +125,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (roleName === 'responsable-departement') {
     return [
       ...commercialItems,
+      trackingItem(t),
       { to: '/departments', label: t('nav.myDepartments'), icon: FolderTree, end: false },
       { to: '/users', label: t('nav.myTeam'), icon: Users, end: false },
       catalogItem(t),
@@ -127,6 +135,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (roleName === 'caissier') {
     return [
       { to: '/caissier/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+      trackingItem(t),
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t),
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
@@ -139,6 +148,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (roleName === 'comptable') {
     return [
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+      trackingItem(t),
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       { to: '/commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
       invoiceItem(t, unpaidBadge),
@@ -162,6 +172,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   if (roleName === 'commercial') {
     return [
       ...baseItems,
+      trackingItem(t),
       { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
       // Commercial : menu Factures SANS pastille rouge (pas de badge impayés).
       invoiceItem(t),
@@ -170,8 +181,15 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     ];
   }
 
+  if (roleName === 'community-manager') {
+    return [
+      trackingItem(t),
+    ];
+  }
+
   return [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+    trackingItem(t),
     catalogItem(t),
   ];
 }
@@ -180,7 +198,17 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
  * Retourne les items de menu latéral pour un département selon son type.
  * Les items pointent vers des routes sous /departments/:departmentId/.
  */
-export function getDepartmentItems(t: TranslateFn, type: DepartmentType): NavItem[] {
+export function getDepartmentItems(t: TranslateFn, type: DepartmentType, roleName?: string | null): NavItem[] {
+  // L'équipier (community-manager) qui entre depuis Mon suivi ne voit que son
+  // périmètre de travail : prestations, suivi des actions, équipe.
+  if (roleName === 'community-manager' && type === 'agency') {
+    return [
+      { to: 'prestations', label: t('nav.prestations'), icon: Briefcase, end: false },
+      { to: 'actions', label: t('nav.actionsBoard'), icon: ClipboardCheck, end: false },
+      { to: 'client-team', label: t('nav.clientTeam'), icon: UserCheck, end: false },
+    ];
+  }
+
   switch (type) {
     case 'academy':
       return [

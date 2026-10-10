@@ -16,6 +16,7 @@ class CommissionPayment extends Model
         'payment_id',
         'service_id',
         'seller_profile_id',
+        'beneficiary_team_member_id',
         'commission_entry_id',
         'treasury_account_id',
         'amount',
@@ -60,6 +61,11 @@ class CommissionPayment extends Model
     public function sellerProfile(): BelongsTo
     {
         return $this->belongsTo(SellerProfile::class);
+    }
+
+    public function teamMember(): BelongsTo
+    {
+        return $this->belongsTo(TeamMember::class, 'beneficiary_team_member_id');
     }
 
     public function commissionEntry(): BelongsTo

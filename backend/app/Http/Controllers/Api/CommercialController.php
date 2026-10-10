@@ -201,7 +201,7 @@ class CommercialController extends Controller
      */
     private function syncUserEmployees(Request $request, ?string $agencyId): void
     {
-        $roleIds = DB::table('roles')->whereIn('name', ['caissier', 'comptable'])->pluck('id');
+        $roleIds = DB::table('roles')->whereIn('name', ['caissier', 'comptable', 'community-manager'])->pluck('id');
 
         if ($roleIds->isEmpty()) {
             return;

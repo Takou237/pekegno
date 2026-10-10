@@ -137,7 +137,11 @@ export default function CommissionEntriesPage() {
                       {entry.invoice?.number ?? '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {entry.beneficiary ? `${entry.beneficiary.first_name} ${entry.beneficiary.last_name}` : '—'}
+                      {entry.beneficiary
+                        ? `${entry.beneficiary.first_name} ${entry.beneficiary.last_name}`
+                        : entry.teamMember
+                          ? `${entry.teamMember.first_name} ${entry.teamMember.last_name}`
+                          : '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
                       {(entry.rule_snapshot?.name as string | undefined) ?? entry.rule?.name ?? '—'}

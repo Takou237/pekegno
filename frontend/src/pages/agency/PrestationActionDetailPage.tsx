@@ -683,7 +683,7 @@ export default function PrestationActionDetailPage() {
                                     {/* Date & Proof Info */}
                                     <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                                       {item.scheduled_date && (
-                                        <span>Planifié : {item.scheduled_date}</span>
+                                        <span>Planifié : {item.scheduled_date.slice(0, 10)}</span>
                                       )}
                                       {isDone && item.done_at && (
                                         <span className="text-green-600 dark:text-green-400">

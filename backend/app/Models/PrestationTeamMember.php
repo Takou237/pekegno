@@ -13,6 +13,7 @@ class PrestationTeamMember extends Model
     protected $fillable = [
         'prestation_id',
         'user_id',
+        'team_member_id',
         'client_team_role_id',
         'is_lead',
         'start_date',
@@ -41,5 +42,10 @@ class PrestationTeamMember extends Model
     public function teamRole(): BelongsTo
     {
         return $this->belongsTo(ClientTeamRole::class, 'client_team_role_id');
+    }
+
+    public function teamMember(): BelongsTo
+    {
+        return $this->belongsTo(TeamMember::class);
     }
 }

@@ -6,6 +6,7 @@ import PEKEGNOGroupDashboard from '@/pages/dashboard/PEKEGNOGroupDashboard';
  * Redirige la racine / vers la vue adaptée au rôle connecté :
  * - caissier → tableau de bord caisse (Caisse du jour)
  * - commercial → tableau de bord commercial
+ * - community-manager → suivi de ses prestations et actions
  * - autres → tableau de bord global
  */
 export function HomeRedirect() {
@@ -18,6 +19,10 @@ export function HomeRedirect() {
 
   if (role === 'commercial') {
     return <Navigate to="/commercial/dashboard" replace />;
+  }
+
+  if (role === 'community-manager') {
+    return <Navigate to="/team/tracking" replace />;
   }
 
   return <PEKEGNOGroupDashboard />;

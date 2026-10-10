@@ -9,6 +9,7 @@ use App\Models\CommissionEntry;
 use App\Models\CommissionPayment;
 use App\Models\CommissionRule;
 use App\Models\SellerProfile;
+use App\Models\TeamMember;
 use App\Models\TreasuryAccount;
 use App\Services\AccountingService;
 use App\Services\CommissionService;
@@ -110,7 +111,7 @@ class CommissionController extends Controller
     #[Get(path: '/api/commissions/entries', summary: 'Lister les lignes de commission', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Entrées paginées')])]
     public function indexEntries(Request $request): JsonResponse
     {
-        $query = CommissionEntry::query()->with(['invoice', 'beneficiary', 'sellerProfile.user', 'rule', 'validator', 'payer']);
+        $query = CommissionEntry::query()->with(['invoice', 'beneficiary', 'teamMember:id,first_name,last_name', 'sellerProfile.user', 'rule', 'validator', 'payer']);
 
         if ($request->filled('status')) {
             $query->ofStatus($request->input('status'));
@@ -204,7 +205,7 @@ class CommissionController extends Controller
     {
         abort_if(! $entry->transitionTo(CommissionEntry::STATUS_VALIDATED, $request->user()->id), 422, 'Impossible de valider cette commission (statut actuel : '.$entry->status.').');
 
-        return response()->json($entry->fresh()->load(['invoice', 'beneficiary', 'sellerProfile', 'rule', 'validator']));
+        return response()->json($entry->fresh()->load(['invoice', 'beneficiary', 'teamMember:id,first_name,last_name', 'sellerProfile', 'rule', 'validator']));
     }
 
     #[OA\Post(path: '/api/commissions/entries/{entry}/pay', summary: 'Payer (validated → paid) avec sortie de trésorerie', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Payée')])]
@@ -228,13 +229,15 @@ class CommissionController extends Controller
 
         $sellerProfile = $entry->sellerProfile;
         $commercial = $entry->beneficiary;
+        $teamMember = $entry->teamMember;
 
-        $agencyId = $sellerProfile?->agency_id ?? $commercial?->agency_id;
+        $agencyId = $sellerProfile?->agency_id ?? $commercial?->agency_id ?? $teamMember?->agency_id;
         $scopeIds = app(ScopeService::class)->agencyIds($request->user());
         abort_if($scopeIds !== null && ! in_array($agencyId, $scopeIds, true), 403, 'Ce bénéficiaire est hors de votre périmètre.');
         $beneficiaryName = $sellerProfile?->full_name
+            ?? ($teamMember ? $teamMember->full_name : null)
             ?? trim("{$commercial?->first_name} {$commercial?->last_name}")
-            ?? 'Bénéficiaire';
+            ?: 'Bénéficiaire';
 
         // Aucun compte fourni : on débite la caisse par défaut de l'agence du bénéficiaire.
         $account = null;
@@ -310,7 +313,7 @@ class CommissionController extends Controller
             }
         });
 
-        return response()->json($entry->fresh()->load(['invoice', 'beneficiary', 'sellerProfile', 'rule', 'payer']));
+        return response()->json($entry->fresh()->load(['invoice', 'beneficiary', 'teamMember:id,first_name,last_name', 'sellerProfile', 'rule', 'payer']));
     }
 
     #[OA\Post(path: '/api/commissions/entries/{entry}/cancel', summary: 'Annuler (calculated → cancelled)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Annulée')])]
@@ -380,9 +383,27 @@ class CommissionController extends Controller
             ->filter()
             ->values();
 
+        $teamMembers = TeamMember::query()
+            ->where('is_active', true)
+            ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId))
+            ->when($scopeIds !== null, fn ($q) => $q->whereIn('agency_id', $scopeIds))
+            ->get()
+            ->map(fn (TeamMember $m) => $this->summaryBeneficiary(
+                id: $m->id,
+                type: 'team_member',
+                name: $m->full_name ?: ($m->email ?? 'Équipier'),
+                kind: 'equipier',
+                commissionType: $m->commission_type,
+                commissionValue: $m->commission_value,
+                search: $search,
+            ))
+            ->filter()
+            ->values();
+
         $all = collect()
             ->merge($sellers)
             ->merge($commercials)
+            ->merge($teamMembers)
             ->sortByDesc(fn ($b) => $b['balance'] ?? 0)
             ->values();
 
@@ -403,7 +424,7 @@ class CommissionController extends Controller
     public function storePayment(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'beneficiary_type' => ['required', 'string', 'in:seller_profile,commercial'],
+            'beneficiary_type' => ['required', 'string', 'in:seller_profile,commercial,team_member'],
             'beneficiary_id' => ['required', 'uuid'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
@@ -416,6 +437,7 @@ class CommissionController extends Controller
 
         $sellerProfile = null;
         $commercial = null;
+        $teamMember = null;
         $agencyId = null;
         $beneficiaryName = 'Bénéficiaire';
 
@@ -423,6 +445,10 @@ class CommissionController extends Controller
             $sellerProfile = SellerProfile::with('user')->where('is_active', true)->findOrFail($validated['beneficiary_id']);
             $agencyId = $sellerProfile->agency_id;
             $beneficiaryName = $sellerProfile->full_name;
+        } elseif ($validated['beneficiary_type'] === 'team_member') {
+            $teamMember = TeamMember::where('is_active', true)->findOrFail($validated['beneficiary_id']);
+            $agencyId = $teamMember->agency_id;
+            $beneficiaryName = $teamMember->full_name ?: 'Équipier';
         } else {
             $commercial = Commercial::with('user')->where('is_active', true)->findOrFail($validated['beneficiary_id']);
             $agencyId = $commercial->agency_id;
@@ -433,7 +459,7 @@ class CommissionController extends Controller
         $scopeIds = app(ScopeService::class)->agencyIds($request->user());
         abort_if($scopeIds !== null && ! in_array($agencyId, $scopeIds, true), 403, 'Ce bénéficiaire est hors de votre périmètre.');
 
-        $balance = $this->balanceForBeneficiary($sellerProfile, $commercial);
+        $balance = $this->balanceForBeneficiary($sellerProfile, $commercial, $teamMember);
 
         abort_if($amount > $balance + 0.005, 422, 'Impossible de payer : le montant excède le solde disponible ('.number_format(max($balance, 0), 2).' FCFA).');
 
@@ -452,7 +478,7 @@ class CommissionController extends Controller
                 ->first();
         }
 
-        $payment = DB::transaction(function () use ($sellerProfile, $commercial, $amount, $account, $validated, $actorId, $agencyId, $beneficiaryName) {
+        $payment = DB::transaction(function () use ($sellerProfile, $commercial, $teamMember, $amount, $account, $validated, $actorId, $agencyId, $beneficiaryName) {
             // 1. Marquage FIFO des entrées couvertes par ce paiement (paiement partiel possible).
             $entriesQuery = CommissionEntry::query()
                 ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED])
@@ -461,6 +487,8 @@ class CommissionController extends Controller
 
             if ($sellerProfile) {
                 $entriesQuery->where('seller_profile_id', $sellerProfile->id);
+            } elseif ($teamMember) {
+                $entriesQuery->where('beneficiary_team_member_id', $teamMember->id);
             } else {
                 $entriesQuery->where('beneficiary_commercial_id', $commercial->id);
             }
@@ -490,12 +518,13 @@ class CommissionController extends Controller
                 }
             }
 
-            $reference = 'COMM-'.strtoupper(substr($sellerProfile?->id ?? $commercial->id, 0, 8)).'-'.now()->format('YmdHis');
+            $reference = 'COMM-'.strtoupper(substr($sellerProfile?->id ?? $commercial?->id ?? $teamMember?->id ?? '', 0, 8)).'-'.now()->format('YmdHis');
 
             // 2. Paiement enregistré.
             $commissionPayment = CommissionPayment::create([
                 'commercial_id' => $commercial?->id,
                 'seller_profile_id' => $sellerProfile?->id,
+                'beneficiary_team_member_id' => $teamMember?->id,
                 'commission_entry_id' => $coveredEntry,
                 'treasury_account_id' => $account?->id,
                 'amount' => $amount,
@@ -542,18 +571,20 @@ class CommissionController extends Controller
             return $commissionPayment;
         });
 
-        $payment->load(['commercial.user', 'sellerProfile.user', 'treasuryAccount', 'commissionEntry']);
+        $payment->load(['commercial.user', 'sellerProfile.user', 'teamMember', 'treasuryAccount', 'commissionEntry']);
 
         return response()->json($payment, 201);
     }
 
-    private function balanceForBeneficiary(?SellerProfile $sellerProfile, ?Commercial $commercial): float
+    private function balanceForBeneficiary(?SellerProfile $sellerProfile, ?Commercial $commercial, ?TeamMember $teamMember = null): float
     {
         $query = CommissionEntry::query()
             ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED]);
 
         if ($sellerProfile) {
             $query->where('seller_profile_id', $sellerProfile->id);
+        } elseif ($teamMember) {
+            $query->where('beneficiary_team_member_id', $teamMember->id);
         } elseif ($commercial) {
             $query->where('beneficiary_commercial_id', $commercial->id);
         } else {
@@ -578,14 +609,21 @@ class CommissionController extends Controller
             return null;
         }
 
+        $entryColumn = $type === 'seller_profile'
+            ? 'seller_profile_id'
+            : ($type === 'team_member' ? 'beneficiary_team_member_id' : 'beneficiary_commercial_id');
+        $paymentColumn = $type === 'seller_profile'
+            ? 'seller_profile_id'
+            : ($type === 'team_member' ? 'beneficiary_team_member_id' : 'commercial_id');
+
         $owed = (float) CommissionEntry::query()
             ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED])
-            ->where($type === 'seller_profile' ? 'seller_profile_id' : 'beneficiary_commercial_id', $id)
+            ->where($entryColumn, $id)
             ->sum('amount');
 
         $paid = (float) CommissionPayment::query()
             ->where('rule', 'commission_payment')
-            ->where($type === 'seller_profile' ? 'seller_profile_id' : 'commercial_id', $id)
+            ->where($paymentColumn, $id)
             ->sum('amount');
 
         return [

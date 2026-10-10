@@ -58,6 +58,7 @@ const ClientDetailPage = lazyWithRetry(() => import('@/pages/clients/ClientDetai
 const CommercialListPage = lazyWithRetry(() => import('@/pages/commercials/CommercialListPage'));
 const CommercialDetailPage = lazyWithRetry(() => import('@/pages/commercials/CommercialDetailPage'));
 const CommercialSelfDashboardPage = lazyWithRetry(() => import('@/pages/commercials/CommercialSelfDashboardPage'));
+const TeamTrackingPage = lazyWithRetry(() => import('@/pages/team/TeamTrackingPage'));
 const CommercialCommissionsPage = lazyWithRetry(() => import('@/pages/commercials/CommercialCommissionsPage'));
 const AgencyCommercialsPage = lazyWithRetry(() => import('@/pages/commercials/AgencyCommercialsPage'));
 const CountryCommercialsPage = lazyWithRetry(() => import('@/pages/commercials/CountryCommercialsPage'));
@@ -228,6 +229,7 @@ export const router = createBrowserRouter([
           { path: '/clients/:id', element: page(<ClientDetailPage />, detail) },
           { path: '/commercials', element: page(<CommercialListPage />, table) },
           { path: '/commercial/dashboard', element: page(<CommercialSelfDashboardPage />, dashboard) },
+          { path: '/team/tracking', element: page(<TeamTrackingPage />, dashboard) },
           { path: '/commercial/commissions', element: page(<CommercialCommissionsPage />, dashboard) },
           { path: '/commercials/report', element: page(<CommercialReportPage />, table) },
           { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },
