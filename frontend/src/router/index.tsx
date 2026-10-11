@@ -28,6 +28,7 @@ const AcademyDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/Acade
 const CountryDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/CountryDashboardPage'));
 const CashierDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/CashierDashboardPage'));
 const ProfilePage = lazyWithRetry(() => import('@/pages/profile/ProfilePage'));
+const ProfileSettingsPage = lazyWithRetry(() => import('@/pages/profile/ProfileSettingsPage'));
 const AgencyListPage = lazyWithRetry(() => import('@/pages/agencies/AgencyListPage'));
 const AgencyTrashPage = lazyWithRetry(() => import('@/pages/agencies/AgencyTrashPage'));
 const AgencyOverviewPage = lazyWithRetry(() => import('@/pages/agencies/AgencyOverviewPage'));
@@ -219,6 +220,7 @@ export const router = createBrowserRouter([
           { path: '/caissier/dashboard', element: page(<CashierDashboardPage />, dashboard) },
           { path: '/caissier/commissions', element: page(<CashierCommissionsPage />, table) },
           { path: '/profile', element: page(<ProfilePage />, detail) },
+          { path: '/profile/settings', element: page(<ProfileSettingsPage />, detail) },
           { path: '/countries', element: page(<CountryListPage />, cards) },
           { path: '/agencies', element: page(<AgencyListPage />, cards) },
           { path: '/agencies/trash', element: page(<AgencyTrashPage />, table) },

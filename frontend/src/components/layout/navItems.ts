@@ -142,6 +142,9 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       invoiceItem(t),
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
+      // Comptabilité de son agence : mêmes actions que l'admin (le backend
+      // restreint déjà au périmètre des agences du caissier).
+      { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/caissier/commissions', label: t('nav.commissions'), icon: Coins, end: false },
       catalogItem(t),
     ];

@@ -14,8 +14,8 @@ export interface AccountingListResponse {
 }
 
 export const accountingApi = {
-  async list(params: AccountingListParams = {}): Promise<AccountingListResponse> {
-    const { data } = await client.get<AccountingListResponse>('/accounting/transactions', { params });
+  async list(params: AccountingListParams = {}, opts: { silentForbidden?: boolean } = {}): Promise<AccountingListResponse> {
+    const { data } = await client.get<AccountingListResponse>('/accounting/transactions', { params, silentForbidden: opts.silentForbidden });
     return data;
   },
 
@@ -33,8 +33,8 @@ export const accountingApi = {
     await client.delete(`/accounting/transactions/${id}`);
   },
 
-  async categories(): Promise<AccountingCategory[]> {
-    const { data } = await client.get<AccountingCategory[]>('/accounting/categories');
+  async categories(opts: { silentForbidden?: boolean } = {}): Promise<AccountingCategory[]> {
+    const { data } = await client.get<AccountingCategory[]>('/accounting/categories', { silentForbidden: opts.silentForbidden });
     return data;
   },
 

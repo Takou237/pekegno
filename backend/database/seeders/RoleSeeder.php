@@ -157,7 +157,10 @@ class RoleSeeder extends Seeder
                 // ses stats — le formulaire cherche ce profil via GET /employees.
                 $p('employes', ['consulter']),
                 $p('invoices', ['consulter', 'creer', 'imprimer', 'encaisser', 'valider']),
-                $p('comptabilite', ['consulter']),
+                // Comptabilité de son agence : mêmes actions que l'admin
+                // (le périmètre d'agence reste appliqué côté API).
+                $p('comptabilite', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
+                $p('accounting-categories', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('bilans', ['consulter', 'exporter']),
                 $p('abonnements', ['consulter', 'creer', 'renouveler']),
                 $p('courses', ['consulter']),

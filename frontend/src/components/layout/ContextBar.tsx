@@ -9,6 +9,7 @@ import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { formatCurrency } from '@/utils/number';
 import { formatRelativeDate } from '@/utils/date';
 import { UserMenu } from '@/components/common/UserMenu';
+import { QuickCreateMenu } from '@/components/common/QuickCreateMenu';
 import { Spinner } from '@/components/ui/Spinner';
 import type { Invoice } from '@/types/invoice';
 import type { AgencyNotification } from '@/types/agencyDepartment';
@@ -418,6 +419,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {rightSlot}
+          <QuickCreateMenu />
           {(canValidate || isCommercial) && (
             <div className="relative" ref={notifRef}>
               <button

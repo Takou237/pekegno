@@ -89,26 +89,26 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
   const [paySubmitting, setPaySubmitting] = useState(false);
 
-  const canManage = ['super-admin', 'direction-generale', 'responsable-agence', 'comptable'].includes(
+  const canManage = ['super-admin', 'direction-generale', 'responsable-agence', 'comptable', 'caissier'].includes(
     currentUser?.role?.name ?? ''
   );
 
   useEffect(() => {
     if (!isGlobalContext) return;
-    countriesApi.list({ per_page: 100 })
+    countriesApi.list({ per_page: 100 }, { silentForbidden: true })
       .then((r) => setCountries(r.data.map((c) => ({ id: c.id, name: c.name }))))
       .catch(() => {});
   }, [isGlobalContext]);
 
   useEffect(() => {
     if (!isGlobalContext) return;
-    agenciesApi.list({ per_page: 100, country_id: countryFilter || undefined })
+    agenciesApi.list({ per_page: 100, country_id: countryFilter || undefined }, { silentForbidden: true })
       .then((r) => setAgencies(r.data.map((a) => ({ id: a.id, name: a.name }))))
       .catch(() => {});
   }, [isGlobalContext, countryFilter]);
 
   const fetchCategories = useCallback(() => {
-    accountingApi.categories().then((d) => setCategories(d ?? [])).catch(() => {});
+    accountingApi.categories({ silentForbidden: true }).then((d) => setCategories(d ?? [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -130,7 +130,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
         to: to || undefined,
         page,
         per_page: 15,
-      });
+      }, { silentForbidden: true });
       setTransactions(res.transactions?.data ?? []);
       setMeta(res.transactions?.meta ?? null);
       if (res.totals) {
