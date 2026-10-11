@@ -82,9 +82,11 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   ];
 
   if (ADMIN_ROLES.includes(roleName ?? '')) {
+    // Super-admin : pas de « Mon suivi » (/team/tracking) dans le menu.
+    const tracking = roleName === 'super-admin' ? [] : [trackingItem(t)];
     return [
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
-      trackingItem(t),
+      ...tracking,
       { to: '/countries', label: t('nav.geography'), icon: Globe, end: false },
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       { to: '/academy', label: t('nav.statAca'), icon: GraduationCap, end: false },
@@ -141,6 +143,9 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       invoiceItem(t),
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
+      // Comptabilité de son agence : mêmes actions que l'admin (le backend
+      // restreint déjà au périmètre des agences du caissier).
+      { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/caissier/commissions', label: t('nav.commissions'), icon: Coins, end: false },
       catalogItem(t),
     ];

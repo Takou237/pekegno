@@ -27,8 +27,8 @@ export interface CountryPayload {
 }
 
 export const countriesApi = {
-  async list(params: { sort_by?: string; sort_order?: string; per_page?: number; search?: string } = {}): Promise<PaginatedResponse<CountryStat>> {
-    const { data } = await client.get<PaginatedResponse<CountryStat>>('/countries', { params });
+  async list(params: { sort_by?: string; sort_order?: string; per_page?: number; search?: string } = {}, opts: { silentForbidden?: boolean } = {}): Promise<PaginatedResponse<CountryStat>> {
+    const { data } = await client.get<PaginatedResponse<CountryStat>>('/countries', { params, silentForbidden: opts.silentForbidden });
     return data;
   },
 

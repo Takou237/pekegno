@@ -51,9 +51,9 @@ const EMPTY_PROSPECT_FORM: ProspectForm = {
   notes: '',
 };
 
-export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageTitle: _pageTitle, backToListLabel, backToListPath }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; backToListLabel?: string; backToListPath?: string }) {
+export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageTitle: _pageTitle, backToListLabel, backToListPath, forcedId, hideBack }: { fixedAgencyId?: string; overrideApi?: CommercialApiLike; pageTitle?: string; backToListLabel?: string; backToListPath?: string; /** Fiche intégrée (ex. /profile) : id imposé au lieu du paramètre de route. */ forcedId?: string; /** Masque le bouton retour (vue intégrée). */ hideBack?: boolean }) {
   const { id: routeId, commercialId } = useParams();
-  const id = commercialId ?? routeId ?? '';
+  const id = forcedId ?? commercialId ?? routeId ?? '';
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
@@ -312,13 +312,15 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
   if (loadError || !commercial) {
     return (
       <div className="flex flex-col gap-4">
-        <Link
-          to={backTo}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {backToListLabel ?? t('commercials.title')}
-        </Link>
+        {!hideBack && (
+          <Link
+            to={backTo}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {backToListLabel ?? t('commercials.title')}
+          </Link>
+        )}
         <p className="text-sm text-error-500">{loadError ?? t('commercials.loadFailed')}</p>
       </div>
     );
@@ -327,13 +329,15 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link
-          to={backTo}
-          className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {backToListLabel ?? t('commercials.title')}
-        </Link>
+        {!hideBack && (
+          <Link
+            to={backTo}
+            className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {backToListLabel ?? t('commercials.title')}
+          </Link>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">

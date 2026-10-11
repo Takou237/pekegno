@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Commercial;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -60,7 +61,9 @@ class CommercialProfileService
                 'last_name' => $user->last_name ?: '—',
                 'email' => $user->email,
                 'phone' => $user->phone,
-                'commission_type' => 'none',
+                // Commission par défaut du réseau : 20 % (réglages).
+                'commission_type' => Setting::get('default_commission_type', 'percent'),
+                'commission_value' => Setting::get('default_commission_value', 20),
                 'points_balance' => 0,
                 'is_active' => $user->is_active,
             ]);

@@ -15,7 +15,6 @@ import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { LaravelPage, TeamDirectoryMember } from '@/types/agencyDepartment';
 
 const emptyForm = {
@@ -51,7 +50,6 @@ export default function TeamDirectoryTab({ agencyId, departmentId }: { agencyId?
   const [formError, setFormError] = useState<string | null>(null);
 
   const [linkTarget, setLinkTarget] = useState<TeamDirectoryMember | null>(null);
-  const [linkUserId, setLinkUserId] = useState('');
   const [accountEmail, setAccountEmail] = useState('');
   const [linkSaving, setLinkSaving] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -130,34 +128,8 @@ export default function TeamDirectoryTab({ agencyId, departmentId }: { agencyId?
 
   function openLink(m: TeamDirectoryMember) {
     setLinkTarget(m);
-    setLinkUserId('');
     setAccountEmail(m.email ?? '');
     setLinkError(null);
-  }
-
-  async function userOptions(query: string) {
-    const rows = await agencyDeptApi.teamMemberUsers({ agency_id: agencyId, search: query.trim() || undefined });
-    return rows.map((u) => ({
-      id: u.id,
-      label: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || '',
-      subtitle: u.email ?? undefined,
-    }));
-  }
-
-  async function handleLink() {
-    if (!linkTarget || !linkUserId) return;
-    setLinkSaving(true);
-    setLinkError(null);
-    try {
-      await agencyDeptApi.linkTeamMemberUser(linkTarget.id, linkUserId);
-      setLinkTarget(null);
-      load();
-      showToast(t('agencyDept.saved'), 'success');
-    } catch (err) {
-      setLinkError(extractErrorMessage(err, t('common.error')));
-    } finally {
-      setLinkSaving(false);
-    }
   }
 
   async function handleCreateAccount() {
@@ -278,7 +250,7 @@ export default function TeamDirectoryTab({ agencyId, departmentId }: { agencyId?
                             <Pencil className="h-4 w-4" />
                           </Button>
                           {!m.user_id && (
-                            <Button size="sm" variant="outline" onClick={() => openLink(m)} title={t('agencyDept.team.linkAccount')}>
+                            <Button size="sm" variant="outline" onClick={() => openLink(m)} title={t('agencyDept.team.createAccount')}>
                               <UserPlus className="h-4 w-4" />
                             </Button>
                           )}
@@ -331,25 +303,10 @@ export default function TeamDirectoryTab({ agencyId, departmentId }: { agencyId?
         </form>
       </Modal>
 
-      <Modal isOpen={!!linkTarget} onClose={() => setLinkTarget(null)} title={`${t('agencyDept.team.linkAccount')} — ${linkTarget?.first_name} ${linkTarget?.last_name}`} maxWidth="max-w-lg">
+      <Modal isOpen={!!linkTarget} onClose={() => setLinkTarget(null)} title={`${t('agencyDept.team.createAccount')} — ${linkTarget?.first_name} ${linkTarget?.last_name}`} maxWidth="max-w-lg">
         <div className="flex flex-col gap-4">
           {linkError && <Alert variant="error">{linkError}</Alert>}
           <div>
-            <Autocomplete
-              label={t('agencyDept.team.linkAccount')}
-              placeholder={t('common.search')}
-              value={linkUserId}
-              onChange={setLinkUserId}
-              fetchOptions={userOptions}
-            />
-            <div className="mt-2 flex justify-end">
-              <Button type="button" onClick={handleLink} isLoading={linkSaving} disabled={!linkUserId}>
-                {t('common.confirm')}
-              </Button>
-            </div>
-          </div>
-          <div>
-            <p className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">{t('agencyDept.team.createAccount')}</p>
             <p className="mb-1.5 text-xs text-gray-500 dark:text-gray-400">{t('agencyDept.team.createAccountHint')}</p>
             <div className="flex gap-2">
               <Input type="email" required placeholder={t('agencyDept.team.accountEmail')} value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} />

@@ -7,8 +7,8 @@ import type {
 } from '@/types/agency';
 
 export const agenciesApi = {
-  async list(params: AgencyListParams = {}): Promise<PaginatedResponse<Agency>> {
-    const { data } = await client.get<PaginatedResponse<Agency>>('/agencies', { params });
+  async list(params: AgencyListParams = {}, opts: { silentForbidden?: boolean } = {}): Promise<PaginatedResponse<Agency>> {
+    const { data } = await client.get<PaginatedResponse<Agency>>('/agencies', { params, silentForbidden: opts.silentForbidden });
     return data;
   },
 

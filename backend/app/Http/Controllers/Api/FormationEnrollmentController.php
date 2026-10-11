@@ -81,6 +81,14 @@ class FormationEnrollmentController extends Controller
             'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
         ]);
 
+        // Super-admin : avance (montant versé) obligatoire à l'inscription.
+        if ($request->user()?->role?->name === 'super-admin' && empty($validated['amount_paid'])) {
+            return response()->json([
+                'message' => "L'avance est obligatoire.",
+                'errors' => ['amount_paid' => ["L'avance est obligatoire."]],
+            ], 422);
+        }
+
         if (! User::whereKey($validated['learner_user_id'])->whereHas('role', fn ($q) => $q->where('name', 'client'))->exists()) {
             return response()->json([
                 'message' => 'Le bénéficiaire doit être un apprenant (client).',

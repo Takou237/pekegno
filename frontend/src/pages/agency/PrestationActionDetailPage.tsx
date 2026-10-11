@@ -53,7 +53,7 @@ export default function PrestationActionDetailPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { basePath, agencyId } = useAgencyDept();
+  const { basePath, agencyId, teamMode } = useAgencyDept();
 
   const [action, setAction] = useState<PrestationAction | null>(null);
   const [executions, setExecutions] = useState<PrestationActionExecution[]>([]);
@@ -366,14 +366,14 @@ export default function PrestationActionDetailPage() {
       {/* Navigation Breadcrumb */}
       <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
         <Link
-          to={`${basePath}/prestations`}
+          to={teamMode ? '/team/tracking' : `${basePath}/prestations`}
           className="inline-flex items-center gap-1 text-brand-600 hover:underline dark:text-brand-400"
         >
-          <ArrowLeft className="h-4 w-4" /> {t('nav.prestations')}
+          <ArrowLeft className="h-4 w-4" /> {teamMode ? t('agencyDept.team.myMissions') : t('nav.prestations')}
         </Link>
         <span>/</span>
         <Link
-          to={`${basePath}/prestations/${prestationId}`}
+          to={teamMode ? `/team/prestations/${prestationId}` : `${basePath}/prestations/${prestationId}`}
           className="font-medium text-brand-600 hover:underline dark:text-brand-400"
         >
           {action.prestation?.name || 'Prestation'}

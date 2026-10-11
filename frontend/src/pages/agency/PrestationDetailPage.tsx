@@ -69,11 +69,12 @@ export default function PrestationDetailPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { basePath, agencyId, departmentId } = useAgencyDept();
+  const { basePath, agencyId, departmentId, teamMode } = useAgencyDept();
 
   const [prestation, setPrestation] = useState<Prestation | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('summary');
+  // Depuis Mon suivi : l'équipier vient pour ses actions, on les montre d'abord.
+  const [tab, setTab] = useState<Tab>(teamMode ? 'actions' : 'summary');
   const [editOpen, setEditOpen] = useState(false);
   const [reasonFor, setReasonFor] = useState<PrestationStatus | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
@@ -131,11 +132,11 @@ export default function PrestationDetailPage() {
   return (
     <div className="flex flex-col gap-6">
       <Link
-        to={prestation.offer_id ? `${basePath}/prestations/${prestation.offer_id}/subscriptions` : `${basePath}/prestations`}
+        to={teamMode ? '/team/tracking' : prestation.offer_id ? `${basePath}/prestations/${prestation.offer_id}/subscriptions` : `${basePath}/prestations`}
         className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline dark:text-brand-400"
       >
         <ArrowLeft className="h-4 w-4" />
-        {prestation.offer ? prestation.offer.name : t('nav.prestations')}
+        {teamMode ? t('agencyDept.team.myMissions') : prestation.offer ? prestation.offer.name : t('nav.prestations')}
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -183,7 +184,7 @@ export default function PrestationDetailPage() {
         ))}
       </div>
 
-      {tab === 'summary' && <SummaryTab prestation={prestation} basePath={basePath} />}
+      {tab === 'summary' && <SummaryTab prestation={prestation} basePath={basePath} teamMode={teamMode} />}
       {tab === 'actions' && <ActionsTab prestation={prestation} agencyId={agencyId} onChanged={load} />}
       {tab === 'team' && <TeamTab prestation={prestation} agencyId={agencyId} departmentId={departmentId} />}
       {tab === 'reviews' && <ReviewsTab prestation={prestation} />}
@@ -239,7 +240,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function SummaryTab({ prestation, basePath }: { prestation: Prestation; basePath: string }) {
+function SummaryTab({ prestation, basePath, teamMode = false }: { prestation: Prestation; basePath: string; teamMode?: boolean }) {
   const { t } = useTranslation();
   const p = prestation;
   return (
@@ -254,9 +255,15 @@ function SummaryTab({ prestation, basePath }: { prestation: Prestation; basePath
             <Field
               label={t('agencyDept.contract')}
               value={p.contract ? (
-                <Link to={`${basePath}/contracts/${p.contract.id}`} className="inline-flex items-center gap-2 text-brand-600 hover:underline">
-                  {p.contract.number} <ContractStatusBadge status={p.contract.status} />
-                </Link>
+                teamMode ? (
+                  <span className="inline-flex items-center gap-2">
+                    {p.contract.number} <ContractStatusBadge status={p.contract.status} />
+                  </span>
+                ) : (
+                  <Link to={`${basePath}/contracts/${p.contract.id}`} className="inline-flex items-center gap-2 text-brand-600 hover:underline">
+                    {p.contract.number} <ContractStatusBadge status={p.contract.status} />
+                  </Link>
+                )
               ) : t('agencyDept.prestations.noContractYet')}
             />
             <Field
@@ -293,8 +300,13 @@ function ActionsTab({ prestation, agencyId, onChanged }: { prestation: Prestatio
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { basePath } = useAgencyDept();
+  const { basePath, teamMode } = useAgencyDept();
   const navigate = useNavigate();
+  // Espace équipe : les liens d'actions restent sous /team (pas de département).
+  const actionTo = (actionId: string) =>
+    teamMode
+      ? `/team/prestations/${prestation.id}/actions/${actionId}`
+      : `${basePath}/prestations/${prestation.id}/actions/${actionId}`;
   const [actions, setActions] = useState<PrestationAction[]>([]);
   const [budget, setBudget] = useState({ total: 0, allocated: 0, remaining: 0, spent: 0 });
   const [formOpen, setFormOpen] = useState(false);
@@ -397,12 +409,12 @@ function ActionsTab({ prestation, agencyId, onChanged }: { prestation: Prestatio
               {actions.map((a) => (
                 <tr
                   key={a.id}
-                  onClick={() => navigate(`${basePath}/prestations/${prestation.id}/actions/${a.id}`)}
+                  onClick={() => navigate(actionTo(a.id))}
                   className={`cursor-pointer transition-colors hover:bg-gray-50/80 dark:hover:bg-gray-800/50 ${a.status === 'cancelled' ? 'opacity-50' : ''}`}
                 >
                   <td className="px-4 py-3">
                     <Link
-                      to={`${basePath}/prestations/${prestation.id}/actions/${a.id}`}
+                      to={actionTo(a.id)}
                       className="font-semibold text-gray-900 hover:text-brand-600 hover:underline dark:text-white dark:hover:text-brand-400"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -435,7 +447,7 @@ function ActionsTab({ prestation, agencyId, onChanged }: { prestation: Prestatio
                   <td className="px-4 py-3">{a.rating ? <Stars value={a.rating} size="h-3.5 w-3.5" /> : '—'}</td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
-                      <Link to={`${basePath}/prestations/${prestation.id}/actions/${a.id}`}>
+                      <Link to={actionTo(a.id)}>
                         <Button variant="ghost" size="sm" title="Voir la gestion complète de l'action">
                           <ExternalLink className="h-4 w-4 text-brand-600 dark:text-brand-400" />
                         </Button>

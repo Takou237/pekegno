@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronDown, Languages, LogOut, ShieldCheck, ShieldAlert, UserRound } from 'lucide-react';
+import { Check, ChevronDown, Languages, LogOut, Settings, ShieldCheck, ShieldAlert, UserRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { SUPPORTED_LANGUAGES, applyLanguage } from '@/i18n';
 
@@ -69,6 +69,14 @@ export function UserMenu() {
           >
             <UserRound className="h-4 w-4" />
             {t('userMenu.myProfile')}
+          </Link>
+          <Link
+            to="/profile/settings"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+          >
+            <Settings className="h-4 w-4" />
+            {t('userMenu.settings')}
           </Link>
           {!user.two_factor_enabled && (
             <Link

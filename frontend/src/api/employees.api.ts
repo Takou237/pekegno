@@ -51,7 +51,7 @@ export const employeesApi = {
     return data;
   },
 
-  async ranking(params: { limit?: number } = {}): Promise<import('@/types/commercial').RankingEntry[]> {
+  async ranking(params: { limit?: number; from?: string; to?: string; search?: string; agency_id?: string; is_active?: boolean } = {}): Promise<import('@/types/commercial').RankingEntry[]> {
     const { data } = await client.get<import('@/types/commercial').RankingEntry[]>('/employees/ranking', { params });
     return data;
   },

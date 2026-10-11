@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CalendarDays, CheckCircle2 } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
@@ -29,6 +29,11 @@ export default function TeamTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Super-admin : page « Mon suivi » retirée du parcours.
+  if (user?.role?.name === 'super-admin') {
+    return <Navigate to="/" replace />;
+  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -107,8 +112,8 @@ export default function TeamTrackingPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                       {actions.map((a) => {
-                        const detailTo = a.prestation?.department_id
-                          ? `/departments/${a.prestation.department_id}/prestations/${a.prestation.id}/actions/${a.id}`
+                        const detailTo = a.prestation
+                          ? `/team/prestations/${a.prestation.id}/actions/${a.id}`
                           : null;
                         return (
                         <tr
@@ -173,12 +178,12 @@ export default function TeamTrackingPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {missions.map((p) => {
-                  const detailTo = p.department_id ? `/departments/${p.department_id}/prestations/${p.id}` : null;
+                  const detailTo = `/team/prestations/${p.id}`;
                   return (
                   <div
                     key={p.id}
-                    onClick={() => detailTo && navigate(detailTo)}
-                    className={`flex flex-col gap-2 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 ${detailTo ? 'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md' : ''}`}
+                    onClick={() => navigate(detailTo)}
+                    className="flex cursor-pointer flex-col gap-2 rounded-2xl border border-gray-100 bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">

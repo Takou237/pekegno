@@ -236,6 +236,13 @@ class InvoiceController extends Controller
     {
         $data = $request->validated();
 
+        // Super-admin : avance obligatoire (montant encaissé à la création).
+        if ($request->user()?->role?->name === 'super-admin' && empty($data['advance'])) {
+            throw ValidationException::withMessages([
+                'advance' => "L'avance est obligatoire.",
+            ]);
+        }
+
         $invoice = DB::transaction(function () use ($data, $request) {
             $items = collect($data['items'])->map(function (array $line) {
                 $service = isset($line['service_id']) ? Service::find($line['service_id']) : null;

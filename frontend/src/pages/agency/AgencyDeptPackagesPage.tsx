@@ -305,7 +305,9 @@ function SubscribeModal({
   onDone: (prestationId: string) => void;
 }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { showToast } = useToast();
+  const isSuperAdmin = user?.role?.name === 'super-admin';
   const [clientId, setClientId] = useState('');
   const [clientMode, setClientMode] = useState<LearnerMode>('existing');
   const [newClient, setNewClient] = useState<NewLearnerFormState>(emptyNewLearnerForm);
@@ -331,6 +333,10 @@ function SubscribeModal({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (isSuperAdmin && !(Number(advance) > 0)) {
+      setError(t('invoices.advanceRequired'));
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -394,7 +400,7 @@ function SubscribeModal({
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label={t('agencyDept.startDate')} type="date" required value={start} onChange={(e) => setStart(e.target.value)} />
           <Input label={t('agencyDept.packages.periods', { period: t(`agencyDept.billingPeriod.${pkg.billing_period}`) })} type="number" min={1} max={60} required value={periods} onChange={(e) => setPeriods(e.target.value)} />
-          <Input label={t('agencyDept.packages.advance')} type="number" min={0} value={advance} onChange={(e) => setAdvance(e.target.value)} />
+          <Input label={`${t('agencyDept.packages.advance')}${isSuperAdmin ? ' *' : ''}`} type="number" min={0} required={isSuperAdmin} value={advance} onChange={(e) => setAdvance(e.target.value)} />
           <Select label={t('agencyDept.packages.paymentType')} value={paymentType} onChange={(e) => setPaymentType(e.target.value as typeof paymentType)} disabled={!advance}>
             <option value="cash">Cash</option>
             <option value="om">Orange Money</option>

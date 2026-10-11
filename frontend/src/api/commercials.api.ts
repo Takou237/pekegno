@@ -56,7 +56,7 @@ export const commercialsApi = {
     return data;
   },
 
-  async ranking(params: { from?: string; to?: string; limit?: number } = {}): Promise<RankingEntry[]> {
+  async ranking(params: { from?: string; to?: string; limit?: number; search?: string; agency_id?: string; is_active?: boolean } = {}): Promise<RankingEntry[]> {
     const { data } = await client.get<RankingEntry[]>('/commercials/ranking', { params });
     return data;
   },

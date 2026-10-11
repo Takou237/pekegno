@@ -76,9 +76,12 @@ class StatsController extends Controller
 
         $topCommercials = Commercial::query()
             ->with('user:id,first_name,last_name,email')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->withSum([
+                'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated()->where('status', 'paid'),
+            ], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
             ->withCount([
                 'invoices as sales_count' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated(),
-                'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated()->where('status', 'paid'),
             ])
             ->limit(5)
             ->get()
@@ -90,8 +93,8 @@ class StatsController extends Controller
                 'last_name' => $c->last_name,
                 'email' => $c->email,
                 'points_balance' => $c->points_balance,
-                'sales_count' => $c->sales_count,
-                'revenue' => (float) $c->revenue,
+                'sales_count' => (int) $c->sales_count,
+                'revenue' => (float) ($c->revenue ?? 0),
             ]);
 
         return response()->json([
@@ -155,7 +158,6 @@ class StatsController extends Controller
             ->sum(fn (Invoice $i) => $i->balance_due);
 
         $top = (clone $invoices)
-            ->where('status', 'paid')
             ->selectRaw('commercial_id, sum(total_amount) as turnover, count(*) as sales')
             ->whereNotNull('commercial_id')
             ->groupBy('commercial_id')
@@ -168,6 +170,7 @@ class StatsController extends Controller
                 return [
                     'id' => $row->commercial_id,
                     'full_name' => $commercial?->full_name ?? 'Supprimé',
+                    'points_balance' => $commercial?->points_balance ?? 0,
                     'turnover' => (float) $row->turnover,
                     'sales_count' => (int) $row->sales,
                 ];
@@ -276,15 +279,19 @@ class StatsController extends Controller
     {
         $limit = min(max($request->integer('limit', 5), 1), 50);
 
-        $from = $request->date('from') ?? Carbon::now()->startOfYear();
+        $from = Period::from($request, Carbon::now()->startOfYear());
+        $to = Period::to($request);
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
+        // CA = total des factures validées sur la période (tous statuts :
+        // payées, partielles, impayées), pas uniquement les payées : sinon le
+        // « Meilleur commercial » n'affiche qu'1 vente sur 13 dans la période.
         $commercials = Commercial::with('agency:id,name,code')
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
-            ->whereHas('invoices', fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()->where('invoice_date', '>=', $from))
-            ->withSum(['invoices as turnover' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()->where('invoice_date', '>=', $from)], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
-            ->withCount(['invoices as sales_count' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()->where('invoice_date', '>=', $from)])
+            ->whereHas('invoices', fn ($q) => $q->whereNull('cancelled_at')->validated()->whereBetween('invoice_date', [$from, $to]))
+            ->withSum(['invoices as turnover' => fn ($q) => $q->whereNull('cancelled_at')->validated()->whereBetween('invoice_date', [$from, $to])], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
+            ->withCount(['invoices as sales_count' => fn ($q) => $q->whereNull('cancelled_at')->validated()->whereBetween('invoice_date', [$from, $to])])
             ->orderByDesc('turnover')
             ->limit($limit)
             ->get()
@@ -293,8 +300,8 @@ class StatsController extends Controller
                 'full_name' => $c->full_name,
                 'agency' => $c->agency?->name,
                 'points_balance' => $c->points_balance,
-                'turnover' => (float) $c->turnover,
-                'sales_count' => $c->sales_count,
+                'turnover' => (float) ($c->turnover ?? 0),
+                'sales_count' => (int) $c->sales_count,
             ]);
 
         return response()->json($commercials);
@@ -318,14 +325,18 @@ class StatsController extends Controller
 
         $rows = InvoiceItem::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->join('services', 'services.id', '=', 'invoice_items.service_id')
-            ->join('categories', 'categories.id', '=', 'services.category_id')
+            // LEFT JOIN : les lignes issues de packages / prestations / produits
+            // n'ont pas toujours de service_id, et un service n'a pas toujours
+            // de catégorie. En INNER JOIN elles disparaissaient et le tableau
+            // « Ventes par catégorie » affichait « Aucune donnée » à tort.
+            ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')
+            ->leftJoin('categories', 'categories.id', '=', 'services.category_id')
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->selectRaw('categories.name, sum(invoice_items.line_total * '.GroupCurrency::rateSql('invoices.agency_id').') as total, count(*) as items')
-            ->groupBy('categories.name')
+            ->selectRaw("coalesce(categories.name, 'Sans catégorie') as name, sum(invoice_items.line_total * ".GroupCurrency::rateSql('invoices.agency_id').') as total, count(*) as items')
+            ->groupByRaw("coalesce(categories.name, 'Sans catégorie')")
             ->orderByDesc('total')
             ->get()
             ->map(fn ($row) => [
@@ -419,8 +430,9 @@ class StatsController extends Controller
             ->whereNull('deleted_at')
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('id', $agencyIds))
             ->withSum([
-                'invoices as revenue' => fn ($q) => $q->where('status', 'paid')
-                    ->whereNull('cancelled_at')
+                // CA = total des factures validées sur la période (tous statuts),
+                // cohérent avec Top produits et Meilleur commercial.
+                'invoices as revenue' => fn ($q) => $q->whereNull('cancelled_at')
                     ->validated()
                     ->whereBetween('invoice_date', [$from, $to]),
             ], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
@@ -627,9 +639,11 @@ class StatsController extends Controller
         $topCommercials = Commercial::query()
             ->whereIn('agency_id', $countryAgencyIds)
             ->with('user:id,first_name,last_name,email')
+            ->withSum([
+                'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated()->where('status', 'paid'),
+            ], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
             ->withCount([
                 'invoices as sales_count' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated(),
-                'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated()->where('status', 'paid'),
             ])
             ->limit(5)
             ->get()
@@ -641,8 +655,8 @@ class StatsController extends Controller
                 'last_name' => $c->last_name,
                 'email' => $c->email,
                 'points_balance' => $c->points_balance,
-                'sales_count' => $c->sales_count,
-                'revenue' => (float) $c->revenue,
+                'sales_count' => (int) $c->sales_count,
+                'revenue' => (float) ($c->revenue ?? 0),
             ]);
 
         return response()->json([

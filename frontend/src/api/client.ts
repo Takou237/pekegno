@@ -1,5 +1,15 @@
 import axios, { AxiosError } from 'axios';
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    /**
+     * Ne pas déclencher le toast global « droits insuffisants » sur un 403 :
+     * la page gère déjà l'erreur localement (état vide, message inline…).
+     */
+    silentForbidden?: boolean;
+  }
+}
+
 const TOKEN_STORAGE_KEY = 'pekegno_token';
 
 export const client = axios.create({
@@ -68,7 +78,7 @@ client.interceptors.response.use(
       onUnauthorized?.(hadToken ? 'expired' : 'invalid');
     }
 
-    if (error.response?.status === 403) {
+    if (error.response?.status === 403 && !error.config?.silentForbidden) {
       onForbidden?.();
     }
 

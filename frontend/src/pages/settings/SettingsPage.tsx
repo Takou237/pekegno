@@ -43,8 +43,8 @@ const EMPTY_FORM: SettingsForm = {
   prospect_points_per_conversion: '',
   inactivity_period_days: '',
   inactivity_penalty_points: '',
-  default_commission_type: 'none',
-  default_commission_value: '',
+  default_commission_type: 'percent',
+  default_commission_value: '20',
   invoice_prefix: '',
   group_currency: 'XAF',
 };
@@ -116,14 +116,22 @@ function GeneralSettingsTab() {
       .list()
       .then((settings) => {
         const map = new Map(settings.map((s) => [s.key, s.value]));
+        // Avant la migration 20 % la base contient encore l'ancien défaut
+        // (none / 0) : on l'affiche comme le nouveau défaut (percent / 20).
+        // La migration met ensuite la base à jour au `php artisan migrate`.
+        const rawType = map.get('default_commission_type') as CommissionType | undefined;
+        const rawValue = map.get('default_commission_value');
+        const isLegacyDefault =
+          (rawType === undefined || rawType === 'none') &&
+          (rawValue === undefined || Number(rawValue) === 0);
         setForm({
           sales_points_per_sale: String(map.get('sales_points_per_sale') ?? 3),
           prospect_points_per_add: String(map.get('prospect_points_per_add') ?? 2),
           prospect_points_per_conversion: String(map.get('prospect_points_per_conversion') ?? 5),
           inactivity_period_days: String(map.get('inactivity_period_days') ?? 14),
           inactivity_penalty_points: String(map.get('inactivity_penalty_points') ?? 5),
-          default_commission_type: (map.get('default_commission_type') as CommissionType) ?? 'none',
-          default_commission_value: String(map.get('default_commission_value') ?? 0),
+          default_commission_type: isLegacyDefault ? 'percent' : (rawType ?? 'percent'),
+          default_commission_value: String(isLegacyDefault ? 20 : (rawValue ?? 20)),
           invoice_prefix: String(map.get('invoice_prefix') ?? 'PK'),
           group_currency: String(map.get('group_currency') ?? 'XAF'),
         });

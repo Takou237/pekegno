@@ -6,8 +6,8 @@ import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAgencyDept } from '@/hooks/useAgencyDept';
 import { formatCurrency } from '@/utils/number';
-import { todayLocal } from '@/utils/date';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
+import { PeriodPicker, defaultPeriod, type Period } from '@/components/ui/PeriodPicker';
 import { Alert } from '@/components/ui/Alert';
 import { RatingSummaryCard } from '@/components/agencyDept/StarRating';
 import type { AgencyReport } from '@/types/agencyDepartment';
@@ -32,16 +32,17 @@ export default function AgencyDeptDashboardPage() {
   const { department, departmentId, basePath } = useAgencyDept();
   const [report, setReport] = useState<AgencyReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period>(defaultPeriod());
 
   useEffect(() => {
     if (!departmentId) return;
-    const now = new Date();
-    const from = todayLocal(new Date(now.getFullYear(), now.getMonth(), 1));
+    setReport(null);
+    setError(null);
     agencyDeptApi
-      .report({ department_id: departmentId, from, to: todayLocal() })
+      .report({ department_id: departmentId, from: period.from, to: period.to })
       .then(setReport)
       .catch((e) => setError(extractErrorMessage(e, t('common.error'))));
-  }, [departmentId, t]);
+  }, [departmentId, period, t]);
 
   if (error) return <Alert variant="error">{error}</Alert>;
   if (!report) return <SkeletonDashboard />;
@@ -50,9 +51,12 @@ export default function AgencyDeptDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{department?.name}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.dashboard.subtitle')}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{department?.name}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.dashboard.subtitle')}</p>
+        </div>
+        <PeriodPicker value={period} onChange={setPeriod} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

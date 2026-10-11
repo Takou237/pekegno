@@ -14,8 +14,9 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
-import { Autocomplete, FREE_TEXT_PREFIX, type AutocompleteOption } from '@/components/ui/Autocomplete';
+import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
+import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import type { PaymentMethod } from '@/types/invoice';
 import type { SeminarTier, Service } from '@/types/service';
 import type { Commercial } from '@/types/commercial';
@@ -57,6 +58,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const isCommercial = currentUser?.role?.name === 'commercial';
+  const isSuperAdmin = currentUser?.role?.name === 'super-admin';
   // Caissier / admin (super-admin, direction-generale) sont des validateurs :
   // une vente de guichet qu'ils saisissent est validée directement, donc le
   // vendeur par défaut est leur propre compte et aucune preuve de paiement
@@ -66,6 +68,8 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   );
 
   const [clientId, setClientId] = useState('');
+  const [clientMode, setClientMode] = useState<LearnerMode>('existing');
+  const [newClient, setNewClient] = useState<NewLearnerFormState>(emptyNewLearnerForm);
   const [sellerId, setSellerId] = useState('');
   const [sellerIsTrainer, setSellerIsTrainer] = useState(false);
   const [myCommercial, setMyCommercial] = useState<Commercial | null>(null);
@@ -129,6 +133,8 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
 
   function reset() {
     setClientId('');
+    setClientMode('existing');
+    setNewClient(emptyNewLearnerForm);
     setSellerId('');
     setSellerIsTrainer(false);
     setPaymentType('cash');
@@ -241,8 +247,12 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
       setErrors({ items: t('invoices.noItems') });
       return;
     }
-    if (!clientId) {
+    if (clientMode === 'existing' && !clientId) {
       setErrors({ client_id: t('invoices.colClient') });
+      return;
+    }
+    if (clientMode === 'new' && (!newClient.first_name.trim() || !newClient.last_name.trim())) {
+      setErrors({ client_id: t('academy.newLearnerRequired') });
       return;
     }
     if (requiresPayerPhone && !payerPhone.trim()) {
@@ -253,6 +263,11 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
       setErrors({ advance: t('invoices.advanceExceedsTotal') });
       return;
     }
+    // Super-admin : avance obligatoire (montant encaissé à la création).
+    if (isSuperAdmin && !(Number(advance) > 0)) {
+      setErrors({ advance: t('invoices.advanceRequired') });
+      return;
+    }
     if (isCommercial && !proofFile) {
       setErrors({ proof_file: t('invoices.proofRequiredForSale') });
       return;
@@ -260,12 +275,22 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
     setSubmitting(true);
     setErrors({});
     try {
-      // Comme « Nouvelle facture » : client existant choisi dans la recherche,
-      // ou nom saisi librement pour un nouveau client.
-      const freeClientName = clientId.startsWith(FREE_TEXT_PREFIX) ? clientId.slice(FREE_TEXT_PREFIX.length) : '';
+      // Comme l'inscription à une formation : client existant choisi dans la
+      // recherche, ou création du client à la volée (même vendeur).
+      let resolvedClientId: string | undefined = clientMode === 'existing' ? clientId || undefined : undefined;
+      if (clientMode === 'new') {
+        const created = await clientsApi.create({
+          first_name: newClient.first_name.trim(),
+          last_name: newClient.last_name.trim(),
+          email: newClient.email.trim() || `client-${Date.now()}@pekegno.local`,
+          phone: newClient.phone.trim() || null,
+          country: newClient.country || undefined,
+          registered_agency_id: agencyId || undefined,
+        });
+        resolvedClientId = created.id;
+      }
       const payload = {
-        client_id: freeClientName ? undefined : clientId || undefined,
-        client_name: freeClientName || undefined,
+        client_id: resolvedClientId,
         commercial_id: !sellerIsTrainer && sellerId ? sellerId : undefined,
         seller_user_id: sellerIsTrainer && sellerId ? sellerId : undefined,
         agency_id: agencyId || undefined,
@@ -306,16 +331,22 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
           <Alert variant="error">{Object.values(errors).join(' ')}</Alert>
         )}
 
+        <EnrollmentLearnerField
+          mode={clientMode}
+          onModeChange={setClientMode}
+          learnerUserId={clientId}
+          onLearnerUserIdChange={setClientId}
+          fetchOptions={clientOptions}
+          newLearner={newClient}
+          onNewLearnerChange={setNewClient}
+          existingLabel={t('agencyDept.clientExisting')}
+          createLabel={t('clients.createClient')}
+          fieldLabel={`${t('invoices.headerClient')} *`}
+          searchPlaceholder={t('invoices.headerClientPlaceholder')}
+          newInfoLabel={t('clients.createTitle')}
+          error={errors.client_id}
+        />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Autocomplete
-            label={t('invoices.headerClient')}
-            placeholder={t('invoices.headerClientPlaceholder')}
-            value={clientId}
-            onChange={setClientId}
-            freeText
-            fetchOptions={clientOptions}
-            error={errors.client_id}
-          />
           {/* Un commercial vend toujours pour lui-même : la facture lui est
               rattachée côté serveur, le champ « Vendeur » n'a rien à lui apprendre. */}
           {isCommercial ? null : isSelfSellerRole ? (
@@ -507,10 +538,11 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
             />
           )}
           <Input
-            label={t('invoices.advance')}
+            label={`${t('invoices.advance')}${isSuperAdmin ? ' *' : ''}`}
             type="number"
             min={0}
             step="0.01"
+            required={isSuperAdmin}
             value={advance}
             onChange={(e) => setAdvance(e.target.value)}
             error={errors.advance}

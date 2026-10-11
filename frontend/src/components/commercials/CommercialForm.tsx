@@ -31,8 +31,8 @@ export function commercialFormFrom(
     phone: commercial?.phone ?? '',
     user_id: commercial?.user_id ?? '',
     agency_id: commercial?.agency_id ?? fixedAgencyId ?? '',
-    commission_type: commercial?.commission_type ?? 'none',
-    commission_value: commercial?.commission_value ?? '',
+    commission_type: commercial?.commission_type ?? 'percent',
+    commission_value: commercial?.commission_value ?? '20',
     is_active: commercial?.is_active ?? true,
   };
 }
