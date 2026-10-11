@@ -44,6 +44,9 @@ class User extends Authenticatable
         'country_id',
         'city_id',
         'address',
+        'nationality',
+        'quartier',
+        'occupation',
     ];
 
     protected $hidden = [

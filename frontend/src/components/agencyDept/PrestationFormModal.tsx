@@ -63,10 +63,10 @@ export function PrestationFormModal({
   const [clientMode, setClientMode] = useState<LearnerMode>('existing');
   const [newClient, setNewClient] = useState<NewLearnerFormState>(emptyNewLearnerForm);
 
-  // Sans département Agency (vue pays), l'agence doit être choisie : la
-  // prestation appartient toujours à une agence côté backend. Avec une offre,
-  // l'agence est celle de l'offre.
-  const needsAgencyChoice = !agencyId && !offer;
+  // La prestation appartient toujours à une agence côté backend : le sélecteur
+  // est toujours affiché (l'offre peut présélectionner son agence, modifiable
+  // seulement à la création — une souscription suit son offre).
+  const needsAgencyChoice = !prestation && !offer;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,7 +83,7 @@ export function PrestationFormModal({
     setForm({
       name: prestation?.name ?? (!prestation && offer ? offer.name : ''),
       category_id: prestation?.category_id ?? offer?.category_id ?? '',
-      agency_id: prestation?.agency_id ?? '',
+      agency_id: prestation?.agency_id ?? offer?.agency_id ?? agencyId ?? '',
       description: prestation?.description ?? '',
       client_id: prestation?.client_id ?? '',
       commercial_id: prestation?.commercial_id ?? '',
@@ -138,7 +138,7 @@ export function PrestationFormModal({
           email: newClient.email.trim(),
           phone: newClient.phone.trim() || null,
           country: newClient.country || undefined,
-          registered_agency_id: offer?.agency_id ?? agencyId ?? form.agency_id ?? undefined,
+          registered_agency_id: offer?.agency_id ?? form.agency_id ?? agencyId ?? undefined,
         });
         resolvedClientId = created.id;
       } catch (err) {
@@ -165,7 +165,7 @@ export function PrestationFormModal({
         : await agencyDeptApi.createPrestation({
             ...payload,
             offer_id: offer?.id,
-            agency_id: offer?.agency_id ?? agencyId ?? form.agency_id,
+            agency_id: offer?.agency_id ?? form.agency_id ?? agencyId,
             department_id: (departmentId ?? offer?.department_id) || undefined,
           });
       onSaved(saved);
@@ -196,14 +196,21 @@ export function PrestationFormModal({
             {t('agencyDept.offers.subscribingTo', { name: offer.name })}
           </p>
         )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input label={t('agencyDept.name')} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          {!prestation && needsAgencyChoice && (
-            <Select label={t('agencyDept.agency')} required value={form.agency_id} onChange={(e) => setForm({ ...form, agency_id: e.target.value })}>
+        {!prestation && needsAgencyChoice && (
+          <div className="sm:max-w-xs">
+            <Select
+              label={t('agencyDept.agency')}
+              required
+              value={form.agency_id}
+              onChange={(e) => setForm({ ...form, agency_id: e.target.value })}
+            >
               <option value="">{t('services.selectAgency')}</option>
               {agencies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Select>
-          )}
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Input label={t('agencyDept.name')} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           {!offer && (
             <div className="flex flex-col gap-1.5">
               <Select label={t('agencyDept.category')} value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>

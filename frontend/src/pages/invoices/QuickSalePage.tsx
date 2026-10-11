@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, FileText, Receipt } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
+import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
+import { useOrgContext } from '@/context/OrgContext';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem, SeminarTier } from '@/types/service';
 
@@ -24,6 +26,16 @@ export default function QuickSalePage() {
   const { user: currentUser } = useAuth();
   const location = useLocation();
 
+  // Agence de travail : TOUJOURS sélectionnable via le sélecteur en tête de
+  // formulaire. La page peut présélectionner l'agence du contexte, mais le
+  // choix de l'utilisateur prime : la recherche de services n'interroge que le
+  // catalogue de l'agence choisie.
+  const { selectedAgency } = useOrgContext();
+  const [pickedAgencyId, setPickedAgencyId] = useState('');
+  useEffect(() => {
+    if (!pickedAgencyId && selectedAgency?.id) setPickedAgencyId(selectedAgency.id);
+  }, [selectedAgency?.id, pickedAgencyId]);
+  const agencyId = pickedAgencyId ?? undefined;
   const isCommercial = currentUser?.role?.name === 'commercial';
 
   // Retour contextuel : on revient à l'écran d'origine (tableau de bord
@@ -102,6 +114,10 @@ export default function QuickSalePage() {
   function handleServiceSelect(id: string) {
     const service = serviceResultsRef.current.find((s) => s.id === id);
     if (!service) return;
+    if (!agencyId) {
+      setErrors({ service_id: t('services.selectAgencyPlaceholder') });
+      return;
+    }
     setServiceId(service.id);
     setServiceLabel(service.name);
     if (service.is_seminar && service.seminar_tiers && service.seminar_tiers.length > 0) {
@@ -249,6 +265,24 @@ export default function QuickSalePage() {
             {t('invoices.items')}
           </h2>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="sm:w-64">
+              <AgencyScopeSelect
+                required
+                label={t('contextBar.agency')}
+                value={pickedAgencyId}
+                onChange={(id) => {
+                  setPickedAgencyId(id);
+                  // Changer d'agence invalide le service choisi : il
+                  // n'appartient plus au catalogue de la nouvelle agence.
+                  setServiceId('');
+                  setServiceLabel('');
+                  setUnitPrice('');
+                  setPassTier('');
+                  setSeminarTiers([]);
+                  setErrors({});
+                }}
+              />
+            </div>
             <div className="min-w-0 flex-1">
               <Autocomplete
                 label={t('invoices.itemService')}
@@ -256,7 +290,8 @@ export default function QuickSalePage() {
                 value={serviceId}
                 onChange={handleServiceSelect}
                 fetchOptions={async (query) => {
-                  const res = await servicesApi.search(query.trim());
+                  if (!agencyId) return [];
+                  const res = await servicesApi.search(query.trim(), agencyId);
                   serviceResultsRef.current = res;
                   return res.map((s) => ({
                     id: s.id,

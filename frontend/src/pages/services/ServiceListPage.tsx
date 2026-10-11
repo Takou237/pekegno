@@ -39,6 +39,7 @@ import {
 import { canExportData } from '@/utils/exportPermissions';
 import { canEnrollLearners } from '@/utils/academyPermissions';
 import { currentLocale } from '@/i18n';
+import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
 import { commercialsApi } from '@/api/commercials.api';
 import type { Service } from '@/types/service';
 import type { Category } from '@/types/category';
@@ -126,6 +127,10 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [promoService, setPromoService] = useState<Service | null>(null);
   const [promoEditing, setPromoEditing] = useState<Promotion | null>(null);
   const [quickSaleOpen, setQuickSaleOpen] = useState(false);
+  // Onglet « Formations » : le bouton principal devient une inscription (une
+  // formation n'est pas un produit guichet) — la modale s'ouvre sans cours
+  // présélectionné, l'utilisateur choisit l'agence puis la formation.
+  const [enrollmentOpen, setEnrollmentOpen] = useState(false);
   const [packages, setPackages] = useState<AgencyPackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [packagesError, setPackagesError] = useState<string | null>(null);
@@ -165,7 +170,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
       // les packages actifs du périmètre (agence de l'utilisateur quand elle est connue).
       const rows = await agencyDeptApi.packages({
         is_active: true,
-        agency_id: effectiveAgencyId || undefined,
+        agency_id: effectiveAgencyId || packageAgency || undefined,
       });
       setPackages(rows);
     } catch (error) {
@@ -179,7 +184,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     try {
       setOffers(
         await agencyDeptApi.offers({
-          agency_id: effectiveAgencyId || undefined,
+          agency_id: effectiveAgencyId || packageAgency || undefined,
           country_id: countryId,
           per_page: 100,
         }),
@@ -187,7 +192,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     } catch {
       setOffers({ data: [], current_page: 1, last_page: 1, per_page: 100, total: 0 });
     }
-  }, [effectiveAgencyId, countryId]);
+  }, [effectiveAgencyId, countryId, packageAgency]);
 
   useEffect(() => {
     if (tab !== 'packages') return;
@@ -485,7 +490,18 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
           />
         </div>
-        {(packageCategories.length > 0 || (!effectiveAgencyId && packageAgencies.length > 0)) && (
+        {/* Sans agence imposée : choisir l'agence EN PREMIER — la liste des
+            packages/offres se recharge alors pour cette agence. */}
+        {!effectiveAgencyId && (
+          <div className="sm:w-64">
+            <AgencyScopeSelect
+              label={t('services.agency')}
+              value={packageAgency}
+              onChange={setPackageAgency}
+            />
+          </div>
+        )}
+        {(packageCategories.length > 0 || (effectiveAgencyId && packageAgencies.length > 0)) && (
           <div className="flex flex-col gap-3 sm:flex-row">
             {packageCategories.length > 0 && (
               <div className="sm:w-48">
@@ -503,7 +519,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
                 </Select>
               </div>
             )}
-            {!effectiveAgencyId && packageAgencies.length > 0 && (
+            {!effectiveAgencyId && packageAgency && packageAgencies.length > 0 && (
               <div className="sm:w-48">
                 <Select
                   label={t('services.agency')}
@@ -666,10 +682,19 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('services.subtitle')}</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={() => setQuickSaleOpen(true)}>
-            <ShoppingCart className="h-4 w-4" />
-            {t('invoices.newSale')}
-          </Button>
+          {tab === 'formations' ? (
+            canEnrollLearners(user) && (
+              <Button variant="outline" onClick={() => setEnrollmentOpen(true)}>
+                <UserPlus className="h-4 w-4" />
+                {t('academy.newEnrollment')}
+              </Button>
+            )
+          ) : (
+            <Button variant="outline" onClick={() => setQuickSaleOpen(true)}>
+              <ShoppingCart className="h-4 w-4" />
+              {t('invoices.newSale')}
+            </Button>
+          )}
           {canExportData(user) && (
             <Button variant="outline" onClick={handleExport} isLoading={isExporting}>
               <Download className="h-4 w-4" />
@@ -1129,6 +1154,19 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
           }}
         />
       )}
+
+      {/* En-tête de l'onglet Formations : inscription libre (choix agence puis
+          formation), sans cours présélectionné. */}
+      <FormationEnrollmentModal
+        isOpen={enrollmentOpen}
+        onClose={() => setEnrollmentOpen(false)}
+        agencyId={effectiveAgencyId}
+        countryId={countryId}
+        onSaved={() => {
+          setEnrollmentOpen(false);
+          if (tab === 'formations') fetchCourses();
+        }}
+      />
     </div>
   );
 }

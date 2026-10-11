@@ -43,8 +43,10 @@ export const servicesApi = {
     await client.delete(`/services/${id}/force-delete`);
   },
 
-  async search(q: string): Promise<ServiceSearchItem[]> {
-    const { data } = await client.get<ServiceSearchItem[]>('/services/search', { params: { q } });
+  async search(q: string, agencyId?: string): Promise<ServiceSearchItem[]> {
+    const { data } = await client.get<ServiceSearchItem[]>('/services/search', {
+      params: { q, agency_id: agencyId || undefined },
+    });
     return data;
   },
 };

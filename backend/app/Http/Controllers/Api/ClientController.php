@@ -174,6 +174,9 @@ class ClientController extends Controller
                 'city' => $data['city'] ?? null,
                 'country' => $data['country'] ?? null,
                 'address' => $data['address'] ?? null,
+                'nationality' => $data['nationality'] ?? null,
+                'quartier' => $data['quartier'] ?? null,
+                'occupation' => $data['occupation'] ?? null,
                 'role_id' => $clientRole->id,
                 'is_active' => $data['is_active'] ?? true,
                 'is_password_change_required' => ! $hasPassword,
@@ -342,6 +345,7 @@ class ClientController extends Controller
         }
         $tracked = [
             'first_name', 'last_name', 'email', 'phone', 'city', 'country', 'address',
+            'nationality', 'quartier', 'occupation',
             'is_active', 'client_category_id', 'status', 'country_id', 'city_id',
             'registered_agency_id', 'commercial_user_id', 'registered_at',
         ];

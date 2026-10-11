@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { CountryDeployPicker } from '@/components/countries/CountryDeployPicker';
+import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
 import type { CountryStat } from '@/types/stats';
 import {
   ACTION_TYPES,
@@ -99,9 +100,15 @@ export function PackageFormModal({
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  // L'agence principale se choisit en tête de formulaire dans tous les cas :
+  // la page peut présélectionner la sienne, l'utilisateur reste libre de la
+  // changer (les autres pays restent cochables via le sélecteur de déploiement).
+  const [pickedAgencyId, setPickedAgencyId] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
+    // Préselection avec l'agence de la page, modifiable via le sélecteur.
+    if (!editing) setPickedAgencyId(agencyId ?? '');
 
     setForm(
       editing
@@ -177,7 +184,7 @@ export function PackageFormModal({
 
     const payload: PackagePayload = {
       // Création : l'agence de la page (si fournie) + toutes les agences des pays cochés.
-      agency_id: editing ? editing.agency_id : agencyId || undefined,
+      agency_id: editing ? editing.agency_id : pickedAgencyId || agencyId || undefined,
       ...(editing ? {} : { target_country_ids: targetCountryIds.length ? targetCountryIds : undefined }),
       department_id: editing ? editing.department_id ?? undefined : departmentId,
       category_id: form.category_id || null,
@@ -254,6 +261,15 @@ export function PackageFormModal({
             </label>
           </div>
         </div>
+
+        {!editing && (
+          <AgencyScopeSelect
+            required
+            error={fieldErrors.agency_id}
+            value={pickedAgencyId}
+            onChange={setPickedAgencyId}
+          />
+        )}
 
         <TextArea label={t('agencyDept.description')} value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
         <TextArea label={t('agencyDept.packages.prerequisites')} value={form.prerequisites} onChange={(v) => setForm({ ...form, prerequisites: v })} />

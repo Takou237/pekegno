@@ -29,6 +29,9 @@ interface ClientForm {
   city: string;
   country: string;
   address: string;
+  nationality: string;
+  quartier: string;
+  occupation: string;
   password: string;
   is_active: boolean;
 }
@@ -41,6 +44,9 @@ const EMPTY_FORM: ClientForm = {
   city: '',
   country: '',
   address: '',
+  nationality: '',
+  quartier: '',
+  occupation: '',
   password: '',
   is_active: true,
 };
@@ -122,6 +128,9 @@ export default function ClientListPage() {
       city: client.city ?? '',
       country: client.country ?? '',
       address: client.address ?? '',
+      nationality: client.nationality ?? '',
+      quartier: client.quartier ?? '',
+      occupation: client.occupation ?? '',
       password: '',
       is_active: client.is_active,
     });
@@ -143,6 +152,9 @@ export default function ClientListPage() {
           city: form.city,
           country: form.country,
           address: form.address,
+          nationality: form.nationality,
+          quartier: form.quartier,
+          occupation: form.occupation,
           is_active: form.is_active,
         };
         await clientsApi.update(editClient.id, payload);
@@ -157,6 +169,9 @@ export default function ClientListPage() {
           city: form.city,
           country: form.country,
           address: form.address,
+          nationality: form.nationality,
+          quartier: form.quartier,
+          occupation: form.occupation,
           password: pwd,
           password_confirmation: pwd,
           is_active: form.is_active,
@@ -377,6 +392,18 @@ export default function ClientListPage() {
               <dd className="text-gray-800 dark:text-gray-100">{viewClient.address ?? '—'}</dd>
             </div>
             <div>
+              <dt className="font-medium text-gray-500">{t('clients.nationality')}</dt>
+              <dd className="text-gray-800 dark:text-gray-100">{viewClient.nationality ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">{t('clients.quartier')}</dt>
+              <dd className="text-gray-800 dark:text-gray-100">{viewClient.quartier ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">{t('clients.occupation')}</dt>
+              <dd className="text-gray-800 dark:text-gray-100">{viewClient.occupation ?? '—'}</dd>
+            </div>
+            <div>
               <dt className="font-medium text-gray-500">{t('common.status')}</dt>
               <dd className="text-gray-800 dark:text-gray-100">
                 {viewClient.is_active ? t('common.active') : t('common.inactive')}
@@ -456,6 +483,29 @@ export default function ClientListPage() {
             error={formErrors.address}
             placeholder={t('clients.addressPlaceholder')}
           />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Input
+              label={t('clients.nationality')}
+              name="nationality"
+              value={form.nationality}
+              onChange={(e) => setForm((p) => ({ ...p, nationality: e.target.value }))}
+              error={formErrors.nationality}
+            />
+            <Input
+              label={t('clients.quartier')}
+              name="quartier"
+              value={form.quartier}
+              onChange={(e) => setForm((p) => ({ ...p, quartier: e.target.value }))}
+              error={formErrors.quartier}
+            />
+            <Input
+              label={t('clients.occupation')}
+              name="occupation"
+              value={form.occupation}
+              onChange={(e) => setForm((p) => ({ ...p, occupation: e.target.value }))}
+              error={formErrors.occupation}
+            />
+          </div>
           {!editClient && (
             <Input
               label={t('clients.password')}

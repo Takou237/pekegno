@@ -11,14 +11,17 @@ const variantClasses: Record<Variant, string> = {
 export function Alert({
   variant = 'info',
   children,
+  className = '',
 }: {
   variant?: Variant;
   children: ReactNode;
+  /** Marges/espacement additionnel sans réécrire les styles de variante. */
+  className?: string;
 }) {
   return (
     <div
       role="alert"
-      className={`rounded-lg border px-4 py-3 text-sm ${variantClasses[variant]}`}
+      className={`rounded-lg border px-4 py-3 text-sm ${variantClasses[variant]} ${className}`.trim()}
     >
       {children}
     </div>

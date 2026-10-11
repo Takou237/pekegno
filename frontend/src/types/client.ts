@@ -12,6 +12,9 @@ export interface ClientListItem {
   city: string | null;
   country: string | null;
   address: string | null;
+  nationality: string | null;
+  quartier: string | null;
+  occupation: string | null;
   is_active: boolean;
   role: Role | null;
   role_id: string | null;
@@ -37,6 +40,9 @@ export interface ClientPayload {
   city?: string | null;
   country?: string | null;
   address?: string | null;
+  nationality?: string | null;
+  quartier?: string | null;
+  occupation?: string | null;
   is_active?: boolean;
   country_id?: string | null;
   registered_agency_id?: string | null;

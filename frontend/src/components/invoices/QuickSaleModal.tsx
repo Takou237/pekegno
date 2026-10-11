@@ -16,6 +16,7 @@ import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
+import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
 import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import type { PaymentMethod } from '@/types/invoice';
 import type { SeminarTier, Service } from '@/types/service';
@@ -52,7 +53,12 @@ interface QuickSaleModalProps {
   agencyId?: string;
 }
 
-export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleModalProps) {
+export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }: QuickSaleModalProps) {
+  // Le sélecteur d'agence est toujours affiché : la page peut présélectionner
+  // son agence, mais l'utilisateur reste libre de la changer — la liste des
+  // produits suit TOUJOURS le choix (jamais l'agence de la page en dur).
+  const [pickedAgencyId, setPickedAgencyId] = useState('');
+  const agencyId = pickedAgencyId || agencyProp || undefined;
   const currency = useAgencyCurrency(agencyId);
   const { t } = useTranslation();
   const { showToast } = useToast();
@@ -151,13 +157,29 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
   useEffect(() => {
     if (!isOpen) return;
     reset();
-    // La liste déroulante « Produit » propose les services du catalogue visibles
-    // par l'utilisateur plutôt qu'une saisie texte : le catalogue fait foi sur
-    // le libellé et le prix.
+    // Préselection avec l'agence de la page, modifiable via le sélecteur.
+    setPickedAgencyId(agencyProp ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // La liste déroulante « Produit » propose les services du catalogue filtrés
+  // par l'agence choisie : le catalogue fait foi sur le libellé et le prix.
+  // Sans agence sélectionnée, la liste attend le choix.
+  useEffect(() => {
+    if (!isOpen || !agencyId) {
+      if (!isOpen) setCatalogue([]);
+      return;
+    }
     servicesApi
       .list({ per_page: 100, agency_id: agencyId })
       .then((res) => setCatalogue(res.data ?? []))
       .catch(() => setCatalogue([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, agencyId]);
+
+  // Vendeur par défaut : une seule fois à l'ouverture (indépendant du choix d'agence).
+  useEffect(() => {
+    if (!isOpen) return;
     if (isCommercial && currentUser?.id) {
       commercialsApi
         .list({ per_page: 100 })
@@ -416,6 +438,20 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
 
         <div>
           <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">{t('invoices.items')}</h3>
+          {/* L'agence se choisit (ou se change) en tête des articles : la liste
+              des produits suit ce choix, jamais l'agence imposée par la page. */}
+          <div className="mb-3 sm:max-w-xs">
+            <AgencyScopeSelect
+              required
+              value={pickedAgencyId}
+              onChange={(id) => {
+                setPickedAgencyId(id);
+                // Changer d'agence invalide les lignes déjà choisies : les
+                // produits sélectionnés n'appartiennent plus au catalogue.
+                setLines([newLine()]);
+              }}
+            />
+          </div>
           <div className="flex flex-col gap-3">
             {lines.map((line, index) => {
               const tiers = productOptions.find((o) => o.value === line.service_id)?.tiers ?? [];
@@ -429,7 +465,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId }: QuickSaleM
                       onChange={(e) => handleProductSelect(line.key, e.target.value)}
                       error={index === 0 ? errors.items : undefined}
                     >
-                      <option value="">{t('invoices.itemProductPlaceholder')}</option>
+                      <option value="">{agencyId ? t('invoices.itemProductPlaceholder') : t('services.selectAgencyPlaceholder')}</option>
                       {productOptions.map((o) => (
                         <option key={o.value} value={o.value}>
                           {`${o.label} — ${formatCurrency(o.price, currency)}`}

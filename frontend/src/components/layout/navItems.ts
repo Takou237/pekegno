@@ -20,6 +20,7 @@ import {
   Truck,
   Users,
   UserCheck,
+  UserRound,
   BookOpen,
   ClipboardList,
   ClipboardCheck,
@@ -32,6 +33,7 @@ import {
   ScrollText,
   Settings,
   Target,
+  TrendingUp,
 } from 'lucide-react';
 import type { DepartmentType } from '@/types/department';
 
@@ -51,6 +53,21 @@ export interface NavItem {
 
 function catalogItem(t: TranslateFn): NavItem {
   return { to: '/catalog', label: t('nav.catalog'), icon: Package, end: false };
+}
+
+/** Rapport commercial mensuel (Académie + Agency) : commercial = le sien, admin = au choix. */
+function monthlyReportItem(t: TranslateFn): NavItem {
+  return { to: '/commercials/monthly-report', label: t('nav.monthlyReport'), icon: BarChart3, end: false };
+}
+
+/** Suivi des ventes ligne par ligne : commercial = les siennes, admin = toutes. */
+function salesTrackingItem(t: TranslateFn): NavItem {
+  return { to: '/sales-tracking', label: t('nav.salesTracking'), icon: TrendingUp, end: false };
+}
+
+/** Fiche du profil du commercial connecté (CA, ventes, commissions, factures…). */
+function myProfileItem(t: TranslateFn): NavItem {
+  return { to: '/profile', label: t('nav.myProfile'), icon: UserRound, end: false };
 }
 
 export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-departement', 'comptable']);
@@ -98,6 +115,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
+      monthlyReportItem(t),
+      salesTrackingItem(t),
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
     ];
   }
@@ -122,6 +141,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
+      monthlyReportItem(t),
     ];
   }
 
@@ -169,6 +189,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
+      monthlyReportItem(t),
       { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
       catalogItem(t),
@@ -183,7 +204,10 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       // Commercial : menu Factures SANS pastille rouge (pas de badge impayés).
       invoiceItem(t),
       { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
+      monthlyReportItem(t),
+      salesTrackingItem(t),
       catalogItem(t),
+      myProfileItem(t),
     ];
   }
 

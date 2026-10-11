@@ -126,7 +126,9 @@ input[type="number"]:not(.with-spinners) {
   margin: 12mm;
 }
 @media screen {
-  #invoice-print {
+  #invoice-print,
+  #commercial-report-print,
+  #sales-tracking-print {
     display: none;
   }
 }
@@ -135,10 +137,12 @@ input[type="number"]:not(.with-spinners) {
   body {
     background: #fff !important;
   }
-  body > *:not(#invoice-print) {
+  body > *:not(#invoice-print):not(#commercial-report-print):not(#sales-tracking-print) {
     display: none !important;
   }
-  #invoice-print {
+  #invoice-print,
+  #commercial-report-print,
+  #sales-tracking-print {
     display: block;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;

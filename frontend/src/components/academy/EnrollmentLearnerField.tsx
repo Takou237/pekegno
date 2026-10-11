@@ -11,7 +11,11 @@ export interface NewLearnerFormState {
   last_name: string;
   email: string;
   phone: string;
+  city: string;
   country: string;
+  nationality: string;
+  quartier: string;
+  occupation: string;
 }
 
 export const emptyNewLearnerForm: NewLearnerFormState = {
@@ -19,7 +23,11 @@ export const emptyNewLearnerForm: NewLearnerFormState = {
   last_name: '',
   email: '',
   phone: '',
+  city: '',
   country: '',
+  nationality: '',
+  quartier: '',
+  occupation: '',
 };
 
 interface EnrollmentLearnerFieldProps {
@@ -144,6 +152,30 @@ export function EnrollmentLearnerField({
               label={t('common.country')}
               value={newLearner.country}
               onChange={(value) => set('country', value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label={t('common.city')}
+              value={newLearner.city}
+              onChange={(e) => set('city', e.target.value)}
+            />
+            <Input
+              label={t('common.nationality')}
+              value={newLearner.nationality}
+              onChange={(e) => set('nationality', e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label={t('common.quartier')}
+              value={newLearner.quartier}
+              onChange={(e) => set('quartier', e.target.value)}
+            />
+            <Input
+              label={t('common.occupation')}
+              value={newLearner.occupation}
+              onChange={(e) => set('occupation', e.target.value)}
             />
           </div>
           <p className="text-xs text-gray-400 dark:text-gray-500">{resolvedHint}</p>

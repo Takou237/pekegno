@@ -87,7 +87,7 @@ export default function AgencyAcademyFormations({ agencyId, countryId }: AgencyA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  function handleEnrollmentSaved(_enrollment: FormationEnrollment) {
+  function handleEnrollmentSaved(_enrollment: FormationEnrollment | null) {
     fetchCourses();
   }
 

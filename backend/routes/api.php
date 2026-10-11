@@ -73,6 +73,7 @@ use App\Http\Controllers\Api\ProspectController;
 use App\Http\Controllers\Api\Public\PublicCatalogController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\SalesTrackingController;
 use App\Http\Controllers\Api\ScopeController;
 use App\Http\Controllers\Api\SellerProfileController;
 use App\Http\Controllers\Api\ServiceController;
@@ -273,6 +274,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/commercials/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/ranking', [CommercialController::class, 'ranking'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/report', [CommercialReportController::class, 'report'])->middleware('permission:commercials.reporting');
+    Route::get('/commercials/report/detail', [CommercialReportController::class, 'detail'])->middleware('permission:commercials.reporting');
+    Route::get('/sales-tracking', [SalesTrackingController::class, 'index'])->middleware('permission:commercials.reporting');
     Route::get('/commercials/me/stats', [CommercialController::class, 'meStats']);
     Route::get('/commercials/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:commercials.consulter');
     Route::post('/commercials/{commercial}/points', [CommercialController::class, 'adjustPoints'])->middleware('permission:commercials.modifier');

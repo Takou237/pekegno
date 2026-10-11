@@ -88,9 +88,140 @@ export interface ComparisonReportResponse {
   data: Array<{ id: string | null; label: string; revenue: number; invoices: number; share: number }>;
 }
 
+export interface CommercialMonthlyTotals {
+  lines: number;
+  clients: number;
+  billed: number;
+  received: number;
+  balance_due: number;
+  collection_rate: number;
+}
+
+export interface CommercialMonthlyActivityRow {
+  activity: string;
+  lines: number;
+  billed: number;
+  received: number;
+  balance: number;
+}
+
+export interface CommercialMonthlyCityRow {
+  city: string;
+  lines: number;
+  billed: number;
+  received: number;
+  balance: number;
+  share: number;
+}
+
+export interface CommercialMonthlyWeekRow {
+  week: number;
+  start: string;
+  end: string;
+  lines: number;
+  billed: number;
+  received: number;
+}
+
+export interface CommercialMonthlyAnnexeRow {
+  date: string;
+  client: string;
+  city: string;
+  activity: string;
+  total: number;
+  paid: number;
+  balance: number;
+}
+
+export interface CommercialMonthlyTab {
+  totals: CommercialMonthlyTotals;
+  by_activity: CommercialMonthlyActivityRow[];
+  by_city: CommercialMonthlyCityRow[];
+  by_week: CommercialMonthlyWeekRow[];
+  annexe: CommercialMonthlyAnnexeRow[];
+}
+
+export interface CommercialMonthlyResponse {
+  commercial: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    agency_id: string | null;
+    agency_name: string | null;
+  };
+  period: { from: string; to: string };
+  totals: CommercialMonthlyTotals;
+  tabs: {
+    academy: CommercialMonthlyTab;
+    agency: CommercialMonthlyTab;
+  };
+}
+
+export type SalesTrackingType = 'academy' | 'agency';
+
+export type SalesTrackingStatus = 'unpaid' | 'partial' | 'paid';
+
+export interface SalesTrackingLine {
+  id: string;
+  invoice_id: string;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  client_id: string | null;
+  client: string;
+  city: string;
+  activity: string;
+  type: SalesTrackingType;
+  quantity: number;
+  billed: number;
+  paid: number;
+  balance: number;
+  status: SalesTrackingStatus;
+}
+
+export interface SalesTrackingTotals {
+  lines: number;
+  billed: number;
+  received: number;
+  balance_due: number;
+  collection_rate: number;
+}
+
+export interface SalesTrackingResponse {
+  data: SalesTrackingLine[];
+  meta: { current_page: number; last_page: number; per_page: number; total: number };
+  totals: SalesTrackingTotals;
+}
+
+export interface SalesTrackingParams {
+  from?: string;
+  to?: string;
+  commercial_id?: string;
+  agency_id?: string;
+  city?: string;
+  activity?: string;
+  type?: SalesTrackingType;
+  status?: SalesTrackingStatus;
+  search?: string;
+  page?: number;
+  per_page?: number;
+}
+
 export const reportsApi = {
   async commercialReport(params: CommercialReportParams = {}): Promise<CommercialReportResponse> {
     const { data } = await client.get<CommercialReportResponse>('/commercials/report', { params });
+    return data;
+  },
+
+  async salesTracking(params: SalesTrackingParams = {}): Promise<SalesTrackingResponse> {
+    const { data } = await client.get<SalesTrackingResponse>('/sales-tracking', { params });
+    return data;
+  },
+
+  async commercialMonthly(
+    params: { commercial_id?: string; from?: string; to?: string } = {}
+  ): Promise<CommercialMonthlyResponse> {
+    const { data } = await client.get<CommercialMonthlyResponse>('/commercials/report/detail', { params });
     return data;
   },
 

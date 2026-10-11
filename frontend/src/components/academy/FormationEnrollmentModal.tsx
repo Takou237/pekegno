@@ -16,6 +16,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Input } from '@/components/ui/Input';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import { currentLocale } from '@/i18n';
+import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
 import type {
   EnrollmentDiscountType,
   FormationEnrollment,
@@ -39,7 +40,7 @@ interface FormationEnrollmentModalProps {
   countryId?: string;
   /** Cours présélectionné (bouton « Inscrire » depuis une carte de formation). */
   presetCourseId?: string;
-  onSaved: (enrollment: FormationEnrollment) => void;
+  onSaved: (enrollment: FormationEnrollment | null) => void;
 }
 
 interface FormState {
@@ -76,6 +77,10 @@ export default function FormationEnrollmentModal({
   presetCourseId,
   onSaved,
 }: FormationEnrollmentModalProps) {
+  // Le sélecteur d'agence est TOUJOURS affiché : la page présélectionne son
+  // agence, l'utilisateur peut la changer — la liste des formations suit le
+  // choix, jamais l'agence de la page en dur.
+  const [pickedAgencyId, setPickedAgencyId] = useState(agencyProp ?? '');
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
@@ -93,7 +98,7 @@ export default function FormationEnrollmentModal({
   const { countries } = useOrgContext();
   const countryFirstAgencyId = countries.find((c) => c.id === countryId)?.agencies[0]?.id;
   const agencyId =
-    agencyProp ?? courses.find((c) => c.id === form.course_id)?.agency_id ?? (countryId ? countryFirstAgencyId : undefined);
+    pickedAgencyId ?? agencyProp ?? courses.find((c) => c.id === form.course_id)?.agency_id ?? (countryId ? countryFirstAgencyId : undefined);
   const currency = useAgencyCurrency(agencyId);
   const [enrollSessions, setEnrollSessions] = useState<TrainingSession[]>([]);
   // Preuve de paiement jointe à l'inscription (obligatoire pour un commercial,
@@ -103,6 +108,9 @@ export default function FormationEnrollmentModal({
   useEffect(() => {
     if (!isOpen) {
       setForm(emptyForm);
+      // Réinitialiser le choix pour que la prochaine ouverture reparte de
+      // l'agence présélectionnée par la page (et non du choix précédent).
+      setPickedAgencyId(agencyProp ?? '');
       setLearnerMode('existing');
       setNewLearner(emptyNewLearnerForm);
       setFormError(null);
@@ -121,10 +129,14 @@ export default function FormationEnrollmentModal({
   }, [isOpen, presetCourseId]);
 
   useEffect(() => {
-    if (!isOpen || (!agencyProp && !countryId)) return;
+    if (!isOpen) return;
+    if (!pickedAgencyId) {
+      setCourses([]);
+      return;
+    }
     let active = true;
     academyApi
-      .courses({ agency_id: agencyProp, country_id: agencyProp ? undefined : countryId, per_page: 100 })
+      .courses({ agency_id: pickedAgencyId, per_page: 100 })
       .then((res) => {
         if (active) setCourses(res.data);
       })
@@ -134,7 +146,11 @@ export default function FormationEnrollmentModal({
     return () => {
       active = false;
     };
-  }, [isOpen, agencyProp, countryId]);
+    // Les formations se chargent sur le choix AU CHOIX de l'utilisateur, pas
+    // sur l'agence de travail implicite : régénérer à chaque course.agency_id
+    // écraserait la liste pendant la saisie.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, pickedAgencyId]);
 
   useEffect(() => {
     if (!form.course_id) {
@@ -273,16 +289,28 @@ export default function FormationEnrollmentModal({
     setIsSubmitting(true);
 
     try {
-      // Un commercial doit toujours joindre une preuve de paiement avant la
-      // création de l'inscription (comme pour une vente).
-      if (isCommercial && !proofFile) {
+      // Créer un nouvel apprenant (client) est possible SANS l'inscrire à une
+      // formation : le choix du programme est optionnel. Un apprenant existant,
+      // en revanche, doit avoir une formation pour être inscrit.
+      const creatingLearner = learnerMode === 'new';
+      const enrolling = Boolean(form.course_id);
+
+      if (!enrolling && !creatingLearner) {
+        setFormError(t('academy.courseOrNewLearner'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Un commercial doit joindre une preuve de paiement uniquement quand une
+      // inscription (donc une facture) est créée.
+      if (enrolling && isCommercial && !proofFile) {
         setFormError(t('invoices.proofRequiredForSale'));
         setIsSubmitting(false);
         return;
       }
 
       let learnerUserId = form.learner_user_id;
-      if (learnerMode === 'new') {
+      if (creatingLearner) {
         if (!newLearner.first_name || !newLearner.last_name) {
           setFormError(t('academy.newLearnerRequired'));
           setIsSubmitting(false);
@@ -293,10 +321,22 @@ export default function FormationEnrollmentModal({
           last_name: newLearner.last_name,
           email: newLearner.email,
           phone: newLearner.phone || null,
+          city: newLearner.city || undefined,
           country: newLearner.country || undefined,
+          nationality: newLearner.nationality || undefined,
+          quartier: newLearner.quartier || undefined,
+          occupation: newLearner.occupation || undefined,
           registered_agency_id: agencyId,
         });
         learnerUserId = created.id;
+      }
+
+      // Aucune formation choisie : on s'arrête à la création du client.
+      if (!enrolling) {
+        showToast(t('academy.clientCreatedNoEnrollment'), 'success');
+        onSaved(null);
+        onClose();
+        return;
       }
 
       // Un commercial ou un caissier qui s'inscrit est toujours le vendeur :
@@ -337,16 +377,29 @@ export default function FormationEnrollmentModal({
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {formError && <Alert variant="error">{formError}</Alert>}
 
+        {/* L'agence se choisit (ou se change) EN PREMIER, à chaque ouverture :
+            la liste de formations ci-dessous suit ce choix. */}
+        <AgencyScopeSelect
+          required
+          value={pickedAgencyId}
+          onChange={(id) => {
+            setPickedAgencyId(id);
+            // La formation sélectionnée appartient à l'agence précédente :
+            // on repart à zéro pour éviter de facturer la mauvaise entité.
+            setForm((prev) => ({ ...prev, course_id: '', training_session_id: '' }));
+          }}
+        />
+
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('nav.courses')} *
+            {t('nav.courses')}
           </label>
           <select
             value={form.course_id}
             onChange={(e) => setForm((prev) => ({ ...prev, course_id: e.target.value, training_session_id: '' }))}
             className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
           >
-            <option value="">{t('academy.searchCoursePlaceholder')}</option>
+            <option value="">{pickedAgencyId ? t('academy.searchCoursePlaceholder') : t('services.selectAgencyPlaceholder')}</option>
             {courses.map((course) => (
               <option key={course.id} value={course.id}>
                 {courseOptionLabel(course, t)}
@@ -357,6 +410,11 @@ export default function FormationEnrollmentModal({
           </select>
           {fieldErrors.course_id && (
             <p className="mt-1 text-sm text-error-500">{fieldErrors.course_id}</p>
+          )}
+          {!form.course_id && (
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              {t('academy.courseOptionalHint')}
+            </p>
           )}
           {(basePrice > 0 || discountAmount > 0) && (
             <div className="mt-2 rounded-lg bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
@@ -548,8 +606,8 @@ export default function FormationEnrollmentModal({
           <Button
             type="submit"
             isLoading={isSubmitting}
-            disabled={isCommercial && !proofFile}
-            title={isCommercial && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+            disabled={isCommercial && Boolean(form.course_id) && !proofFile}
+            title={isCommercial && Boolean(form.course_id) && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
             className="flex-1"
           >
             {t('common.create')}

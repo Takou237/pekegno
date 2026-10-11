@@ -18,7 +18,7 @@ export default function AcademyInvoiceFormPage() {
   const invoicesPath = departmentId ? `/departments/${departmentId}/invoices` : '/invoices';
   const [enrollmentOpen, setEnrollmentOpen] = useState(false);
 
-  function handleEnrollmentSaved(_enrollment: FormationEnrollment) {
+  function handleEnrollmentSaved(_enrollment: FormationEnrollment | null) {
     setEnrollmentOpen(false);
   }
 

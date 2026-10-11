@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { UserRound } from 'lucide-react';
+import { UserRound, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getMainItems, navLinkClass, INVOICES_ROLES } from '@/components/layout/navItems';
 import { invoicesApi } from '@/api/invoices.api';
@@ -59,10 +59,19 @@ export function Sidebar() {
         ))}
       </nav>
       <nav className="border-t border-gray-100 pt-4 dark:border-gray-800">
-        <NavLink to="/profile" end={false} className={navLinkClass}>
-          <UserRound className="h-5 w-5" />
-          {t('nav.myProfile')}
-        </NavLink>
+        {roleName === 'commercial' ? (
+          // Commercial : « Mon profil » est désormais un menu ; le bas de la
+          // barre latérale regroupe les paramètres du compte.
+          <NavLink to="/profile/settings" end={false} className={navLinkClass}>
+            <Settings className="h-5 w-5" />
+            {t('nav.settings')}
+          </NavLink>
+        ) : (
+          <NavLink to="/profile" end={false} className={navLinkClass}>
+            <UserRound className="h-5 w-5" />
+            {t('nav.myProfile')}
+          </NavLink>
+        )}
       </nav>
     </aside>
   );

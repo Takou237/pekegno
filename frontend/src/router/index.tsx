@@ -86,6 +86,8 @@ const AgencyAccountingPage = lazyWithRetry(() => import('@/pages/accounting/Agen
 const DailyBilanPage = lazyWithRetry(() => import('@/pages/bilans/DailyBilanPage'));
 const SubscriptionListPage = lazyWithRetry(() => import('@/pages/subscriptions/SubscriptionListPage'));
 const CommercialReportPage = lazyWithRetry(() => import('@/pages/commercials/CommercialReportPage'));
+const CommercialMonthlyReportPage = lazyWithRetry(() => import('@/pages/commercials/CommercialMonthlyReportPage'));
+const SalesTrackingPage = lazyWithRetry(() => import('@/pages/commercials/SalesTrackingPage'));
 const SubscriptionsReportPage = lazyWithRetry(() => import('@/pages/reports/SubscriptionsReportPage'));
 const CustomersReportPage = lazyWithRetry(() => import('@/pages/reports/CustomersReportPage'));
 const ComparisonReportPage = lazyWithRetry(() => import('@/pages/reports/ComparisonReportPage'));
@@ -243,6 +245,8 @@ export const router = createBrowserRouter([
           },
           { path: '/commercial/commissions', element: page(<CommercialCommissionsPage />, dashboard) },
           { path: '/commercials/report', element: page(<CommercialReportPage />, table) },
+          { path: '/commercials/monthly-report', element: page(<CommercialMonthlyReportPage />, table) },
+          { path: '/sales-tracking', element: page(<SalesTrackingPage />, table) },
           { path: '/commercials/:id', element: page(<CommercialDetailPage />, detail) },
           { path: '/employees', element: page(<EmployeeListPage />, table) },
           { path: '/employees/report', element: page(<CommercialReportPage mode="employee" />, table) },

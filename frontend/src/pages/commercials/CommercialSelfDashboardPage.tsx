@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { TrendingUp, ShoppingCart, Coins, Star, Target, Trash2 } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Coins, Star, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { commercialsApi } from '@/api/commercials.api';
 import { invoicesApi } from '@/api/invoices.api';
@@ -8,7 +8,6 @@ import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
-import { Button } from '@/components/ui/Button';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
@@ -143,13 +142,6 @@ export default function CommercialSelfDashboardPage() {
           </div>
           <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">{commercial.points_balance}</p>
         </div>
-      </div>
-
-      <div className="flex flex-wrap gap-3">
-        <Button variant="outline" onClick={() => (window.location.href = `/commercials/${commercial.id}`)}>
-          <Target className="h-4 w-4" />
-          {t('commercial.selfMyDetail')}
-        </Button>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">

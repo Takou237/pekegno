@@ -139,14 +139,18 @@ export function OfferFormModal({
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {error && <Alert variant="error">{error}</Alert>}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input label={t('agencyDept.name')} required error={fieldErrors.name} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          {!offer && needsAgencyChoice && (
+        {/* Hors page agence : l'agence se choisit EN PREMIER, le reste de la
+            fiche (département, catégorie…) suit. */}
+        {!offer && needsAgencyChoice && (
+          <div className="sm:max-w-xs">
             <Select label={t('agencyDept.agency')} required error={fieldErrors.agency_id} value={form.agency_id} onChange={(e) => setForm({ ...form, agency_id: e.target.value })}>
               <option value="">{t('services.selectAgency')}</option>
               {agencies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Select>
-          )}
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Input label={t('agencyDept.name')} required error={fieldErrors.name} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           {!departmentId && (
             <Select label={t('agencyDept.department')} required={departments.length > 0} error={fieldErrors.department_id} value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>
               <option value="">{t('common.noDepartment')}</option>
