@@ -46,6 +46,15 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 |---|---|
 | `repair-converted-clients-2026-10-01.sql` | rattache à leur agence / commercial les clients issus d'une conversion de prospect (idempotent, aucune migration de schéma) |
 
+⏳ **À appliquer avec le déploiement du 13/10/2026** (voir
+`13_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `13_10/migration-2026-10-13.sql` | socle Agency en base : 28 migrations (catégories, packages, prestations, actions, notifications, exécutions, offres, équipiers, contrats, liens factures/commissions, `department_id` comptable, fiche client, commission service, preuves fichier, réglages commission 20 %) |
+| `13_10/seed-permissions-2026-10-13.sql` | 16 permissions Agency + rôle `community-manager` + associations par rôle (miroir `RoleSeeder`) + rattrapage caissier |
+| `13_10/frontend-dist.zip` | build admin du 13/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
+
 Dernière migration Laravel présente en prod :
 `2026_09_30_000003_add_payer_phone_to_invoices_table`. Pour un prochain
 déploiement, n'importer que les **nouveaux** scripts SQL correspondant aux
