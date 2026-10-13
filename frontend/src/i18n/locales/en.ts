@@ -1,6 +1,7 @@
 export default {
   common: {
     loading: 'Loading...',
+    refresh: 'Refresh',
     menu: 'Menu',
     close: 'Close',
     cancel: 'Cancel',
@@ -986,6 +987,7 @@ export default {
     bonusFixed: 'Fixed bonus',
     bonusFixedHint: 'Fixed amount paid to the commercial per sale of this service (takes priority over percentage).',
     deployCountriesHint: 'The service will be created in every agency of each selected country.',
+    deployCountriesEditHint: 'Uncheck a country to delete the copies in all of its agencies. The current record is always kept.',
     isSeminar: 'Seminar service (Pass)',
     seminarTiers: 'Seminar tiers',
     tierLabel: 'Label',
@@ -2296,6 +2298,7 @@ export default {
     isPublic: 'Public',
     deployCountries: 'Also deploy in other countries',
     deployCountriesHint: 'The course will be created in every agency of each selected country.',
+    deployCountriesEditHint: 'Uncheck a country to delete the copies in all of its agencies. The current record is always kept.',
     currentCountry: '{{country}} (current)',
     courseName: 'Course name',
     mode: 'Mode',
@@ -2896,6 +2899,7 @@ export default {
       edit: 'Edit package',
       empty: 'No package in this department.',
       deployHint: 'The package will be created in every agency of each selected country.',
+      deployEditHint: 'Uncheck a country to remove the copies in all of its agencies. The current record is always kept.',
       uncategorized: 'Uncategorised',
       tagline: 'Tagline',
       billingPeriod: 'Subscription period',
@@ -2948,6 +2952,8 @@ export default {
       subscribingTo: 'Subscribing to “{{name}}”',
       delete: 'Delete service',
       deleteConfirm: 'Delete the service “{{name}}”?',
+      deployHint: 'The service will be created in every agency of each selected country.',
+      deployEditHint: 'Uncheck a country to delete the copies in all of its agencies. The current record is always kept.',
     },
     prestations: {
       listTab: 'List',

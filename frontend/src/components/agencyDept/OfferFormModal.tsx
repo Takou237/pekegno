@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { agenciesApi } from '@/api/agencies.api';
+import { countriesApi } from '@/api/countries.api';
 import { departmentsApi } from '@/api/departments.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { Modal } from '@/components/ui/Modal';
@@ -10,13 +11,18 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { CountryDeployPicker } from '@/components/countries/CountryDeployPicker';
 import type { AgencyCategory, PrestationOffer } from '@/types/agencyDepartment';
 import type { Agency } from '@/types/agency';
 import type { Department } from '@/types/department';
+import type { CountryStat } from '@/types/stats';
 
 /**
  * Création / modification d'une offre de prestation (« Campagne Facebook ») :
  * fiche simple nom + catégorie à laquelle les clients souscrivent.
+ * À la création comme à la modification, l'offre peut être déployée dans
+ * d'autres pays (CountryDeployPicker, comme les services et les packages) :
+ * une copie est créée dans toutes les agences de chaque pays coché.
  */
 export function OfferFormModal({
   isOpen,
@@ -44,6 +50,12 @@ export function OfferFormModal({
   const [categories, setCategories] = useState<AgencyCategory[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [countries, setCountries] = useState<CountryStat[]>([]);
+  const [targetCountryIds, setTargetCountryIds] = useState<string[]>([]);
+  // En modification, la clé n'est envoyée que si le déploiement actuel a pu
+  // être chargé (sinon on ne toucherait qu'à la fiche, sans synchro).
+  const [deployLoaded, setDeployLoaded] = useState(false);
+  const [agencyCountryId, setAgencyCountryId] = useState<string | undefined>(undefined);
   const [form, setForm] = useState({
     name: '',
     agency_id: '',
@@ -67,6 +79,40 @@ export function OfferFormModal({
       .catch(() => {});
     if (needsAgencyChoice) {
       agenciesApi.list({ country_id: countryId, per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
+    }
+    // Pays pour le déploiement multi-pays : à la création, tous les pays
+    // actifs sont cochés par défaut ; en modification, on pré-coche les pays
+    // où l'offre est déjà déployée — décocher un pays y supprimera les copies
+    // (la fiche actuelle et son agence restent).
+    setTargetCountryIds([]);
+    setDeployLoaded(false);
+    countriesApi
+      .list({ per_page: 100 })
+      .then((r) => {
+        setCountries(r.data);
+        if (!offer) {
+          setTargetCountryIds(r.data.filter((c) => c.is_active).map((c) => c.id));
+          setDeployLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!offer) setDeployLoaded(true);
+      });
+    if (offer) {
+      agencyDeptApi
+        .offerDeployments(offer.id)
+        .then((ids) => {
+          setTargetCountryIds(ids);
+          setDeployLoaded(true);
+        })
+        .catch(() => setDeployLoaded(false));
+    }
+    // Pays de l'agence de la page (signalé « pays actuel ») quand il n'est
+    // pas fourni par la page.
+    if (!countryId && agencyId) {
+      agenciesApi.get(agencyId).then((a) => setAgencyCountryId(a.country_id ?? undefined)).catch(() => setAgencyCountryId(undefined));
+    } else {
+      setAgencyCountryId(undefined);
     }
     setError(null);
     setFieldErrors({});
@@ -115,6 +161,11 @@ export function OfferFormModal({
       name: form.name,
       description: form.description || null,
       is_active: form.is_active,
+      // Modification : liste complète pré-chargée — même vide, pour que
+      // décocher supprime les copies des pays décochés.
+      ...(offer
+        ? deployLoaded ? { target_country_ids: targetCountryIds } : {}
+        : targetCountryIds.length ? { target_country_ids: targetCountryIds } : {}),
     };
     try {
       const saved = offer
@@ -186,6 +237,15 @@ export function OfferFormModal({
             className="rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm font-normal dark:border-gray-700 dark:text-white"
           />
         </label>
+
+        <CountryDeployPicker
+          countries={countries}
+          selectedIds={targetCountryIds}
+          onChange={setTargetCountryIds}
+          currentCountryId={countryId ?? agencies.find((a) => a.id === (agencyId ?? form.agency_id))?.country_id ?? agencyCountryId}
+          hint={t(offer ? 'agencyDept.offers.deployEditHint' : 'agencyDept.offers.deployHint')}
+          error={fieldErrors.target_country_ids ?? fieldErrors.agency_id}
+        />
 
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>

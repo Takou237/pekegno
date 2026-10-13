@@ -95,6 +95,9 @@ export function PackageFormModal({
   const [availablePrestations, setAvailablePrestations] = useState<PrestationOffer[]>([]);
   const [countries, setCountries] = useState<CountryStat[]>([]);
   const [targetCountryIds, setTargetCountryIds] = useState<string[]>([]);
+  // En modification, la clé n'est envoyée que si le déploiement actuel a pu
+  // être chargé (sinon on ne toucherait qu'à la fiche, sans synchro).
+  const [deployLoaded, setDeployLoaded] = useState(false);
   const [form, setForm] = useState<PackageForm>(emptyForm);
   const [newCategory, setNewCategory] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -136,14 +139,29 @@ export function PackageFormModal({
 
     // Comme les services : à la création, le package est déployé par défaut
     // dans tous les pays actifs ; l'utilisateur décoche les autres.
+    // En modification, on pré-coche les pays où il est déjà déployé :
+    // décocher un pays y retirera les copies (la fiche actuelle reste).
     setTargetCountryIds([]);
+    setDeployLoaded(false);
     countriesApi
       .list({ per_page: 100 })
       .then((r) => {
         setCountries(r.data);
-        if (!editing) setTargetCountryIds(r.data.filter((c) => c.is_active).map((c) => c.id));
+        if (!editing) {
+          setTargetCountryIds(r.data.filter((c) => c.is_active).map((c) => c.id));
+          setDeployLoaded(true);
+        }
       })
       .catch(() => {});
+    if (editing) {
+      agencyDeptApi
+        .packageDeployments(editing.id)
+        .then((ids) => {
+          setTargetCountryIds(ids);
+          setDeployLoaded(true);
+        })
+        .catch(() => setDeployLoaded(false));
+    }
 
     agencyDeptApi
       .categories({ kind: 'package', department_id: departmentId, agency_id: agencyId, country_id: countryId })
@@ -185,7 +203,11 @@ export function PackageFormModal({
     const payload: PackagePayload = {
       // Création : l'agence de la page (si fournie) + toutes les agences des pays cochés.
       agency_id: editing ? editing.agency_id : pickedAgencyId || agencyId || undefined,
-      ...(editing ? {} : { target_country_ids: targetCountryIds.length ? targetCountryIds : undefined }),
+      // Modification : liste complète pré-chargée — même vide, pour que
+      // décocher retire les copies des pays décochés.
+      ...(editing
+        ? deployLoaded ? { target_country_ids: targetCountryIds } : {}
+        : targetCountryIds.length ? { target_country_ids: targetCountryIds } : {}),
       department_id: editing ? editing.department_id ?? undefined : departmentId,
       category_id: form.category_id || null,
       name: form.name,
@@ -325,7 +347,7 @@ export function PackageFormModal({
           </Button>
         </fieldset>
 
-        {!editing && (
+        {!editing ? (
           <CountryDeployPicker
             countries={countries}
             selectedIds={targetCountryIds}
@@ -333,6 +355,15 @@ export function PackageFormModal({
             currentCountryId={countryId}
             hint={t('agencyDept.packages.deployHint')}
             error={fieldErrors.target_country_ids ?? fieldErrors.agency_id}
+          />
+        ) : (
+          <CountryDeployPicker
+            countries={countries}
+            selectedIds={targetCountryIds}
+            onChange={setTargetCountryIds}
+            currentCountryId={countryId}
+            hint={t('agencyDept.packages.deployEditHint')}
+            error={fieldErrors.target_country_ids}
           />
         )}
 

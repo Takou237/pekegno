@@ -316,6 +316,8 @@ export interface PrestationOffer {
 
 export interface PrestationOfferPayload {
   agency_id?: string;
+  /** Création : dupliquer l'offre dans toutes les agences de ces pays. Modification : créer les copies manquantes. */
+  target_country_ids?: string[];
   department_id?: string | null;
   category_id?: string | null;
   name?: string;

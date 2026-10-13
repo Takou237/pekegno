@@ -30,6 +30,10 @@ class UpdateCourseRequest extends FormRequest
             'cover_image' => ['sometimes', 'nullable', 'string', 'max:255'],
             'presentation_video' => ['sometimes', 'nullable', 'string', 'max:255'],
             'agency_id' => ['sometimes', 'nullable', 'string', Rule::exists('agencies', 'id')->whereNull('deleted_at')],
+            // Déploiement à la modification : cocher un pays crée la copie
+            // manquante dans toutes ses agences (additif, jamais supprimé).
+            'target_country_ids' => ['sometimes', 'nullable', 'array'],
+            'target_country_ids.*' => ['string', 'exists:countries,id'],
             'is_active' => ['sometimes', 'boolean'],
             'is_public' => ['sometimes', 'boolean'],
         ];

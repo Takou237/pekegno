@@ -75,6 +75,9 @@ export function ServiceFormModal({
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [countries, setCountries] = useState<CountryStat[]>([]);
   const [targetCountryIds, setTargetCountryIds] = useState<string[]>([]);
+  // En modification, la clé n'est envoyée que si le déploiement actuel a pu
+  // être chargé (sinon on ne toucherait qu'à la fiche, sans synchro).
+  const [deployLoaded, setDeployLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -86,14 +89,29 @@ export function ServiceFormModal({
       agenciesApi.list({ per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
       // Comme pour les formations : à la création, le service est déployé par
       // défaut dans tous les pays actifs ; l'utilisateur décoche les autres.
+      // En modification, on pré-coche les pays où il est déjà déployé :
+      // décocher un pays y supprimera les copies (la fiche actuelle reste).
       setTargetCountryIds([]);
+      setDeployLoaded(false);
       countriesApi
         .list({ per_page: 100 })
         .then((r) => {
           setCountries(r.data);
-          if (!isEditing) setTargetCountryIds(r.data.filter((c) => c.is_active).map((c) => c.id));
+          if (!isEditing) {
+            setTargetCountryIds(r.data.filter((c) => c.is_active).map((c) => c.id));
+            setDeployLoaded(true);
+          }
         })
         .catch(() => {});
+      if (isEditing && service) {
+        servicesApi
+          .deployments(service.id)
+          .then((ids) => {
+            setTargetCountryIds(ids);
+            setDeployLoaded(true);
+          })
+          .catch(() => setDeployLoaded(false));
+      }
       const source = duplicateSource ?? service;
       setForm(
         source
@@ -165,7 +183,12 @@ export function ServiceFormModal({
       description: form.description.trim() || null,
       cover_image: form.cover_image,
       presentation_video: form.presentation_video.trim() || null,
-      ...(isEditing ? {} : { target_country_ids: targetCountryIds.length ? targetCountryIds : undefined }),
+      // Création : pays cochés (si aucun, seule l'agence de la page).
+      // Modification : liste complète pré-chargée — même vide, pour que
+      // décocher supprime les copies des pays décochés.
+      ...(isEditing
+        ? deployLoaded ? { target_country_ids: targetCountryIds } : {}
+        : targetCountryIds.length ? { target_country_ids: targetCountryIds } : {}),
     };
   }
 
@@ -406,7 +429,7 @@ export function ServiceFormModal({
           )}
         </div>
 
-        {!isEditing && (
+        {!isEditing ? (
           <CountryDeployPicker
             countries={countries}
             selectedIds={targetCountryIds}
@@ -414,6 +437,15 @@ export function ServiceFormModal({
             currentCountryId={agencies.find((a) => a.id === agencyId)?.country_id ?? undefined}
             hint={t('services.deployCountriesHint')}
             error={fieldErrors.target_country_ids ?? fieldErrors.agency_id}
+          />
+        ) : (
+          <CountryDeployPicker
+            countries={countries}
+            selectedIds={targetCountryIds}
+            onChange={setTargetCountryIds}
+            currentCountryId={agencies.find((a) => a.id === service?.agency_id)?.country_id ?? undefined}
+            hint={t('services.deployCountriesEditHint')}
+            error={fieldErrors.target_country_ids}
           />
         )}
 

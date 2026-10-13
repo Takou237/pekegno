@@ -49,4 +49,10 @@ export const servicesApi = {
     });
     return data;
   },
+
+  /** Pays où ce service est déployé (pré-coche le sélecteur en modification). */
+  async deployments(id: string): Promise<string[]> {
+    const { data } = await client.get<{ country_ids: string[] }>(`/services/${id}/deployments`);
+    return data.country_ids;
+  },
 };

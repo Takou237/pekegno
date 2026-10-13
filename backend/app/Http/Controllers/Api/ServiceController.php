@@ -193,6 +193,26 @@ class ServiceController extends Controller
         return new ServiceResource($service->load($with));
     }
 
+    #[OA\Get(
+        path: '/api/services/{service}/deployments',
+        summary: 'Pays où ce service est déployé (copies du même nom dans les agences)',
+        tags: ['Services'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'service', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Identifiants des pays déployés'),
+            new OA\Response(response: 404, description: 'Service non trouvé'),
+        ]
+    )]
+    public function deployments(Service $service): JsonResponse
+    {
+        $this->authorize('view', $service);
+
+        return response()->json(['country_ids' => $this->deployedCountryIds($service, (string) $service->name)]);
+    }
+
     #[OA\Put(
         path: '/api/services/{service}',
         summary: 'Modifier un service',
@@ -223,7 +243,14 @@ class ServiceController extends Controller
     public function update(UpdateServiceRequest $request, Service $service): ServiceResource
     {
         $oldPrice = $service->price;
+        $oldName = (string) $service->name;
         $data = $request->validated();
+        // Clé présente (même vide) ⇒ synchroniser le déploiement : créer les
+        // copies manquantes dans les pays cochés, supprimer celles des pays
+        // décochés. Clé absente ⇒ ne toucher qu'à la fiche actuelle.
+        $syncDeploy = $request->exists('target_country_ids');
+        $targetCountryIds = $data['target_country_ids'] ?? [];
+        unset($data['target_country_ids']);
 
         $service->update(Arr::except($data, ['tiers']));
 
@@ -237,9 +264,104 @@ class ServiceController extends Controller
 
         $this->syncSeminarTiers($service, $data['tiers'] ?? null, (bool) ($data['is_seminar'] ?? $service->is_seminar));
 
+        if ($syncDeploy) {
+            $this->syncDeployment($service->fresh()->load('seminarTiers'), $oldName, $targetCountryIds);
+        }
+
         return new ServiceResource($service->fresh()->load([
             'category', 'agency', 'promotions', 'priceHistory', 'seminarTiers',
         ]));
+    }
+
+    /**
+     * Pays où des copies du même nom existent (agences non supprimées).
+     *
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    private function deployedCountryIds(Service $service, string $name)
+    {
+        return Agency::query()
+            ->whereNull('agencies.deleted_at')
+            ->whereIn('agencies.id', function ($q) use ($name) {
+                $q->select('agency_id')->from('services')
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+                    ->whereNull('deleted_at');
+            })
+            ->pluck('agencies.country_id')
+            ->filter()
+            ->unique()
+            ->values();
+    }
+
+    /**
+     * Synchronise le déploiement multi-pays d'un service :
+     * - pays cochés : crée la copie manquante (mêmes champs + passes) ;
+     * - pays décochés : supprime (soft delete, réversible) les copies sœurs —
+     *   la fiche actuelle et son agence ne sont jamais touchées.
+     */
+    private function syncDeployment(Service $source, string $oldName, array $targetCountryIds): void
+    {
+        $names = collect([$oldName, (string) $source->name])
+            ->map(fn ($n) => mb_strtolower($n))->unique()->values()->all();
+        $newNameLower = mb_strtolower((string) $source->name);
+
+        DB::transaction(function () use ($source, $names, $newNameLower, $targetCountryIds) {
+            $checkedAgencyIds = Agency::query()
+                ->whereNull('deleted_at')
+                ->when(! empty($targetCountryIds), fn ($q) => $q->whereIn('country_id', $targetCountryIds), fn ($q) => $q->whereRaw('1 = 0'))
+                ->when($source->agency_id, fn ($q, $id) => $q->where('id', '<>', $id))
+                ->pluck('id');
+
+            foreach ($checkedAgencyIds as $agencyId) {
+                $exists = Service::query()
+                    ->where('agency_id', $agencyId)
+                    ->whereRaw('LOWER(name) = ?', [$newNameLower])
+                    ->exists();
+                if ($exists) {
+                    continue;
+                }
+
+                $row = $source->only([
+                    'category_id', 'name', 'description', 'price', 'bonus_fixed',
+                    'is_seminar', 'is_public', 'cover_image', 'presentation_video',
+                ]);
+                $row['agency_id'] = $agencyId;
+                $row['code'] = Service::generateCode();
+
+                $copy = Service::create($row);
+
+                PriceHistory::create([
+                    'service_id' => $copy->id,
+                    'price' => $copy->price,
+                    'changed_at' => now(),
+                ]);
+
+                foreach ($source->seminarTiers as $tier) {
+                    SeminarTier::create([
+                        'service_id' => $copy->id,
+                        'tier' => $tier->tier,
+                        'label' => $tier->label,
+                        'price' => $tier->price,
+                        'description' => $tier->description,
+                    ]);
+                }
+            }
+
+            // Copies sœurs hors agence actuelle, dans un pays non coché
+            // (liste vide ⇒ tous les pays sont décochés ⇒ tout est supprimé).
+            $placeholders = implode(',', array_fill(0, count($names), '?'));
+            $staleIds = Service::query()
+                ->whereNotNull('agency_id')
+                ->when($source->agency_id, fn ($q, $id) => $q->where('agency_id', '<>', $id))
+                ->whereRaw("LOWER(name) IN ({$placeholders})", $names)
+                ->whereHas('agency', fn ($q) => $q
+                    ->when(! empty($targetCountryIds), fn ($qq) => $qq->whereNotIn('country_id', $targetCountryIds)))
+                ->pluck('id');
+
+            if ($staleIds->isNotEmpty()) {
+                Service::whereIn('id', $staleIds)->delete();
+            }
+        });
     }
 
     /**

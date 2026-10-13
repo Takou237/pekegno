@@ -74,7 +74,7 @@ export interface ServicePayload {
   description?: string | null;
   cover_image?: string | null;
   presentation_video?: string | null;
-  /** Création uniquement : dupliquer le service dans toutes les agences de ces pays. */
+  /** Création : dupliquer le service dans toutes les agences de ces pays. Modification : créer les copies manquantes. */
   target_country_ids?: string[];
 }
 

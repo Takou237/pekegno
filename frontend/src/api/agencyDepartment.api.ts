@@ -50,6 +50,8 @@ export const agencyDeptApi = {
   package: (id: string) => get<AgencyPackage>(`/packages/${id}`),
   createPackage: (payload: PackagePayload) => post<AgencyPackage>('/packages', payload),
   updatePackage: (id: string, payload: Partial<PackagePayload>) => put<AgencyPackage>(`/packages/${id}`, payload),
+  /** Pays où ce package est déployé (pré-coche le sélecteur en modification). */
+  packageDeployments: (id: string) => get<{ country_ids: string[] }>(`/packages/${id}/deployments`).then((r) => r.country_ids),
   deletePackage: (id: string) => del(`/packages/${id}`),
   addPromotion: (id: string, payload: { type: 'amount' | 'percent'; promo_price?: number; discount_percent?: number; start_date: string; end_date: string }) =>
     post(`/packages/${id}/promotions`, payload),
@@ -81,6 +83,8 @@ export const agencyDeptApi = {
   offer: (id: string) => get<PrestationOffer>(`/prestation-offers/${id}`),
   createOffer: (payload: PrestationOfferPayload) => post<PrestationOffer>('/prestation-offers', payload),
   updateOffer: (id: string, payload: PrestationOfferPayload) => put<PrestationOffer>(`/prestation-offers/${id}`, payload),
+  /** Pays où cette offre est déployée (pré-coche le sélecteur en modification). */
+  offerDeployments: (id: string) => get<{ country_ids: string[] }>(`/prestation-offers/${id}/deployments`).then((r) => r.country_ids),
   deleteOffer: (id: string) => del(`/prestation-offers/${id}`),
 
   // Prestations

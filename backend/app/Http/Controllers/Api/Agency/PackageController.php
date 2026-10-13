@@ -55,6 +55,26 @@ class PackageController extends Controller
         return response()->json($package->load(self::RELATIONS)->loadCount('contracts'));
     }
 
+    /**
+     * Pays où ce package est déployé (copies du même nom dans les agences).
+     * Sert à pré-cocher le sélecteur de déploiement dans le formulaire.
+     */
+    public function deployments(SubscriptionPack $package): JsonResponse
+    {
+        $countryIds = Agency::query()
+            ->whereNull('agencies.deleted_at')
+            ->whereIn('agencies.id', function ($q) use ($package) {
+                $q->select('agency_id')->from('subscription_packs')
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower((string) $package->name)]);
+            })
+            ->pluck('agencies.country_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        return response()->json(['country_ids' => $countryIds]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $this->validated($request);
@@ -121,7 +141,13 @@ class PackageController extends Controller
     public function update(Request $request, SubscriptionPack $package): JsonResponse
     {
         $data = $this->validated($request, update: true);
+        // Clé présente (même vide) ⇒ synchroniser le déploiement : créer les
+        // copies manquantes dans les pays cochés, supprimer celles des pays
+        // décochés. Clé absente ⇒ ne toucher qu'à la fiche actuelle.
+        $syncDeploy = $request->exists('target_country_ids');
+        $targetCountryIds = $data['target_country_ids'] ?? [];
         unset($data['target_country_ids']);
+        $oldName = (string) $package->name;
 
         DB::transaction(function () use ($package, $data, $request) {
             $old = $package->only(['name', 'price_per_month', 'original_price', 'is_active']);
@@ -140,7 +166,122 @@ class PackageController extends Controller
             );
         });
 
+        if ($syncDeploy) {
+            $this->syncDeployment($request, $package->fresh()->load(['items', 'recommendations']), $oldName, $targetCountryIds);
+        }
+
         return response()->json($package->fresh()->load(self::RELATIONS));
+    }
+
+    /**
+     * Synchronise le déploiement multi-pays d'un package :
+     * - pays cochés : crée la copie manquante (mêmes champs + contenu) ;
+     * - pays décochés : retire les copies sœurs — désactivation si des
+     *   contrats y sont rattachés, suppression sinon (les items et
+     *   recommandations suivent en cascade) ;
+     * - la fiche actuelle et son agence ne sont jamais touchées.
+     */
+    private function syncDeployment(Request $request, SubscriptionPack $source, string $oldName, array $targetCountryIds): void
+    {
+        $names = collect([$oldName, (string) $source->name])
+            ->map(fn ($n) => mb_strtolower($n))->unique()->values()->all();
+        $newNameLower = mb_strtolower((string) $source->name);
+
+        $inScope = fn (string $agencyId) => $this->access->canAccessAgency($request->user(), $agencyId);
+
+        DB::transaction(function () use ($request, $source, $names, $newNameLower, $targetCountryIds, $inScope) {
+            $checkedAgencyIds = Agency::query()
+                ->whereNull('deleted_at')
+                ->when(! empty($targetCountryIds), fn ($q) => $q->whereIn('country_id', $targetCountryIds), fn ($q) => $q->whereRaw('1 = 0'))
+                ->when($source->agency_id, fn ($q, $id) => $q->where('id', '<>', $id))
+                ->pluck('id')
+                ->filter($inScope)
+                ->values();
+
+            foreach ($checkedAgencyIds as $agencyId) {
+                $exists = SubscriptionPack::query()
+                    ->where('agency_id', $agencyId)
+                    ->whereRaw('LOWER(name) = ?', [$newNameLower])
+                    ->exists();
+                if ($exists) {
+                    continue;
+                }
+
+                $base = $source->only([
+                    'category_id', 'name', 'tagline', 'description', 'prerequisites',
+                    'price_per_month', 'original_price', 'price_is_starting_from',
+                    'billing_period', 'min_duration_months', 'sort_order',
+                    'is_active', 'is_public', 'cover_image', 'department_id',
+                ]) + [
+                    'items' => $source->items->map(fn ($i) => [
+                        'label' => $i->label,
+                        'service_id' => $i->service_id,
+                        'quantity' => $i->quantity,
+                        'frequency' => $i->frequency,
+                        'unit' => $i->unit,
+                        'action_type' => $i->action_type,
+                    ])->all(),
+                    'recommendations' => $source->recommendations->map(fn ($r) => [
+                        'label' => $r->label,
+                        'quantity' => $r->quantity,
+                        'client_team_role_id' => $r->client_team_role_id,
+                    ])->all(),
+                ];
+                // scopeToAgency réadapte département / catégorie / services /
+                // rôles à l'agence cible (retrouvés ou recréés par nom).
+                $scoped = $this->scopeToAgency($base, $agencyId);
+                $row = collect($scoped)->except(['items', 'recommendations', 'agency_id', 'code'])->all();
+                $copy = SubscriptionPack::create($row + [
+                    'agency_id' => $agencyId,
+                    'code' => SubscriptionPack::generateCode(),
+                ]);
+
+                $this->syncChildren($copy, $scoped);
+
+                $this->logger->log(
+                    action: 'created',
+                    entityType: 'subscription-pack',
+                    entityId: $copy->id,
+                    description: "Package {$copy->name} déployé depuis {$source->name}",
+                    newValues: ['price' => (float) $copy->price_per_month],
+                    request: $request,
+                    agencyId: $copy->agency_id,
+                );
+            }
+
+            // Copies sœurs hors agence actuelle, dans un pays non coché
+            // (liste vide ⇒ tous les pays sont décochés ⇒ tout est retiré).
+            $placeholders = implode(',', array_fill(0, count($names), '?'));
+            $staleIds = SubscriptionPack::query()
+                ->whereNotNull('agency_id')
+                ->when($source->agency_id, fn ($q, $id) => $q->where('agency_id', '<>', $id))
+                ->whereRaw("LOWER(name) IN ({$placeholders})", $names)
+                ->whereHas('agency', fn ($q) => $q
+                    ->when(! empty($targetCountryIds), fn ($qq) => $qq->whereNotIn('country_id', $targetCountryIds)))
+                ->pluck('agency_id', 'id')
+                ->filter(fn ($agencyId) => $inScope($agencyId))
+                ->keys();
+
+            foreach ($staleIds as $staleId) {
+                $stale = SubscriptionPack::query()->find($staleId);
+                if ($stale === null) {
+                    continue;
+                }
+                if ($stale->contracts()->exists()) {
+                    $stale->update(['is_active' => false]);
+                } else {
+                    $stale->delete();
+                }
+                $this->logger->log(
+                    action: 'deleted',
+                    entityType: 'subscription-pack',
+                    entityId: $stale->id,
+                    description: "Package {$stale->name} retiré (pays décoché)",
+                    request: $request,
+                    agencyId: $stale->agency_id,
+                );
+            }
+        });
     }
 
     public function destroy(Request $request, SubscriptionPack $package): JsonResponse

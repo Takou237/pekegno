@@ -43,9 +43,14 @@ class CommercialMonthlyReportService
             'agency_name' => $commercial->agency?->name,
         ];
 
+        // Bornes $from/$to en UTC pour les requêtes ; mais l'étiquette
+        // affichée doit rester en jour métier (Africa/Douala), sinon un
+        // from à 00:00 heure de Douala s'affiche la veille (ex. 30 sept.
+        // au lieu du 1er oct.).
+        $businessTz = (string) config('app.business_timezone', 'Africa/Douala');
         $period = [
-            'from' => $from->toDateString(),
-            'to' => $to->toDateString(),
+            'from' => $from->copy()->setTimezone($businessTz)->toDateString(),
+            'to' => $to->copy()->setTimezone($businessTz)->toDateString(),
         ];
 
         $invoices = Invoice::query()

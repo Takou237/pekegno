@@ -349,6 +349,12 @@ export const academyApi = {
     return data.data ?? (data as unknown as Course);
   },
 
+  /** Pays où cette formation est déployée (pré-coche le sélecteur en modification). */
+  async courseDeployments(id: string): Promise<string[]> {
+    const { data } = await client.get<{ country_ids: string[] }>(`/courses/${id}/deployments`);
+    return data.country_ids;
+  },
+
   async removeCourse(id: string): Promise<void> {
     await client.delete(`/courses/${id}`);
   },

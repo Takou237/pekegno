@@ -179,6 +179,36 @@ class CourseController extends Controller
         return new CourseResource($course->load(['agency', 'categories', 'modules.trainer', 'sessions']));
     }
 
+    #[OA\Get(
+        path: '/api/courses/{course}/deployments',
+        summary: 'Pays où cette formation est déployée (copies du même nom dans les agences)',
+        tags: ['Académie — Cours'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'course', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Identifiants des pays déployés'),
+            new OA\Response(response: 404, description: 'Cours non trouvé'),
+        ]
+    )]
+    public function deployments(Course $course): JsonResponse
+    {
+        $countryIds = Agency::query()
+            ->whereNull('agencies.deleted_at')
+            ->whereIn('agencies.id', function ($q) use ($course) {
+                $q->select('agency_id')->from('courses')
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower((string) $course->name)])
+                    ->whereNull('deleted_at');
+            })
+            ->pluck('agencies.country_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        return response()->json(['country_ids' => $countryIds]);
+    }
+
     #[OA\Put(
         path: '/api/courses/{course}',
         summary: 'Modifier un cours',
@@ -197,7 +227,13 @@ class CourseController extends Controller
     {
         $data = $request->validated();
         $categoryIds = $data['category_ids'] ?? null;
-        unset($data['category_ids']);
+        // Clé présente (même vide) ⇒ synchroniser le déploiement : créer les
+        // copies manquantes dans les pays cochés, supprimer celles des pays
+        // décochés. Clé absente ⇒ ne toucher qu'à la fiche actuelle.
+        $syncDeploy = $request->exists('target_country_ids');
+        $targetCountryIds = $data['target_country_ids'] ?? [];
+        unset($data['category_ids'], $data['target_country_ids']);
+        $oldName = (string) $course->name;
 
         $course->update($data);
 
@@ -205,7 +241,70 @@ class CourseController extends Controller
             $course->categories()->sync($categoryIds);
         }
 
+        if ($syncDeploy) {
+            $this->syncDeployment($course->fresh()->load('categories'), $oldName, $targetCountryIds);
+        }
+
         return new CourseResource($course->fresh()->load(['agency', 'categories']));
+    }
+
+    /**
+     * Synchronise le déploiement multi-pays d'une formation :
+     * - pays cochés : crée la copie manquante (mêmes champs + catégories) ;
+     * - pays décochés : supprime (soft delete, réversible) les copies sœurs —
+     *   la fiche actuelle et son agence ne sont jamais touchées.
+     */
+    private function syncDeployment(Course $source, string $oldName, array $targetCountryIds): void
+    {
+        $names = collect([$oldName, (string) $source->name])
+            ->map(fn ($n) => mb_strtolower($n))->unique()->values()->all();
+        $newNameLower = mb_strtolower((string) $source->name);
+        $sourceCategoryIds = $source->categories->pluck('id')->all();
+
+        $checkedAgencyIds = Agency::query()
+            ->whereNull('deleted_at')
+            ->when(! empty($targetCountryIds), fn ($q) => $q->whereIn('country_id', $targetCountryIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($source->agency_id, fn ($q, $id) => $q->where('id', '<>', $id))
+            ->pluck('id');
+
+        foreach ($checkedAgencyIds as $agencyId) {
+            $exists = Course::query()
+                ->where('agency_id', $agencyId)
+                ->whereRaw('LOWER(name) = ?', [$newNameLower])
+                ->exists();
+            if ($exists) {
+                continue;
+            }
+
+            $row = $source->only([
+                'name', 'description', 'objective', 'prerequisites', 'mode',
+                'price', 'duration_hours', 'duration_type', 'duration_months',
+                'cover_image', 'presentation_video', 'is_active', 'is_public',
+            ]);
+            $row['code'] = Course::generateCode();
+            $row['agency_id'] = $agencyId;
+
+            $copy = Course::create($row);
+
+            if (! empty($sourceCategoryIds)) {
+                $copy->categories()->sync($sourceCategoryIds);
+            }
+        }
+
+        // Copies sœurs hors agence actuelle, dans un pays non coché
+        // (liste vide ⇒ tous les pays sont décochés ⇒ tout est supprimé).
+        $placeholders = implode(',', array_fill(0, count($names), '?'));
+        $staleIds = Course::query()
+            ->whereNotNull('agency_id')
+            ->when($source->agency_id, fn ($q, $id) => $q->where('agency_id', '<>', $id))
+            ->whereRaw("LOWER(name) IN ({$placeholders})", $names)
+            ->whereHas('agency', fn ($q) => $q
+                ->when(! empty($targetCountryIds), fn ($qq) => $qq->whereNotIn('country_id', $targetCountryIds)))
+            ->pluck('id');
+
+        if ($staleIds->isNotEmpty()) {
+            Course::whereIn('id', $staleIds)->delete();
+        }
     }
 
     #[OA\Delete(

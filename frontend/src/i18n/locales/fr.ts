@@ -1,6 +1,7 @@
 export default {
   common: {
     loading: 'Chargement...',
+    refresh: 'Actualiser',
     menu: 'Menu',
     close: 'Fermer',
     cancel: 'Annuler',
@@ -994,6 +995,7 @@ export default {
     bonusFixed: 'Prime fixe',
     bonusFixedHint: 'Montant fixe versé au commercial par vente de ce service (prioritaire sur le pourcentage).',
     deployCountriesHint: 'Le service sera créé dans toutes les agences de chaque pays sélectionné.',
+    deployCountriesEditHint: 'Décochez un pays pour supprimer les copies dans toutes ses agences. La fiche actuelle est toujours conservée.',
     isSeminar: 'Service séminaire (Pass)',
     isPublic: 'Publier sur le catalogue en ligne',
     isPublicHint: 'Visible par les clients sur le site public sans connexion, une fois coché et enregistré.',
@@ -2308,6 +2310,7 @@ export default {
     isPublic: 'Publique',
     deployCountries: 'Déployer aussi dans d\'autres pays',
     deployCountriesHint: 'La formation sera créée dans toutes les agences de chaque pays sélectionné.',
+    deployCountriesEditHint: 'Décochez un pays pour supprimer les copies dans toutes ses agences. La fiche actuelle est toujours conservée.',
     currentCountry: '{{country}} (pays actuel)',
     courseName: 'Nom de la formation',
     mode: 'Mode',
@@ -2908,6 +2911,7 @@ export default {
       edit: 'Modifier le package',
       empty: 'Aucun package pour ce département.',
       deployHint: 'Le pack sera créé dans toutes les agences de chaque pays sélectionné.',
+      deployEditHint: 'Décochez un pays pour retirer les copies dans toutes ses agences. La fiche actuelle est toujours conservée.',
       uncategorized: 'Sans catégorie',
       tagline: 'Accroche',
       billingPeriod: 'Période de souscription',
@@ -2960,6 +2964,8 @@ export default {
       subscribingTo: 'Souscription à « {{name}} »',
       delete: 'Supprimer la prestation',
       deleteConfirm: 'Supprimer la prestation « {{name}} » ?',
+      deployHint: 'La prestation sera créée dans toutes les agences de chaque pays sélectionné.',
+      deployEditHint: 'Décochez un pays pour supprimer les copies dans toutes ses agences. La fiche actuelle est toujours conservée.',
     },
     prestations: {
       listTab: 'Liste',

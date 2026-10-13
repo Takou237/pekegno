@@ -216,6 +216,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::post('/courses', [CourseController::class, 'store'])->middleware('permission:courses.creer');
     Route::get('/courses/trash', [CourseController::class, 'trash'])->middleware('permission:courses.consulter');
+    Route::get('/courses/{course}/deployments', [CourseController::class, 'deployments'])->middleware('permission:courses.consulter');
     Route::get('/courses/{course}', [CourseController::class, 'show'])->middleware('permission:courses.consulter');
     Route::put('/courses/{course}', [CourseController::class, 'update'])->middleware('permission:courses.modifier');
     Route::delete('/courses/{course}', [CourseController::class, 'destroy'])->middleware('permission:courses.supprimer');
@@ -249,6 +250,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::get('/services/trash', [ServiceController::class, 'trash']);
     Route::get('/services/search', [ServiceController::class, 'search'])->middleware('permission:services.consulter');
+    Route::get('/services/{service}/deployments', [ServiceController::class, 'deployments'])->middleware('permission:services.consulter');
     Route::post('/services/{service}/restore', [ServiceController::class, 'restore']);
     Route::delete('/services/{service}/force-delete', [ServiceController::class, 'forceDelete']);
     Route::apiResource('services', ServiceController::class);
@@ -493,6 +495,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     // === Agency — Packages ===
     Route::get('/packages', [PackageController::class, 'index'])->middleware('permission:packages.consulter');
     Route::post('/packages', [PackageController::class, 'store'])->middleware('permission:packages.creer');
+    Route::get('/packages/{package}/deployments', [PackageController::class, 'deployments'])->middleware('permission:packages.consulter');
     Route::get('/packages/{package}', [PackageController::class, 'show'])->middleware('permission:packages.consulter');
     Route::put('/packages/{package}', [PackageController::class, 'update'])->middleware('permission:packages.modifier');
     Route::delete('/packages/{package}', [PackageController::class, 'destroy'])->middleware('permission:packages.supprimer');
@@ -505,6 +508,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     // clients restent des /prestations, filtrées par offer_id.
     Route::get('/prestation-offers', [PrestationOfferController::class, 'index'])->middleware('permission:prestations.consulter');
     Route::post('/prestation-offers', [PrestationOfferController::class, 'store'])->middleware('permission:prestations.creer');
+    Route::get('/prestation-offers/{offer}/deployments', [PrestationOfferController::class, 'deployments'])->middleware('permission:prestations.consulter');
     Route::get('/prestation-offers/{offer}', [PrestationOfferController::class, 'show'])->middleware('permission:prestations.consulter');
     Route::put('/prestation-offers/{offer}', [PrestationOfferController::class, 'update'])->middleware('permission:prestations.modifier');
     Route::delete('/prestation-offers/{offer}', [PrestationOfferController::class, 'destroy'])->middleware('permission:prestations.supprimer');

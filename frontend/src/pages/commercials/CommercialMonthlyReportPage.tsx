@@ -35,11 +35,16 @@ export default function CommercialMonthlyReportPage() {
 
   const fetchOptions = useCallback(async (query: string): Promise<AutocompleteOption[]> => {
     const results = await commercialsApi.search(query);
-    return results.map((c) => ({
-      id: c.id,
-      label: [c.first_name, c.last_name].filter(Boolean).join(' '),
-      subtitle: c.agency?.name ?? '',
-    }));
+    // Uniquement les commerciaux : la recherche renvoie aussi les formateurs
+    // vendeurs (is_trainer), qui n'ont pas de profil commercial — le rapport
+    // échouerait en 404 pour eux (« Aucun profil commercial trouvé »).
+    return results
+      .filter((c) => !c.is_trainer)
+      .map((c) => ({
+        id: c.id,
+        label: [c.first_name, c.last_name].filter(Boolean).join(' '),
+        subtitle: c.agency?.name ?? '',
+      }));
   }, []);
 
   const load = useCallback(() => {

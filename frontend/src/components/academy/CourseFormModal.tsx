@@ -104,6 +104,9 @@ export function CourseFormModal({
   const [form, setForm] = useState<FormState>(emptyForm);
   const [categories, setCategories] = useState<CourseCategory[]>([]);
   const [countries, setCountries] = useState<CountryStat[]>([]);
+  // En modification, la clé n'est envoyée que si le déploiement actuel a pu
+  // être chargé (sinon on ne toucherait qu'à la fiche, sans synchro).
+  const [deployLoaded, setDeployLoaded] = useState(false);
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -115,6 +118,7 @@ export function CourseFormModal({
     setForm(course ? formFromCourse(course) : emptyForm);
     setFormError(null);
     setFieldErrors({});
+    setDeployLoaded(false);
     courseCategoriesApi
       .list({ per_page: 100 })
       .then((res) => setCategories(res.data))
@@ -131,10 +135,23 @@ export function CourseFormModal({
           ...prev,
           target_country_ids: allCountryIds.length ? allCountryIds : currentCountryId ? [currentCountryId] : [],
         }));
+        setDeployLoaded(true);
       })
       .catch(() => {
         if (!course && currentCountryId) setForm((prev) => ({ ...prev, target_country_ids: [currentCountryId] }));
+        if (!course) setDeployLoaded(true);
       });
+    // En modification, on pré-coche les pays où elle est déjà déployée :
+    // décocher un pays y supprimera les copies (la fiche actuelle reste).
+    if (course) {
+      academyApi
+        .courseDeployments(course.id)
+        .then((ids) => {
+          setForm((prev) => ({ ...prev, target_country_ids: ids }));
+          setDeployLoaded(true);
+        })
+        .catch(() => setDeployLoaded(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, course]);
 
@@ -181,9 +198,11 @@ export function CourseFormModal({
       agency_id: editing ? editing.agency_id ?? agencyId : agencyId,
       is_active: form.is_active,
       is_public: true,
+      // Modification : liste complète pré-chargée — même vide, pour que
+      // décocher supprime les copies des pays décochés.
       ...(editing
-        ? {}
-        : { target_country_ids: form.target_country_ids.length ? form.target_country_ids : undefined }),
+        ? deployLoaded ? { target_country_ids: form.target_country_ids } : {}
+        : form.target_country_ids.length ? { target_country_ids: form.target_country_ids } : {}),
     };
 
     try {
@@ -418,13 +437,22 @@ export function CourseFormModal({
             )}
           </div>
 
-          {!editing && (
+          {!editing ? (
             <CountryDeployPicker
               countries={countries}
               selectedIds={form.target_country_ids}
               onChange={(ids) => setForm((prev) => ({ ...prev, target_country_ids: ids }))}
               currentCountryId={currentCountryId}
               hint={t('academy.deployCountriesHint')}
+              error={fieldErrors.target_country_ids}
+            />
+          ) : (
+            <CountryDeployPicker
+              countries={countries}
+              selectedIds={form.target_country_ids}
+              onChange={(ids) => setForm((prev) => ({ ...prev, target_country_ids: ids }))}
+              currentCountryId={currentCountryId}
+              hint={t('academy.deployCountriesEditHint')}
               error={fieldErrors.target_country_ids}
             />
           )}
