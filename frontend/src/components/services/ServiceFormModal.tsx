@@ -5,6 +5,7 @@ import { categoriesApi } from '@/api/categories.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { countriesApi } from '@/api/countries.api';
 import { uploadsApi } from '@/api/uploads.api';
+import { settingsApi } from '@/api/settings.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { Modal } from '@/components/ui/Modal';
@@ -16,7 +17,7 @@ import { CountryDeployPicker } from '@/components/countries/CountryDeployPicker'
 import type { Category } from '@/types/category';
 import type { Agency } from '@/types/agency';
 import type { CountryStat } from '@/types/stats';
-import type { Service, ServicePayload } from '@/types/service';
+import type { Service, ServicePayload, ServiceCommissionType } from '@/types/service';
 
 interface ServiceFormState {
   name: string;
@@ -24,6 +25,8 @@ interface ServiceFormState {
   agency_id: string;
   price: string;
   bonus_fixed: string;
+  commission_type: ServiceCommissionType;
+  commission_value: string;
   is_seminar: boolean;
   is_public: boolean;
   description: string;
@@ -39,6 +42,8 @@ function emptyForm(categoryId: string, agencyId = ''): ServiceFormState {
     agency_id: agencyId,
     price: '',
     bonus_fixed: '',
+    commission_type: 'percent',
+    commission_value: '20',
     is_seminar: false,
     is_public: true,
     description: '',
@@ -87,6 +92,19 @@ export function ServiceFormModal({
     if (isOpen) {
       categoriesApi.list({ per_page: 100 }).then((r) => setCategories(r.data)).catch(() => {});
       agenciesApi.list({ per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
+      // Commission par défaut des réglages → pré-remplit le formulaire en création.
+      if (!isEditing && !duplicateSource) {
+        settingsApi.list().then((rows) => {
+          const map = new Map(rows.map((s) => [s.key, s.value]));
+          const type = (map.get('default_commission_type') as ServiceCommissionType) || 'percent';
+          const value = map.get('default_commission_value') ?? '20';
+          setForm((prev) => ({
+            ...prev,
+            commission_type: ['none', 'percent', 'fixed'].includes(type) ? type : 'percent',
+            commission_value: String(value),
+          }));
+        }).catch(() => {});
+      }
       // Comme pour les formations : à la création, le service est déployé par
       // défaut dans tous les pays actifs ; l'utilisateur décoche les autres.
       // En modification, on pré-coche les pays où il est déjà déployé :
@@ -121,6 +139,8 @@ export function ServiceFormModal({
               agency_id: source.agency_id,
               price: source.price,
               bonus_fixed: source.bonus_fixed ?? '',
+              commission_type: (source.commission_type as ServiceCommissionType) ?? 'percent',
+              commission_value: source.commission_value ?? '20',
               is_seminar: source.is_seminar ?? false,
               is_public: isDuplicating ? true : (source.is_public ?? false),
               description: source.description ?? '',
@@ -169,7 +189,11 @@ export function ServiceFormModal({
       // est sur une agence) est ajoutée aux agences des pays cochés.
       agency_id: isEditing ? form.agency_id : agencyId || undefined,
       price: form.price !== '' ? Number(form.price) : (form.is_seminar ? 0 : Number(form.price)),
-      bonus_fixed: form.bonus_fixed ? Number(form.bonus_fixed) : null,
+      // Prime fixe retirée du formulaire : on l'efface, le « Montant fixe » du
+      // Type de commission la remplace.
+      bonus_fixed: null,
+      commission_type: form.commission_type,
+      commission_value: form.commission_type === 'none' ? null : form.commission_value !== '' ? Number(form.commission_value) : null,
       is_seminar: form.is_seminar,
       is_public: form.is_public,
       tiers: form.is_seminar && form.tiers.length > 0
@@ -267,28 +291,44 @@ export function ServiceFormModal({
           </Select>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Prime fixe retirée : le « Montant fixe » du Type de commission ci-dessous la remplace. */}
+        <Input
+          label={t('services.price')}
+          required={!form.is_seminar}
+          type="number"
+          step="0.01"
+          min="0"
+          value={form.price}
+          onChange={(e) => update('price', e.target.value)}
+          error={fieldErrors.price}
+          placeholder="0.00"
+        />
+
+        <div className="grid grid-cols-1 gap-4 rounded-xl border border-gray-200 p-4 sm:grid-cols-2 dark:border-gray-700">
+          <div className="flex flex-col gap-1">
+            <Select
+              label={t('services.commissionType')}
+              value={form.commission_type}
+              onChange={(e) => update('commission_type', e.target.value as ServiceCommissionType)}
+              error={fieldErrors.commission_type}
+            >
+              <option value="none">{t('settingsPage.commissionNone')}</option>
+              <option value="percent">{t('settingsPage.commissionPercent')}</option>
+              <option value="fixed">{t('settingsPage.commissionFixed')}</option>
+            </Select>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{t('services.commissionTypeHint')}</p>
+          </div>
           <Input
-            label={t('services.price')}
-            required={!form.is_seminar}
+            label={t('services.commissionValue')}
             type="number"
             step="0.01"
             min="0"
-            value={form.price}
-            onChange={(e) => update('price', e.target.value)}
-            error={fieldErrors.price}
-            placeholder="0.00"
-          />
-          <Input
-            label={t('services.bonusFixed')}
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.bonus_fixed}
-            onChange={(e) => update('bonus_fixed', e.target.value)}
-            error={fieldErrors.bonus_fixed}
-            placeholder="0.00"
-            hint={t('services.bonusFixedHint')}
+            disabled={form.commission_type === 'none'}
+            value={form.commission_value}
+            onChange={(e) => update('commission_value', e.target.value)}
+            error={fieldErrors.commission_value}
+            placeholder="20"
+            hint={t('services.commissionValueHint')}
           />
         </div>
 

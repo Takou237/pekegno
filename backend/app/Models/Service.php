@@ -15,6 +15,8 @@ class Service extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
 
+    public const COMMISSION_TYPES = ['none', 'percent', 'fixed'];
+
     protected $fillable = [
         'code',
         'agency_id',
@@ -23,6 +25,8 @@ class Service extends Model
         'description',
         'price',
         'bonus_fixed',
+        'commission_type',
+        'commission_value',
         'is_seminar',
         'is_public',
         'slug',
@@ -35,6 +39,7 @@ class Service extends Model
         return [
             'price' => 'decimal:2',
             'bonus_fixed' => 'decimal:2',
+            'commission_value' => 'decimal:2',
             'is_seminar' => 'boolean',
             'is_public' => 'boolean',
         ];

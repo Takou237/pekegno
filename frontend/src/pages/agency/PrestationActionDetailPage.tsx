@@ -20,6 +20,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
+import { uploadsApi } from '@/api/uploads.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -77,10 +78,12 @@ export default function PrestationActionDetailPage() {
   const [completeForm, setCompleteForm] = useState({
     done_at: todayLocal(),
     proof_url: '',
+    proof_file: '',
     actual_cost: '',
     note: '',
   });
   const [completeSubmitting, setCompleteSubmitting] = useState(false);
+  const [completeUploading, setCompleteUploading] = useState(false);
 
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [manualForm, setManualForm] = useState({
@@ -89,11 +92,13 @@ export default function PrestationActionDetailPage() {
     scheduled_date: todayLocal(),
     status: 'todo' as 'todo' | 'done',
     proof_url: '',
+    proof_file: '',
     actual_cost: '',
     note: '',
     assigned_to: '',
   });
   const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualUploading, setManualUploading] = useState(false);
 
   const [editActionOpen, setEditActionOpen] = useState(false);
   const [actionForm, setActionForm] = useState<ActionPayload>({
@@ -112,7 +117,14 @@ export default function PrestationActionDetailPage() {
   const [collapsedWeeks, setCollapsedWeeks] = useState<Record<number, boolean>>({});
 
   const canManage = canManageActions(user);
-  const canExecute = canUpdateActionExecution(user);
+  const baseCanExecute = canUpdateActionExecution(user);
+  // Membre d'équipe assigné (ex. caissier à qui on a attribué des actions) :
+  // peut enregistrer ses réalisations même sans le rôle community-manager.
+  const isAssignee =
+    action?.assigned_to === user?.id ||
+    executions.some((e) => e.assigned_to === user?.id);
+  const isCaissier = user?.role?.name === 'caissier';
+  const canExecute = baseCanExecute || isAssignee || (isCaissier && teamMode);
 
   const loadData = useCallback(async () => {
     if (!prestationId || !actionId) return;
@@ -165,9 +177,31 @@ export default function PrestationActionDetailPage() {
     setCompleteForm({
       done_at: exec.done_at ? exec.done_at.slice(0, 10) : todayLocal(),
       proof_url: exec.proof_url ?? '',
+      proof_file: (exec as { proof_file?: string | null }).proof_file ?? '',
       actual_cost: exec.actual_cost ? String(exec.actual_cost) : '',
       note: exec.note ?? '',
     });
+  }
+
+  async function handleProofFileUpload(file: File | undefined, target: 'complete' | 'manual') {
+    if (!file) return;
+    if (target === 'complete') setCompleteUploading(true);
+    else setManualUploading(true);
+    try {
+      const result = await uploadsApi.upload(file);
+      if (target === 'complete') setCompleteForm((f) => ({ ...f, proof_file: result.url }));
+      else setManualForm((f) => ({ ...f, proof_file: result.url }));
+      showToast(t('agencyDept.proofFileUploaded', 'Fichier de preuve envoyé'), 'success');
+    } catch (err) {
+      showToast(extractErrorMessage(err, t('common.error')), 'error');
+    } finally {
+      if (target === 'complete') setCompleteUploading(false);
+      else setManualUploading(false);
+    }
+  }
+
+  function isImageUrl(url: string): boolean {
+    return /\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(url);
   }
 
   // Submit complete execution
@@ -180,6 +214,7 @@ export default function PrestationActionDetailPage() {
         status: 'done',
         done_at: completeForm.done_at,
         proof_url: completeForm.proof_url.trim() || null,
+        proof_file: completeForm.proof_file.trim() || null,
         actual_cost: completeForm.actual_cost ? Number(completeForm.actual_cost) : null,
         note: completeForm.note.trim() || null,
       });
@@ -220,6 +255,7 @@ export default function PrestationActionDetailPage() {
         status: manualForm.status,
         done_at: manualForm.status === 'done' ? manualForm.scheduled_date : undefined,
         proof_url: manualForm.status === 'done' ? manualForm.proof_url.trim() || null : null,
+        proof_file: manualForm.status === 'done' ? manualForm.proof_file.trim() || null : null,
         actual_cost: manualForm.actual_cost ? Number(manualForm.actual_cost) : null,
         note: manualForm.note.trim() || null,
         assigned_to: manualForm.assigned_to || null,
@@ -232,6 +268,7 @@ export default function PrestationActionDetailPage() {
         scheduled_date: todayLocal(),
         status: 'todo',
         proof_url: '',
+        proof_file: '',
         actual_cost: '',
         note: '',
         assigned_to: '',
@@ -714,6 +751,29 @@ export default function PrestationActionDetailPage() {
                                         </a>
                                       </div>
                                     )}
+                                    {/* Proof File (image ou document) */}
+                                    {(item as { proof_file?: string | null }).proof_file && (
+                                      <div className="mt-1 flex flex-col gap-1.5">
+                                        <div className="flex items-center gap-1.5">
+                                          <ExternalLink className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
+                                          <a
+                                            href={(item as { proof_file?: string | null }).proof_file as string}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400 break-all"
+                                          >
+                                            Voir le fichier de preuve
+                                          </a>
+                                        </div>
+                                        {isImageUrl((item as { proof_file?: string | null }).proof_file as string) && (
+                                          <img
+                                            src={(item as { proof_file?: string | null }).proof_file as string}
+                                            alt="Preuve"
+                                            className="h-20 w-auto max-w-40 rounded-lg border border-gray-200 object-cover dark:border-gray-700"
+                                          />
+                                        )}
+                                      </div>
+                                    )}
 
                                     {/* Note */}
                                     {item.note && (
@@ -856,6 +916,38 @@ export default function PrestationActionDetailPage() {
             onChange={(e) => setCompleteForm({ ...completeForm, proof_url: e.target.value })}
           />
 
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              Fichier de preuve (image ou document, optionnel)
+            </label>
+            {completeForm.proof_file && (
+              <div className="flex items-center gap-2">
+                <a href={completeForm.proof_file} target="_blank" rel="noreferrer" className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400 break-all">
+                  Voir le fichier actuel
+                </a>
+                <button type="button" onClick={() => setCompleteForm({ ...completeForm, proof_file: '' })} className="text-xs text-red-500 hover:underline">
+                  Retirer
+                </button>
+              </div>
+            )}
+            {completeForm.proof_file && isImageUrl(completeForm.proof_file) && (
+              <img src={completeForm.proof_file} alt="Preuve" className="h-20 w-auto max-w-40 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+            )}
+            <label className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-gray-300 px-4 py-3 text-xs text-gray-500 hover:border-brand-500 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400">
+              {completeUploading ? 'Envoi en cours...' : 'Choisir un fichier (JPEG, PNG, GIF, WebP, PDF, DOC, MP4… max 10 Mo)'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.mp4,.mov,.mp3"
+                className="hidden"
+                disabled={completeUploading}
+                onChange={(e) => {
+                  handleProofFileUpload(e.target.files?.[0], 'complete');
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+
           <Input
             label="Coût réel engagé (FCFA, optionnel)"
             type="number"
@@ -947,6 +1039,34 @@ export default function PrestationActionDetailPage() {
                 value={manualForm.proof_url}
                 onChange={(e) => setManualForm({ ...manualForm, proof_url: e.target.value })}
               />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                  Fichier de preuve (image ou document, optionnel)
+                </label>
+                {manualForm.proof_file && (
+                  <div className="flex items-center gap-2">
+                    <a href={manualForm.proof_file} target="_blank" rel="noreferrer" className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400 break-all">
+                      Voir le fichier actuel
+                    </a>
+                    <button type="button" onClick={() => setManualForm({ ...manualForm, proof_file: '' })} className="text-xs text-red-500 hover:underline">
+                      Retirer
+                    </button>
+                  </div>
+                )}
+                <label className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-gray-300 px-4 py-3 text-xs text-gray-500 hover:border-brand-500 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400">
+                  {manualUploading ? 'Envoi en cours...' : 'Choisir un fichier (image ou document, max 10 Mo)'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.mp4,.mov,.mp3"
+                    className="hidden"
+                    disabled={manualUploading}
+                    onChange={(e) => {
+                      handleProofFileUpload(e.target.files?.[0], 'manual');
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
               <Input
                 label="Coût réel (FCFA, optionnel)"
                 type="number"

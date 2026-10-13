@@ -139,22 +139,48 @@ class ClientPrestationController extends Controller
             ->get()
             ->keyBy('prestation_action_id');
 
-        return $prestation->actions()
+        $actions = $prestation->actions()
             ->where('status', '!=', PrestationAction::STATUS_CANCELLED)
-            ->get(['id', 'prestation_id', 'type', 'title', 'platform', 'quantity', 'frequency', 'unit', 'status', 'due_date'])
-            ->map(fn (PrestationAction $a) => [
-                'id' => $a->id,
-                'type' => $a->type,
-                'title' => $a->title,
-                'platform' => $a->platform,
-                'quantity' => $a->quantity,
-                'frequency' => $a->frequency,
-                'unit' => $a->unit,
-                'status' => $a->status,
-                'due_date' => $a->due_date?->toDateString(),
-                'my_review' => ($r = $myReviews->get($a->id)) ? ['rating' => $r->rating, 'comment' => $r->comment, 'updated_at' => $r->updated_at] : null,
-                'can_rate' => $prestation->isRateable(),
-            ])
+            ->get(['id', 'prestation_id', 'type', 'title', 'platform', 'quantity', 'frequency', 'unit', 'status', 'due_date']);
+
+        $executionsByAction = \App\Models\PrestationActionExecution::whereIn('prestation_action_id', $actions->pluck('id'))
+            ->where('status', 'done')
+            ->orderByDesc('done_at')
+            ->get(['id', 'prestation_action_id', 'title', 'status', 'done_at', 'proof_url', 'proof_file', 'note'])
+            ->groupBy('prestation_action_id');
+
+        return $actions
+            ->map(function (PrestationAction $a) use ($myReviews, $prestation, $executionsByAction) {
+                $execs = ($executionsByAction->get($a->id) ?? collect())->map(fn ($e) => [
+                    'id' => $e->id,
+                    'title' => $e->title,
+                    'status' => $e->status,
+                    'done_at' => $e->done_at?->toDateString(),
+                    'proof_url' => $e->proof_url,
+                    'proof_file' => $e->proof_file ?? null,
+                    'note' => $e->note,
+                ])->all();
+                // Preuve principale = dernière exécution avec lien ou fichier.
+                $main = collect($execs)->first(fn ($e) => ! empty($e['proof_url']) || ! empty($e['proof_file']));
+                return [
+                    'id' => $a->id,
+                    'type' => $a->type,
+                    'title' => $a->title,
+                    'platform' => $a->platform,
+                    'quantity' => $a->quantity,
+                    'frequency' => $a->frequency,
+                    'unit' => $a->unit,
+                    'status' => $a->status,
+                    'due_date' => $a->due_date?->toDateString(),
+                    'my_review' => ($r = $myReviews->get($a->id)) ? ['rating' => $r->rating, 'comment' => $r->comment, 'updated_at' => $r->updated_at] : null,
+                    'can_rate' => $prestation->isRateable(),
+                    'proof_url' => $main['proof_url'] ?? null,
+                    'proof_file' => $main['proof_file'] ?? null,
+                    'done_at' => $main['done_at'] ?? null,
+                    'realisation_note' => $main['note'] ?? null,
+                    'executions' => $execs,
+                ];
+            })
             ->all();
     }
 

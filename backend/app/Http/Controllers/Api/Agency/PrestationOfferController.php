@@ -162,11 +162,18 @@ class PrestationOfferController extends Controller
         $targetCountryIds = $data['target_country_ids'] ?? [];
         unset($data['agency_id'], $data['target_country_ids']);
         $oldName = (string) $offer->name;
+        $targetDepartmentId = $data['department_id'] ?? $offer->department_id;
         $this->assertScope($data + [
             'agency_id' => $offer->agency_id,
-            'department_id' => $data['department_id'] ?? $offer->department_id,
+            'department_id' => $targetDepartmentId,
             'category_id' => array_key_exists('category_id', $data) ? $data['category_id'] : $offer->category_id,
         ]);
+
+        // Si la catégorie choisie vit dans un autre département, on la réadapte
+        // (copie par nom) dans le département de l'offre au lieu d'échouer.
+        if (array_key_exists('category_id', $data) && $data['category_id']) {
+            $data['category_id'] = $this->resolveCategory($data['category_id'], $targetDepartmentId);
+        }
 
         $offer->update($data);
 
@@ -263,7 +270,12 @@ class PrestationOfferController extends Controller
         return response()->json(null, 204);
     }
 
-    /** Département / catégorie doivent vivre dans le périmètre de l'offre. */
+    /**
+     * Le département doit appartenir à l'agence de l'offre.
+     * La catégorie n'est plus bloquante : une catégorie d'un autre département
+     * est réadaptée (copie par nom) dans le département cible via scopeToAgency,
+     * au lieu de renvoyer 422 « La catégorie n'appartient pas à ce département ».
+     */
     private function assertScope(array $data): void
     {
         if (! empty($data['department_id'])) {
@@ -272,13 +284,7 @@ class PrestationOfferController extends Controller
         }
 
         if (! empty($data['category_id'])) {
-            $category = AgencyCategory::query()->find($data['category_id']);
-            abort_unless($category !== null, 422, 'Catégorie introuvable.');
-            abort_if(
-                $category->department_id !== null && $category->department_id !== ($data['department_id'] ?? null),
-                422,
-                'La catégorie n\'appartient pas à ce département.',
-            );
+            abort_unless(AgencyCategory::query()->whereKey($data['category_id'])->exists(), 422, 'Catégorie introuvable.');
         }
     }
 

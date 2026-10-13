@@ -27,6 +27,8 @@ export interface SeminarTier {
   description: string | null;
 }
 
+export type ServiceCommissionType = 'none' | 'percent' | 'fixed';
+
 export interface Service {
   id: string;
   agency_id: string;
@@ -36,6 +38,8 @@ export interface Service {
   price: string;
   effective_price: string;
   bonus_fixed: string | null;
+  commission_type: ServiceCommissionType | null;
+  commission_value: string | null;
   is_seminar: boolean;
   is_public: boolean;
   seminar_tiers: SeminarTier[];
@@ -68,6 +72,8 @@ export interface ServicePayload {
   agency_id?: string;
   price: number | string;
   bonus_fixed?: number | string | null;
+  commission_type?: ServiceCommissionType | null;
+  commission_value?: number | string | null;
   is_seminar?: boolean;
   is_public?: boolean;
   tiers?: { tier: string; label: string; price: number | string; description?: string | null }[];

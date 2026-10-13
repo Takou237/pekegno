@@ -25,13 +25,28 @@ class AccountingCategoryController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $categories = AccountingCategory::query()
+        $query = AccountingCategory::query()
             ->with('agency:id,name')
             ->when($request->type, fn ($q, $type) => $q->where('type', $type))
-            ->when($request->agency_id, fn ($q, $id) => $q->where(fn ($q) => $q->where('agency_id', $id)->orWhereNull('agency_id')))
-            ->orderBy('type')
-            ->orderBy('name')
-            ->get();
+            ->when($request->agency_id, fn ($q, $id) => $q->where(fn ($q) => $q->where('agency_id', $id)->orWhereNull('agency_id')));
+
+        // Caissier : uniquement catégories globales + celles de son agence.
+        if (($request->user()->role?->name ?? '') === 'caissier') {
+            $agencyIds = \Illuminate\Support\Facades\DB::table('user_assignments')
+                ->where('user_id', $request->user()->id)
+                ->whereNotNull('agency_id')
+                ->pluck('agency_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            if (empty($agencyIds)) {
+                return response()->json([]);
+            }
+            $query->where(fn ($q) => $q->whereIn('agency_id', $agencyIds)->orWhereNull('agency_id'));
+        }
+
+        $categories = $query->orderBy('type')->orderBy('name')->get();
 
         return response()->json($categories);
     }

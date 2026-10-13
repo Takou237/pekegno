@@ -4,7 +4,6 @@ import { Plus } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { countriesApi } from '@/api/countries.api';
-import { departmentsApi } from '@/api/departments.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
@@ -14,15 +13,16 @@ import { Alert } from '@/components/ui/Alert';
 import { CountryDeployPicker } from '@/components/countries/CountryDeployPicker';
 import type { AgencyCategory, PrestationOffer } from '@/types/agencyDepartment';
 import type { Agency } from '@/types/agency';
-import type { Department } from '@/types/department';
 import type { CountryStat } from '@/types/stats';
 
 /**
  * Création / modification d'une offre de prestation (« Campagne Facebook ») :
  * fiche simple nom + catégorie à laquelle les clients souscrivent.
+ * Pas de champ Département : c'est le déploiement multi-pays
+ * (CountryDeployPicker) qui compte — le département est résolu côté backend
+ * par agence cible (scopeToAgency).
  * À la création comme à la modification, l'offre peut être déployée dans
- * d'autres pays (CountryDeployPicker, comme les services et les packages) :
- * une copie est créée dans toutes les agences de chaque pays coché.
+ * d'autres pays : une copie est créée dans toutes les agences de chaque pays coché.
  */
 export function OfferFormModal({
   isOpen,
@@ -49,7 +49,6 @@ export function OfferFormModal({
   const { t } = useTranslation();
   const [categories, setCategories] = useState<AgencyCategory[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [countries, setCountries] = useState<CountryStat[]>([]);
   const [targetCountryIds, setTargetCountryIds] = useState<string[]>([]);
   // En modification, la clé n'est envoyée que si le déploiement actuel a pu
@@ -59,7 +58,6 @@ export function OfferFormModal({
   const [form, setForm] = useState({
     name: '',
     agency_id: '',
-    department_id: '',
     category_id: '',
     description: '',
     is_active: true,
@@ -78,7 +76,7 @@ export function OfferFormModal({
       .then(setCategories)
       .catch(() => {});
     if (needsAgencyChoice) {
-      agenciesApi.list({ country_id: countryId, per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
+      agenciesApi.list({ country_id: countryId, per_page: 100 }, { silentForbidden: true }).then((r) => setAgencies(r.data)).catch(() => {});
     }
     // Pays pour le déploiement multi-pays : à la création, tous les pays
     // actifs sont cochés par défaut ; en modification, on pré-coche les pays
@@ -108,9 +106,10 @@ export function OfferFormModal({
         .catch(() => setDeployLoaded(false));
     }
     // Pays de l'agence de la page (signalé « pays actuel ») quand il n'est
-    // pas fourni par la page.
+    // pas fourni par la page. silentForbidden : le commercial/caissier lit sa
+    // propre agence via la policy scopée, sans toast 403 global.
     if (!countryId && agencyId) {
-      agenciesApi.get(agencyId).then((a) => setAgencyCountryId(a.country_id ?? undefined)).catch(() => setAgencyCountryId(undefined));
+      agenciesApi.get(agencyId, { silentForbidden: true }).then((a) => setAgencyCountryId(a.country_id ?? undefined)).catch(() => setAgencyCountryId(undefined));
     } else {
       setAgencyCountryId(undefined);
     }
@@ -119,23 +118,11 @@ export function OfferFormModal({
     setForm({
       name: offer?.name ?? '',
       agency_id: offer?.agency_id ?? '',
-      department_id: offer?.department_id ?? '',
       category_id: offer?.category_id ?? '',
       description: offer?.description ?? '',
       is_active: offer?.is_active ?? true,
     });
   }, [isOpen, offer, departmentId, countryId, needsAgencyChoice]);
-
-  // Hors département (vue pays), l'offre doit être rattachée à un département
-  // pour pouvoir ensuite ouvrir ses souscriptions.
-  useEffect(() => {
-    if (!departmentId && form.agency_id) {
-      departmentsApi
-        .list({ agency_id: form.agency_id, per_page: 100 })
-        .then((r) => setDepartments(r.data))
-        .catch(() => setDepartments([]));
-    }
-  }, [departmentId, form.agency_id]);
 
   async function addCategory() {
     if (!newCategory.trim()) return;
@@ -154,9 +141,11 @@ export function OfferFormModal({
     setSaving(true);
     setError(null);
     setFieldErrors({});
+    // Pas de champ Département : le backend résout le département par agence
+    // cible (scopeToAgency). Seul le déploiement multi-pays compte.
     const payload = {
       agency_id: agencyId ?? form.agency_id,
-      department_id: (departmentId ?? form.department_id) || null,
+      department_id: departmentId ?? offer?.department_id ?? null,
       category_id: form.category_id || null,
       name: form.name,
       description: form.description || null,
@@ -191,7 +180,8 @@ export function OfferFormModal({
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {error && <Alert variant="error">{error}</Alert>}
         {/* Hors page agence : l'agence se choisit EN PREMIER, le reste de la
-            fiche (département, catégorie…) suit. */}
+            fiche (catégorie…) suit. Pas de champ Département : seul le
+            déploiement multi-pays compte. */}
         {!offer && needsAgencyChoice && (
           <div className="sm:max-w-xs">
             <Select label={t('agencyDept.agency')} required error={fieldErrors.agency_id} value={form.agency_id} onChange={(e) => setForm({ ...form, agency_id: e.target.value })}>
@@ -202,12 +192,6 @@ export function OfferFormModal({
         )}
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label={t('agencyDept.name')} required error={fieldErrors.name} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          {!departmentId && (
-            <Select label={t('agencyDept.department')} required={departments.length > 0} error={fieldErrors.department_id} value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>
-              <option value="">{t('common.noDepartment')}</option>
-              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </Select>
-          )}
           <div className="flex flex-col gap-1.5">
             <Select label={t('agencyDept.category')} error={fieldErrors.category_id} value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
               <option value="">—</option>

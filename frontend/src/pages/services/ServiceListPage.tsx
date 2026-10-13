@@ -7,6 +7,7 @@ import type { AgencyPackage, LaravelPage, PrestationOffer } from '@/types/agency
 import { Stars } from '@/components/agencyDept/StarRating';
 import { PackageSubscribeModal } from '@/components/packages/PackageSubscribeModal';
 import { PackageCard, groupPackagesByCategory } from '@/components/packages/PackageCard';
+import { OfferFormModal } from '@/components/agencyDept/OfferFormModal';
 import { canSubscribePackage, canCreatePrestation } from '@/utils/agencyDeptPermissions';
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
@@ -137,6 +138,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [offers, setOffers] = useState<LaravelPage<PrestationOffer> | null>(null);
   const [subscribeTarget, setSubscribeTarget] = useState<AgencyPackage | null>(null);
   const [offerSubscribeTarget, setOfferSubscribeTarget] = useState<PrestationOffer | null>(null);
+  const [offerFormOpen, setOfferFormOpen] = useState(false);
   const [packageSearch, setPackageSearch] = useState('');
   const [packageCategory, setPackageCategory] = useState('');
   const [packageAgency, setPackageAgency] = useState('');
@@ -449,6 +451,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   };
 
   if (tab === 'packages') {
+    const canCreateOffer = canCreatePrestation(user);
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -456,6 +459,12 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.packages')}</h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.packages.subscribeHint')}</p>
           </div>
+          {canCreateOffer && (
+            <Button onClick={() => setOfferFormOpen(true)}>
+              <Plus className="h-4 w-4" />
+              {t('agencyDept.offers.new')}
+            </Button>
+          )}
         </div>
         <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
           <button
@@ -566,9 +575,16 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         )}
 
         <section className="flex flex-col gap-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            <Tag className="h-4 w-4" /> {t('nav.prestations')}
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <Tag className="h-4 w-4" /> {t('nav.prestations')}
+            </h2>
+            {canCreateOffer && (
+              <Button size="sm" variant="outline" onClick={() => setOfferFormOpen(true)}>
+                <Plus className="h-4 w-4" /> {t('agencyDept.offers.new')}
+              </Button>
+            )}
+          </div>
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
             {!filteredCatalogOffers ? (
               <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
@@ -650,6 +666,20 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             countryId={countryId}
             onSaved={() => {
               setOfferSubscribeTarget(null);
+              fetchPackages();
+              showToast(t('agencyDept.saved'), 'success');
+            }}
+          />
+        )}
+
+        {offerFormOpen && (
+          <OfferFormModal
+            isOpen
+            onClose={() => setOfferFormOpen(false)}
+            agencyId={effectiveAgencyId}
+            countryId={countryId}
+            onSaved={() => {
+              setOfferFormOpen(false);
               fetchPackages();
               showToast(t('agencyDept.saved'), 'success');
             }}
@@ -1044,9 +1074,11 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
                   )}
 
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {service.bonus_fixed && Number(service.bonus_fixed) > 0 && (
+                    {service.commission_type && service.commission_type !== 'none' && service.commission_value != null && Number(service.commission_value) > 0 && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        {t('services.bonusFixed')}: {formatPrice(service.bonus_fixed)}
+                        {service.commission_type === 'percent'
+                          ? `${t('services.commissionType')}: ${service.commission_value}%`
+                          : `${t('services.commissionType')}: ${formatPrice(service.commission_value)}`}
                       </span>
                     )}
                     {service.is_seminar && (

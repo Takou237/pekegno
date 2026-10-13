@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\AccountingTransaction;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
+use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use OpenApi\Attributes as OA;
 
@@ -16,7 +18,32 @@ class AccountingController extends Controller
     public function __construct(
         private readonly AccountingService $accountingService,
         private readonly ActivityLogger $logger,
+        private readonly ScopeService $scope,
     ) {}
+
+    /**
+     * Périmètre caissier : uniquement son agence (user_assignments).
+     * Les autres rôles non-globaux restent filtrés par les paramètres explicites.
+     */
+    private function applyCashierScope($query, $user, string $column = 'agency_id')
+    {
+        if (($user->role?->name ?? '') !== 'caissier') {
+            return $query;
+        }
+        $agencyIds = DB::table('user_assignments')
+            ->where('user_id', $user->id)
+            ->whereNotNull('agency_id')
+            ->pluck('agency_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        if (empty($agencyIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+        // Si un agency_id explicite est demandé, il doit appartenir au caissier.
+        return $query->whereIn($column, $agencyIds);
+    }
 
     #[OA\Get(
         path: '/api/accounting/transactions',
@@ -30,7 +57,10 @@ class AccountingController extends Controller
     public function index(Request $request): JsonResponse
     {
         $base = AccountingTransaction::query()
-            ->with(['agency:id,name,code', 'category:id,name,type', 'client:id,first_name,last_name', 'operator:id,first_name,last_name'])
+            ->with(['agency:id,name,code', 'category:id,name,type', 'client:id,first_name,last_name', 'operator:id,first_name,last_name']);
+        // Caissier : scope forcé à ses agences, avant tout filtre explicite.
+        $base = $this->applyCashierScope($base, $request->user());
+        $base = $base
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             // Comptabilité d'un département : uniquement ses écritures.
             ->when($request->department_id, fn ($q, $id) => $q->where('department_id', $id))
@@ -96,6 +126,25 @@ class AccountingController extends Controller
             'justification' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        // Caissier : force l'agence à son périmètre, refuse toute autre agence.
+        if (($request->user()->role?->name ?? '') === 'caissier') {
+            $agencyIds = DB::table('user_assignments')
+                ->where('user_id', $request->user()->id)
+                ->whereNotNull('agency_id')
+                ->pluck('agency_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            if (empty($agencyIds)) {
+                abort(403, 'Aucune agence affectée.');
+            }
+            if (empty($data['agency_id'])) {
+                $data['agency_id'] = $agencyIds[0];
+            }
+            abort_unless(in_array($data['agency_id'], $agencyIds, true), 403, 'Hors périmètre agence.');
+        }
+
         $transaction = AccountingTransaction::create(array_merge($data, [
             'number' => $this->accountingService->nextNumber(),
             'operator_id' => $request->user()->id,
@@ -127,6 +176,17 @@ class AccountingController extends Controller
     public function update(Request $request, AccountingTransaction $transaction): JsonResponse
     {
         abort_if($transaction->invoice_id !== null, 422, 'Une écriture générée automatiquement ne peut pas être modifiée.');
+        if (($request->user()->role?->name ?? '') === 'caissier') {
+            $agencyIds = DB::table('user_assignments')
+                ->where('user_id', $request->user()->id)
+                ->whereNotNull('agency_id')
+                ->pluck('agency_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            abort_unless($transaction->agency_id && in_array($transaction->agency_id, $agencyIds, true), 403, 'Hors périmètre agence.');
+        }
 
         $data = $request->validate([
             'type' => ['sometimes', Rule::in(['income', 'expense'])],
@@ -169,6 +229,17 @@ class AccountingController extends Controller
     public function destroy(Request $request, AccountingTransaction $transaction): JsonResponse
     {
         abort_if($transaction->invoice_id !== null, 422, 'Une écriture générée automatiquement ne peut pas être supprimée.');
+        if (($request->user()->role?->name ?? '') === 'caissier') {
+            $agencyIds = DB::table('user_assignments')
+                ->where('user_id', $request->user()->id)
+                ->whereNotNull('agency_id')
+                ->pluck('agency_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            abort_unless($transaction->agency_id && in_array($transaction->agency_id, $agencyIds, true), 403, 'Hors périmètre agence.');
+        }
 
         $number = $transaction->number;
         $transaction->delete();

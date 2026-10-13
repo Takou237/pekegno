@@ -75,7 +75,7 @@ export function PrestationFormModal({
       .then(setCategories)
       .catch(() => {});
     if (needsAgencyChoice) {
-      agenciesApi.list({ country_id: countryId, per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
+      agenciesApi.list({ country_id: countryId, per_page: 100 }, { silentForbidden: true }).then((r) => setAgencies(r.data)).catch(() => {});
     }
     setError(null);
     setClientMode('existing');

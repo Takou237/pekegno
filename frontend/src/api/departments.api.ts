@@ -3,8 +3,8 @@ import type { Department, DepartmentListParams, DepartmentPayload } from '@/type
 import type { PaginatedResponse } from '@/types/agency';
 
 export const departmentsApi = {
-  async list(params: DepartmentListParams = {}): Promise<PaginatedResponse<Department>> {
-    const { data } = await client.get<PaginatedResponse<Department>>('/departments', { params });
+  async list(params: DepartmentListParams = {}, opts: { silentForbidden?: boolean } = {}): Promise<PaginatedResponse<Department>> {
+    const { data } = await client.get<PaginatedResponse<Department>>('/departments', { params, silentForbidden: opts.silentForbidden });
     return data;
   },
 

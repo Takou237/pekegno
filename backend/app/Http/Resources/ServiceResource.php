@@ -19,6 +19,8 @@ class ServiceResource extends JsonResource
             'price' => (string) $this->price,
             'effective_price' => (string) $this->effective_price,
             'bonus_fixed' => $this->bonus_fixed !== null ? (string) $this->bonus_fixed : null,
+            'commission_type' => $this->commission_type,
+            'commission_value' => $this->commission_value !== null ? (string) $this->commission_value : null,
             'is_seminar' => (bool) $this->is_seminar,
             'seminar_tiers' => $this->whenLoaded('seminarTiers', fn () => $this->seminarTiers->map(fn ($t) => [
                 'tier' => $t->tier,

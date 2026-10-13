@@ -17,6 +17,7 @@ class PrestationActionLog extends Model
         'done_at',
         'quantity_done',
         'proof_url',
+        'proof_file',
         'cost',
         'note',
     ];

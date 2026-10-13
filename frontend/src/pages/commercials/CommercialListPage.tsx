@@ -31,7 +31,7 @@ export interface CommercialApiLike {
   remove: (id: string) => Promise<void>;
   adjustPoints: (id: string, points: number, reason?: string) => Promise<{ message: string; points_balance: number }>;
   stats: (id: string, params?: { from?: string; to?: string }) => Promise<import('@/types/commercial').CommercialStats>;
-  ranking?: (params?: { limit?: number; from?: string; to?: string; search?: string; agency_id?: string; is_active?: boolean }) => Promise<RankingEntry[]>;
+  ranking?: (params?: { limit?: number; from?: string; to?: string; search?: string; agency_id?: string; is_active?: boolean; sort_by?: string; sort_dir?: 'asc' | 'desc' }) => Promise<RankingEntry[]>;
 }
 
 export type CommercialListMode = 'commercial' | 'employee';
@@ -80,11 +80,11 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
   const [rankingOpen, setRankingOpen] = useState(false);
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
   const [rankingLoading, setRankingLoading] = useState(false);
-  const [rankingSearch, setRankingSearch] = useState('');
   const [rankingFrom, setRankingFrom] = useState('');
   const [rankingTo, setRankingTo] = useState('');
   const [rankingAgency, setRankingAgency] = useState(fixedAgencyId ?? '');
   const [rankingStatus, setRankingStatus] = useState('all');
+  const [rankingSortBy, setRankingSortBy] = useState<'points_balance' | 'sales_count' | 'turnover' | 'commission_total'>('points_balance');
   const [rankingAgencies, setRankingAgencies] = useState<{ id: string; name: string }[]>([]);
 
   const [deleteTarget, setDeleteTarget] = useState<Commercial | null>(null);
@@ -224,9 +224,10 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
           limit: 50,
           from: rankingFrom || undefined,
           to: rankingTo || undefined,
-          search: rankingSearch.trim() || undefined,
           agency_id: rankingAgency || undefined,
           is_active: rankingStatus === 'all' ? undefined : rankingStatus === 'active',
+          sort_by: rankingSortBy,
+          sort_dir: 'desc',
         }),
       );
     } catch (error) {
@@ -247,7 +248,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
     await fetchRanking();
   }
 
-  // Recharge le classement quand les filtres changent (recherche avec délai).
+  // Recharge le classement quand les filtres changent (délai pour les dates).
   useEffect(() => {
     if (!rankingOpen) return;
     const timeout = setTimeout(() => {
@@ -255,7 +256,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
     }, 350);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rankingSearch, rankingFrom, rankingTo, rankingAgency, rankingStatus]);
+  }, [rankingFrom, rankingTo, rankingAgency, rankingStatus, rankingSortBy]);
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -544,15 +545,8 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
         maxWidth="max-w-3xl"
       >
         <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <div className="col-span-2 sm:col-span-1 lg:col-span-1">
-            <Input
-              placeholder={t(`${ns}.searchPlaceholder`)}
-              value={rankingSearch}
-              onChange={(e) => setRankingSearch(e.target.value)}
-            />
-          </div>
           {!fixedAgencyId && (
-            <Select value={rankingAgency} onChange={(e) => setRankingAgency(e.target.value)}>
+            <Select label={t('reports.allAgencies')} value={rankingAgency} onChange={(e) => setRankingAgency(e.target.value)}>
               <option value="">{t('reports.allAgencies')}</option>
               {rankingAgencies.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -562,21 +556,29 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
             </Select>
           )}
           <Input
+            label={t('invoices.filterFrom')}
             type="date"
             value={rankingFrom}
             max={rankingTo || undefined}
             onChange={(e) => setRankingFrom(e.target.value)}
           />
           <Input
+            label={t('invoices.filterTo')}
             type="date"
             value={rankingTo}
             min={rankingFrom || undefined}
             onChange={(e) => setRankingTo(e.target.value)}
           />
-          <Select value={rankingStatus} onChange={(e) => setRankingStatus(e.target.value)}>
+          <Select label={t('common.status')} value={rankingStatus} onChange={(e) => setRankingStatus(e.target.value)}>
             <option value="all">{t('common.selectAll')}</option>
             <option value="active">{t('common.active')}</option>
             <option value="inactive">{t('common.inactive')}</option>
+          </Select>
+          <Select label={t(`${ns}.sortBy`)} value={rankingSortBy} onChange={(e) => setRankingSortBy(e.target.value as typeof rankingSortBy)}>
+            <option value="points_balance">{t(`${ns}.colPoints`)}</option>
+            <option value="sales_count">{t(`${ns}.statsSales`)}</option>
+            <option value="turnover">{t(`${ns}.statsTurnover`)}</option>
+            <option value="commission_total">{t(`${ns}.colCommission`)}</option>
           </Select>
         </div>
         {rankingLoading ? (
@@ -592,10 +594,26 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
                 <tr>
                   <th className="px-4 py-2 font-medium">{t(`${ns}.rank`)}</th>
                   <th className="px-4 py-2 font-medium">{t(`${ns}.colName`)}</th>
-                  <th className="px-4 py-2 font-medium">{t(`${ns}.colPoints`)}</th>
-                  <th className="px-4 py-2 font-medium">{t(`${ns}.statsSales`)}</th>
-                  <th className="px-4 py-2 text-right font-medium">{t(`${ns}.statsTurnover`)}</th>
-                  <th className="px-4 py-2 text-right font-medium">{t(`${ns}.colCommission`)}</th>
+                  <th className="px-4 py-2 font-medium">
+                    <button type="button" onClick={() => setRankingSortBy('points_balance')} className={rankingSortBy === 'points_balance' ? 'font-bold text-brand-600 dark:text-brand-400' : 'hover:text-gray-600 dark:hover:text-gray-200'}>
+                      {t(`${ns}.colPoints`)}{rankingSortBy === 'points_balance' ? ' ▼' : ''}
+                    </button>
+                  </th>
+                  <th className="px-4 py-2 font-medium">
+                    <button type="button" onClick={() => setRankingSortBy('sales_count')} className={rankingSortBy === 'sales_count' ? 'font-bold text-brand-600 dark:text-brand-400' : 'hover:text-gray-600 dark:hover:text-gray-200'}>
+                      {t(`${ns}.statsSales`)}{rankingSortBy === 'sales_count' ? ' ▼' : ''}
+                    </button>
+                  </th>
+                  <th className="px-4 py-2 text-right font-medium">
+                    <button type="button" onClick={() => setRankingSortBy('turnover')} className={rankingSortBy === 'turnover' ? 'font-bold text-brand-600 dark:text-brand-400' : 'hover:text-gray-600 dark:hover:text-gray-200'}>
+                      {t(`${ns}.statsTurnover`)}{rankingSortBy === 'turnover' ? ' ▼' : ''}
+                    </button>
+                  </th>
+                  <th className="px-4 py-2 text-right font-medium">
+                    <button type="button" onClick={() => setRankingSortBy('commission_total')} className={rankingSortBy === 'commission_total' ? 'font-bold text-brand-600 dark:text-brand-400' : 'hover:text-gray-600 dark:hover:text-gray-200'}>
+                      {t(`${ns}.colCommission`)}{rankingSortBy === 'commission_total' ? ' ▼' : ''}
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">

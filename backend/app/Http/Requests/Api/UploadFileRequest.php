@@ -14,7 +14,9 @@ class UploadFileRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => ['required', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
+            // Preuves d'exécution : image ou document (publication, facture, rapport...).
+            // Les couvertures restent filtrées côté UI (accept=image/*).
+            'file' => ['required', 'file', 'mimes:jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt,csv,mp4,mov,mp3', 'max:10240'],
         ];
     }
 
@@ -22,9 +24,8 @@ class UploadFileRequest extends FormRequest
     {
         return [
             'file.required' => 'Aucun fichier fourni.',
-            'file.image' => 'Le fichier doit être une image.',
-            'file.mimes' => 'Le fichier doit être au format JPEG, PNG, GIF ou WebP.',
-            'file.max' => 'L\'image ne doit pas dépasser 5 Mo.',
+            'file.mimes' => 'Format accepté : image (JPEG, PNG, GIF, WebP) ou document (PDF, DOC, XLS, TXT, CSV, MP4, MP3).',
+            'file.max' => 'Le fichier ne doit pas dépasser 10 Mo.',
         ];
     }
 }

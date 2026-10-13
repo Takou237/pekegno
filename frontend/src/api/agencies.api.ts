@@ -12,8 +12,8 @@ export const agenciesApi = {
     return data;
   },
 
-  async get(id: string): Promise<Agency> {
-    const { data } = await client.get<Agency>(`/agencies/${id}`);
+  async get(id: string, opts: { silentForbidden?: boolean } = {}): Promise<Agency> {
+    const { data } = await client.get<Agency>(`/agencies/${id}`, { silentForbidden: opts.silentForbidden });
     return data;
   },
 

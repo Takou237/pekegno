@@ -1,5 +1,15 @@
 import { client } from './client';
 
+export interface ClientExecutionProof {
+  id: string;
+  title: string | null;
+  status: string;
+  done_at: string | null;
+  proof_url: string | null;
+  proof_file: string | null;
+  note: string | null;
+}
+
 export interface ClientPrestationAction {
   id: string;
   type: string;
@@ -12,6 +22,11 @@ export interface ClientPrestationAction {
   due_date: string | null;
   my_review: { rating: number; comment: string | null; updated_at: string } | null;
   can_rate: boolean;
+  proof_url: string | null;
+  proof_file: string | null;
+  done_at: string | null;
+  realisation_note: string | null;
+  executions?: ClientExecutionProof[];
 }
 
 export interface ClientPrestation {

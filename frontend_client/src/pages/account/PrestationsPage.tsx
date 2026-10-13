@@ -200,6 +200,8 @@ function ActionRow({ action, onSaved }: { action: ClientPrestationAction; onSave
     }
   }
 
+  const isImage = (url: string) => /\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(url);
+
   return (
     <li className="py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -207,10 +209,63 @@ function ActionRow({ action, onSaved }: { action: ClientPrestationAction; onSave
           <p className="font-medium text-gray-900">{action.title}</p>
           <p className="text-xs text-gray-400">
             {action.quantity} × {t(`agency.frequency.${action.frequency}`)} · {t(`agency.actionStatus.${action.status}`, action.status)}
+            {action.done_at ? ` · ${t('agency.doneOn', { date: formatDate(action.done_at) })}` : ''}
           </p>
         </div>
         <Stars value={rating} onChange={action.can_rate ? setRating : undefined} />
       </div>
+
+      {/* Preuves de réalisation (staff) : lien + fichier */}
+      {(action.proof_url || action.proof_file || action.realisation_note) && (
+        <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+          <p className="text-xs font-medium uppercase text-gray-500">{t('agency.proofs', 'Preuves de réalisation')}</p>
+          {action.proof_url && (
+            <a href={action.proof_url} target="_blank" rel="noreferrer" className="mt-1 block truncate text-xs font-medium text-brand-600 hover:underline">
+              🔗 {action.proof_url}
+            </a>
+          )}
+          {action.proof_file && (
+            <div className="mt-1 flex flex-col gap-1">
+              <a href={action.proof_file} target="_blank" rel="noreferrer" className="text-xs font-medium text-brand-600 hover:underline">
+                📎 {t('agency.proofFile', 'Voir le fichier de preuve')}
+              </a>
+              {isImage(action.proof_file) && (
+                <img src={action.proof_file} alt="Preuve" className="h-20 w-auto max-w-40 rounded-lg border border-gray-200 object-cover" />
+              )}
+            </div>
+          )}
+          {action.realisation_note && (
+            <p className="mt-1 text-xs italic text-gray-600">« {action.realisation_note} »</p>
+          )}
+          {(action.executions ?? []).length > 1 && (
+            <details className="mt-1">
+              <summary className="cursor-pointer text-xs text-gray-500">
+                {t('agency.allProofs', { count: (action.executions ?? []).length })}
+              </summary>
+              <ul className="mt-1 space-y-1">
+                {(action.executions ?? []).map((e) => (
+                  <li key={e.id} className="text-xs text-gray-600">
+                    {e.done_at ? `${formatDate(e.done_at)} — ` : ''}{e.title || 'Réalisation'}
+                    {e.proof_url && (
+                      <>
+                        {' · '}
+                        <a href={e.proof_url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">lien</a>
+                      </>
+                    )}
+                    {e.proof_file && (
+                      <>
+                        {' · '}
+                        <a href={e.proof_file} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">fichier</a>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+
       {action.can_rate && (
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <input

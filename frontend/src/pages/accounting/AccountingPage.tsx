@@ -56,6 +56,15 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
   const [agencies, setAgencies] = useState<{ id: string; name: string }[]>([]);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Caissier : scope forcé à son agence d'affectation (primaire puis première).
+  const isCaissier = currentUser?.role?.name === 'caissier';
+  const caissierAgencyId =
+    currentUser?.assignments?.find((a) => a.pivot?.is_primary)?.id ??
+    currentUser?.assignments?.[0]?.id ??
+    '';
+  // Agence effective : fixe > route > filtre manuel > agence du caissier.
+  const effectiveAgencyId = agencyId || agencyFilter || (isCaissier ? caissierAgencyId : '');
+
   const [txOpen, setTxOpen] = useState(false);
   const [editTx, setEditTx] = useState<AccountingTransaction | null>(null);
   const [txForm, setTxForm] = useState({
@@ -94,18 +103,18 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
   );
 
   useEffect(() => {
-    if (!isGlobalContext) return;
+    if (!isGlobalContext || isCaissier) return;
     countriesApi.list({ per_page: 100 }, { silentForbidden: true })
       .then((r) => setCountries(r.data.map((c) => ({ id: c.id, name: c.name }))))
       .catch(() => {});
-  }, [isGlobalContext]);
+  }, [isGlobalContext, isCaissier]);
 
   useEffect(() => {
-    if (!isGlobalContext) return;
+    if (!isGlobalContext || isCaissier) return;
     agenciesApi.list({ per_page: 100, country_id: countryFilter || undefined }, { silentForbidden: true })
       .then((r) => setAgencies(r.data.map((a) => ({ id: a.id, name: a.name }))))
       .catch(() => {});
-  }, [isGlobalContext, countryFilter]);
+  }, [isGlobalContext, isCaissier, countryFilter]);
 
   const fetchCategories = useCallback(() => {
     accountingApi.categories({ silentForbidden: true }).then((d) => setCategories(d ?? [])).catch(() => {});
@@ -122,9 +131,9 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
       const res = await accountingApi.list({
         search: search || undefined,
         type: (typeFilter as AccountingType) || undefined,
-        agency_id: agencyId || agencyFilter || undefined,
+        agency_id: effectiveAgencyId || undefined,
         department_id: fixedDepartmentId,
-        country_id: agencyId || agencyFilter ? undefined : countryFilter || undefined,
+        country_id: effectiveAgencyId ? undefined : countryFilter || undefined,
         category_id: categoryFilter || undefined,
         from: from || undefined,
         to: to || undefined,
@@ -141,7 +150,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
     } finally {
       setIsLoading(false);
     }
-  }, [search, typeFilter, agencyId, agencyFilter, countryFilter, categoryFilter, from, to, page, fixedDepartmentId, t]);
+  }, [search, typeFilter, effectiveAgencyId, countryFilter, categoryFilter, from, to, page, fixedDepartmentId, t]);
 
   useEffect(() => {
     fetchTransactions();
@@ -200,7 +209,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
         reference: txForm.reference.trim() || null,
         note: txForm.note.trim() || null,
         beneficiary: txForm.beneficiary.trim() || null,
-        agency_id: agencyId || null,
+        agency_id: effectiveAgencyId || null,
         department_id: fixedDepartmentId ?? null,
       };
       if (editTx) {
@@ -249,7 +258,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
     setCatSubmitting(true);
     setCatErrors({});
     try {
-      const payload = { name: catName.trim(), type: catType, agency_id: agencyId || null };
+      const payload = { name: catName.trim(), type: catType, agency_id: effectiveAgencyId || null };
       if (editCat) {
         await accountingApi.updateCategory(editCat.id, payload);
         showToast(t('accounting.categoryUpdated'), 'success');
@@ -301,7 +310,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
     setPayLoading(true);
     setPayBeneficiaries([]);
     commissionsApi
-      .summaryBeneficiaries({ agency_id: agencyId || undefined })
+      .summaryBeneficiaries({ agency_id: effectiveAgencyId || undefined })
       .then((res) => setPayBeneficiaries(res.data ?? []))
       .catch(() => setPayBeneficiaries([]))
       .finally(() => setPayLoading(false));
@@ -389,7 +398,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
-          {isGlobalContext && (
+          {isGlobalContext && !isCaissier && (
             <>
               <Select label={t('accounting.filterCountry')} value={countryFilter} onChange={(e) => { setCountryFilter(e.target.value); setAgencyFilter(''); setPage(1); }}>
                 <option value="">{t('accounting.allCountries')}</option>

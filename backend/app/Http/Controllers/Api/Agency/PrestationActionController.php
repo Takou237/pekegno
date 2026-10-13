@@ -76,6 +76,8 @@ class PrestationActionController extends Controller
             ->when($request->type, fn ($q, $t) => $q->whereIn('type', explode(',', $t)))
             ->when($request->status, fn ($q, $s) => $q->whereIn('status', explode(',', $s)))
             ->when($request->assigned_to, fn ($q, $id) => $q->where('assigned_to', $id))
+            ->when($request->from, fn ($q, $d) => $q->whereDate('due_date', '>=', $d))
+            ->when($request->to, fn ($q, $d) => $q->whereDate('due_date', '<=', $d))
             ->when($request->boolean('overdue'), fn ($q) => $q->whereDate('due_date', '<', today())->whereNotIn('status', PrestationAction::FINISHED_STATUSES))
             ->orderBy('due_date');
 
@@ -85,6 +87,8 @@ class PrestationActionController extends Controller
         $budget = PrestationAction::query()
             ->whereIn('prestation_id', $prestationIds)
             ->when($request->type, fn ($q, $t) => $q->whereIn('type', explode(',', $t)))
+            ->when($request->from, fn ($q, $d) => $q->whereDate('due_date', '>=', $d))
+            ->when($request->to, fn ($q, $d) => $q->whereDate('due_date', '<=', $d))
             ->where('status', '!=', PrestationAction::STATUS_CANCELLED)
             ->selectRaw('coalesce(sum(budget), 0) as allocated, coalesce(sum(actual_cost), 0) as spent, coalesce(sum(case when is_pass_through then budget else 0 end), 0) as pass_through')
             ->first();
@@ -181,6 +185,7 @@ class PrestationActionController extends Controller
             'done_at' => ['required', 'date'],
             'quantity_done' => ['sometimes', 'integer', 'min:1'],
             'proof_url' => ['nullable', 'string', 'max:2048'],
+            'proof_file' => ['nullable', 'string', 'max:2048'],
             'cost' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -224,6 +229,7 @@ class PrestationActionController extends Controller
             'status' => ['sometimes', Rule::in(PrestationActionExecution::STATUSES)],
             'done_at' => ['nullable', 'date'],
             'proof_url' => ['nullable', 'string', 'max:2048'],
+            'proof_file' => ['nullable', 'string', 'max:2048'],
             'actual_cost' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
             'assigned_to' => ['nullable', 'uuid', 'exists:users,id'],
@@ -244,6 +250,7 @@ class PrestationActionController extends Controller
             'status' => ['sometimes', Rule::in(PrestationActionExecution::STATUSES)],
             'done_at' => ['nullable', 'date'],
             'proof_url' => ['nullable', 'string', 'max:2048'],
+            'proof_file' => ['nullable', 'string', 'max:2048'],
             'actual_cost' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
             'assigned_to' => ['nullable', 'uuid', 'exists:users,id'],

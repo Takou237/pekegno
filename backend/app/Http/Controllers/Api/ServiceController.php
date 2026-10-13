@@ -323,6 +323,7 @@ class ServiceController extends Controller
 
                 $row = $source->only([
                     'category_id', 'name', 'description', 'price', 'bonus_fixed',
+                    'commission_type', 'commission_value',
                     'is_seminar', 'is_public', 'cover_image', 'presentation_video',
                 ]);
                 $row['agency_id'] = $agencyId;

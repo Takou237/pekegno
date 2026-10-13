@@ -9,9 +9,11 @@ import { useAgencyDept } from '@/hooks/useAgencyDept';
 import { formatCurrency } from '@/utils/number';
 import { canUpdateActionExecution } from '@/utils/agencyDeptPermissions';
 import { Select } from '@/components/ui/Select';
+import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
 import { SkeletonTable } from '@/components/ui/Skeleton';
+import { PeriodPresets } from '@/components/ui/PeriodPresets';
 import { ActionStatusBadge } from '@/components/agencyDept/AgencyBadges';
 import { ACTION_STATUSES, personName, type ActionType, type LaravelPage, type PrestationAction } from '@/types/agencyDepartment';
 
@@ -58,16 +60,18 @@ export default function AgencyActionsBoardPage({ mode }: { mode: ActionsBoardMod
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [onlyOverdue, setOnlyOverdue] = useState(false);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
   const canExecute = canUpdateActionExecution(user);
 
   const load = useCallback(() => {
     if (!departmentId) return;
     agencyDeptApi
-      .actionsBoard({ department_id: departmentId, type: types, status: status || undefined, overdue: onlyOverdue || undefined, page, per_page: 25 })
+      .actionsBoard({ department_id: departmentId, type: types, status: status || undefined, overdue: onlyOverdue || undefined, from: from || undefined, to: to || undefined, page, per_page: 25 })
       .then(setResult)
       .catch((e) => setError(extractErrorMessage(e, t('common.error'))));
-  }, [departmentId, types, status, onlyOverdue, page, t]);
+  }, [departmentId, types, status, onlyOverdue, from, to, page, t]);
 
   useEffect(() => {
     load();
@@ -97,15 +101,26 @@ export default function AgencyActionsBoardPage({ mode }: { mode: ActionsBoardMod
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-          <option value="">{t('agencyDept.allStatuses')}</option>
-          {ACTION_STATUSES.map((s) => <option key={s} value={s}>{t(`agencyDept.actionStatus.${s}`)}</option>)}
-        </Select>
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input type="checkbox" checked={onlyOverdue} onChange={(e) => { setOnlyOverdue(e.target.checked); setPage(1); }} />
-          {t('agencyDept.board.onlyOverdue')}
-        </label>
+      <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-40">
+            <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+              <option value="">{t('agencyDept.allStatuses')}</option>
+              {ACTION_STATUSES.map((s) => <option key={s} value={s}>{t(`agencyDept.actionStatus.${s}`)}</option>)}
+            </Select>
+          </div>
+          <div className="w-40">
+            <Input label={t('invoices.filterFrom')} type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} />
+          </div>
+          <div className="w-40">
+            <Input label={t('invoices.filterTo')} type="date" value={to} min={from || undefined} onChange={(e) => { setTo(e.target.value); setPage(1); }} />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" checked={onlyOverdue} onChange={(e) => { setOnlyOverdue(e.target.checked); setPage(1); }} />
+            {t('agencyDept.board.onlyOverdue')}
+          </label>
+        </div>
+        <PeriodPresets from={from} to={to} onChange={(p) => { setFrom(p.from); setTo(p.to); setPage(1); }} allowAll />
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}

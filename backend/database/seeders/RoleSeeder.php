@@ -174,10 +174,11 @@ class RoleSeeder extends Seeder
                 $p('stats', ['consulter']),
                 $p('contrats', ['consulter']),
                 // Agency (K1) : le caissier vend des packages au guichet et crée + valide
-                // directement les prestations de son périmètre.
+                // directement les prestations de son périmètre. Il exécute aussi les
+                // actions qui lui sont attribuées (Enregistrer la réalisation).
                 $p('packages', ['consulter']),
                 $p('prestations', ['consulter', 'creer', 'valider']),
-                $p('prestation-actions', ['consulter']),
+                $p('prestation-actions', ['consulter', 'modifier']),
             ),
             'comptable' => array_merge(
                 $p('clients', ['consulter', 'exporter']),

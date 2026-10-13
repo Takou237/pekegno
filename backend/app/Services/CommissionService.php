@@ -22,9 +22,10 @@ class CommissionService
      * Calcule les commissions versées à l'occasion d'un encaissement (règle multi-lignes).
      *
      * Chaque ligne reçoit une part du paiement proportionnelle à son poids dans la facture.
-     * Une ligne dont le service a une prime fixe (bonus_fixed) est calculée à part :
-     * prime fixe proratée sur le paiement. Les autres lignes suivent la règle du commercial
-     * (percent : % de la part ; fixed : valeur proratée sur la part de la ligne).
+     * Priorités par ligne :
+     * 1. Prime fixe du service (bonus_fixed) proratée sur le paiement.
+     * 2. Commission propre au service (commission_type/value) si définie et != none.
+     * 3. Règle du commercial (percent : % de la part ; fixed : valeur proratée).
      */
     public function calculateForPayment(Invoice $invoice, float $paidAmount, ?Commercial $commercial = null): array
     {
@@ -60,6 +61,26 @@ class CommissionService
                         'base_amount' => $lineShare,
                         'rule' => 'service_fixed',
                         'rate' => (float) $service->bonus_fixed,
+                    ];
+                }
+
+                // Commission propre au service (prioritaire sur celle du commercial).
+                if ($service && ($service->commission_type ?? null) && $service->commission_type !== 'none' && $service->commission_value !== null) {
+                    if ($service->commission_type === 'percent') {
+                        return [
+                            'service_id' => $service->id,
+                            'amount' => round(((float) $service->commission_value / 100) * $lineShare, 2),
+                            'base_amount' => $lineShare,
+                            'rule' => 'service_percent',
+                            'rate' => (float) $service->commission_value,
+                        ];
+                    }
+                    return [
+                        'service_id' => $service->id,
+                        'amount' => round((float) $service->commission_value * ($lineShare / (float) $line->line_total), 2),
+                        'base_amount' => $lineShare,
+                        'rule' => 'service_commission_fixed',
+                        'rate' => (float) $service->commission_value,
                     ];
                 }
 
@@ -601,6 +622,12 @@ private function createEntries($rules, Invoice $invoice, InvoicePayment $payment
                 // Prime fixe par service vendu : elle prime sur la commission du vendeur.
                 if ($service && (float) $service->bonus_fixed > 0) {
                     $amount = round((float) $service->bonus_fixed * ($paidAmount / $invoiceTotal), 2);
+                } elseif ($service && ($service->commission_type ?? null) && $service->commission_type !== 'none' && $service->commission_value !== null) {
+                    if ($service->commission_type === 'percent') {
+                        $amount = round(((float) $service->commission_value / 100) * $lineShare, 2);
+                    } else {
+                        $amount = round((float) $service->commission_value * ($lineShare / (float) $line->line_total), 2);
+                    }
                 } else {
                     $amount = $profile->computeCommission($lineShare);
                 }

@@ -29,6 +29,10 @@ class StoreServiceRequest extends FormRequest
             // Prime fixe par vente : sans cette règle, validated() l'écartait et
             // la valeur saisie dans le formulaire n'était jamais enregistrée.
             'bonus_fixed' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            // Commission propre au service (prioritaire sur celle du commercial,
+            // après la prime fixe). Mirroir de la commission par défaut des réglages.
+            'commission_type' => ['sometimes', 'nullable', 'in:none,percent,fixed'],
+            'commission_value' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'is_seminar' => ['sometimes', 'boolean'],
             // Déploiement : le service est aussi créé dans toutes les agences
             // des pays sélectionnés (comme les formations).

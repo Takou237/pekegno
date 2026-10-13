@@ -39,9 +39,9 @@ export function canManageActions(user: User | null): boolean {
   return MANAGERS.includes(role(user));
 }
 
-/** Le community manager fait évoluer le statut / coût / commentaire des actions. */
+/** Le community manager fait évoluer le statut / coût / commentaire des actions. Le caissier exécute celles qui lui sont attribuées. */
 export function canUpdateActionExecution(user: User | null): boolean {
-  return [...MANAGERS, 'community-manager'].includes(role(user));
+  return [...MANAGERS, 'community-manager', 'caissier'].includes(role(user));
 }
 
 export function canManageTeam(user: User | null): boolean {

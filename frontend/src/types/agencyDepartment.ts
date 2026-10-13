@@ -201,6 +201,7 @@ export interface PrestationActionExecution {
   scheduled_date: string | null;
   done_at: string | null;
   proof_url: string | null;
+  proof_file: string | null;
   actual_cost: number | null;
   note: string | null;
   is_manual: boolean;

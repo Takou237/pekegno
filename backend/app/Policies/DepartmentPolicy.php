@@ -16,6 +16,9 @@ class DepartmentPolicy
             'super-admin',
             'direction-generale',
             'responsable-agence',
+            'commercial',
+            'caissier',
+            'community-manager',
         ]);
     }
 
@@ -29,6 +32,15 @@ class DepartmentPolicy
             return $user->assignments()
                 ->where('agency_id', $department->agency_id)
                 ->exists();
+        }
+
+        if (in_array($user->role?->name, ['commercial', 'caissier', 'community-manager'], true)) {
+            $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($user);
+            if ($agencyIds === null) {
+                return true;
+            }
+
+            return in_array($department->agency_id, $agencyIds, true);
         }
 
         return false;

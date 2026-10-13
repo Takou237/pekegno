@@ -12,8 +12,12 @@ class AgencyPolicy
 
     public function viewAny(User $user): bool
     {
+        // La liste est déjà scopée côté contrôleur (ScopeService) : le commercial,
+        // le caissier et le community-manager doivent pouvoir résoudre leur agence
+        // (formulaire « Nouvelle prestation », sélecteurs) sans 403 global.
         return in_array($user->role?->name, [
             'super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement',
+            'commercial', 'caissier', 'comptable', 'community-manager',
         ]);
     }
 
@@ -25,6 +29,17 @@ class AgencyPolicy
 
         if ($user->role?->name === 'responsable-agence') {
             return $user->assignments()->where('agency_id', $agency->id)->exists();
+        }
+
+        // Commercial / caissier / community-manager / comptable : lecture de leur
+        // périmètre uniquement (même règle que ScopeService côté contrôleur).
+        if (in_array($user->role?->name, ['commercial', 'caissier', 'community-manager', 'comptable'], true)) {
+            $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($user);
+            if ($agencyIds === null) {
+                return true;
+            }
+
+            return in_array($agency->id, $agencyIds, true);
         }
 
         return false;

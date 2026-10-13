@@ -35,6 +35,7 @@ class PrestationActionExecution extends Model
         'scheduled_date',
         'done_at',
         'proof_url',
+        'proof_file',
         'actual_cost',
         'note',
         'is_manual',

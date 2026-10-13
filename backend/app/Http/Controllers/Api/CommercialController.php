@@ -585,10 +585,15 @@ class CommercialController extends Controller
             );
         }
 
+        $sortBy = $request->input('sort_by', 'points_balance');
+        $allowedSorts = ['points_balance', 'sales_count', 'turnover', 'commission_total'];
+        if (! in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'points_balance';
+        }
+        $sortDir = strtolower((string) $request->input('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
         $rows = $commercials
-            ->sortByDesc('sales_count')
-            ->sortByDesc('turnover')
-            ->sortByDesc('points_balance')
+            ->sortBy($sortBy, SORT_REGULAR, $sortDir === 'desc')
             ->values()
             ->take(min((int) $request->input('limit', 50), 100));
 
