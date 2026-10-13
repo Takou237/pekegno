@@ -268,6 +268,7 @@ export default function QuickSalePage() {
             <div className="sm:w-64">
               <AgencyScopeSelect
                 required
+                allAgencies
                 label={t('contextBar.agency')}
                 value={pickedAgencyId}
                 onChange={(id) => {

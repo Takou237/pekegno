@@ -443,6 +443,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
           <div className="mb-3 sm:max-w-xs">
             <AgencyScopeSelect
               required
+              allAgencies
               value={pickedAgencyId}
               onChange={(id) => {
                 setPickedAgencyId(id);

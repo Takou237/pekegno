@@ -45,9 +45,23 @@ export interface ContextSelection {
   departmentId: string | null;
 }
 
+export interface AgencyOption {
+  id: string;
+  name: string;
+  code: string;
+  country_id: string | null;
+  country_name: string | null;
+}
+
 export const scopeApi = {
   async getContext(params?: { types?: string }): Promise<ScopeContextResponse> {
     const { data } = await client.get<ScopeContextResponse>('/scope/context', { params });
     return data;
+  },
+
+  /** Toutes les agences de Pekegno (tous pays), pour les sélecteurs de vente/inscription. */
+  async agencies(): Promise<AgencyOption[]> {
+    const { data } = await client.get<{ data: AgencyOption[] }>('/scope/agencies');
+    return data.data;
   },
 };

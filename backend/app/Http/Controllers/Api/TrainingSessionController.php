@@ -29,6 +29,13 @@ class TrainingSessionController extends Controller
      */
     private function scopeQuery(Request $request, $query)
     {
+        // Les sessions sont demandées pour une formation précise (course_id) :
+        // le périmètre est déjà porté par ce choix, on n'applique pas le scope
+        // d'agence (indispensable pour une formation d'un autre pays).
+        if ($request->filled('course_id')) {
+            return $query;
+        }
+
         $agencyIds = $this->scopeService->agencyIds($request->user());
 
         if ($agencyIds === null) {

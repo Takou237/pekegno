@@ -116,4 +116,34 @@ class ScopeController extends Controller
             'countries' => $countriesWithAgencies,
         ]);
     }
+
+    #[OA\Get(
+        path: '/api/scope/agencies',
+        summary: 'Liste de TOUTES les agences (tous pays) pour les sélecteurs de vente/inscription',
+        tags: ['Organisation - Périmètre'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des agences avec leur pays'),
+        ]
+    )]
+    public function agencies(): JsonResponse
+    {
+        // Volontairement NON scopé : une vente/inscription peut viser une agence
+        // d'un autre pays (ex. un commercial camerounais vend un produit ivoirien).
+        // Le CA est ensuite attribué à l'agence choisie.
+        $agencies = Agency::query()
+            ->whereNull('deleted_at')
+            ->with(['geoCountry:id,name,code'])
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'country_id'])
+            ->map(fn (Agency $a) => [
+                'id' => $a->id,
+                'name' => $a->name,
+                'code' => $a->code,
+                'country_id' => $a->country_id,
+                'country_name' => $a->geoCountry?->name,
+            ]);
+
+        return response()->json(['data' => $agencies]);
+    }
 }

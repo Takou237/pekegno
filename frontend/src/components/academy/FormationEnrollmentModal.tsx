@@ -381,6 +381,7 @@ export default function FormationEnrollmentModal({
             la liste de formations ci-dessous suit ce choix. */}
         <AgencyScopeSelect
           required
+          allAgencies
           value={pickedAgencyId}
           onChange={(id) => {
             setPickedAgencyId(id);

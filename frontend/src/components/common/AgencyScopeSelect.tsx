@@ -1,15 +1,19 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useOrgContext } from '@/context/OrgContext';
+import { scopeApi, type AgencyOption } from '@/api/scope.api';
 import { Select } from '@/components/ui/Select';
 
 /**
- * Sélecteur d'agence dérivé du contexte organisationnel (OrgContext).
+ * Sélecteur d'agence.
  *
- * La liste est DÉRIVÉE directement de `countries` (useMemo) : elle reste
- * synchronisée en permanence avec le périmètre de l'utilisateur — connexion,
- * changement de compte, rafraîchissement du contexte — sans copie d'état
- * stale. C'est la même source que la barre Pays/Agence du header.
+ * Par défaut, la liste est DÉRIVÉE du contexte organisationnel (OrgContext) :
+ * elle reste synchronisée en permanence avec le périmètre de l'utilisateur.
+ *
+ * Avec `allAgencies`, elle propose TOUTES les agences de Pekegno (tous pays).
+ * C'est nécessaire pour une vente/inscription inter-pays : un commercial
+ * camerounais doit pouvoir choisir une agence ivoirienne pour y rattacher la
+ * vente (le CA est alors attribué à cette agence).
  *
  * Libellé « Agence — Pays » pour désambiguïser les agences homonymes
  * (ex. une agence par ville dans plusieurs pays).
@@ -21,6 +25,7 @@ export function AgencyScopeSelect({
   label,
   required = false,
   error,
+  allAgencies = false,
 }: {
   value: string;
   onChange: (agencyId: string) => void;
@@ -28,17 +33,44 @@ export function AgencyScopeSelect({
   label?: string;
   required?: boolean;
   error?: string;
+  allAgencies?: boolean;
 }) {
   const { t } = useTranslation();
   const { countries } = useOrgContext();
+  const [all, setAll] = useState<AgencyOption[] | null>(null);
 
-  const agencies = useMemo(
-    () =>
-      countries.flatMap((c) =>
-        c.agencies.map((a) => ({ id: a.id, name: a.name, countryName: c.name })),
-      ),
-    [countries],
-  );
+  useEffect(() => {
+    if (!allAgencies) {
+      setAll(null);
+      return;
+    }
+    let active = true;
+    scopeApi
+      .agencies()
+      .then((rows) => {
+        if (active) setAll(rows);
+      })
+      .catch(() => {
+        if (active) setAll([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [allAgencies]);
+
+  const agencies = useMemo(() => {
+    if (allAgencies) {
+      return (all ?? []).map((a) => ({
+        id: a.id,
+        name: a.name,
+        countryName: a.country_name ?? '',
+      }));
+    }
+
+    return countries.flatMap((c) =>
+      c.agencies.map((a) => ({ id: a.id, name: a.name, countryName: c.name })),
+    );
+  }, [allAgencies, all, countries]);
 
   return (
     <Select

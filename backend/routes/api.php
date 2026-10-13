@@ -196,6 +196,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::delete('/cities/{city}', [CityController::class, 'destroy'])->middleware('permission:cities.supprimer');
 
     Route::get('/scope/context', [ScopeController::class, '__invoke']);
+    Route::get('/scope/agencies', [ScopeController::class, 'agencies']);
 
     Route::get('/categories/trash', [CategoryController::class, 'trash']);
     Route::post('/categories/{category}/restore', [CategoryController::class, 'restore']);

@@ -26,6 +26,13 @@ class CourseController extends Controller
      */
     private function scopeQuery(Request $request, $query)
     {
+        // Choix explicite d'une agence (vente/inscription inter-pays) : on fait
+        // confiance à ce filtre et on ne borne plus au périmètre de l'utilisateur,
+        // sinon un commercial ne verrait aucune formation de l'agence choisie.
+        if ($request->filled('agency_id')) {
+            return $query;
+        }
+
         $agencyIds = $this->scopeService->agencyIds($request->user());
 
         if ($agencyIds === null) {
