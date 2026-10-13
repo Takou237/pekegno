@@ -28,6 +28,7 @@ séparément s'il ne l'est toujours pas).
 |---|---|---|
 | `migration-2026-10-13.sql` | Schéma + données (28 migrations) + lignes `migrations` | Importer **en 1er** |
 | `seed-permissions-2026-10-13.sql` | 16 permissions Agency + rôle `community-manager` + associations par rôle (miroir `RoleSeeder`) + rattrapage caissier | Importer **en 2e** |
+| `seed-commercial-reporting.sql` | Droit `commercials.reporting` (+ `consulter`) au commercial : pages Suivi des ventes + Rapport mensuel (403 en prod car absent du seed de septembre) | Importer **en 3e** |
 | `frontend-dist.zip` | Build admin (`VITE_API_URL=https://pekegnogroup.com/api`), `.htaccess` inclus | Extraire sur `/plateforme.pekegnogroup.com` |
 | `README.md` | Ce fichier | — |
 
@@ -51,6 +52,7 @@ zéro erreur, vérifié 16 permissions / 28 lignes `migrations` / rôle
    SELECT count(*) FROM migrations WHERE migration LIKE '2026_10%';  -- attendu : 28
    SELECT key, value FROM settings WHERE key LIKE 'default_commission%';  -- percent / 20
    SELECT to_regclass('public.prestations'), to_regclass('public.prestation_offers'), to_regclass('public.team_members');  -- 3 lignes non NULL
+   SELECT p.name FROM roles r JOIN role_permission rp ON rp.role_id = r.id JOIN permissions p ON p.id = rp.permission_id WHERE r.name = 'commercial' AND p.name LIKE 'commercials.%';  -- consulter + reporting
    ```
 5. **Code backend** : `git push` fait → cPanel → Git Version Control →
    `repositories/pekegno` → Manage → **Update from Remote**.
@@ -77,4 +79,5 @@ effet sur l'ancien code.
 - [ ] Caissier assigné → `/team/.../actions/...` : bouton **Marquer comme fait** présent, enregistrement OK (fini le 403).
 - [ ] Client → `/mon-compte/prestations` : preuves (lien + fichier + note + date) visibles sous chaque action notée.
 - [ ] Commercial → `/catalog/services` onglet Packages : bouton **Nouvelle prestation** (Nom/Catégorie/Actif/Description/Déployer pays, **sans Département**), création OK sans toast 403 ; catégorie d'un autre département acceptée (recréée dans l'agence cible).
+- [ ] Commercial → `/sales-tracking` et `/commercials/monthly-report` : ouverture **sans** toast 403 (droit `commercials.reporting` via `seed-commercial-reporting.sql`), ne voit que ses propres ventes.
 - [ ] Service avec commission `fixe`/`percent` : commission calculée au taux du service à l'encaissement (avant : taux du commercial).
