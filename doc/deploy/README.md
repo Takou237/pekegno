@@ -55,6 +55,13 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 | `13_10/seed-permissions-2026-10-13.sql` | 16 permissions Agency + rôle `community-manager` + associations par rôle (miroir `RoleSeeder`) + rattrapage caissier |
 | `13_10/frontend-dist.zip` | build admin du 13/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
 
+⏳ **À appliquer avec le déploiement du 14/10/2026** (voir
+`14_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `14_10/frontend-dist.zip` | build admin du 14/10 : fix crash équipe client, rôles personnalisés + rôle obligatoire, onglet Prestations séparé, champs recherche en select déroulant (aucune migration SQL, aucun rebuild `vendor/`) |
+
 Dernière migration Laravel présente en prod :
 `2026_09_30_000003_add_payer_phone_to_invoices_table`. Pour un prochain
 déploiement, n'importer que les **nouveaux** scripts SQL correspondant aux
