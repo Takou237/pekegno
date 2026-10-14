@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronDown } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 
 export interface AutocompleteOption {
@@ -52,28 +53,32 @@ export function Autocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestSeqRef = useRef(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Select déroulant avec recherche : une requête vide retourne la liste
+   * complète (les endpoints `search` renvoient les 10 premiers sans filtre),
+   * une requête saisie filtre. Anti-course : seule la dernière réponse compte.
+   */
   const search = useCallback(
     async (query: string) => {
-      const q = String(query ?? '').trim();
-      if (!q) {
-        setOptions([]);
-        setIsOpen(false);
-        return;
-      }
+      const q = String(query ?? '');
+      const seq = (requestSeqRef.current += 1);
       setIsLoading(true);
       try {
         const result = await fetchOptions(q);
+        if (seq !== requestSeqRef.current) return;
         const list = Array.isArray(result) ? result : [];
         setOptions(list);
-        setIsOpen(list.length > 0 || freeText);
+        setIsOpen(list.length > 0 || (freeText && q.trim() !== ''));
         setHighlightedIndex(-1);
       } catch {
+        if (seq !== requestSeqRef.current) return;
         setOptions([]);
       } finally {
-        setIsLoading(false);
+        if (seq === requestSeqRef.current) setIsLoading(false);
       }
     },
     [fetchOptions, freeText],
@@ -107,9 +112,9 @@ export function Autocomplete({
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = String(inputValue ?? '').trim();
+    // Champ synchronisé avec la sélection : le focus/chevron a déjà ouvert la
+    // liste complète, ne pas refermer ni relancer de recherche.
     if (!q || (selectedLabel !== '' && inputValue === selectedLabel)) {
-      setOptions([]);
-      setIsOpen(false);
       return;
     }
     debounceRef.current = setTimeout(() => search(inputValue), 300);
@@ -138,7 +143,14 @@ export function Autocomplete({
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (!isOpen) return;
+    if (!isOpen) {
+      // Comportement select : flèche bas ouvre la liste complète.
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        openFullList();
+      }
+      return;
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlightedIndex((prev) => Math.min(prev + 1, options.length + (freeText && inputValue.trim() ? 1 : 0) - 1));
@@ -169,6 +181,28 @@ export function Autocomplete({
     inputRef.current?.focus();
   }
 
+  /** Requête reflétant l'état du champ : liste complète si vide ou inchangé. */
+  function currentQuery(): string {
+    if (!inputValue.trim() || (selectedLabel !== '' && inputValue === selectedLabel)) return '';
+    return inputValue;
+  }
+
+  function openFullList() {
+    if (disabled) return;
+    search(currentQuery());
+  }
+
+  function toggleDropdown() {
+    if (disabled) return;
+    if (isOpen) {
+      setIsOpen(false);
+      inputRef.current?.blur();
+      return;
+    }
+    inputRef.current?.focus();
+    openFullList();
+  }
+
   return (
     <div className="flex flex-col gap-1.5" ref={wrapperRef}>
       {label && (
@@ -184,14 +218,23 @@ export function Autocomplete({
           value={inputValue}
           placeholder={selectedLabel || resolvedPlaceholder}
           onChange={(e) => {
-            setInputValue(e.target.value);
+            const next = e.target.value;
+            setInputValue(next);
             if (selectedLabel) {
               setSelectedLabel('');
               onChange('');
             }
+            // Texte effacé à la frappe : réafficher la liste complète.
+            if (!next.trim() && document.activeElement === inputRef.current) {
+              search('');
+            }
           }}
           onFocus={() => {
-            if (options.length > 0) setIsOpen(true);
+            if (options.length > 0) {
+              setIsOpen(true);
+              return;
+            }
+            openFullList();
           }}
           onKeyDown={handleKeyDown}
           disabled={disabled}
@@ -200,7 +243,7 @@ export function Autocomplete({
           aria-expanded={isOpen}
           aria-controls={`${generatedId}-listbox`}
           role="combobox"
-          className={`w-full rounded-lg border px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:bg-gray-900 dark:text-gray-100 ${
+          className={`w-full rounded-lg border py-2.5 pl-4 pr-16 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:bg-gray-900 dark:text-gray-100 ${
             error
               ? 'border-error-500 focus:border-error-500'
               : 'border-gray-300 focus:border-brand-500 dark:border-gray-700'
@@ -210,22 +253,33 @@ export function Autocomplete({
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="absolute right-9 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             tabIndex={-1}
           >
             &times;
           </button>
         )}
-        {isLoading && (
+        {isLoading ? (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <Spinner className="h-4 w-4" />
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={toggleDropdown}
+            disabled={disabled}
+            tabIndex={-1}
+            aria-label={t('common.search')}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-gray-300"
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          </button>
         )}
         {isOpen && (options.length > 0 || (freeText && inputValue.trim())) && (
           <ul
             id={`${generatedId}-listbox`}
             role="listbox"
-            className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+            className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
           >
             {options.map((option, index) => (
               <li

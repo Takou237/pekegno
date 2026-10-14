@@ -30,9 +30,8 @@ class AssignRoleRequest extends FormRequest
         return [
             function (Validator $validator) {
                 $roleName = Role::where('id', $this->input('role_id'))->value('name');
-                $assignable = EmployeeRoles::assignableRoleNames($this->user()?->role?->name);
 
-                if (! in_array($roleName, $assignable, true)) {
+                if (! EmployeeRoles::isAssignable($roleName ?? '', $this->user()?->role?->name)) {
                     $validator->errors()->add(
                         'role_id',
                         'Vous n\'êtes pas autorisé à attribuer ce rôle.'

@@ -27,7 +27,7 @@ class StoreUserRequest extends FormRequest
             'first_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'last_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
-            'role_id' => ['sometimes', 'nullable', 'string', 'exists:roles,id'],
+            'role_id' => ['required', 'string', 'exists:roles,id'],
             'agency_id' => ['sometimes', 'nullable', 'string', 'exists:agencies,id'],
             'department_id' => ['sometimes', 'nullable', 'string', 'exists:departments,id'],
         ];
@@ -43,7 +43,6 @@ class StoreUserRequest extends FormRequest
                 }
 
                 $roleName = Role::where('id', $roleId)->value('name');
-                $assignable = EmployeeRoles::assignableRoleNames($this->user()?->role?->name);
 
                 if ($roleName === null) {
                     $validator->errors()->add('role_id', "Ce rôle n'existe pas.");
@@ -51,7 +50,7 @@ class StoreUserRequest extends FormRequest
                     return;
                 }
 
-                if (! in_array($roleName, $assignable, true)) {
+                if (! EmployeeRoles::isAssignable($roleName, $this->user()?->role?->name)) {
                     $validator->errors()->add(
                         'role_id',
                         'Vous n\'êtes pas autorisé à attribuer ce rôle.'
@@ -88,6 +87,8 @@ class StoreUserRequest extends FormRequest
             'password.required' => 'Le mot de passe est obligatoire.',
             'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
             'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
+            'role_id.required' => 'Le rôle est obligatoire.',
+            'role_id.exists' => "Ce rôle n'existe pas.",
         ];
     }
 }

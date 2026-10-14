@@ -85,30 +85,36 @@ export default function ClientTeamPage() {
         <p className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-gray-700">{t('agencyDept.team.empty')}</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {rows.map((row) => (
-            <div key={row.user.id} className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          {rows.map((row, index) => (
+            <div key={row.user?.id ?? `row-${index}`} className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">{personName(row.user)}</p>
-                  <p className="text-xs text-gray-400">{row.user.email}</p>
+                  <p className="text-xs text-gray-400">{row.user?.email ?? '—'}</p>
                 </div>
                 <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                  {t('agencyDept.team.openActions', { count: row.open_actions })}
+                  {t('agencyDept.team.openActions', { count: row.open_actions ?? 0 })}
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">
-                {row.roles.map((r) => (
+                {(row.roles ?? []).map((r) => (
                   <span key={r.id} className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">{r.name}</span>
                 ))}
               </div>
               <ul className="flex flex-col gap-2 border-t border-gray-100 pt-3 text-sm dark:border-gray-800">
-                {row.prestations.map((p) => (
+                {(row.prestations ?? []).map((p) => (
                   <li key={`${p.id}-${p.role}`} className="flex items-center justify-between gap-2">
-                    <Link to={`${basePath}/prestations/${p.id}`} className="min-w-0 truncate text-gray-700 hover:underline dark:text-gray-200">
-                      {p.is_lead && <Crown className="mr-1 inline h-3.5 w-3.5 text-amber-500" />}
-                      {p.name} <span className="text-xs text-gray-400">· {p.client ?? '—'}{p.role ? ` · ${p.role}` : ''}</span>
-                    </Link>
-                    <PrestationStatusBadge status={p.status} />
+                    {p.id ? (
+                      <Link to={`${basePath}/prestations/${p.id}`} className="min-w-0 truncate text-gray-700 hover:underline dark:text-gray-200">
+                        {p.is_lead && <Crown className="mr-1 inline h-3.5 w-3.5 text-amber-500" />}
+                        {p.name} <span className="text-xs text-gray-400">· {p.client ?? '—'}{p.role ? ` · ${p.role}` : ''}</span>
+                      </Link>
+                    ) : (
+                      <span className="min-w-0 truncate text-gray-700 dark:text-gray-200">
+                        {p.name} <span className="text-xs text-gray-400">· {p.client ?? '—'}{p.role ? ` · ${p.role}` : ''}</span>
+                      </span>
+                    )}
+                    {p.status && <PrestationStatusBadge status={p.status} />}
                   </li>
                 ))}
               </ul>

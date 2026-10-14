@@ -181,6 +181,10 @@ class ClientTeamController extends Controller
 
         $members = PrestationTeamMember::query()
             ->whereIn('prestation_id', $prestationIds)
+            // Les affectations depuis l'annuaire sans compte (user_id null) n'ont
+            // pas d'utilisateur à afficher : elles vivent dans l'onglet Annuaire.
+            // Sans ce filtre, `user` vaut null et le frontend plante (prod).
+            ->whereNotNull('user_id')
             ->when($request->client_team_role_id, fn ($q, $id) => $q->where('client_team_role_id', $id))
             ->with('user:id,first_name,last_name,email', 'teamRole:id,name,color', 'prestation:id,reference,name,status,client_id', 'prestation.client:id,first_name,last_name')
             ->get()
@@ -212,7 +216,9 @@ class ClientTeamController extends Controller
                 'prestations_count' => $rows->pluck('prestation_id')->unique()->count(),
                 'open_actions' => (int) ($openActions[$userId] ?? 0),
             ];
-        })->values();
+        // Compte supprimé entre-temps : `user` vaut null, le frontend ne peut
+        // rien afficher → on exclut la ligne au lieu de planter la page.
+        })->filter(fn ($row) => $row['user'] !== null)->values();
 
         return response()->json(['data' => $data]);
     }

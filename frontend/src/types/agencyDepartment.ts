@@ -427,9 +427,9 @@ export interface Review {
 }
 
 export interface TeamOverviewRow {
-  user: PersonRef;
+  user: PersonRef | null;
   roles: ClientTeamRole[];
-  prestations: Array<{ id: string; reference: string; name: string; status: PrestationStatus; client: string | null; role: string | null; is_lead: boolean }>;
+  prestations: Array<{ id: string | null; reference: string | null; name: string | null; status: PrestationStatus | null; client: string | null; role: string | null; is_lead: boolean }>;
   prestations_count: number;
   open_actions: number;
 }

@@ -14,7 +14,7 @@ import { Alert } from '@/components/ui/Alert';
 import type { CreateUserPayload, RoleListItem } from '@/types/user';
 import type { Agency } from '@/types/agency';
 import type { Department } from '@/types/department';
-import { assignableRoleNames, CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
+import { isRoleAssignableToForm } from '@/utils/employeeRoles';
 import { useUsernameSuggestion } from '@/hooks/useUsernameSuggestion';
 
 interface CreateUserModalProps {
@@ -113,14 +113,16 @@ export function CreateUserModal({
     </Select>
   );
 
-  const assignableRoles = roles.filter(
-    (r) =>
-      !CHIEF_ROLE_NAMES.has(r.name) &&
-      assignableRoleNames(currentUser?.role?.name).includes(r.name)
+  const assignableRoles = roles.filter((r) =>
+    isRoleAssignableToForm(r.name, currentUser?.role?.name)
   );
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!form.role_id) {
+      setErrors({ role_id: t('users.roleRequired') });
+      return;
+    }
     setErrors({});
     setIsSubmitting(true);
     try {
@@ -198,9 +200,11 @@ export function CreateUserModal({
         <Select
           label={t('users.role')}
           value={form.role_id ?? ''}
+          required
           onChange={(e) => setForm((p) => ({ ...p, role_id: e.target.value }))}
+          error={errors.role_id}
         >
-          <option value="">{t('users.noRoleOption')}</option>
+          <option value="">{t('users.selectRole')}</option>
           {assignableRoles.map((r) => (
             <option key={r.id} value={r.id}>
               {r.name}

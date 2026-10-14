@@ -23,7 +23,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { canExportData } from '@/utils/exportPermissions';
 import type { CreateUserPayload, UserListItem, RoleListItem } from '@/types/user';
 import type { Agency, AssignedUser, Department, PaginationMeta } from '@/types/agency';
-import { assignableRoleNames, CHIEF_ROLE_NAMES } from '@/utils/employeeRoles';
+import { isRoleAssignableToForm } from '@/utils/employeeRoles';
 import { useUsernameSuggestion } from '@/hooks/useUsernameSuggestion';
 
 interface AssignableUser {
@@ -79,7 +79,6 @@ export default function UserListPage() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
-  const [confirmRoleRemove, setConfirmRoleRemove] = useState<(() => Promise<void>) | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [resetPasswordTarget, setResetPasswordTarget] = useState<UserListItem | null>(null);
@@ -167,10 +166,8 @@ export default function UserListPage() {
     usersApi.listRoles().then(setRoles).catch(() => {});
   }, []);
 
-  const assignableRoles = roles.filter(
-    (r) =>
-      !CHIEF_ROLE_NAMES.has(r.name) &&
-      assignableRoleNames(currentUser?.role?.name).includes(r.name)
+  const assignableRoles = roles.filter((r) =>
+    isRoleAssignableToForm(r.name, currentUser?.role?.name)
   );
 
   function handleAgencyChange(agencyId: string) {
@@ -259,10 +256,7 @@ export default function UserListPage() {
 
   function handleEditSubmitConfirm() {
     if (!editForm.role_id) {
-      setConfirmRoleRemove(() => async () => {
-        setConfirmRoleRemove(null);
-        await submitEdit();
-      });
+      setEditErrors({ role_id: t('users.roleRequired') });
       return;
     }
     submitEdit();
@@ -444,6 +438,10 @@ export default function UserListPage() {
   }
 
   async function handleCreateUser() {
+    if (!createForm.role_id) {
+      setCreateErrors({ role_id: t('users.roleRequired') });
+      return;
+    }
     setCreateErrors({});
     setCreateSubmitting(true);
     try {
@@ -490,8 +488,10 @@ export default function UserListPage() {
         return <Badge variant="neutral">{t('roles.comptable')}</Badge>;
       case 'formateur':
         return <Badge variant="brand">{t('roles.formateur')}</Badge>;
+      case 'community-manager':
+        return <Badge variant="brand">{t('roles.community-manager', { defaultValue: 'community-manager' })}</Badge>;
       default:
-        return <Badge variant="neutral">{t('roles.none')}</Badge>;
+        return <Badge variant="neutral">{roleName ?? t('roles.none')}</Badge>;
     }
   }
 
@@ -775,9 +775,11 @@ export default function UserListPage() {
           <Select
             label={t('users.role')}
             value={editForm.role_id}
+            required
             onChange={(e) => setEditForm((p) => ({ ...p, role_id: e.target.value }))}
+            error={editErrors.role_id}
           >
-            <option value="">{t('users.fireOption')}</option>
+            <option value="">{t('users.selectRole')}</option>
             {assignableRoles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -866,17 +868,6 @@ export default function UserListPage() {
           </div>
         </div>
       </Modal>
-
-      {/* Confirmation licenciement */}
-      <ConfirmDialog
-        isOpen={Boolean(confirmRoleRemove)}
-        title={t('users.fireUserTitle')}
-        message={t('users.fireUserMessage')}
-        confirmLabel={t('users.yesFire')}
-        variant="danger"
-        onConfirm={() => confirmRoleRemove?.()}
-        onCancel={() => setConfirmRoleRemove(null)}
-      />
 
       {/* Confirmation suppression */}
       <ConfirmDialog
@@ -972,9 +963,11 @@ export default function UserListPage() {
           <Select
             label={t('users.role')}
             value={createForm.role_id ?? ''}
+            required
             onChange={(e) => setCreateForm((p) => ({ ...p, role_id: e.target.value }))}
+            error={createErrors.role_id}
           >
-            <option value="">{t('users.noRoleOption')}</option>
+            <option value="">{t('users.selectRole')}</option>
             {assignableRoles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}

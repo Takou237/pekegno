@@ -59,7 +59,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const { showToast } = useToast();
   const { countryId } = useParams<{ countryId?: string }>();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState<'services' | 'formations' | 'packages' | 'agency'>('services');
+  const [tab, setTab] = useState<'services' | 'formations' | 'packages' | 'prestations' | 'agency'>('services');
   const navigate = useNavigate();
 
   const isCommercial = user?.role?.name === 'commercial';
@@ -197,7 +197,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   }, [effectiveAgencyId, countryId, packageAgency]);
 
   useEffect(() => {
-    if (tab !== 'packages') return;
+    if (tab !== 'packages' && tab !== 'prestations') return;
     fetchPackages();
   }, [tab, fetchPackages]);
 
@@ -450,14 +450,15 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     return null;
   };
 
-  if (tab === 'packages') {
+  if (tab === 'packages' || tab === 'prestations') {
     const canCreateOffer = canCreatePrestation(user);
+    const isPackagesTab = tab === 'packages';
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('nav.packages')}</h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.packages.subscribeHint')}</p>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{isPackagesTab ? t('nav.packages') : t('agencyDept.offers.title')}</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{isPackagesTab ? t('agencyDept.packages.subscribeHint') : t('agencyDept.offers.subtitle')}</p>
           </div>
           {canCreateOffer && (
             <Button onClick={() => setOfferFormOpen(true)}>
@@ -485,9 +486,25 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
           )}
           <button
             type="button"
-            className="inline-flex items-center gap-2 border-b-2 border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-600 transition-colors dark:text-brand-400"
+            onClick={() => setTab('packages')}
+            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              isPackagesTab
+                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
           >
             {t('nav.packages')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('prestations')}
+            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              !isPackagesTab
+                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            {t('nav.prestations')}
           </button>
         </div>
         <div className="relative">
@@ -546,34 +563,35 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             )}
           </div>
         )}
-        {packagesLoading ? (
-          <SkeletonCards />
-        ) : packagesError ? (
-          <p className="text-sm text-error-500">{packagesError}</p>
-        ) : filteredCatalogPackages.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.packages.empty')}</p>
+        {isPackagesTab ? (
+          packagesLoading ? (
+            <SkeletonCards />
+          ) : packagesError ? (
+            <p className="text-sm text-error-500">{packagesError}</p>
+          ) : filteredCatalogPackages.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('agencyDept.packages.empty')}</p>
+          ) : (
+            groupPackagesByCategory(filteredCatalogPackages, t('agencyDept.packages.uncategorized')).map((group) => (
+              <section key={group.name} className="flex flex-col gap-3">
+                <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <Tag className="h-4 w-4" /> {group.name}
+                </h2>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {group.items.map((pkg) => (
+                    <PackageCard
+                      key={pkg.id}
+                      pkg={pkg}
+                      canManage={false}
+                      canSubscribe={canSubscribe && pkg.is_active}
+                      showAgency={!effectiveAgencyId}
+                      onSubscribe={() => setSubscribeTarget(pkg)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))
+          )
         ) : (
-          groupPackagesByCategory(filteredCatalogPackages, t('agencyDept.packages.uncategorized')).map((group) => (
-            <section key={group.name} className="flex flex-col gap-3">
-              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                <Tag className="h-4 w-4" /> {group.name}
-              </h2>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {group.items.map((pkg) => (
-                  <PackageCard
-                    key={pkg.id}
-                    pkg={pkg}
-                    canManage={false}
-                    canSubscribe={canSubscribe && pkg.is_active}
-                    showAgency={!effectiveAgencyId}
-                    onSubscribe={() => setSubscribeTarget(pkg)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))
-        )}
-
         <section className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -647,6 +665,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             )}
           </div>
         </section>
+        )}
 
         {subscribeTarget && (
           <PackageSubscribeModal
@@ -781,13 +800,22 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             </button>
           )}
           {showPackagesTab && (
-            <button
-              type="button"
-              onClick={() => setTab('packages')}
-              className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              {t('nav.packages')}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setTab('packages')}
+                className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                {t('nav.packages')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('prestations')}
+                className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                {t('nav.prestations')}
+              </button>
+            </>
           )}
         </div>
       )}
