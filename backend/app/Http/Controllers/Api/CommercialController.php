@@ -25,6 +25,21 @@ use OpenApi\Attributes as OA;
 
 class CommercialController extends Controller
 {
+    /**
+     * Rôles considérés comme « employés » (annuaire RH) : tous sauf
+     * formateur, commercial et client. Ces comptes apparaissent dans le
+     * menu Employés avec un profil (points, primes) créé à la volée.
+     */
+    private const EMPLOYEE_ROLES = [
+        'caissier',
+        'comptable',
+        'community-manager',
+        'responsable-departement',
+        'responsable-agence',
+        'direction-generale',
+        'super-admin',
+    ];
+
     public function __construct(
         private readonly ActivityLogger $activityLogger,
     ) {}
@@ -194,15 +209,15 @@ class CommercialController extends Controller
     }
 
     /**
-     * Crée à la volée un profil Commercial (kind=employe) pour les comptes
-     * caissier/comptable du périmètre qui n'en ont pas encore — même logique
-     * que syncUserTrainers pour les formateurs. Sans ce profil, ces employés
-     * n'apparaissent pas dans l'annuaire et ne peuvent pas être crédités en
-     * points lors d'une vente de guichet.
+     * Crée à la volée un profil Commercial (kind=employe) pour tous les comptes
+     * « non formateur / non commercial » du périmètre qui n'en ont pas encore —
+     * même logique que syncUserTrainers pour les formateurs. Sans ce profil,
+     * ces employés n'apparaissent pas dans le menu Employés et ne peuvent pas
+     * être crédités en points lors d'une vente de guichet.
      */
     private function syncUserEmployees(Request $request, ?string $agencyId): void
     {
-        $roleIds = DB::table('roles')->whereIn('name', ['caissier', 'comptable', 'community-manager'])->pluck('id');
+        $roleIds = DB::table('roles')->whereIn('name', self::EMPLOYEE_ROLES)->pluck('id');
 
         if ($roleIds->isEmpty()) {
             return;
@@ -442,7 +457,8 @@ class CommercialController extends Controller
     {
         $linkedIds = Commercial::pluck('user_id')->filter();
 
-        $roles = $request->kind === 'employe' ? ['caissier', 'commercial'] : ['commercial'];
+        // Employés : tous les rôles hors formateur/commercial/client.
+        $roles = $this->defaultKind($request) === 'employe' ? self::EMPLOYEE_ROLES : ['commercial'];
 
         $users = User::query()
             ->whereHas('role', fn ($q) => $q->whereIn('name', $roles))

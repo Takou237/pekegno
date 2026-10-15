@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { agenciesApi } from '@/api/agencies.api';
 import { commercialsApi } from '@/api/commercials.api';
+import { employeesApi } from '@/api/employees.api';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -43,12 +44,14 @@ export function CommercialForm({
   errors = {},
   linkedUserLabel = '',
   fixedAgencyId,
+  mode = 'commercial',
 }: {
   value: CommercialFormValues;
   onChange: (next: CommercialFormValues) => void;
   errors?: Record<string, string>;
   linkedUserLabel?: string;
   fixedAgencyId?: string;
+  mode?: 'commercial' | 'employee';
 }) {
   const { t } = useTranslation();
   const [availableUsers, setAvailableUsers] = useState<{ id: string; label: string; subtitle: string }[]>([]);
@@ -68,7 +71,9 @@ export function CommercialForm({
 
   const userOptions = async (query: string) => {
     if (availableUsers.length === 0) {
-      const users = await commercialsApi.availableUsers();
+      // Employé : on n'offre que les comptes hors formateur/commercial.
+      const users =
+        mode === 'employee' ? await employeesApi.availableUsers() : await commercialsApi.availableUsers();
       setAvailableUsers(
         users.map((u) => ({
           id: u.id,

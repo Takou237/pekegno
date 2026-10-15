@@ -484,6 +484,7 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
             onChange={setForm}
             errors={formErrors}
             fixedAgencyId={fixedAgencyId}
+            mode={isEmployee ? 'employee' : 'commercial'}
             linkedUserLabel={
               editCommercial?.user
                 ? [editCommercial.user.first_name, editCommercial.user.last_name]
