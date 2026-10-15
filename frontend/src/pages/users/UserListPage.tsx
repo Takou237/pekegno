@@ -54,6 +54,7 @@ export default function UserListPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const selectedAgencyId = searchParams.get('agency_id') ?? '';
   const selectedDepartmentId = searchParams.get('department_id') ?? '';
+  const selectedRoleId = searchParams.get('role_id') ?? '';
 
   const [editUser, setEditUser] = useState<UserListItem | null>(null);
   const [editForm, setEditForm] = useState({
@@ -126,6 +127,7 @@ export default function UserListPage() {
 
   const fetchUsers = useCallback(async (filters: {
     search?: string;
+    role_id?: string;
     agency_id?: string;
     department_id?: string;
     page: number;
@@ -135,6 +137,7 @@ export default function UserListPage() {
     try {
       const response = await usersApi.list({
         search: filters.search || undefined,
+        role_id: filters.role_id || undefined,
         agency_id: filters.agency_id || undefined,
         department_id: filters.department_id || undefined,
         page: filters.page,
@@ -151,10 +154,11 @@ export default function UserListPage() {
 
   const fetchParams = useMemo(() => ({
     search: search || undefined,
+    role_id: selectedRoleId || undefined,
     agency_id: selectedAgencyId || undefined,
     department_id: selectedDepartmentId || undefined,
     page,
-  }), [search, selectedAgencyId, selectedDepartmentId, page]);
+  }), [search, selectedRoleId, selectedAgencyId, selectedDepartmentId, page]);
 
   useEffect(() => {
     fetchUsers(fetchParams);
@@ -191,6 +195,14 @@ export default function UserListPage() {
     const params = new URLSearchParams(searchParams);
     if (departmentId) params.set('department_id', departmentId);
     else params.delete('department_id');
+    setSearchParams(params);
+  }
+
+  function handleRoleChange(roleId: string) {
+    setPage(1);
+    const params = new URLSearchParams(searchParams);
+    if (roleId) params.set('role_id', roleId);
+    else params.delete('role_id');
     setSearchParams(params);
   }
 
@@ -542,6 +554,22 @@ export default function UserListPage() {
               className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
+        </div>
+        <div className="w-56">
+          <Select
+            label={t('users.role')}
+            value={selectedRoleId}
+            onChange={(e) => handleRoleChange(e.target.value)}
+          >
+            <option value="">{t('common.selectAll')}</option>
+            {roles
+              .filter((r) => r.name !== 'client')
+              .map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+          </Select>
         </div>
         {currentUser?.role?.name !== 'responsable-departement' && (
           <div className="w-56">

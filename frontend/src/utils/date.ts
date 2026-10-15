@@ -79,3 +79,36 @@ export function formatRelativeDate(value: string | Date): string {
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
+
+/**
+ * Date + heure à la française : "15/10/2026 à 10h30".
+ * - une date sans heure ("2026-10-15") reste en "15/10/2026" (pas de 00h00 artificiel) ;
+ * - un instantané est affiché dans le fuseau métier Africa/Douala (aligné backend) ;
+ * - "—" si la valeur est absente ou illisible.
+ */
+export function formatDateTimeFr(value: string | Date | null | undefined): string {
+  if (!value) return '—';
+
+  if (typeof value === 'string') {
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+    if (dateOnly) return `${dateOnly[3]}/${dateOnly[2]}/${dateOnly[1]}`;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  const day = new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: BUSINESS_TIMEZONE,
+  }).format(date);
+  const time = new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: BUSINESS_TIMEZONE,
+  }).format(date);
+
+  return `${day} à ${time.replace(':', 'h')}`;
+}

@@ -86,6 +86,8 @@ class AccountingController extends Controller
             ->first();
 
         $transactions = $base
+            // Numéros du plus récent au plus ancien (number = séquence croissante).
+            ->orderByDesc('number')
             ->orderByDesc('transacted_at')
             ->paginate(min((int) $request->input('per_page', 15), 100));
 

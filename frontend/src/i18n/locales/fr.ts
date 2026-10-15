@@ -1437,6 +1437,7 @@ export default {
     paymentAmount: 'Montant',
     paymentMethod: 'Méthode',
     paymentDate: 'Date',
+    paymentOrder: 'Ordre (#)',
     paymentReceivedBy: 'Encaissé par',
     paymentIsAdvance: 'Acompte',
     seller: 'Vendeur',

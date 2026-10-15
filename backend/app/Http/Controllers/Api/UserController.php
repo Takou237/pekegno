@@ -172,6 +172,7 @@ class UserController extends Controller
             ->when($request->role, function ($q, $roleName) {
                 $q->whereHas('role', fn ($rq) => $rq->where('name', $roleName));
             })
+            ->when($request->role_id, fn ($q, $roleId) => $q->where('role_id', $roleId))
             ->when($request->agency_id, function ($q, $agencyId) {
                 $q->whereHas('assignments', fn ($q) => $q->where('agency_id', $agencyId));
             })

@@ -30,6 +30,8 @@ export interface UserListItem {
 export interface UserListParams {
   search?: string;
   is_active?: boolean;
+  role?: string;
+  role_id?: string;
   agency_id?: string;
   department_id?: string;
   per_page?: number;

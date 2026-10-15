@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
-import { Plus, Download, FileText } from 'lucide-react';
+import { Plus, Download, FileText, Printer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { agenciesApi } from '@/api/agencies.api';
@@ -157,6 +157,14 @@ export default function InvoiceListPage({
 
   function openInvoice(invoiceId: string) {
     navigate(`${listBase}/${invoiceId}`, { state: origin });
+  }
+
+  // Super-admin et caissier peuvent imprimer une facture impayée ou partielle ;
+  // les autres profils n'impriment que les factures soldées.
+  const canPrintUnpaid = ['super-admin', 'caissier'].includes(currentUser?.role?.name ?? '');
+
+  function printInvoice(invoiceId: string) {
+    navigate(`${listBase}/${invoiceId}?print=1`, { state: origin });
   }
 
   async function handleExport() {
@@ -344,17 +352,32 @@ export default function InvoiceListPage({
                       <ValidationBadge status={inv.validation_status} />
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openInvoice(inv.id);
-                        }}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                        title={t('invoices.detailTitle', { number: inv.number })}
-                      >
-                        <FileText className="h-4 w-4" />
-                      </button>
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openInvoice(inv.id);
+                          }}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                          title={t('invoices.detailTitle', { number: inv.number })}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </button>
+                        {(inv.status === 'paid' || canPrintUnpaid) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              printInvoice(inv.id);
+                            }}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                            title={t('invoices.print')}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

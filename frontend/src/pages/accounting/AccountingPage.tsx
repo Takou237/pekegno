@@ -10,7 +10,6 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { currentLocale } from '@/i18n';
 import { formatCurrency } from '@/utils/number';
 import { canExportData } from '@/utils/exportPermissions';
 import { Button } from '@/components/ui/Button';
@@ -27,7 +26,7 @@ import type { CommissionBeneficiary } from '@/types/commissions';
 import type { CommissionPaymentMethod } from '@/types/commissions';
 import { COMMISSION_PAYMENT_METHODS } from '@/types/commissions';
 import type { PaginationMeta } from '@/types/agency';
-import { businessToday } from '@/utils/date';
+import { businessToday, formatDateTimeFr } from '@/utils/date';
 import { PeriodPresets } from '@/components/ui/PeriodPresets';
 
 export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { fixedAgencyId?: string; fixedDepartmentId?: string }) {
@@ -140,7 +139,10 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
         page,
         per_page: 15,
       }, { silentForbidden: true });
-      setTransactions(res.transactions?.data ?? []);
+      // Numéros du plus récent au plus ancien (la pagination côté serveur est déjà triée).
+      setTransactions(
+        [...(res.transactions?.data ?? [])].sort((a, b) => Number(b.number) - Number(a.number)),
+      );
       setMeta(res.transactions?.meta ?? null);
       if (res.totals) {
         setServerTotals(res.totals);
@@ -465,7 +467,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
                   <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{tx.number}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {tx.transacted_at ? new Date(tx.transacted_at).toLocaleDateString(currentLocale()) : '—'}
+                      {formatDateTimeFr(tx.transacted_at)}
                     </td>
                     <td className="px-5 py-3 text-gray-800 dark:text-gray-100">{tx.label}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{tx.category?.name ?? '—'}</td>

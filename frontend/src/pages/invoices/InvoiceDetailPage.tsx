@@ -10,7 +10,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
-import { formatRelativeDate, todayLocal } from '@/utils/date';
+import { formatDateTimeFr, formatRelativeDate, todayLocal } from '@/utils/date';
 import { formatCurrency } from '@/utils/number';
 import { invoiceBackPath, invoiceListPathForDetail } from '@/utils/invoiceNavigation';
 import { Button } from '@/components/ui/Button';
@@ -112,6 +112,13 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         }
         const next = new URLSearchParams(searchParams);
         next.delete('review');
+        setSearchParams(next, { replace: true });
+      }
+      // Arrivée depuis la liste (« Imprimer ») : ouvrir directement l'impression.
+      if (searchParams.get('print') === '1') {
+        setPrintOpen(true);
+        const next = new URLSearchParams(searchParams);
+        next.delete('print');
         setSearchParams(next, { replace: true });
       }
     } catch (error) {
@@ -324,6 +331,15 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     );
   }
 
+  // Super-admin et caissier peuvent imprimer une facture impayée ou partielle ;
+  // les autres profils gardent l'impression réservée aux factures soldées.
+  const canPrintUnpaid = ['super-admin', 'caissier'].includes(currentUser?.role?.name ?? '');
+  const canPrint = invoice.status === 'paid' || canPrintUnpaid;
+  // Versements ordonnés du plus ancien au plus récent (paid_at asc, id asc) :
+  // le n° d'ordre affiché est le rang du reçu dans cette séquence.
+  const sortedPayments = [...(invoice.payments ?? [])].sort(
+    (a, b) => new Date(a.paid_at ?? 0).getTime() - new Date(b.paid_at ?? 0).getTime() || String(a.id).localeCompare(String(b.id)),
+  );
   const receiptPayment = invoice.payments?.find((p) => p.id === receiptPaymentId) ?? null;
 
   return (
@@ -350,8 +366,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             <Button
               variant="outline"
               onClick={() => setPrintOpen(true)}
-              disabled={invoice.status !== 'paid'}
-              title={invoice.status !== 'paid' ? t('invoices.printPendingPayment') : undefined}
+              disabled={!canPrint}
+              title={!canPrint ? t('invoices.printPendingPayment') : undefined}
             >
               <Printer className="h-4 w-4" />
               {t('invoices.print')}
@@ -474,7 +490,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         </div>
       </div>
 
-      {invoice.payments && invoice.payments.length > 0 && (
+      {sortedPayments.length > 0 && (
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <h2 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">
             {t('invoices.paymentHistory')}
@@ -483,6 +499,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.paymentOrder')}</th>
                   <th className="py-2 pr-3 font-medium">{t('invoices.paymentDate')}</th>
                   <th className="py-2 pr-3 font-medium">{t('invoices.paymentMethod')}</th>
                   <th className="py-2 pr-3 font-medium">{t('invoices.treasuryAccount')}</th>
@@ -492,10 +509,11 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {invoice.payments.map((p) => (
+                {sortedPayments.map((p, index) => (
                   <tr key={p.id}>
+                    <td className="py-2 pr-3 font-medium text-gray-800 dark:text-gray-100">#{index + 1}</td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {p.paid_at ? new Date(p.paid_at).toLocaleDateString(currentLocale()) : '—'}
+                      {formatDateTimeFr(p.paid_at)}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
                       {p.payment_method === 'cash' ? t('invoices.paymentCash') : p.payment_method === 'om' ? t('invoices.paymentOm') : p.payment_method === 'momo' ? t('invoices.paymentMomo') : t('invoices.paymentMobile')}

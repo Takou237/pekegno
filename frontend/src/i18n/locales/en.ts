@@ -1425,6 +1425,7 @@ export default {
     paymentAmount: 'Amount',
     paymentMethod: 'Method',
     paymentDate: 'Date',
+    paymentOrder: 'Order (#)',
     paymentReceivedBy: 'Collected by',
     paymentIsAdvance: 'Advance',
     seller: 'Seller',

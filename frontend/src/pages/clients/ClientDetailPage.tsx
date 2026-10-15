@@ -8,8 +8,8 @@ import { activitiesApi } from '@/api/activities.api';
 import type { Activity } from '@/types/activity';
 import { ACTIVITY_TYPE_LABELS, type ActivityType } from '@/types/activity';
 import { extractErrorMessage } from '@/api/errors';
-import { currentLocale } from '@/i18n';
 import { formatCurrency } from '@/utils/number';
+import { formatDateTimeFr } from '@/utils/date';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonDetail,
   SkeletonTable } from '@/components/ui/Skeleton';
@@ -251,7 +251,7 @@ export default function ClientDetailPage() {
                       {inv.number}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
-                      {new Date(inv.invoice_date).toLocaleDateString(currentLocale())}
+                      {formatDateTimeFr(inv.invoice_date)}
                     </td>
                     <td className="px-5 py-3">
                       <InvoiceStatusBadge status={inv.status} />

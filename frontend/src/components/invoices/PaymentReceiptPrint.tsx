@@ -1,4 +1,4 @@
-import { currentLocale } from '@/i18n';
+import { formatDateTimeFr } from '@/utils/date';
 import { currencyLabel, formatNumber, numberToWords } from '@/utils/number';
 import type { Invoice, InvoicePayment, PaymentMethod } from '@/types/invoice';
 import logoUrl from '@/assets/pekegno-logo.png';
@@ -24,9 +24,12 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
   const total = Number(invoice.total_amount);
   const amount = Number(payment.amount);
 
-  // Les versements arrivent triés par date (GET /invoices/{id}) : cumul jusqu'à celui-ci inclus.
-  const payments = invoice.payments ?? [];
+  // Versements triés (paid_at asc, id asc) : cumul jusqu'à celui-ci inclus + son numéro d'ordre.
+  const payments = [...(invoice.payments ?? [])].sort(
+    (a, b) => new Date(a.paid_at ?? 0).getTime() - new Date(b.paid_at ?? 0).getTime() || String(a.id).localeCompare(String(b.id)),
+  );
   const index = payments.findIndex((p) => p.id === payment.id);
+  const order = Math.max(index, 0) + 1;
   const paidBefore = payments.slice(0, Math.max(index, 0)).reduce((sum, p) => sum + Number(p.amount), 0);
   const paidToDate = paidBefore + amount;
   const remaining = Math.max(total - paidToDate, 0);
@@ -57,7 +60,7 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
       <div className="mt-8 text-right">
         <p className="text-lg font-bold" style={{ color: BLUE }}>REÇU DE VERSEMENT {payment.receipt_number ?? ''}</p>
         <p className="text-xs">
-          {new Date(payment.paid_at).toLocaleDateString(currentLocale())} — Facture {invoice.number}
+          {formatDateTimeFr(payment.paid_at)} — Facture {invoice.number}
         </p>
       </div>
 
@@ -80,6 +83,8 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
 
       <table className="mt-4 w-full border-collapse border border-gray-800 text-xs">
         <tbody>
+          {row('Ordre (#)', `#${order}`)}
+          {row('Date et heure', formatDateTimeFr(payment.paid_at))}
           {row('Mode de paiement', METHOD_LABELS[payment.payment_method] ?? payment.payment_method)}
           {payment.treasury_account?.name && row('Compte', payment.treasury_account.name)}
           {receiver && row('Encaissé par', receiver)}

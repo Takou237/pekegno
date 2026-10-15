@@ -119,17 +119,17 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
             <td colSpan={4} className="border border-gray-800 px-2 py-1 text-right font-bold">TOTAL</td>
             <td className="border border-gray-800 px-2 py-1 text-right font-bold text-red-600">{formatNumber(total)} {cur}</td>
           </tr>
-          {Number(invoice.amount_paid) > 0 && Number(invoice.balance_due) > 0 && (
-            <>
-              <tr>
-                <td colSpan={4} className="border border-gray-800 px-2 py-1 text-right">Déjà payé</td>
-                <td className="border border-gray-800 px-2 py-1 text-right">{formatNumber(invoice.amount_paid)}</td>
-              </tr>
-              <tr>
-                <td colSpan={4} className="border border-gray-800 px-2 py-1 text-right font-semibold">Reste à payer</td>
-                <td className="border border-gray-800 px-2 py-1 text-right font-semibold">{formatNumber(invoice.balance_due)}</td>
-              </tr>
-            </>
+          {Number(invoice.amount_paid) > 0 && (
+            <tr>
+              <td colSpan={4} className="border border-gray-800 px-2 py-1 text-right">Déjà payé</td>
+              <td className="border border-gray-800 px-2 py-1 text-right">{formatNumber(invoice.amount_paid)}</td>
+            </tr>
+          )}
+          {Number(invoice.balance_due) > 0 && (
+            <tr>
+              <td colSpan={4} className="border border-gray-800 px-2 py-1 text-right font-semibold">Reste à payer</td>
+              <td className="border border-gray-800 px-2 py-1 text-right font-semibold">{formatNumber(invoice.balance_due)}</td>
+            </tr>
           )}
         </tbody>
       </table>
