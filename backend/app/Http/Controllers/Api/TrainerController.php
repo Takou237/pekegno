@@ -316,6 +316,51 @@ class TrainerController extends Controller
             new OA\Response(response: 404, description: 'Formateur non trouvé'),
         ]
     )]
+    /**
+     * Statistiques du formateur connecté : retrouve son profil par user_id
+     * (crée le profil à la volée si le compte « formateur » n'en a pas encore).
+     */
+    #[OA\Get(
+        path: '/api/trainers/me/stats',
+        summary: 'Statistiques du formateur connecté',
+        tags: ['Académie — Formateurs'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Statistiques du formateur connecté'),
+            new OA\Response(response: 404, description: 'Aucun profil formateur associé'),
+        ]
+    )]
+    public function meStats(Request $request): JsonResponse
+    {
+        $this->syncUserTrainers($request, null);
+
+        $user = $request->user();
+        $trainer = $user ? Trainer::where('user_id', $user->id)->first() : null;
+
+        // Repli : compte « formateur » sans affectation d'agence (le sync ne
+        // s'applique qu'aux utilisateurs ayant une affectation). On crée alors
+        // le profil depuis le compte pour que le tableau de bord fonctionne.
+        if (! $trainer && $user) {
+            $trainer = Trainer::create([
+                'user_id' => $user->id,
+                'agency_id' => DB::table('user_assignments')->where('user_id', $user->id)->value('agency_id'),
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'is_active' => $user->is_active,
+            ]);
+        }
+
+        if (! $trainer) {
+            return response()->json([
+                'message' => 'Aucun profil formateur associé à votre compte.',
+            ], 404);
+        }
+
+        return $this->stats($request, $trainer);
+    }
+
     public function stats(Request $request, Trainer $trainer): JsonResponse
     {
         $sessions = $this->scopedSessions($request, $trainer)->with('course')->get();

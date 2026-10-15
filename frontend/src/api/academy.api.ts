@@ -425,6 +425,11 @@ export const academyApi = {
     return data;
   },
 
+  async myTrainerStats(): Promise<TrainerStats> {
+    const { data } = await client.get<TrainerStats>('/trainers/me/stats');
+    return data;
+  },
+
   async learnerStats(learnerId: string, courseId?: string): Promise<LearnerStats> {
     const { data } = await client.get<LearnerStats>(`/learners/${learnerId}/stats`, {
       params: { course_id: courseId || undefined },

@@ -11,6 +11,7 @@ import PEKEGNOGroupDashboard from '@/pages/dashboard/PEKEGNOGroupDashboard';
  * - responsable-departement → son département (point d'entrée = le département)
  * - caissier → tableau de bord caisse (Caisse du jour)
  * - commercial → tableau de bord commercial
+ * - formateur → tableau de bord formateur
  * - community-manager → suivi de ses prestations et actions
  * - autres → tableau de bord global
  */
@@ -40,6 +41,10 @@ export function HomeRedirect() {
 
   if (role === 'commercial') {
     return <Navigate to="/commercial/dashboard" replace />;
+  }
+
+  if (role === 'formateur') {
+    return <Navigate to="/formateur/dashboard" replace />;
   }
 
   if (role === 'community-manager') {

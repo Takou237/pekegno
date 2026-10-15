@@ -232,6 +232,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/trainers/available-users', [TrainerController::class, 'availableUsers'])->middleware('permission:sessions.consulter');
     Route::post('/trainers/{trainer}/link-user', [TrainerController::class, 'linkUser'])->middleware('permission:sessions.modifier');
     Route::get('/trainers', [TrainerController::class, 'index'])->middleware('permission:sessions.consulter');
+    // Avant /trainers/{trainer}/stats : sinon « me » serait résolu comme un UUID.
+    Route::get('/trainers/me/stats', [TrainerController::class, 'meStats'])->middleware('permission:sessions.consulter');
     Route::get('/trainers/{trainer}/stats', [TrainerController::class, 'stats'])->middleware('permission:sessions.consulter');
     Route::get('/trainers/{trainer}', [TrainerController::class, 'show'])->middleware('permission:sessions.consulter');
     Route::put('/trainers/{trainer}', [TrainerController::class, 'update'])->middleware('permission:sessions.modifier');

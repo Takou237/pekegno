@@ -27,6 +27,7 @@ const ResetPasswordPage = lazyWithRetry(() => import('@/pages/auth/ResetPassword
 const AcademyDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/AcademyDashboardPage'));
 const CountryDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/CountryDashboardPage'));
 const CashierDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/CashierDashboardPage'));
+const TrainerDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/TrainerDashboardPage'));
 const ProfilePage = lazyWithRetry(() => import('@/pages/profile/ProfilePage'));
 const ProfileSettingsPage = lazyWithRetry(() => import('@/pages/profile/ProfileSettingsPage'));
 const AgencyListPage = lazyWithRetry(() => import('@/pages/agencies/AgencyListPage'));
@@ -220,6 +221,7 @@ export const router = createBrowserRouter([
         children: withErrorBoundary([
           { path: '/', element: page(<HomeRedirect />, dashboard) },
           { path: '/caissier/dashboard', element: page(<CashierDashboardPage />, dashboard) },
+          { path: '/formateur/dashboard', element: page(<TrainerDashboardPage />, dashboard) },
           { path: '/caissier/commissions', element: page(<CashierCommissionsPage />, table) },
           { path: '/profile', element: page(<ProfilePage />, detail) },
           { path: '/profile/settings', element: page(<ProfileSettingsPage />, detail) },
