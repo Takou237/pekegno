@@ -239,6 +239,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::put('/trainers/{trainer}', [TrainerController::class, 'update'])->middleware('permission:sessions.modifier');
     Route::delete('/trainers/{trainer}', [TrainerController::class, 'destroy'])->middleware('permission:sessions.supprimer');
     Route::get('/learners', [LearnerController::class, 'index'])->middleware('permission:enrollments.consulter');
+    // Modification d'un apprenant (prénom, nom, contact, coordonnées…). L'apprenant
+    // est un compte client : droit « clients.modifier » (le commercial qui crée les
+    // apprenants peut aussi corriger leurs informations).
+    Route::put('/learners/{learner}', [LearnerController::class, 'update'])->middleware('permission:clients.modifier');
     Route::get('/learners/{learner}/stats', [LearnerController::class, 'stats'])->middleware('permission:enrollments.consulter');
 
     Route::get('/reports/subscriptions', [ReportController::class, 'subscriptions'])->middleware('permission:reports.consulter');

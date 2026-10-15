@@ -296,6 +296,11 @@ export interface LearnerStats {
     email: string;
     phone: string | null;
     country: string | null;
+    city: string | null;
+    nationality: string | null;
+    address: string | null;
+    quartier: string | null;
+    occupation: string | null;
     client_number: string | null;
     is_active: boolean;
     created_at: string | null;
@@ -428,6 +433,29 @@ export const academyApi = {
   async myTrainerStats(): Promise<TrainerStats> {
     const { data } = await client.get<TrainerStats>('/trainers/me/stats');
     return data;
+  },
+
+  async updateLearner(
+    learnerId: string,
+    payload: {
+      first_name?: string;
+      last_name?: string;
+      email?: string | null;
+      phone?: string | null;
+      country?: string | null;
+      city?: string | null;
+      nationality?: string | null;
+      address?: string | null;
+      quartier?: string | null;
+      occupation?: string | null;
+      is_active?: boolean;
+    },
+  ): Promise<LearnerStats['learner']> {
+    const { data } = await client.put<{ data: LearnerStats['learner'] & { created_at?: string | null } }>(
+      `/learners/${learnerId}`,
+      payload,
+    );
+    return data.data ?? (data as unknown as LearnerStats['learner']);
   },
 
   async learnerStats(learnerId: string, courseId?: string): Promise<LearnerStats> {

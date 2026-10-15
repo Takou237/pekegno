@@ -5,6 +5,7 @@ import { treasuryApi } from '@/api/treasury.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
+import { formatDateTimeFr } from '@/utils/date';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -210,7 +211,8 @@ export default function TreasuryPage() {
                 {transactions.map((tx) => (
                   <tr key={tx.id}>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {new Date(tx.transacted_at).toLocaleDateString()}
+                      {/* Date + heure dans la même colonne (ex. 15/10/2026 à 10h30) */}
+                      {formatDateTimeFr(tx.transacted_at)}
                     </td>
                     <td className="py-2 pr-3">
                       <span className={`inline-flex items-center gap-1 text-xs font-medium ${

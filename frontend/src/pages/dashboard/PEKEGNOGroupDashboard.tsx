@@ -43,6 +43,7 @@ import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import { PeriodPicker, defaultPeriod, type Period } from '@/components/ui/PeriodPicker';
 import { formatCurrency, formatNumber } from '@/utils/number';
+import { paymentMethodLabel } from '@/utils/paymentMethods';
 import type { GroupStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, TopCommercial, TopProduct, TopAgency, TrainingGroupStats, ServiceGroupStats, GroupReportStats } from '@/types/stats';
 import type { Invoice } from '@/types/invoice';
 import type { ReactNode } from 'react';
@@ -495,7 +496,7 @@ export default function PEKEGNOGroupDashboard() {
               {payments.map((p) => (
                 <div key={p.method}>
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-300">{p.method}</span>
+                    <span className="text-gray-600 dark:text-gray-300">{paymentMethodLabel(p.method, t)}</span>
                     <span className="font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(p.total)}
                     </span>

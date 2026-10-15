@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   Users,
   Award,
   CalendarCheck,
+  Pencil,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type LearnerEnrollmentItem, type LearnerStats } from '@/api/academy.api';
@@ -22,6 +23,12 @@ import { certificatesApi } from '@/api/certificates.api';
 import { extractErrorMessage } from '@/api/errors';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
+import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
 import { formatCurrency } from '@/utils/number';
 import type { Certificate } from '@/types/certificate';
@@ -118,6 +125,36 @@ function EnrollmentTable({
   );
 }
 
+/**
+ * Champs éditables d'un apprenant : identiques au formulaire
+ * « nouvelle inscription → nouvel apprenant » (composant EnrollmentLearnerField)
+ * auquel s'ajoute l'adresse saisie à la création depuis le menu Apprenants.
+ */
+interface LearnerEditFormState {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  country: string;
+  city: string;
+  address: string;
+  nationality: string;
+  quartier: string;
+  occupation: string;
+  is_active: boolean;
+}
+
+/** Rôles habilités à modifier une fiche apprenant (métadonnée UI :
+ * le backend applique la permission réelle enrollments.modifier). */
+const EDITABLE_ROLES = [
+  'super-admin',
+  'direction-generale',
+  'responsable-agence',
+  'responsable-departement',
+  'commercial',
+  'caissier',
+];
+
 export default function AcademyLearnerDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -130,6 +167,74 @@ export default function AcademyLearnerDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const { user: currentUser } = useAuth();
+  const { showToast } = useToast();
+
+  // === Édition de la fiche apprenant ===
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<LearnerEditFormState | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const canEdit = EDITABLE_ROLES.includes(currentUser?.role?.name ?? '');
+
+  function openEdit() {
+    if (!data) return;
+    const { learner } = data;
+    setEditForm({
+      first_name: learner.first_name ?? '',
+      last_name: learner.last_name ?? '',
+      email: learner.email ?? '',
+      phone: learner.phone ?? '',
+      country: learner.country ?? '',
+      city: learner.city ?? '',
+      address: learner.address ?? '',
+      nationality: learner.nationality ?? '',
+      quartier: learner.quartier ?? '',
+      occupation: learner.occupation ?? '',
+      is_active: learner.is_active,
+    });
+    setEditError(null);
+    setEditOpen(true);
+  }
+
+  function setEditField<K extends keyof LearnerEditFormState>(key: K, value: LearnerEditFormState[K]) {
+    setEditForm((prev) => (prev ? ({ ...prev, [key]: value } as LearnerEditFormState) : prev));
+  }
+
+  async function handleEditSave(event: FormEvent) {
+    event.preventDefault();
+    if (!data || !editForm || !learnerId) return;
+    if (!editForm.first_name.trim() || !editForm.last_name.trim()) {
+      setEditError(t('academy.newLearnerRequired'));
+      return;
+    }
+    setIsSaving(true);
+    setEditError(null);
+    // Les 9 champs du bloc « nouvel apprenant » : un champ laissé vide efface
+    // la donnée (transmit comme null) sauf prénom/nom jamais vides.
+    try {
+      const updated = await academyApi.updateLearner(learnerId, {
+        first_name: editForm.first_name.trim(),
+        last_name: editForm.last_name.trim(),
+        email: editForm.email.trim() || null,
+        phone: editForm.phone.trim() || null,
+        country: editForm.country.trim() || null,
+        city: editForm.city.trim() || null,
+        address: editForm.address.trim() || null,
+        nationality: editForm.nationality.trim() || null,
+        quartier: editForm.quartier.trim() || null,
+        occupation: editForm.occupation.trim() || null,
+        is_active: editForm.is_active,
+      });
+      setData((prev) => (prev ? { ...prev, learner: { ...prev.learner, ...updated } } : prev));
+      showToast(t('academy.learnerUpdated'), 'success');
+      setEditOpen(false);
+    } catch (error) {
+      setEditError(extractErrorMessage(error, t('academy.saveFailed')));
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (!learnerId) return;
@@ -253,8 +358,108 @@ export default function AcademyLearnerDetailPage() {
               )}
             </div>
           </div>
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={openEdit} className="shrink-0">
+              <Pencil className="h-4 w-4" />
+              {t('common.edit')}
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Modal d'édition de l'apprenant : mêmes champs qu'à la création */}
+      <Modal isOpen={editOpen} onClose={() => setEditOpen(false)} title={t('academy.editLearner')} maxWidth="max-w-2xl">
+        {editForm && (
+          <form onSubmit={handleEditSave} className="flex flex-col gap-3">
+            <p className="text-xs text-gray-400 dark:text-gray-500">{t('academy.editLearnerHint')}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label={t('common.firstName')}
+                required
+                value={editForm.first_name}
+                onChange={(e) => setEditField('first_name', e.target.value)}
+              />
+              <Input
+                label={t('common.lastName')}
+                required
+                value={editForm.last_name}
+                onChange={(e) => setEditField('last_name', e.target.value)}
+              />
+            </div>
+            <Input
+              label={t('common.email')}
+              type="email"
+              value={editForm.email}
+              onChange={(e) => setEditField('email', e.target.value)}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label={t('common.phone')}
+                value={editForm.phone}
+                onChange={(e) => setEditField('phone', e.target.value)}
+              />
+              <CountryAutocomplete
+                label={t('common.country')}
+                value={editForm.country}
+                onChange={(value) => setEditField('country', value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label={t('common.city')}
+                value={editForm.city}
+                onChange={(e) => setEditField('city', e.target.value)}
+              />
+              <Input
+                label={t('common.nationality')}
+                value={editForm.nationality}
+                onChange={(e) => setEditField('nationality', e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label={t('common.address')}
+                value={editForm.address}
+                onChange={(e) => setEditField('address', e.target.value)}
+              />
+              <Input
+                label={t('common.quartier')}
+                value={editForm.quartier}
+                onChange={(e) => setEditField('quartier', e.target.value)}
+              />
+            </div>
+            <Input
+              label={t('common.occupation')}
+              value={editForm.occupation}
+              onChange={(e) => setEditField('occupation', e.target.value)}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span>{t('common.active')}</span>
+                <span className="h-px" />
+                <span className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={editForm.is_active}
+                    onChange={(e) => setEditField('is_active', e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  {editForm.is_active ? t('common.active') : t('common.inactive')}
+                </span>
+              </label>
+            </div>
+            {editError && <p className="text-sm text-error-500">{editError}</p>}
+            <div className="mt-2 flex items-center justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={isSaving}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" disabled={isSaving || !editForm.first_name.trim() || !editForm.last_name.trim()}>
+                {t('common.save')}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">

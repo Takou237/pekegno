@@ -99,6 +99,7 @@ class BilanService
             'total_om' => 0,
             'total_momo' => 0,
             'total_mobile' => 0,
+            'total_bank' => 0,
             'total_depenses' => 0,
             'total_solde_final' => 0,
             'total_agency' => 0,
@@ -119,6 +120,7 @@ class BilanService
             $totals['total_om'] += $b['om_total'];
             $totals['total_momo'] += $b['momo_total'];
             $totals['total_mobile'] += $b['mobile_total'];
+            $totals['total_bank'] += $b['bank_total'];
             $totals['total_depenses'] += $b['expense_total'];
             $totals['total_solde_final'] += $b['solde_final'];
             $totals['total_agency'] += $b['agency_total'];
@@ -158,8 +160,11 @@ class BilanService
         $om = (float) ($received['om'] ?? 0);
         $momo = (float) ($received['momo'] ?? 0);
         $mobile = (float) ($received['mobile'] ?? 0);
+        $bank = (float) ($received['bank'] ?? 0);
 
-        $totalReceived = $cash + $om + $momo + $mobile;
+        // Total = somme de TOUS les seaux : aucun encaissement n'est perdu, même
+        // sur un mode peu courant (virement, chèque…).
+        $totalReceived = $cash + $om + $momo + $mobile + $bank;
         $totalVentes = (int) (
             collect($servicesByCategory)->sum('count')
             + collect($productsByCategory)->sum('count')
@@ -215,6 +220,7 @@ class BilanService
             'om_total' => $om,
             'momo_total' => $momo,
             'mobile_total' => $mobile,
+            'bank_total' => $bank,
             'total_received' => $totalReceived,
             'expense_total' => (float) $expenseTotal,
             'expenses_by_category' => $expensesByCategory,
@@ -461,11 +467,18 @@ class BilanService
     }
 
     /**
-     * Encaissements ventilés par mode: cash, om, momo, mobile.
+     * Encaissements ventilés par mode normalisé : cash, om, momo, mobile, bank.
+     *
+     * Les libellés bruts de `payment_method` (saisis librement pour certaines
+     * preuves : « Mobile Money », « Bank transfer », « orange_money », …) sont
+     * ramenés à l'un des 5 seaux, afin qu'aucun encaissement ne disparaisse du
+     * total (un mode inconnu est compté en cash).
      */
     private function receivedByMode(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
-        return DB::table('invoice_payments')
+        $buckets = array_fill_keys(RevenueService::MODES, 0.0);
+
+        $rows = DB::table('invoice_payments')
             ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
@@ -473,11 +486,15 @@ class BilanService
             ->when($this->department, fn ($q) => $q->whereIn('invoices.id', $this->ledger->invoiceIds($this->department)))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->selectRaw('invoice_payments.payment_method, sum(invoice_payments.amount) as total')
+            ->selectRaw('invoice_payments.payment_method as method, sum(invoice_payments.amount) as total')
             ->groupBy('invoice_payments.payment_method')
-            ->pluck('total', 'invoice_payments.payment_method')
-            ->map(fn ($total) => round((float) $total, 2))
-            ->all();
+            ->get();
+
+        foreach ($rows as $row) {
+            $buckets[RevenueService::normalizeMode($row->method)] += (float) $row->total;
+        }
+
+        return array_map(fn ($total) => round($total, 2), $buckets);
     }
 
     /**

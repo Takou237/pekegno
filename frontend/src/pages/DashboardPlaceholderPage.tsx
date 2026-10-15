@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import { currentLocale } from '@/i18n';
 import { formatCurrency } from '@/utils/number';
+import { paymentMethodLabel } from '@/utils/paymentMethods';
 import type { Agency } from '@/types/agency';
 import type { DashboardStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, AgencyStats } from '@/types/stats';
 
@@ -195,7 +196,7 @@ function AdminDashboard() {
               {payments.map((p) => (
                 <div key={p.method}>
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-300">{p.method}</span>
+                    <span className="text-gray-600 dark:text-gray-300">{paymentMethodLabel(p.method, t)}</span>
                     <span className="font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(p.total)}
                     </span>

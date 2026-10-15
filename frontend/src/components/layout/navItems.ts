@@ -130,6 +130,10 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       monthlyReportItem(t),
       salesTrackingItem(t),
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
+      // Paramètres du groupe : même page que celle du pays (onglets général,
+      // catégories comptabilité/services, utilisateurs, privilèges). La page et
+      // sa route /settings existent déjà — l'entrée manquait juste au menu.
+      { to: '/settings', label: t('nav.settings'), icon: Settings, end: false },
     ];
   }
 

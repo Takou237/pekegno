@@ -54,7 +54,7 @@ export default function DailyBilanPage({ fixedAgencyId, fixedDepartmentId }: Dai
   const [agencyBilan, setAgencyBilan] = useState<BilanAgency | null>(null);
   const [consolidated, setConsolidated] = useState<{
     agencies: BilanAgency[];
-    totals: { total_ventes: number; total_ventes_amount: number; total_formations: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
+    totals: { total_ventes: number; total_ventes_amount: number; total_formations: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_mobile: number; total_bank: number; total_depenses: number; total_solde_final: number };
     expenses_by_category: { name: string; total: number }[];
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -356,6 +356,16 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
                 <td />
                 <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.momo_total)}</td>
               </tr>
+              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.mobileTotal')}</td>
+                <td />
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.mobile_total)}</td>
+              </tr>
+              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.bankTotal')}</td>
+                <td />
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.bank_total)}</td>
+              </tr>
               <tr className="bg-brand-50/50 font-semibold dark:bg-brand-500/5">
                 <td colSpan={2} className="px-5 py-3 text-brand-700 dark:text-brand-300">{t('bilans.totalReceived')}</td>
                 <td />
@@ -399,7 +409,7 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
 function ConsolidatedView({ consolidated, t }: {
   consolidated: {
     agencies: BilanAgency[];
-    totals: { total_ventes: number; total_ventes_amount: number; total_formations: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_depenses: number; total_solde_final: number };
+    totals: { total_ventes: number; total_ventes_amount: number; total_formations: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_mobile: number; total_bank: number; total_depenses: number; total_solde_final: number };
     expenses_by_category: { name: string; total: number }[];
   };
   t: (key: string) => string;
@@ -419,6 +429,8 @@ function ConsolidatedView({ consolidated, t }: {
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.cashTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.omTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.momoTotal')}</th>
+                <th className="px-5 py-3 text-right font-medium">{t('bilans.mobileTotal')}</th>
+                <th className="px-5 py-3 text-right font-medium">{t('bilans.bankTotal')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.totalReceived')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.soldeInitial')}</th>
                 <th className="px-5 py-3 text-right font-medium">{t('bilans.expenseTotal')}</th>
@@ -434,6 +446,8 @@ function ConsolidatedView({ consolidated, t }: {
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.cash_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.om_total)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.momo_total)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.mobile_total)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.bank_total)}</td>
                   <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(ab.total_received)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.solde_initial)}</td>
                   <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(ab.expense_total))}</td>
@@ -447,6 +461,8 @@ function ConsolidatedView({ consolidated, t }: {
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_cash)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_om)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_momo)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_mobile)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_bank)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_encaisse)}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">—</td>
                 <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(totals.total_depenses))}</td>
@@ -564,6 +580,8 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
               <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.cashTotal')}</th>
               <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.omTotal')}</th>
               <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.momoTotal')}</th>
+              <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.mobileTotal')}</th>
+              <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.bankTotal')}</th>
               <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.totalEncaisseCol')}</th>
               <th className="whitespace-nowrap px-4 py-3 text-right font-medium">{t('bilans.soldeInitial')}</th>
               {expenseCols.map((c) => (
@@ -605,6 +623,8 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
                 <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.cash_total)}</td>
                 <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.om_total)}</td>
                 <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.momo_total)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.mobile_total)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.bank_total)}</td>
                 <td className="px-4 py-2.5 text-right font-medium text-brand-700 dark:text-brand-300">{formatCurrency(d.total_received)}</td>
                 <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatSignedCurrency(d.solde_initial)}</td>
                 {expenseCols.map((c) => {
@@ -637,6 +657,8 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
               <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.cash_total))}</td>
               <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.om_total))}</td>
               <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.momo_total))}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.mobile_total))}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.bank_total))}</td>
               <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.total_received))}</td>
               <td className="px-4 py-3 text-right">{formatSignedCurrency(sum((d) => d.solde_initial))}</td>
               {expenseCols.map((c) => (
@@ -678,6 +700,8 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
     header.push(`${block.title} - ${t('bilans.cashTotal')}`);
     header.push(`${block.title} - ${t('bilans.omTotal')}`);
     header.push(`${block.title} - ${t('bilans.momoTotal')}`);
+    header.push(`${block.title} - ${t('bilans.mobileTotal')}`);
+    header.push(`${block.title} - ${t('bilans.bankTotal')}`);
     header.push(`${block.title} - ${t('bilans.totalEncaisseCol')}`);
     header.push(`${block.title} - ${t('bilans.soldeInitial')}`);
     for (const c of expenseCols) header.push(`${block.title} - ${c}`);
@@ -699,6 +723,8 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
       row.push(day ? day.cash_total : 0);
       row.push(day ? day.om_total : 0);
       row.push(day ? day.momo_total : 0);
+      row.push(day ? day.mobile_total : 0);
+      row.push(day ? day.bank_total : 0);
       row.push(day ? day.total_received : 0);
       row.push(day ? day.solde_initial : 0);
       for (const c of expenseCols) row.push(day ? expenseCategoryTotal(day, c) : 0);
@@ -718,6 +744,8 @@ function buildPeriodCsv(blocks: PeriodBlock[], t: (key: string) => string): stri
     totalRow.push(block.days.reduce((s, d) => s + d.cash_total, 0));
     totalRow.push(block.days.reduce((s, d) => s + d.om_total, 0));
     totalRow.push(block.days.reduce((s, d) => s + d.momo_total, 0));
+    totalRow.push(block.days.reduce((s, d) => s + d.mobile_total, 0));
+    totalRow.push(block.days.reduce((s, d) => s + d.bank_total, 0));
     totalRow.push(block.days.reduce((s, d) => s + d.total_received, 0));
     totalRow.push(block.days.reduce((s, d) => s + d.solde_initial, 0));
     for (const c of expenseCols) totalRow.push(block.days.reduce((s, d) => s + expenseCategoryTotal(d, c), 0));

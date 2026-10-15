@@ -15,6 +15,7 @@ class LearnerController extends Controller
 {
     public function __construct(
         private readonly ScopeService $scopeService,
+        private readonly \App\Services\ActivityLogger $activityLogger,
     ) {}
 
     /**
@@ -258,6 +259,99 @@ class LearnerController extends Controller
         ]);
     }
 
+    #[OA\Put(
+        path: '/api/learners/{learner}',
+        summary: "Modifier les informations d'un apprenant (prénom, nom, contact, coordonnées…)",
+        tags: ['Académie — Apprenants'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'learner', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Apprenant mis à jour'),
+            new OA\Response(response: 404, description: 'Apprenant non trouvé'),
+            new OA\Response(response: 403, description: 'Hors périmètre organisationnel'),
+            new OA\Response(response: 422, description: 'Validation échouée'),
+        ]
+    )]
+    public function update(Request $request, User $learner): JsonResponse
+    {
+        if ($learner->role?->name !== 'client') {
+            return response()->json(['message' => "Cet utilisateur n'est pas un apprenant (client)."], 404);
+        }
+
+        // Même périmètre que la liste : l'appelant ne peut modifier que les
+        // apprenants qu'il peut consulter dans sa portée organisationnelle.
+        $scopeAgencyIds = $this->scopeService->agencyIds($request->user());
+
+        if ($scopeAgencyIds !== null) {
+            $hasScopedEnrollment = \App\Models\FormationEnrollment::query()
+                ->where('learner_user_id', $learner->id)
+                ->whereHas('course', fn ($cq) => $cq
+                    ->whereIn('agency_id', $scopeAgencyIds)
+                    ->orWhereNull('agency_id'))
+                ->exists();
+
+            $hasScopedSession = $this->scopedSessionParticipants($request, $learner)->exists();
+
+            $inScope = in_array($learner->registered_agency_id, $scopeAgencyIds, true)
+                || $hasScopedEnrollment
+                || $hasScopedSession;
+
+            if (! $inScope) {
+                return response()->json([
+                    'message' => "Cet apprenant n'appartient pas à votre périmètre organisationnel.",
+                ], 403);
+            }
+        }
+
+        $validated = $request->validate([
+            // Champs identiques au bloc « nouveau apprenant » de la création :
+            // prénom, nom, email, téléphone, pays, ville, nationalité, quartier, occupation.
+            // Prénom/nom : jamais vides (on ne peut pas les effacer, seulement corriger).
+            'first_name' => ['sometimes', 'string', 'min:1', 'max:100'],
+            'last_name' => ['sometimes', 'string', 'min:1', 'max:100'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:255', 'unique:users,email,'.$learner->id],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'country' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'city' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'nationality' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'address' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'quartier' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'occupation' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+
+        // Ne toucher qu'aux champs explicitement transmis ; un champ texte laissé
+        // vide devient null (effacement volontaire) sauf prénom/nom qui restent.
+        $payload = collect($validated)->only([
+            'first_name', 'last_name', 'email', 'phone',
+            'country', 'city', 'nationality', 'address', 'quartier', 'occupation', 'is_active',
+        ])->map(function ($value, string $key) {
+            if ($value === '' && in_array($key, ['email', 'phone'], true)) {
+                return null;
+            }
+
+            return $value;
+        })->all();
+
+        if ($validated !== []) {
+            $old = [$learner->first_name, $learner->last_name, $learner->email, $learner->phone];
+            $learner->fill($payload)->save();
+            $this->activityLogger->log(
+                action: 'updated',
+                entityType: 'client',
+                entityId: $learner->id,
+                description: 'Apprenant modifié : '.($learner->client_number ?? $learner->id),
+                oldValues: ['first_name' => $old[0], 'last_name' => $old[1], 'email' => $old[2], 'phone' => $old[3]],
+                newValues: ['first_name' => $learner->first_name, 'last_name' => $learner->last_name, 'email' => $learner->email, 'phone' => $learner->phone],
+                request: $request,
+            );
+        }
+
+        return response()->json(['data' => $learner->fresh()]);
+    }
+
     #[OA\Get(
         path: '/api/learners/{learner}/stats',
         summary: 'Statistiques d\'un apprenant : inscriptions, formations suivies, présences, investissement',
@@ -381,6 +475,11 @@ class LearnerController extends Controller
                 'email' => $learner->email,
                 'phone' => $learner->phone,
                 'country' => $learner->country,
+                'city' => $learner->city,
+                'nationality' => $learner->nationality,
+                'address' => $learner->address,
+                'quartier' => $learner->quartier,
+                'occupation' => $learner->occupation,
                 'client_number' => $learner->client_number,
                 'is_active' => $learner->is_active,
                 'created_at' => $learner->created_at?->toISOString(),

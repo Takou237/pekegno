@@ -122,7 +122,9 @@ class RoleSeeder extends Seeder
             ),
             'commercial' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
-                $p('clients', ['consulter', 'creer']),
+                $p('clients', ['consulter', 'creer', 'modifier']),
+                // clients.modifier : le commercial peut corriger les informations des
+                // apprenants qu'il a créés (fiche d'apprenant éditable).
                 // reporting : le commercial consulte son propre « Rapport commercial mensuel ».
                 $p('commercials', ['consulter', 'reporting']),
                 $p('employes', ['consulter']),

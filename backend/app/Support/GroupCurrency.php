@@ -27,9 +27,9 @@ final class GroupCurrency
      */
     public static function rateSql(string $agencyColumn): string
     {
-        return "coalesce((select gc_countries.exchange_rate from agencies gc_agencies
+        return "coalesce(nullif((select gc_countries.exchange_rate from agencies gc_agencies
             join countries gc_countries on gc_countries.id = gc_agencies.country_id
-            where gc_agencies.id = {$agencyColumn}), 1)";
+            where gc_agencies.id = {$agencyColumn}), 0), 1)";
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\RevenueService;
 use App\Services\ScopeService;
 use App\Support\GroupCurrency;
 use App\Support\Period;
@@ -106,9 +107,17 @@ class DashboardController extends Controller
         // groupe. À partir du niveau pays, tout est dans la monnaie du pays.
         $rateFactor = $country ? '' : ' * '.GroupCurrency::rateSql('invoices.agency_id');
 
-        $paid = $invoicesBase()
+        // CA = encaissements (hors pass-through) de la période, par agence.
+        $revenueByAgency = app(RevenueService::class)->byAgency($from, $to, [
+            'agency_ids' => $agencyIds,
+            'country_id' => $country?->id,
+            'city_id' => $city?->id,
+            'agency_id' => $agency?->id,
+        ], $country === null);
+
+        $paidCounts = $invoicesBase()
             ->where('invoices.status', 'paid')
-            ->selectRaw('invoices.agency_id, sum(invoices.total_amount'.$rateFactor.') as revenue, count(*) as invoices_paid')
+            ->selectRaw('invoices.agency_id, count(*) as invoices_paid')
             ->groupBy('invoices.agency_id')
             ->get()
             ->keyBy('agency_id');
@@ -137,9 +146,9 @@ class DashboardController extends Controller
             'agency_id' => $a->id,
             'country_id' => $a->country_id,
             'city_id' => $a->city_id,
-            'revenue' => (float) ($paid->get($a->id)->revenue ?? 0),
+            'revenue' => (float) ($revenueByAgency->get($a->id)['fees'] ?? 0),
             'invoices_total' => (int) ($counts->get($a->id)->invoices_total ?? 0),
-            'invoices_paid' => (int) ($paid->get($a->id)->invoices_paid ?? 0),
+            'invoices_paid' => (int) ($paidCounts->get($a->id)->invoices_paid ?? 0),
         ]);
 
         return response()->json([

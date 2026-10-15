@@ -15,6 +15,7 @@ use App\Models\InvoicePayment;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AcademyReportService;
+use App\Services\RevenueService;
 use App\Services\ScopeService;
 use App\Support\GroupCurrency;
 use App\Support\Period;
@@ -50,10 +51,10 @@ class StatsController extends Controller
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
         // Montants multi-pays : convertis dans la monnaie du groupe.
-        $rateSql = GroupCurrency::rateSql('invoices.agency_id');
         $rates = GroupCurrency::agencyRates();
 
-        $revenue = (clone $invoices)->where('status', 'paid')->sum(DB::raw('total_amount * '.$rateSql));
+        // CA = encaissements (hors pass-through) de la période, convertis.
+        $revenue = app(RevenueService::class)->feeTotal($from, $to, ['agency_ids' => $agencyIds], true);
         $outstanding = (clone $invoices)
             ->whereIn('status', ['unpaid', 'partial'])
             ->get(['agency_id', 'total_amount', 'amount_paid'])
@@ -150,7 +151,7 @@ class StatsController extends Controller
             ->whereNull('cancelled_at')
             ->validated();
 
-        $revenue = (clone $invoices)->where('status', 'paid')->sum('total_amount');
+        $revenue = app(RevenueService::class)->feeTotal($from, $to, ['agency_id' => $agency->id]);
         $salesCount = (clone $invoices)->count();
         $outstanding = (clone $invoices)
             ->whereIn('status', ['unpaid', 'partial'])
@@ -364,20 +365,16 @@ class StatsController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
-        $rows = InvoicePayment::query()
-            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
-            ->whereBetween('invoice_payments.paid_at', [$from, $to])
-            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->where('invoices.validation_status', 'validated')
-            ->selectRaw('invoice_payments.payment_method, sum(invoice_payments.amount * '.GroupCurrency::rateSql('invoices.agency_id').') as total, count(*) as count')
-            ->groupBy('invoice_payments.payment_method')
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn ($row) => [
-                'method' => $row->payment_method,
-                'total' => (float) $row->total,
-                'count' => (int) $row->count,
-            ]);
+        $result = app(RevenueService::class)->byMode($from, $to, ['agency_ids' => $agencyIds], true);
+
+        $rows = collect(RevenueService::MODES)
+            ->map(fn ($mode) => [
+                'method' => $mode,
+                'total' => $result['buckets'][$mode] ?? 0.0,
+                'count' => $result['counts'][$mode] ?? 0,
+            ])
+            ->filter(fn ($row) => $row['total'] > 0 || $row['count'] > 0)
+            ->values();
 
         return response()->json($rows);
     }
@@ -476,10 +473,10 @@ class StatsController extends Controller
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
         // Montants multi-pays : convertis dans la monnaie du groupe.
-        $rateSql = GroupCurrency::rateSql('invoices.agency_id');
         $rates = GroupCurrency::agencyRates();
 
-        $revenue = (clone $invoices)->where('status', 'paid')->sum(DB::raw('total_amount * '.$rateSql));
+        // CA = encaissements (hors pass-through) de la période, convertis.
+        $revenue = app(RevenueService::class)->feeTotal($from, $to, ['agency_ids' => $agencyIds], true);
         $outstanding = (clone $invoices)
             ->whereIn('status', ['unpaid', 'partial'])
             ->get(['agency_id', 'total_amount', 'amount_paid'])
@@ -527,7 +524,7 @@ class StatsController extends Controller
                     ->whereNull('cancelled_at')
                     ->validated();
 
-                $countryRevenue = (clone $countryInvoiceQuery)->where('status', 'paid')->sum('total_amount');
+                $countryRevenue = app(RevenueService::class)->feeTotal($from, $to, ['agency_ids' => $countryAgencyIds], false);
                 $countryOutstanding = (clone $countryInvoiceQuery)
                     ->whereIn('status', ['unpaid', 'partial'])
                     ->get(['total_amount', 'amount_paid'])
@@ -606,7 +603,7 @@ class StatsController extends Controller
             ->whereNull('cancelled_at')
             ->validated();
 
-        $revenue = (clone $invoices)->where('status', 'paid')->sum('total_amount');
+        $revenue = app(RevenueService::class)->feeTotal($from, $to, ['agency_ids' => $countryAgencyIds]);
         $outstanding = (clone $invoices)
             ->whereIn('status', ['unpaid', 'partial'])
             ->get(['total_amount', 'amount_paid'])

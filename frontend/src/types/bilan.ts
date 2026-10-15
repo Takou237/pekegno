@@ -34,6 +34,8 @@ export interface BilanAgency {
   cash_total: number;
   om_total: number;
   momo_total: number;
+  mobile_total: number;
+  bank_total: number;
   total_received: number;
   expense_total: number;
   expenses_by_category: BilanExpenseLine[];
@@ -51,6 +53,8 @@ export interface DailyBilan extends BilanAgency {
     total_cash: number;
     total_om: number;
     total_momo: number;
+    total_mobile: number;
+    total_bank: number;
     total_depenses: number;
     total_solde_final: number;
   };

@@ -36,6 +36,7 @@ function roleBadge(roleName: string | null | undefined, t: (key: string, opts?: 
 }
 
 import { formatCurrency, formatNumber } from '@/utils/number';
+import { paymentMethodLabel } from '@/utils/paymentMethods';
 
 function StatCard({
   label,
@@ -227,7 +228,7 @@ function AdminDashboard() {
               {payments.map((p) => (
                 <div key={p.method}>
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-300">{p.method}</span>
+                    <span className="text-gray-600 dark:text-gray-300">{paymentMethodLabel(p.method, t)}</span>
                     <span className="font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(p.total)}
                     </span>
