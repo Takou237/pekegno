@@ -62,6 +62,14 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 |---|---|
 | `14_10/frontend-dist.zip` | build admin du 14/10 : fix crash équipe client, rôles personnalisés + rôle obligatoire, onglet Prestations séparé, champs recherche en select déroulant (aucune migration SQL, aucun rebuild `vendor/`) |
 
+⏳ **À appliquer avec le déploiement du 15/10/2026** (voir
+`15_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `15_10/seed-permissions-chefs-2026-10-15.sql` | parité chefs (agence + département) : 14 grants responsable-agence + 25 grants responsable-departement (idempotent, aucune migration de schéma) |
+| `15_10/frontend-dist.zip` | build admin du 15/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
+
 Dernière migration Laravel présente en prod :
 `2026_09_30_000003_add_payer_phone_to_invoices_table`. Pour un prochain
 déploiement, n'importer que les **nouveaux** scripts SQL correspondant aux
