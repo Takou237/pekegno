@@ -2408,6 +2408,8 @@ export default {
     noAccount: 'No account',
     linkAccount: 'Link a user account (optional)',
     linkAccountPlaceholder: 'Search a trainer user…',
+    linkAccountNone: '— No linked account —',
+    linkAccountNoUsers: 'No trainer account available to link.',
     trainerNoAccountHint: 'A trainer does not need an account to be assigned to sessions. The link can be added later.',
     salesTitle: 'Sales & commissions',
     salesCount: 'Sales closed',

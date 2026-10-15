@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
-import { Autocomplete } from '@/components/ui/Autocomplete';
+import { Select } from '@/components/ui/Select';
 import type { Department } from '@/types/department';
 
 interface DepartmentLayoutContext {
@@ -64,6 +64,10 @@ export default function AcademyTrainersPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  // Comptes « formateur » pas encore liés à un profil : options du SELECT
+  // (l'API refusera un compte déjà lié à un autre profil formateur).
+  const [linkableUsers, setLinkableUsers] = useState<AvailableUser[]>([]);
+
   const fetchTrainers = useCallback(async () => {
     if (!effectiveAgencyId) return;
     setIsLoading(true);
@@ -87,22 +91,25 @@ export default function AcademyTrainersPage() {
     return () => clearTimeout(timeout);
   }, [fetchTrainers]);
 
-  // Comptes « formateur » pas encore liés à un profil : liables à la création.
-  const linkableUserOptions = useCallback(async (query: string) => {
-    const users: AvailableUser[] = await academyApi.availableUsers();
-    const q = query.trim().toLowerCase();
-    return users
-      .filter((u) =>
-        q
-          ? `${u.first_name ?? ''} ${u.last_name ?? ''} ${u.email}`.toLowerCase().includes(q)
-          : true,
-      )
-      .map((u) => ({
-        id: u.id,
-        label: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email,
-        subtitle: u.email,
-      }));
-  }, []);
+  // Options du SELECT de liaison, rechargées à l'ouverture du formulaire.
+  useEffect(() => {
+    if (!formOpen || !effectiveAgencyId || editing?.has_account) {
+      if (!formOpen) setLinkableUsers([]);
+      return;
+    }
+    let active = true;
+    academyApi
+      .availableUsers({ agency_id: effectiveAgencyId })
+      .then((users) => {
+        if (active) setLinkableUsers(users);
+      })
+      .catch(() => {
+        if (active) setLinkableUsers([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [formOpen, editing?.has_account, effectiveAgencyId]);
 
   function openCreate() {
     setEditing(null);
@@ -350,13 +357,23 @@ export default function AcademyTrainersPage() {
           />
 
           {!editing?.has_account && (
-            <Autocomplete
+            <Select
               label={t('academy.linkAccount')}
-              placeholder={t('academy.linkAccountPlaceholder')}
               value={form.linked_user_id}
-              onChange={(userId) => setForm((prev) => ({ ...prev, linked_user_id: userId }))}
-              fetchOptions={linkableUserOptions}
-            />
+              onChange={(e) => setForm((prev) => ({ ...prev, linked_user_id: e.target.value }))}
+              error={fieldErrors.user_id}
+            >
+              <option value="">{t('academy.linkAccountNone')}</option>
+              {linkableUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}
+                </option>
+              ))}
+            </Select>
+          )}
+
+          {!editing?.has_account && linkableUsers.length === 0 && (
+            <p className="text-xs text-gray-400 dark:text-gray-500">{t('academy.linkAccountNoUsers')}</p>
           )}
 
           <p className="text-xs text-gray-400 dark:text-gray-500">{t('academy.trainerNoAccountHint')}</p>

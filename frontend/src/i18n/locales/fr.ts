@@ -2420,6 +2420,8 @@ export default {
     noAccount: 'Sans compte',
     linkAccount: 'Lier un compte utilisateur (optionnel)',
     linkAccountPlaceholder: 'Rechercher un utilisateur formateur…',
+    linkAccountNone: '— Aucun compte lié —',
+    linkAccountNoUsers: 'Aucun compte formateur disponible à lier.',
     trainerNoAccountHint: 'Un formateur n\'a pas besoin de compte pour être assigné à des sessions. Le lien peut être ajouté plus tard.',
     salesTitle: 'Ventes & commissions',
     salesCount: 'Ventes réalisées',
