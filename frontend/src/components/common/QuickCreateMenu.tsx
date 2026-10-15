@@ -83,9 +83,10 @@ function loadPrefs(userId: string): Prefs {
 
 /**
  * Bouton « + » de création rapide, visible partout dans l'en-tête pour les
- * admins : vente, facture, client, service/produit, formation, package,
- * prestation, dépense. Chaque admin peut masquer des actions et ajouter ses
- * propres raccourcis (libellé + lien), stockés par utilisateur.
+ * admins et les chefs (agence / département) : vente, facture, client,
+ * service/produit, formation, package, prestation, dépense. Chacun peut
+ * masquer des actions et ajouter ses propres raccourcis (libellé + lien),
+ * stockés par utilisateur.
  */
 export function QuickCreateMenu() {
   const { t } = useTranslation();
@@ -98,7 +99,7 @@ export function QuickCreateMenu() {
   const ref = useRef<HTMLDivElement>(null);
 
   const role = user?.role?.name ?? '';
-  const isAdmin = role === 'super-admin' || role === 'direction-generale';
+  const isAdmin = role === 'super-admin' || role === 'direction-generale' || role === 'responsable-agence' || role === 'responsable-departement';
 
   const [prefs, setPrefs] = useState<Prefs>({ hidden: [], custom: [] });
   const [customLabel, setCustomLabel] = useState('');

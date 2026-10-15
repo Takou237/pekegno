@@ -15,6 +15,7 @@ class StoreUserRequest extends FormRequest
             'super-admin',
             'direction-generale',
             'responsable-agence',
+            'responsable-departement',
         ], true);
     }
 

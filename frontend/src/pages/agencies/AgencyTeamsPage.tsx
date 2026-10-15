@@ -41,7 +41,7 @@ export default function AgencyTeamsPage() {
   const canCreateUsers = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
     currentUser?.role?.name ?? ''
   );
-  const canManageUsers = ['super-admin', 'direction-generale'].includes(
+  const canManageUsers = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
     currentUser?.role?.name ?? ''
   );
 

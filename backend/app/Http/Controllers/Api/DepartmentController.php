@@ -61,9 +61,9 @@ class DepartmentController extends Controller
                 $q->where('type', $type);
             })
             ->when($request->user()?->role?->name === 'responsable-agence', function ($q) use ($request) {
-                $agencyIds = $request->user()->assignments()
-                    ->where('is_primary', true)
-                    ->pluck('agency_id');
+                // Toutes les agences d'affectation (cohérent avec ScopeService
+                // et CommercialController), pas seulement la primaire.
+                $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($request->user()) ?? [];
                 $q->whereIn('agency_id', $agencyIds);
             })
             ->when($request->user()?->role?->name === 'responsable-departement', function ($q) use ($request) {
@@ -127,6 +127,7 @@ class DepartmentController extends Controller
     )]
     public function show(Request $request, Department $department): DepartmentResource
     {
+        $this->authorize('view', $department);
         $with = array_unique(array_merge(['agency', 'assignedUsers', 'chief'], $this->parseWith($request)));
         return new DepartmentResource($department->load($with));
     }
@@ -158,6 +159,7 @@ class DepartmentController extends Controller
     )]
     public function update(UpdateDepartmentRequest $request, Department $department): DepartmentResource
     {
+        $this->authorize('update', $department);
         $department->update($request->validated());
 
         return new DepartmentResource($department->fresh()->load('agency'));
@@ -179,6 +181,7 @@ class DepartmentController extends Controller
     )]
     public function destroy(Department $department): JsonResponse
     {
+        $this->authorize('delete', $department);
         $department->assignedUsers()->detach();
         $department->delete();
 

@@ -28,8 +28,20 @@ export function canDeleteAgency(user: User | null): boolean {
   return user?.role?.name === 'super-admin';
 }
 
-export function canAssignAgencyChief(user: User | null): boolean {
-  return ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '');
+/**
+ * Nommer le chef d'agence : admins partout, responsable-agence pour sa
+ * propre agence (affectation primaire). Le backend (AgencyPolicy::update)
+ * applique la même règle.
+ */
+export function canAssignAgencyChief(user: User | null, agencyId?: string): boolean {
+  const roleName = user?.role?.name ?? '';
+  if (['super-admin', 'direction-generale'].includes(roleName)) return true;
+  if (roleName === 'responsable-agence' && agencyId) {
+    return (user?.assignments ?? []).some(
+      (a) => a.id === agencyId && a.pivot?.is_primary === true,
+    );
+  }
+  return false;
 }
 
 export function canManageTrash(user: User | null): boolean {

@@ -13,7 +13,11 @@ use OpenApi\Attributes as OA;
 
 class RoleController extends Controller
 {
-    private const PROTECTED_ROLES = ['super-admin', 'direction-generale', 'client'];
+    /** Rôles système : ni supprimables ni attribuables hors direction. */
+    private const SYSTEM_ROLES = ['super-admin', 'direction-generale', 'client'];
+
+    /** Rôles autorisés à gérer les rôles (création, suppression…). */
+    private const MANAGER_ROLES = ['super-admin', 'direction-generale'];
 
     public function __construct(
         private readonly ActivityLogger $logger,
@@ -153,13 +157,13 @@ class RoleController extends Controller
     {
         $user = request()->user();
 
-        if (! in_array($user?->role?->name, self::PROTECTED_ROLES, true)) {
+        if (! in_array($user?->role?->name, self::MANAGER_ROLES, true)) {
             return response()->json([
                 'message' => 'Vous n\'êtes pas autorisé à supprimer des rôles.',
             ], 403);
         }
 
-        if (in_array($role->name, self::PROTECTED_ROLES, true)) {
+        if (in_array($role->name, self::SYSTEM_ROLES, true)) {
             return response()->json([
                 'message' => 'Ce rôle système ne peut pas être supprimé.',
             ], 422);

@@ -49,6 +49,51 @@ class UserController extends Controller
         return array_intersect($relations, self::ALLOWED_WITH);
     }
 
+    /**
+     * Agences d'un utilisateur (même calcul que ScopeService::agencyIds,
+     * mais [] au lieu de null quand il n'y en a aucune).
+     */
+    private function targetAgencyIds(User $target): array
+    {
+        $ids = DB::table('user_assignments')
+            ->where('user_id', $target->id)
+            ->pluck('agency_id')
+            ->merge(
+                DB::table('department_chiefs')
+                    ->where('user_id', $target->id)
+                    ->join('departments', 'departments.id', '=', 'department_chiefs.department_id')
+                    ->pluck('departments.agency_id')
+            )
+            ->merge(
+                DB::table('commercials')
+                    ->where('user_id', $target->id)
+                    ->whereNotNull('agency_id')
+                    ->pluck('agency_id')
+            );
+
+        return $ids->filter()->unique()->values()->all();
+    }
+
+    /**
+     * Hors direction : on ne modifie que les comptes de son périmètre
+     * (toujours son propre compte).
+     */
+    private function assertInScope(User $actor, User $target): void
+    {
+        if (app(\App\Services\ScopeService::class)->isGlobal($actor)) {
+            return;
+        }
+        if ($actor->id === $target->id) {
+            return;
+        }
+        $actorAgencies = app(\App\Services\ScopeService::class)->agencyIds($actor) ?? [];
+        abort_unless(
+            count(array_intersect($actorAgencies, $this->targetAgencyIds($target))) > 0,
+            403,
+            "Vous n'êtes pas autorisé à gérer cet utilisateur (hors de votre périmètre)."
+        );
+    }
+
     #[OA\Get(
         path: '/api/users/username-suggestion',
         summary: 'Proposer un nom d\'utilisateur libre à partir du prénom et du nom',
@@ -64,7 +109,7 @@ class UserController extends Controller
     )]
     public function suggestUsername(Request $request): JsonResponse
     {
-        abort_unless(in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'responsable-agence'], true), 403);
+        abort_unless(in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'], true), 403);
 
         $data = $request->validate([
             'first_name' => ['nullable', 'string', 'max:100'],
@@ -134,10 +179,9 @@ class UserController extends Controller
                 $q->whereHas('assignments', fn ($q) => $q->where('department_id', $departmentId));
             })
             ->when($user?->role?->name === 'responsable-agence', function ($q) use ($user) {
-                $agencyIds = DB::table('user_assignments')
-                    ->where('user_id', $user->id)
-                    ->where('is_primary', true)
-                    ->pluck('agency_id');
+                // Toutes les agences d'affectation (cohérent avec ScopeService
+                // et CommercialController), pas seulement la primaire.
+                $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($user) ?? [];
                 $q->whereHas('assignments', fn ($q) => $q->whereIn('agency_id', $agencyIds));
             })
             ->when($user?->role?->name === 'responsable-departement', function ($q) use ($user) {
@@ -179,6 +223,32 @@ class UserController extends Controller
                         'is_primary' => false,
                         'is_department_chief' => false,
                         'department_id' => null,
+                    ]);
+                }
+
+                return $user;
+            }
+
+            // Un chef de département ne crée que des employés de son département :
+            // rattachement automatique (département demandé s'il est le sien,
+            // sinon son premier département).
+            if ($creator?->role?->name === 'responsable-departement') {
+                $chiefDeptIds = DB::table('department_chiefs')
+                    ->where('user_id', $creator->id)
+                    ->pluck('department_id');
+                $departmentId = $data['department_id'] ?? null;
+                if (! $departmentId || ! $chiefDeptIds->contains($departmentId)) {
+                    $departmentId = $chiefDeptIds->first();
+                }
+                $agencyId = $departmentId
+                    ? Department::where('id', $departmentId)->value('agency_id')
+                    : null;
+
+                if ($agencyId) {
+                    $user->assignments()->attach($agencyId, [
+                        'is_primary' => false,
+                        'is_department_chief' => false,
+                        'department_id' => $departmentId,
                     ]);
                 }
 
@@ -287,6 +357,8 @@ class UserController extends Controller
     {
         $validated = $request->validated();
 
+        $this->assertInScope($request->user(), $user);
+
         $oldRoleId = $user->role_id;
 
         if (isset($validated['password'])) {
@@ -338,12 +410,19 @@ class UserController extends Controller
     )]
     public function resetPassword(Request $request, User $user): JsonResponse
     {
-        $actorRole = $request->user()?->role?->name;
+        $actor = $request->user();
+        $actorRole = $actor?->role?->name;
 
-        abort_unless(in_array($actorRole, ['super-admin', 'direction-generale'], true), 403, 'Vous n\'êtes pas autorisé à réinitialiser un mot de passe.');
-
-        // La direction générale ne peut pas réinitialiser un super-administrateur.
-        abort_if($user->role?->name === 'super-admin' && $actorRole !== 'super-admin', 403, 'Vous ne pouvez pas réinitialiser le mot de passe d\'un super-administrateur.');
+        if (in_array($actorRole, ['super-admin', 'direction-generale'], true)) {
+            // La direction générale ne peut pas réinitialiser un super-administrateur.
+            abort_if($user->role?->name === 'super-admin' && $actorRole !== 'super-admin', 403, 'Vous ne pouvez pas réinitialiser le mot de passe d\'un super-administrateur.');
+        } elseif (in_array($actorRole, ['responsable-agence', 'responsable-departement'], true)) {
+            // Les chefs réinitialisent les comptes non-admin de leur périmètre.
+            abort_if(in_array($user->role?->name, ['super-admin', 'direction-generale'], true), 403, 'Vous ne pouvez pas réinitialiser le mot de passe de ce compte.');
+            $this->assertInScope($actor, $user);
+        } else {
+            abort(403, 'Vous n\'êtes pas autorisé à réinitialiser un mot de passe.');
+        }
 
         $plainPassword = Str::password(16);
 
@@ -406,6 +485,16 @@ class UserController extends Controller
             return response()->json([
                 'message' => 'Vous ne pouvez pas supprimer votre propre compte.',
             ], 422);
+        }
+
+        $this->assertInScope($request->user(), $user);
+
+        // Les chefs ne suppriment ni la direction ni un super-admin.
+        if (in_array($request->user()?->role?->name, ['responsable-agence', 'responsable-departement'], true)
+            && in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
+            return response()->json([
+                'message' => 'Vous ne pouvez pas supprimer ce compte.',
+            ], 403);
         }
 
         if ($user->role?->name === 'super-admin') {

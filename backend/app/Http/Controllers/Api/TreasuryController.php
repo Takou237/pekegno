@@ -18,6 +18,20 @@ class TreasuryController extends Controller
         private readonly TreasuryService $treasuryService,
     ) {}
 
+    /**
+     * Agences du périmètre, null = tout (direction).
+     *
+     * @return array<int, string>|null
+     */
+    private function scopeAgencyIds($user): ?array
+    {
+        if (app(\App\Services\ScopeService::class)->isGlobal($user)) {
+            return null;
+        }
+
+        return app(\App\Services\ScopeService::class)->agencyIds($user) ?? [];
+    }
+
     #[OA\Get(
         path: '/api/treasury/accounts',
         summary: 'Lister les comptes de trésorerie avec soldes',
@@ -37,6 +51,12 @@ class TreasuryController extends Controller
 
         if ($request->filled('agency_id')) {
             $query->where('agency_id', $request->input('agency_id'));
+        }
+
+        // Hors direction : trésorerie limitée aux agences du périmètre.
+        $scopeIds = $this->scopeAgencyIds($request->user());
+        if ($scopeIds !== null) {
+            $query->whereIn('agency_id', $scopeIds);
         }
 
         if ($request->filled('type')) {
@@ -71,6 +91,12 @@ class TreasuryController extends Controller
     public function indexTransactions(Request $request): JsonResponse
     {
         $query = TreasuryTransaction::with(['account', 'creator']);
+
+        // Hors direction : mouvements limités aux comptes du périmètre.
+        $scopeIds = $this->scopeAgencyIds($request->user());
+        if ($scopeIds !== null) {
+            $query->whereHas('account', fn ($q) => $q->whereIn('agency_id', $scopeIds));
+        }
 
         if ($request->filled('treasury_account_id')) {
             $query->ofAccount($request->input('treasury_account_id'));
@@ -131,6 +157,13 @@ class TreasuryController extends Controller
         $from = TreasuryAccount::findOrFail($data['from_account_id']);
         $to = TreasuryAccount::findOrFail($data['to_account_id']);
 
+        // Hors direction : transfert limité aux comptes du périmètre.
+        $scopeIds = $this->scopeAgencyIds($request->user());
+        if ($scopeIds !== null
+            && (! in_array($from->agency_id, $scopeIds, true) || ! in_array($to->agency_id, $scopeIds, true))) {
+            abort(403, 'Transfert hors de votre périmètre.');
+        }
+
         $result = $this->treasuryService->transfer(
             from: $from,
             to: $to,
@@ -162,6 +195,11 @@ class TreasuryController extends Controller
     public function showAccount(string $id): JsonResponse
     {
         $account = TreasuryAccount::with('agency')->findOrFail($id);
+
+        $scopeIds = $this->scopeAgencyIds(request()->user());
+        if ($scopeIds !== null && ! in_array($account->agency_id, $scopeIds, true)) {
+            abort(403, 'Compte hors de votre périmètre.');
+        }
 
         return response()->json(array_merge(
             $account->toArray(),

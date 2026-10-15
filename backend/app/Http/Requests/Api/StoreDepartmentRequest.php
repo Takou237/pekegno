@@ -10,7 +10,18 @@ class StoreDepartmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+        // Rôle autorisé (admin, direction, chef d'agence — DepartmentPolicy::create).
+        if (! $user || ! $user->can('create', \App\Models\Department::class)) {
+            return false;
+        }
+        // Hors direction : création limitée aux agences du périmètre.
+        if (in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
+            return true;
+        }
+        $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($user) ?? [];
+
+        return in_array($this->input('agency_id'), $agencyIds, true);
     }
 
     public function rules(): array

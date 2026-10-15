@@ -468,8 +468,16 @@ class CommercialController extends Controller
     )]
     public function adjustPoints(AdjustPointsRequest $request, Commercial $commercial): JsonResponse
     {
-        if (! in_array($request->user()?->role?->name, ['super-admin', 'direction-generale'], true)) {
-            return response()->json(['message' => 'Action non autorisée.'], 403);
+        $role = $request->user()?->role?->name;
+        if (! in_array($role, ['super-admin', 'direction-generale'], true)) {
+            // Chefs : uniquement les commerciaux de leur périmètre.
+            if (! in_array($role, ['responsable-agence', 'responsable-departement'], true)) {
+                return response()->json(['message' => 'Action non autorisée.'], 403);
+            }
+            $scopeIds = app(\App\Services\ScopeService::class)->agencyIds($request->user()) ?? [];
+            if (! $commercial->agency_id || ! in_array($commercial->agency_id, $scopeIds, true)) {
+                return response()->json(['message' => 'Action non autorisée.'], 403);
+            }
         }
 
         DB::transaction(function () use ($request, $commercial) {

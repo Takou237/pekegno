@@ -54,7 +54,7 @@ export default function AgencySettingsPage() {
 
   const actions: { key: string; icon: typeof Pencil; label: string; description: string; onClick: () => void; danger?: boolean }[] = [];
 
-  if (canAssignAgencyChief(user)) {
+  if (canAssignAgencyChief(user, agency.id)) {
     actions.push({
       key: 'chief',
       icon: ShieldCheck,

@@ -16,6 +16,7 @@ class DepartmentPolicy
             'super-admin',
             'direction-generale',
             'responsable-agence',
+            'responsable-departement',
             'commercial',
             'caissier',
             'community-manager',
@@ -32,6 +33,10 @@ class DepartmentPolicy
             return $user->assignments()
                 ->where('agency_id', $department->agency_id)
                 ->exists();
+        }
+
+        if ($user->role?->name === 'responsable-departement') {
+            return $this->isChiefOf($user, $department);
         }
 
         if (in_array($user->role?->name, ['commercial', 'caissier', 'community-manager'], true)) {
@@ -64,6 +69,10 @@ class DepartmentPolicy
                 ->exists();
         }
 
+        if ($user->role?->name === 'responsable-departement') {
+            return $this->isChiefOf($user, $department);
+        }
+
         return false;
     }
 
@@ -80,5 +89,24 @@ class DepartmentPolicy
     public function forceDelete(User $user): bool
     {
         return $user->role?->name === 'super-admin';
+    }
+
+    /**
+     * Chef du département : nommé dans department_chiefs ou marqué
+     * is_department_chief sur son affectation.
+     */
+    private function isChiefOf(User $user, Department $department): bool
+    {
+        if (\Illuminate\Support\Facades\DB::table('department_chiefs')
+            ->where('user_id', $user->id)
+            ->where('department_id', $department->id)
+            ->exists()) {
+            return true;
+        }
+
+        return $user->assignments()
+            ->wherePivot('department_id', $department->id)
+            ->wherePivot('is_department_chief', true)
+            ->exists();
     }
 }

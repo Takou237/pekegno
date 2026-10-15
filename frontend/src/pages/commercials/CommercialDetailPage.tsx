@@ -92,7 +92,7 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
     currentUser?.role?.name ?? ''
   );
   const canManageProspects = canManage || currentUser?.role?.name === 'commercial';
-  const canAdjustPoints = ['super-admin', 'direction-generale'].includes(
+  const canAdjustPoints = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );
 

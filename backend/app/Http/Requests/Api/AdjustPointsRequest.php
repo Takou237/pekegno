@@ -8,7 +8,13 @@ class AdjustPointsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return in_array($this->user()?->role?->name, ['super-admin', 'direction-generale'], true);
+        $role = $this->user()?->role?->name;
+        if (in_array($role, ['super-admin', 'direction-generale'], true)) {
+            return true;
+        }
+        // Chefs : le périmètre (commercial de leur agence / département) est
+        // vérifié dans CommercialController::adjustPoints.
+        return in_array($role, ['responsable-agence', 'responsable-departement'], true);
     }
 
     public function rules(): array

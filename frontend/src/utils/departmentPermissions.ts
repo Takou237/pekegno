@@ -1,7 +1,7 @@
 import type { User } from '@/types/auth';
 
 export function canViewDepartments(user: User | null): boolean {
-  return ['super-admin', 'direction-generale', 'responsable-agence'].includes(
+  return ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     user?.role?.name ?? ''
   );
 }
@@ -12,8 +12,9 @@ export function canCreateDepartment(user: User | null): boolean {
   );
 }
 
+/** Le backend restreint au périmètre : RA = agences primaires, RD = ses départements. */
 export function canEditDepartment(user: User | null): boolean {
-  return ['super-admin', 'direction-generale', 'responsable-agence'].includes(
+  return ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     user?.role?.name ?? ''
   );
 }

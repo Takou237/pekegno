@@ -9,16 +9,24 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { UserListItem } from '@/types/user';
 
 /**
- * Règle de l'API (T9) : super-admin et direction générale uniquement, jamais
- * sur soi-même, et la direction générale ne touche pas à un super-admin.
+ * Règle de l'API (T9) : super-admin et direction générale partout (jamais
+ * sur soi-même, et la direction générale ne touche pas à un super-admin) ;
+ * les chefs (agence / département) uniquement sur les comptes non-admin de
+ * leur périmètre (le backend vérifie l'assignation).
  */
 export function canResetPasswordOf(
   currentUser: { id: string; role?: { name: string } | null } | null,
   user: Pick<UserListItem, 'id' | 'role'>,
 ): boolean {
   const role = currentUser?.role?.name ?? '';
-  if (!['super-admin', 'direction-generale'].includes(role) || user.id === currentUser?.id) return false;
-  return user.role?.name !== 'super-admin' || role === 'super-admin';
+  if (user.id === currentUser?.id) return false;
+  if (['super-admin', 'direction-generale'].includes(role)) {
+    return user.role?.name !== 'super-admin' || role === 'super-admin';
+  }
+  if (['responsable-agence', 'responsable-departement'].includes(role)) {
+    return !['super-admin', 'direction-generale'].includes(user.role?.name ?? '');
+  }
+  return false;
 }
 
 /** Bouton « réinitialiser le mot de passe » d'une ligne d'utilisateur, avec confirmation. */

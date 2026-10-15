@@ -70,7 +70,7 @@ function myProfileItem(t: TranslateFn): NavItem {
   return { to: '/profile', label: t('nav.myProfile'), icon: UserRound, end: false };
 }
 
-export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-departement', 'comptable']);
+export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement', 'comptable']);
 
 // « Factures » ne doit pas rester actif sur la page des validations (/invoices/pending),
 // sinon il serait surligné en même temps que « Validations ».

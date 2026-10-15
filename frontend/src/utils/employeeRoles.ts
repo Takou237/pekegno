@@ -15,6 +15,7 @@ const ASSIGNABLE_ROLES_BY_ROLE: Record<string, string[]> = {
     'formateur',
   ],
   'responsable-agence': ['commercial', 'caissier', 'comptable', 'formateur'],
+  'responsable-departement': ['commercial', 'caissier', 'comptable', 'formateur'],
 };
 
 export function assignableRoleNames(currentRoleName: string | null | undefined): string[] {
@@ -23,7 +24,7 @@ export function assignableRoleNames(currentRoleName: string | null | undefined):
 
 export const CHIEF_ROLE_NAMES = new Set(['responsable-agence', 'responsable-departement']);
 
-const CREATOR_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence']);
+const CREATOR_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement']);
 
 /**
  * Un rôle personnalisé (créé depuis « Rôles & Permissions ») peut être

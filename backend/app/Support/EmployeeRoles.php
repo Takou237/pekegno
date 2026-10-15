@@ -16,7 +16,7 @@ class EmployeeRoles
      */
     private const CHIEF_ROLES = ['responsable-agence', 'responsable-departement'];
 
-    private const CREATOR_ROLES = [self::SUPER_ADMIN, self::DIRECTION_GENERALE, 'responsable-agence'];
+    private const CREATOR_ROLES = [self::SUPER_ADMIN, self::DIRECTION_GENERALE, 'responsable-agence', 'responsable-departement'];
 
     /**
      * Rôles qu'un responsable peut créer via le formulaire employé.
@@ -43,6 +43,12 @@ class EmployeeRoles
                 'formateur',
             ],
             'responsable-agence' => [
+                'commercial',
+                'caissier',
+                'comptable',
+                'formateur',
+            ],
+            'responsable-departement' => [
                 'commercial',
                 'caissier',
                 'comptable',

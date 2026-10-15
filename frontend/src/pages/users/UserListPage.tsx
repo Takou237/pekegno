@@ -102,21 +102,26 @@ export default function UserListPage() {
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [createSubmitting, setCreateSubmitting] = useState(false);
 
-  const canManageUsers = ['super-admin', 'direction-generale'].includes(
+  const canManageUsers = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );
 
-  const canCreateUsers = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
+  const canCreateUsers = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );
 
   // La direction générale ne peut pas réinitialiser un super-administrateur
-  // (même règle que côté API), et personne ne réinitialise son propre mot de
-  // passe depuis cette page.
+  // (même règle que côté API), les chefs uniquement les comptes non-admin
+  // de leur périmètre, et personne ne réinitialise son propre mot de passe
+  // depuis cette page.
   function canResetPasswordOf(user: UserListItem): boolean {
     if (!canManageUsers || user.id === currentUser?.id) return false;
+    const role = currentUser?.role?.name ?? '';
+    if (['responsable-agence', 'responsable-departement'].includes(role)) {
+      return !['super-admin', 'direction-generale'].includes(user.role?.name ?? '');
+    }
 
-    return user.role?.name !== 'super-admin' || currentUser?.role?.name === 'super-admin';
+    return user.role?.name !== 'super-admin' || role === 'super-admin';
   }
 
   const fetchUsers = useCallback(async (filters: {
