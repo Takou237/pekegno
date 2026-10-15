@@ -13,6 +13,7 @@ export function Sidebar() {
   const location = useLocation();
   const [unpaidBadge, setUnpaidBadge] = useState<number>(0);
   const agencyAssignment = user?.assignments?.find((a: any) => a.pivot?.is_primary === true);
+  const deptChiefAssignment = user?.assignments?.find((a: any) => a.pivot?.is_department_chief === true);
   const roleName = user?.role?.name;
 
   useEffect(() => {
@@ -24,7 +25,7 @@ export function Sidebar() {
     return () => { cancelled = true; };
   }, [roleName]);
 
-  const mainItems = getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge).map((item) =>
+  const mainItems = getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge, deptChiefAssignment?.pivot?.department_id ?? undefined).map((item) =>
     // Garde-fou : jamais de pastille rouge sur le menu Factures en connexion
     // commercial (ni caissier), même si un badge était passé par erreur.
     roleName === 'commercial' || roleName === 'caissier' ? { ...item, badge: undefined } : item,

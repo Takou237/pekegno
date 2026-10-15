@@ -86,11 +86,23 @@ function trackingItem(t: TranslateFn): NavItem {
   return { to: '/team/tracking', label: t('agencyDept.team.myMissions'), icon: UserCheck, end: true };
 }
 
-export function getMainItems(t: TranslateFn, roleName: string | null | undefined, agencyId?: string, unpaidBadge?: number): NavItem[] {
+export function getMainItems(t: TranslateFn, roleName: string | null | undefined, agencyId?: string, unpaidBadge?: number, departmentId?: string): NavItem[] {
   const baseItems: NavItem[] = [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
     { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
   ];
+
+  // Chefs : le niveau d'accès commence à leur espace — le premier item y mène
+  // directement au lieu du tableau de bord global (qui y redirige de toute façon).
+  const chiefHome = (space: 'agency' | 'department'): NavItem[] => {
+    if (space === 'agency' && agencyId) {
+      return [{ to: `/agencies/${agencyId}`, label: t('nav.myAgency'), icon: Building2, end: false }];
+    }
+    if (space === 'department' && departmentId) {
+      return [{ to: `/departments/${departmentId}`, label: t('nav.myDepartment'), icon: FolderTree, end: false }];
+    }
+    return [baseItems[0]];
+  };
 
   const commercialItems: NavItem[] = [
     ...baseItems,
@@ -123,7 +135,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
 
   if (roleName === 'responsable-agence') {
     return [
-      ...baseItems,
+      ...chiefHome('agency'),
+      baseItems[1],
       trackingItem(t),
       { to: '/agencies', label: t('nav.myAgencies'), icon: Building2, end: false },
       { to: '/departments', label: t('nav.departments'), icon: FolderTree, end: false },
@@ -146,8 +159,10 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   }
 
   if (roleName === 'responsable-departement') {
+    const [, ...restCommercialItems] = commercialItems;
     return [
-      ...commercialItems,
+      ...chiefHome('department'),
+      ...restCommercialItems,
       trackingItem(t),
       { to: '/departments', label: t('nav.myDepartments'), icon: FolderTree, end: false },
       { to: '/users', label: t('nav.myTeam'), icon: Users, end: false },

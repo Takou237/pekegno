@@ -16,7 +16,7 @@ l'admin** ; idem pour le chef de département avec **son département**.
 
 | # | Changement | Partie |
 |---|---|---|
-| 1 | Connexion responsable-agence → son agence ; chef de département → son département (repli : listes Mes agences / Mes départements) | Frontend |
+| 1 | Connexion responsable-agence → son agence ; chef de département → son département (repli : listes Mes agences / Mes départements). **Niveau d'accès ancré** : le menu principal commence par « Mon agence » / « Mon département » (accès direct à l'espace) ; nommer un chef renseigne désormais son département sur l'affectation | Backend + Frontend |
 | 2 | Pouvoirs financiers : **encaisser** factures, **supprimer** dépenses / commissions / écritures et catégories comptables / services-produits-catégories, **trésorerie** de son périmètre (lecture + transferts), **ajuster les points** des commerciaux | Backend + Frontend + SQL |
 | 3 | Équipe : créer, assigner, retirer, **reset password** (comptes non-admin du périmètre) ; le chef d'agence **nomme le chef** de sa propre agence | Backend + Frontend |
 | 4 | Chef de département : crée des comptes (rattachés à son département), édite son département, pastille impayés, bouton « + » global | Backend + Frontend |

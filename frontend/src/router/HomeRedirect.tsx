@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { departmentsApi } from '@/api/departments.api';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 import PEKEGNOGroupDashboard from '@/pages/dashboard/PEKEGNOGroupDashboard';
 
 /**
@@ -26,7 +29,9 @@ export function HomeRedirect() {
     const chiefOf = user?.assignments?.find((a) => a.pivot?.is_department_chief === true);
     const departmentId = chiefOf?.pivot?.department_id;
     if (departmentId) return <Navigate to={`/departments/${departmentId}`} replace />;
-    return <Navigate to="/departments" replace />;
+    // Affectations anciennes sans department_id : l'API liste déjà les
+    // départements du chef → on entre dans le premier.
+    return <DepartmentHomeRedirect />;
   }
 
   if (role === 'caissier') {
@@ -42,4 +47,30 @@ export function HomeRedirect() {
   }
 
   return <PEKEGNOGroupDashboard />;
+}
+
+/** Repli chef de département : entre dans son premier département, sinon la liste. */
+function DepartmentHomeRedirect() {
+  const [target, setTarget] = useState<string | undefined>(undefined);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    departmentsApi
+      .list({ per_page: 1 })
+      .then((res) => {
+        if (active) setTarget(res.data[0]?.id);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (failed) return <Navigate to="/departments" replace />;
+  if (target === undefined) return <PageSkeleton />;
+  if (target) return <Navigate to={`/departments/${target}`} replace />;
+  return <Navigate to="/departments" replace />;
 }

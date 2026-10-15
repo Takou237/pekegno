@@ -450,7 +450,7 @@ class UserAssignmentController extends Controller
                 DB::table('user_assignments')
                     ->where('user_id', $agencyAssignment->user_id)
                     ->where('agency_id', $agencyAssignment->agency_id)
-                    ->update(['is_department_chief' => true]);
+                    ->update(['is_department_chief' => true, 'department_id' => $department->id]);
             }
 
             if ($oldChief && $oldChief->user_id !== $userId) {
