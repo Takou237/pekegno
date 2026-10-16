@@ -31,6 +31,8 @@ class SalesTrackingController extends Controller
             new OA\Parameter(name: 'from', in: 'query', description: 'Date début (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
             new OA\Parameter(name: 'to', in: 'query', description: 'Date fin (Y-m-d)', schema: new OA\Schema(type: 'string', format: 'date')),
             new OA\Parameter(name: 'commercial_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'seller_user_id', in: 'query', description: 'Vendeur (user id : caissier / commercial au guichet)', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'cashier_id', in: 'query', description: 'Caissier ayant encaissé (invoice_payments.received_by)', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'city', in: 'query', description: 'Ville du client ou de l\'agence', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'activity', in: 'query', description: 'Libellé de la ligne (article/service)', schema: new OA\Schema(type: 'string')),
@@ -62,13 +64,42 @@ class SalesTrackingController extends Controller
             ->whereNull('cancelled_at')
             ->whereBetween('invoice_date', [$from, $to]);
 
+        // Périmètre organisationnel : un utilisateur restreint ne voit que ses
+        // agences (user_assignments, chef de département, commercial). Sans ce
+        // filtre, le suivi mélangeait les agences et les caissiers hors scope
+        // affichaient 0 une fois filtrés côté front.
+        $scopeAgencyIds = app(\App\Services\ScopeService::class)->agencyIds($user);
+        if ($scopeAgencyIds !== null) {
+            $invoiceBase->whereIn('agency_id', $scopeAgencyIds);
+        }
+
         // Un commercial ne voit que ses propres ventes ; les rôles d'administration
         // voient tout, filtrable par commercial.
+        // Cas du commercial sans profil Commercial (compte promu, kind=employe
+        // non créé) : l'ancien `where commercial_id = 0000…` garantissait 0 ligne.
+        // On retombe alors sur ses ventes de guichet (seller_user_id = user id).
         if ($user?->role?->name === 'commercial') {
             $profileId = $user->commercialProfile?->id;
-            $invoiceBase->where('commercial_id', $profileId ?? '00000000-0000-0000-0000-000000000000');
+            if ($profileId) {
+                $invoiceBase->where('commercial_id', $profileId);
+            } else {
+                $invoiceBase->where('seller_user_id', $user->id);
+            }
         } elseif ($request->filled('commercial_id')) {
             $invoiceBase->where('commercial_id', $request->input('commercial_id'));
+        }
+
+        // Ventes de guichet : commercial_id est souvent NULL (vente caissier sans
+        // profil commercial, seller_user_id = user id). Ces deux filtres
+        // permettent de retrouver les actions d'un caissier précis.
+        if ($request->filled('seller_user_id')) {
+            $invoiceBase->where('seller_user_id', $request->input('seller_user_id'));
+        }
+        if ($request->filled('cashier_id')) {
+            $cashierId = $request->input('cashier_id');
+            $invoiceBase->whereIn('id', \App\Models\InvoicePayment::query()
+                ->where('received_by', $cashierId)
+                ->select('invoice_id'));
         }
 
         $invoiceBase
@@ -116,6 +147,7 @@ class SalesTrackingController extends Controller
             ->with(['invoice' => fn ($q) => $q->select(
                 'id', 'number', 'invoice_date', 'total_amount', 'amount_paid',
                 'status', 'client_id', 'client_name', 'agency_id',
+                'commercial_id', 'seller_user_id',
             )->with([
                 'client:id,first_name,last_name,email,city',
                 'agency:id,name,city',
@@ -156,6 +188,8 @@ class SalesTrackingController extends Controller
                 'invoice_number' => $invoice?->number,
                 'invoice_date' => $invoice?->invoice_date?->toDateString(),
                 'client_id' => $invoice?->client_id,
+                'commercial_id' => $invoice?->commercial_id,
+                'seller_user_id' => $invoice?->seller_user_id,
                 'client' => $clientName ?: '—',
                 'city' => $client?->city ?: ($invoice?->agency?->city ?: '—'),
                 'activity' => $item->label ?: '—',

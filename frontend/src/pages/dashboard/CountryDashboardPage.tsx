@@ -5,6 +5,7 @@ import {
   FolderTree,
   Users,
   TrendingUp,
+  TrendingDown,
   Wallet,
   HandCoins,
   Clock,
@@ -137,7 +138,13 @@ export default function CountryDashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      {stats && (stats as any)?.has_agencies === false && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          {t('dashboard.countryNoAgency')}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <StatCard
           label={t('dashboard.revenue')}
           value={formatCurrency(stats?.revenue ?? 0)}
@@ -149,6 +156,13 @@ export default function CountryDashboardPage() {
           value={formatCurrency(stats?.payments_total ?? 0)}
           icon={<Wallet className="h-5 w-5" />}
           tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
+        />
+        <StatCard
+          label={t('dashboard.expensesTotal')}
+          value={formatCurrency(stats?.expenses_total ?? 0)}
+          icon={<TrendingDown className="h-5 w-5" />}
+          tone="bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
+          sub={stats?.net_cash != null ? `${t('dashboard.netCash')} : ${formatCurrency(stats.net_cash)}` : undefined}
         />
         <StatCard
           label={t('dashboard.advancesTotal')}

@@ -59,6 +59,7 @@ export const invoicesApi = {
     append('vat_rate', payload.vat_rate);
     payload.items.forEach((item, index) => {
       append(`items[${index}][service_id]`, item.service_id);
+      append(`items[${index}][product_id]`, item.product_id);
       append(`items[${index}][label]`, item.label);
       append(`items[${index}][unit_price]`, item.unit_price);
       append(`items[${index}][quantity]`, item.quantity);

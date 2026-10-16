@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ClipboardCheck, Receipt, ShoppingCart, TrendingUp, Wallet } from 'lucide-react';
+import { ArrowRight, ClipboardCheck, Receipt, ShoppingCart, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { statsApi } from '@/api/stats.api';
 import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
@@ -116,7 +116,7 @@ export default function CashierDashboardPage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <StatCard
           label={t('dashboard.cashier.todayRevenue')}
           value={formatCurrency(stats?.revenue ?? 0)}
@@ -135,6 +135,13 @@ export default function CashierDashboardPage() {
           value={formatCurrency(stats?.payments_total ?? 0)}
           icon={<Wallet className="h-5 w-5" />}
           tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
+        />
+        <StatCard
+          label={t('dashboard.expensesTotal')}
+          value={formatCurrency(stats?.expenses_total ?? 0)}
+          icon={<TrendingDown className="h-5 w-5" />}
+          tone="bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
+          sub={stats?.net_cash != null ? `${t('dashboard.netCash')} : ${formatCurrency(stats.net_cash)}` : undefined}
         />
         <StatCard
           label={t('dashboard.cashier.pendingTitle')}

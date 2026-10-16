@@ -200,7 +200,10 @@ class RevenueService
         }
 
         if (! empty($filters['country_id'])) {
-            $query->whereIn('invoices.agency_id', Agency::where('country_id', $filters['country_id'])->pluck('id'));
+            $ids = Agency::idsForCountry($filters['country_id']);
+            // Aucune agence rattachée (ni FK ni libellé legacy) : forcer un
+            // ensemble vide plutôt qu'un whereIn([]) silencieux côté appelant.
+            $query->whereIn('invoices.agency_id', $ids ?: ['00000000-0000-0000-0000-000000000000']);
         }
 
         if (! empty($filters['city_id'])) {

@@ -135,9 +135,13 @@ export function PrestationFormModal({
         const created = await clientsApi.create({
           first_name: newClient.first_name.trim(),
           last_name: newClient.last_name.trim(),
-          email: newClient.email.trim(),
+          email: newClient.email.trim() || undefined,
           phone: newClient.phone.trim() || null,
+          city: newClient.city.trim() || undefined,
           country: newClient.country || undefined,
+          nationality: newClient.nationality.trim() || undefined,
+          quartier: newClient.quartier.trim() || undefined,
+          occupation: newClient.occupation.trim() || undefined,
           registered_agency_id: offer?.agency_id ?? form.agency_id ?? agencyId ?? undefined,
         });
         resolvedClientId = created.id;
@@ -183,17 +187,17 @@ export function PrestationFormModal({
       title={
         prestation
           ? t('agencyDept.prestations.edit')
-          : offer
-            ? t('agencyDept.prestations.newSubscription')
-            : t('agencyDept.prestations.new')
+          : t('agencyDept.prestations.newSubscription')
       }
       maxWidth="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {error && <Alert variant="error">{error}</Alert>}
-        {!prestation && offer && (
+        {!prestation && (
           <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
-            {t('agencyDept.offers.subscribingTo', { name: offer.name })}
+            {offer
+              ? t('agencyDept.offers.subscribingTo', { name: offer.name })
+              : t('agencyDept.prestations.newSubscriptionHint')}
           </p>
         )}
         {!prestation && needsAgencyChoice && (

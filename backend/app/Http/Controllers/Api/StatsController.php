@@ -75,27 +75,40 @@ class StatsController extends Controller
             ->count();
         $activeCommercials = Commercial::where('is_active', true)->count();
 
+        // Dépenses de la période (comptabilité) sur le même périmètre : le
+        // dashboard caissier / vue d'ensemble affiche le net encaissé.
+        $expenses = AccountingTransaction::where('type', 'expense')
+            ->whereBetween('transacted_at', [$from, $to])
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->sum(DB::raw('amount * '.GroupCurrency::rateSql('accounting_transactions.agency_id')));
+
         $topCommercials = Commercial::query()
             ->with('user:id,first_name,last_name,email')
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
-            ->withSum([
-                'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated()->where('status', 'paid'),
-            ], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
             ->withCount([
                 'invoices as sales_count' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated(),
             ])
-            ->limit(5)
+            ->limit(15)
             ->get()
+            ->map(function (Commercial $c) use ($from, $to) {
+                $revenue = app(RevenueService::class)->feeTotal($from, $to, ['commercial_id' => $c->id], true);
+
+                return [
+                    'c' => $c,
+                    'revenue' => $revenue,
+                ];
+            })
             ->sortByDesc('revenue')
             ->values()
-            ->map(fn (Commercial $c) => [
-                'id' => $c->id,
-                'first_name' => $c->first_name,
-                'last_name' => $c->last_name,
-                'email' => $c->email,
-                'points_balance' => $c->points_balance,
-                'sales_count' => (int) $c->sales_count,
-                'revenue' => (float) ($c->revenue ?? 0),
+            ->take(5)
+            ->map(fn ($row) => [
+                'id' => $row['c']->id,
+                'first_name' => $row['c']->first_name,
+                'last_name' => $row['c']->last_name,
+                'email' => $row['c']->email,
+                'points_balance' => $row['c']->points_balance,
+                'sales_count' => (int) $row['c']->sales_count,
+                'revenue' => (float) ($row['revenue'] ?? 0),
             ]);
 
         return response()->json([
@@ -106,6 +119,8 @@ class StatsController extends Controller
             'revenue' => (float) $revenue,
             'payments_total' => (float) $payments,
             'advances_total' => (float) $advances,
+            'expenses_total' => (float) $expenses,
+            'net_cash' => round((float) $payments - (float) $expenses, 2),
             'outstanding' => (float) $outstanding,
             'invoices_total' => $invoiceCount,
             'invoices_paid' => $paidCount,
@@ -158,24 +173,38 @@ class StatsController extends Controller
             ->get(['total_amount', 'amount_paid'])
             ->sum(fn (Invoice $i) => $i->balance_due);
 
+        $payments = InvoicePayment::whereBetween('paid_at', [$from, $to])
+            ->whereHas('invoice', fn ($q) => $q->where('agency_id', $agency->id)->whereNull('cancelled_at')->validated())
+            ->sum('amount');
+        $expenses = AccountingTransaction::where('type', 'expense')
+            ->where('agency_id', $agency->id)
+            ->whereBetween('transacted_at', [$from, $to])
+            ->sum('amount');
+
         $top = (clone $invoices)
-            ->selectRaw('commercial_id, sum(total_amount) as turnover, count(*) as sales')
+            ->selectRaw('commercial_id, count(*) as sales')
             ->whereNotNull('commercial_id')
             ->groupBy('commercial_id')
-            ->orderByDesc('turnover')
-            ->limit(5)
+            ->limit(15)
             ->get()
-            ->map(function ($row) {
+            ->map(function ($row) use ($from, $to, $agency) {
                 $commercial = Commercial::find($row->commercial_id);
+                $turnover = app(RevenueService::class)->feeTotal($from, $to, [
+                    'agency_id' => $agency->id,
+                    'commercial_id' => $row->commercial_id,
+                ]);
 
                 return [
                     'id' => $row->commercial_id,
                     'full_name' => $commercial?->full_name ?? 'Supprimé',
                     'points_balance' => $commercial?->points_balance ?? 0,
-                    'turnover' => (float) $row->turnover,
+                    'turnover' => (float) $turnover,
                     'sales_count' => (int) $row->sales,
                 ];
-            });
+            })
+            ->sortByDesc('turnover')
+            ->values()
+            ->take(5);
 
         return response()->json([
             'agency' => [
@@ -187,6 +216,9 @@ class StatsController extends Controller
                 'to' => $to->toISOString(),
             ],
             'revenue' => (float) $revenue,
+            'payments_total' => (float) $payments,
+            'expenses_total' => (float) $expenses,
+            'net_cash' => round((float) $payments - (float) $expenses, 2),
             'outstanding' => (float) $outstanding,
             'sales_count' => $salesCount,
             'top_commercials' => $top,
@@ -216,33 +248,45 @@ class StatsController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
-        $query = Invoice::whereNull('cancelled_at')
-            ->where('invoice_date', '>=', $start)
-            ->where('status', 'paid')
-            ->validated()
-            ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('agency', fn ($inner) => $inner->where('country_id', $countryId)))
-            ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
+        // Cohérence bilan / vue d'ensemble : le CA est l'ENCAISSÉ (paid_at) sur
+        // factures validées, hors pass-through, comme RevenueService::feeTotal et
+        // BilanService. L'ancienne version sommait le FACTURÉ (total_amount des
+        // factures `paid` sur invoice_date) : le graphique tombait à 0 avec des
+        // factures partielles alors que des encaissements existaient.
+        $ratios = DB::table('invoice_items')
+            ->selectRaw('invoice_id, sum(case when is_pass_through then line_total else 0 end) as pass, sum(line_total) as lines')
+            ->groupBy('invoice_id');
+
+        $query = DB::table('invoice_payments')
+            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
+            ->leftJoinSub($ratios, 'ratios', 'ratios.invoice_id', '=', 'invoices.id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
+            ->where('invoice_payments.paid_at', '>=', $start)
+            ->when($request->input('country_id'), fn ($q, $countryId) => $q->whereIn('invoices.agency_id', Agency::idsForCountry($countryId) ?: ['00000000-0000-0000-0000-000000000000']))
+            ->when($request->input('agency_id'), fn ($q, $agencyId) => $q->where('invoices.agency_id', $agencyId))
             ->when($request->boolean('from_enrollments'), fn ($q) => $q->whereIn(
                 'invoices.id',
-                FormationEnrollment::query()->whereNotNull('invoice_id')->pluck('invoice_id')
+                FormationEnrollment::query()->whereNotNull('invoice_id')->select('invoice_id')
             ))
-            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds));
 
         // Vue multi-pays (sans filtre pays/agence) : montants convertis dans la
         // monnaie du groupe ; sinon on reste dans la monnaie locale.
-        $amountExpr = ($request->country_id || $request->agency_id)
-            ? 'total_amount'
-            : 'total_amount * '.GroupCurrency::rateSql('invoices.agency_id');
+        $convert = ! ($request->input('country_id') || $request->input('agency_id'));
+        $rate = $convert ? ' * '.GroupCurrency::rateSql('invoices.agency_id') : '';
+        $netExpr = "sum(invoice_payments.amount * (1 - coalesce(ratios.pass / nullif(ratios.lines, 0), 0)){$rate})";
 
+        $dateCol = 'invoice_payments.paid_at';
         $dateExpr = DB::getDriverName() === 'pgsql'
-            ? "to_char(invoice_date, 'YYYY-MM')"
-            : "strftime('%Y-%m', invoice_date)";
+            ? "to_char({$dateCol}, 'YYYY-MM')"
+            : "strftime('%Y-%m', {$dateCol})";
 
         $rows = (clone $query)
             ->select(
                 DB::raw($dateExpr.' as month'),
-                DB::raw('sum('.$amountExpr.') as total'),
-                DB::raw('count(*) as count'),
+                DB::raw($netExpr.' as total'),
+                DB::raw('count(distinct invoices.id) as count'),
             )
             ->groupBy('month')
             ->orderBy('month')
@@ -285,25 +329,50 @@ class StatsController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
-        // CA = total des factures validées sur la période (tous statuts :
-        // payées, partielles, impayées), pas uniquement les payées : sinon le
-        // « Meilleur commercial » n'affiche qu'1 vente sur 13 dans la période.
+        // Cohérence bilan / vue d'ensemble : CA = ENCAISSÉ (paid_at, hors
+        // pass-through) comme RevenueService::feeTotal, pas le FACTURÉ. L'ancien
+        // `sum(total_amount)` gonflait les impayés et dépassait le bilan du jour.
+        $ratios = DB::table('invoice_items')
+            ->selectRaw('invoice_id, sum(case when is_pass_through then line_total else 0 end) as pass, sum(line_total) as lines')
+            ->groupBy('invoice_id');
+
+        $paidByCommercial = DB::table('invoice_payments')
+            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
+            ->leftJoinSub($ratios, 'ratios', 'ratios.invoice_id', '=', 'invoices.id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
+            ->whereBetween('invoice_payments.paid_at', [$from, $to])
+            ->whereNotNull('invoices.commercial_id')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->groupBy('invoices.commercial_id')
+            ->selectRaw('invoices.commercial_id as commercial_id, sum(invoice_payments.amount * (1 - coalesce(ratios.pass / nullif(ratios.lines, 0), 0)) * '.GroupCurrency::rateSql('invoices.agency_id').') as turnover')
+            ->pluck('turnover', 'commercial_id');
+
+        $salesCountByCommercial = Invoice::whereNull('cancelled_at')
+            ->validated()
+            ->whereBetween('invoice_date', [$from, $to])
+            ->whereNotNull('commercial_id')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->groupBy('commercial_id')
+            ->selectRaw('commercial_id, count(*) as sales')
+            ->pluck('sales', 'commercial_id');
+
         $commercials = Commercial::with('agency:id,name,code')
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
-            ->whereHas('invoices', fn ($q) => $q->whereNull('cancelled_at')->validated()->whereBetween('invoice_date', [$from, $to]))
-            ->withSum(['invoices as turnover' => fn ($q) => $q->whereNull('cancelled_at')->validated()->whereBetween('invoice_date', [$from, $to])], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
-            ->withCount(['invoices as sales_count' => fn ($q) => $q->whereNull('cancelled_at')->validated()->whereBetween('invoice_date', [$from, $to])])
-            ->orderByDesc('turnover')
-            ->limit($limit)
+            ->whereIn('id', $paidByCommercial->keys()->all() ?: ['00000000-0000-0000-0000-000000000000'])
+            ->limit($limit * 3)
             ->get()
             ->map(fn (Commercial $c) => [
                 'id' => $c->id,
                 'full_name' => $c->full_name,
                 'agency' => $c->agency?->name,
                 'points_balance' => $c->points_balance,
-                'turnover' => (float) ($c->turnover ?? 0),
-                'sales_count' => (int) $c->sales_count,
-            ]);
+                'turnover' => (float) ($paidByCommercial[$c->id] ?? 0),
+                'sales_count' => (int) ($salesCountByCommercial[$c->id] ?? 0),
+            ])
+            ->sortByDesc('turnover')
+            ->values()
+            ->take($limit);
 
         return response()->json($commercials);
     }
@@ -423,34 +492,34 @@ class StatsController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
+        // Cohérence bilan / vue d'ensemble : CA = encaissé net (paid_at, hors
+        // pass-through), comme RevenueService::byAgency, pas le facturé.
+        $byAgency = app(RevenueService::class)->byAgency($from, $to, ['agency_ids' => $agencyIds], true);
+
+        $counts = Invoice::whereNull('cancelled_at')
+            ->validated()
+            ->whereBetween('invoice_date', [$from, $to])
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->groupBy('agency_id')
+            ->selectRaw('agency_id, count(*) as invoices_count')
+            ->pluck('invoices_count', 'agency_id');
+
         $rows = Agency::query()
             ->whereNull('deleted_at')
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('id', $agencyIds))
-            ->withSum([
-                // CA = total des factures validées sur la période (tous statuts),
-                // cohérent avec Top produits et Meilleur commercial.
-                'invoices as revenue' => fn ($q) => $q->whereNull('cancelled_at')
-                    ->validated()
-                    ->whereBetween('invoice_date', [$from, $to]),
-            ], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
-            ->withCount([
-                'invoices as invoices_count' => fn ($q) => $q->whereNull('cancelled_at')
-                    ->validated()
-                    ->whereBetween('invoice_date', [$from, $to]),
-            ])
             ->get()
-            ->sortByDesc('revenue')
-            ->values()
-            ->take($limit)
             ->map(fn (Agency $a) => [
                 'id' => $a->id,
                 'name' => $a->name,
                 'code' => $a->code,
                 'country' => $a->country,
                 'country_id' => $a->country_id,
-                'revenue' => (float) $a->revenue,
-                'invoices_count' => (int) $a->invoices_count,
-            ]);
+                'revenue' => (float) ($byAgency->get($a->id)['fees'] ?? 0),
+                'invoices_count' => (int) ($counts[$a->id] ?? 0),
+            ])
+            ->sortByDesc('revenue')
+            ->values()
+            ->take($limit);
 
         return response()->json($rows);
     }
@@ -514,10 +583,11 @@ class StatsController extends Controller
             ->count();
 
         // Per-country breakdown — join invoices via agencies.country_id
+        // (avec repli libellé legacy pour les pays sans FK, ex. Côte d'Ivoire).
         $countries = Country::withCount('agencies')
             ->get()
             ->map(function (Country $country) use ($from, $to) {
-                $countryAgencyIds = Agency::where('country_id', $country->id)->pluck('id');
+                $countryAgencyIds = collect(Agency::idsForCountry($country->id));
 
                 $countryInvoiceQuery = Invoice::whereIn('agency_id', $countryAgencyIds)
                     ->whereBetween('invoice_date', [$from, $to])
@@ -530,6 +600,10 @@ class StatsController extends Controller
                     ->get(['total_amount', 'amount_paid'])
                     ->sum(fn (Invoice $i) => $i->balance_due);
                 $countryInvoiceCount = (clone $countryInvoiceQuery)->count();
+                $countryExpenses = $countryAgencyIds->isEmpty() ? 0.0 : (float) AccountingTransaction::where('type', 'expense')
+                    ->whereBetween('transacted_at', [$from, $to])
+                    ->whereIn('agency_id', $countryAgencyIds)
+                    ->sum('amount');
 
                 return [
                     'id' => $country->id,
@@ -545,6 +619,8 @@ class StatsController extends Controller
                     'revenue' => (float) $countryRevenue,
                     'outstanding' => (float) $countryOutstanding,
                     'invoices_count' => $countryInvoiceCount,
+                    'expenses_total' => (float) $countryExpenses,
+                    'has_agencies' => ! $countryAgencyIds->isEmpty(),
                 ];
             });
 
@@ -586,13 +662,13 @@ class StatsController extends Controller
         $agencyIds = $scope->agencyIds($request->user());
 
         // Verify access to this country
-        $countryAgencyIds = Agency::where('country_id', $country->id)->pluck('id')->all();
+        $countryAgencyIds = Agency::idsForCountry($country->id);
         if ($agencyIds !== null) {
             $allowed = array_intersect($agencyIds, $countryAgencyIds);
             if (empty($allowed)) {
                 abort(403, 'Accès refusé pour ce pays.');
             }
-            $countryAgencyIds = $allowed;
+            $countryAgencyIds = array_values($allowed);
         }
 
         $from = Period::from($request, Carbon::now()->startOfMonth());
@@ -620,11 +696,19 @@ class StatsController extends Controller
             ->whereHas('invoice', fn ($q) => $q->whereIn('agency_id', $countryAgencyIds)->whereNull('cancelled_at')->validated()->whereIn('status', ['unpaid', 'partial']))
             ->sum('amount');
 
+        // Dépenses comptables du pays (monnaie locale, pas de conversion) +
+        // signalement « aucune agence rattachée » (ex. Côte d'Ivoire à 0 : le
+        // whereIn([]) rendait revenue/outstanding/expenses silencieusement nuls).
+        $expenses = AccountingTransaction::where('type', 'expense')
+            ->whereBetween('transacted_at', [$from, $to])
+            ->whereIn('agency_id', $countryAgencyIds)
+            ->sum('amount');
+
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
             ->where('country_id', $country->id)
             ->count();
 
-        $agencyCount = Agency::where('country_id', $country->id)->count();
+        $agencyCount = count(Agency::idsForCountry($country->id));
         $departmentCount = Department::whereIn('agency_id', $countryAgencyIds)->count();
         $userCount = User::query()
             ->where(function ($q) use ($countryAgencyIds) {
@@ -636,24 +720,26 @@ class StatsController extends Controller
         $topCommercials = Commercial::query()
             ->whereIn('agency_id', $countryAgencyIds)
             ->with('user:id,first_name,last_name,email')
-            ->withSum([
-                'invoices as revenue' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated()->where('status', 'paid'),
-            ], DB::raw('total_amount * '.GroupCurrency::rateSql('invoices.agency_id')))
             ->withCount([
                 'invoices as sales_count' => fn ($q) => $q->whereBetween('invoice_date', [$from, $to])->whereNull('cancelled_at')->validated(),
             ])
-            ->limit(5)
+            ->limit(15)
             ->get()
+            ->map(fn (Commercial $c) => [
+                'c' => $c,
+                'revenue' => app(RevenueService::class)->feeTotal($from, $to, ['commercial_id' => $c->id]),
+            ])
             ->sortByDesc('revenue')
             ->values()
-            ->map(fn (Commercial $c) => [
-                'id' => $c->id,
-                'first_name' => $c->first_name,
-                'last_name' => $c->last_name,
-                'email' => $c->email,
-                'points_balance' => $c->points_balance,
-                'sales_count' => (int) $c->sales_count,
-                'revenue' => (float) ($c->revenue ?? 0),
+            ->take(5)
+            ->map(fn ($row) => [
+                'id' => $row['c']->id,
+                'first_name' => $row['c']->first_name,
+                'last_name' => $row['c']->last_name,
+                'email' => $row['c']->email,
+                'points_balance' => $row['c']->points_balance,
+                'sales_count' => (int) $row['c']->sales_count,
+                'revenue' => (float) ($row['revenue'] ?? 0),
             ]);
 
         return response()->json([
@@ -670,6 +756,8 @@ class StatsController extends Controller
             'revenue' => (float) $revenue,
             'payments_total' => (float) $payments,
             'advances_total' => (float) $advances,
+            'expenses_total' => (float) $expenses,
+            'net_cash' => round((float) $payments - (float) $expenses, 2),
             'outstanding' => (float) $outstanding,
             'invoices_total' => $invoiceCount,
             'invoices_paid' => $paidCount,
@@ -678,6 +766,7 @@ class StatsController extends Controller
             'departments_total' => $departmentCount,
             'users_total' => $userCount,
             'top_commercials' => $topCommercials,
+            'has_agencies' => ! empty($countryAgencyIds),
         ]);
     }
 
@@ -695,10 +784,7 @@ class StatsController extends Controller
                 ? [$agencyId]
                 : array_values(array_intersect($agencyIds, [$agencyId]));
         } elseif ($request->filled('country_id')) {
-            $countryAgencyIds = Agency::where('country_id', $request->input('country_id'))
-                ->pluck('id')
-                ->map(fn ($id) => (string) $id)
-                ->all();
+            $countryAgencyIds = Agency::idsForCountry($request->input('country_id'));
             $agencyIds = $agencyIds === null
                 ? ($countryAgencyIds ?: null)
                 : array_values(array_intersect($agencyIds, $countryAgencyIds));
@@ -706,8 +792,15 @@ class StatsController extends Controller
 
         $service = app(AcademyReportService::class);
 
+        // Dépenses du périmètre (pour le dashboard academy) : même source
+        // comptable que le groupe, filtrée aux agences autorisées.
+        $expenses = AccountingTransaction::where('type', 'expense')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->sum('amount');
+
         return response()->json([
             'training' => $service->groupStats($agencyIds),
+            'expenses_total' => (float) $expenses,
             'services' => $service->groupServices($agencyIds),
         ]);
     }

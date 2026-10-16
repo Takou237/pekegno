@@ -207,7 +207,35 @@ class Agency extends Model
             return $query;
         }
 
-        return $query->where('country', $country);
+        // Accepte un id (FK country_id) ou le libellé legacy (colonne varchar
+        // `country`) : les agences historiques n'ont pas toujours country_id
+        // renseigné (ex. Côte d'Ivoire à 0 de CA car whereIn([])).
+        return $query->where(function ($q) use ($country) {
+            $q->where('country_id', $country)
+                ->orWhere('country', $country);
+        });
+    }
+
+    /**
+     * Ids d'agences d'un pays, avec repli sur le libellé legacy `country`
+     * quand la FK `country_id` n'est pas renseignée (données historiques :
+     * ex. « Côte d'Ivoire » sans country_id → CA à 0 car whereIn([])).
+     *
+     * @return array<int, string>
+     */
+    public static function idsForCountry(string $countryId): array
+    {
+        $ids = static::where('country_id', $countryId)->pluck('id')->all();
+        if (! empty($ids)) {
+            return $ids;
+        }
+
+        $countryName = \App\Models\Country::whereKey($countryId)->value('name');
+        if (! $countryName) {
+            return [];
+        }
+
+        return static::where('country', $countryName)->pluck('id')->all();
     }
 
     public static function generateNextCode(): string

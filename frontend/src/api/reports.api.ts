@@ -197,6 +197,8 @@ export interface SalesTrackingParams {
   from?: string;
   to?: string;
   commercial_id?: string;
+  seller_user_id?: string;
+  cashier_id?: string;
   agency_id?: string;
   city?: string;
   activity?: string;

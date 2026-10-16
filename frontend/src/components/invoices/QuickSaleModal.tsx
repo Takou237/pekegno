@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
 import { servicesApi } from '@/api/services.api';
+import { productsApi } from '@/api/products.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -26,22 +27,24 @@ import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 interface InvoiceLineDraft {
   key: string;
   service_id: string;
+  product_id: string;
   label: string;
   unit_price: string;
   quantity: string;
   pass_tier: string;
-  kind: 'service' | '';
+  kind: 'service' | 'product' | '';
 }
 
 let lineCounter = 0;
 function newLine(): InvoiceLineDraft {
   lineCounter += 1;
-  return { key: `line-${lineCounter}`, service_id: '', label: '', unit_price: '', quantity: '1', pass_tier: '', kind: '' };
+  return { key: `line-${lineCounter}`, service_id: '', product_id: '', label: '', unit_price: '', quantity: '1', pass_tier: '', kind: '' };
 }
 
-/** Entrée de la liste déroulante « Produit » : un service du catalogue. */
+/** Entrée de la liste déroulante « Produit » : service ou produit du catalogue. */
 interface ProductOption {
   value: string;
+  kind: 'service' | 'product';
   label: string;
   price: number;
   tiers: SeminarTier[];
@@ -88,6 +91,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [lines, setLines] = useState<InvoiceLineDraft[]>([newLine()]);
   const [catalogue, setCatalogue] = useState<Service[]>([]);
+  const [productCatalogue, setProductCatalogue] = useState<{ id: string; name: string; selling_price: number | string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -96,16 +100,27 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
   const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo';
 
   // Les formations se vendent par une inscription (module Academy), pas par
-  // une vente de guichet : la liste ne propose que les services du catalogue.
+  // une vente de guichet : la liste propose les services ET les produits du
+  // catalogue. Un libellé libre + prix reste possible (produit inexistant,
+  // enregistré comme produit sur la facture via le label).
   const productOptions = useMemo<ProductOption[]>(
-    () =>
-      catalogue.map((service) => ({
-        value: service.id,
+    () => [
+      ...catalogue.map((service) => ({
+        value: `service:${service.id}`,
+        kind: 'service' as const,
         label: service.name,
         price: Number(service.effective_price ?? service.price ?? 0),
         tiers: service.is_seminar ? (service.seminar_tiers ?? []) : [],
       })),
-    [catalogue],
+      ...productCatalogue.map((p) => ({
+        value: `product:${p.id}`,
+        kind: 'product' as const,
+        label: p.name,
+        price: Number(p.selling_price ?? 0),
+        tiers: [] as SeminarTier[],
+      })),
+    ],
+    [catalogue, productCatalogue],
   );
 
   const clientOptions = useCallback(async (query: string) => {
@@ -162,18 +177,25 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // La liste déroulante « Produit » propose les services du catalogue filtrés
-  // par l'agence choisie : le catalogue fait foi sur le libellé et le prix.
-  // Sans agence sélectionnée, la liste attend le choix.
+  // La liste déroulante « Produit » propose les services et produits du
+  // catalogue filtrés par l'agence choisie : le catalogue fait foi sur le
+  // libellé et le prix. Sans agence sélectionnée, la liste attend le choix.
   useEffect(() => {
     if (!isOpen || !agencyId) {
-      if (!isOpen) setCatalogue([]);
+      if (!isOpen) {
+        setCatalogue([]);
+        setProductCatalogue([]);
+      }
       return;
     }
     servicesApi
       .list({ per_page: 100, agency_id: agencyId })
       .then((res) => setCatalogue(res.data ?? []))
       .catch(() => setCatalogue([]));
+    productsApi
+      .list({ per_page: 100, agency_id: agencyId })
+      .then((res) => setProductCatalogue((res.data ?? []) as { id: string; name: string; selling_price: number | string }[]))
+      .catch(() => setProductCatalogue([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, agencyId]);
 
@@ -240,20 +262,28 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
 
   function handleProductSelect(key: string, value: string) {
     if (!value) {
-      updateLine(key, { service_id: '', kind: '', label: '', unit_price: '', pass_tier: '' });
+      updateLine(key, { service_id: '', product_id: '', kind: '', label: '', unit_price: '', pass_tier: '' });
       return;
     }
     const option = productOptions.find((o) => o.value === value);
-    if (!option) return;
-    const alreadyUsed = lines.some((l) => l.key !== key && l.service_id === value);
+    if (!option) {
+      // Valeur libre : produit inexistant saisi à la main, enregistré comme
+      // produit sur la facture via le libellé (backend : label sans ids).
+      return;
+    }
+    const rawId = value.split(':')[1] ?? value;
+    const alreadyUsed = lines.some(
+      (l) => l.key !== key && ((option.kind === 'service' && l.service_id === rawId) || (option.kind === 'product' && l.product_id === rawId)),
+    );
     if (alreadyUsed) {
       showToast(t('invoices.duplicateService'), 'error');
       return;
     }
     const tiers = option.tiers;
     updateLine(key, {
-      service_id: option.value,
-      kind: 'service',
+      service_id: option.kind === 'service' ? rawId : '',
+      product_id: option.kind === 'product' ? rawId : '',
+      kind: option.kind,
       label: option.label,
       unit_price: String(tiers[0]?.price ?? option.price),
       pass_tier: tiers[0]?.tier ?? '',
@@ -263,7 +293,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const validLines = lines.filter(
-      (l) => l.label.trim() || l.service_id || Number(l.unit_price) > 0,
+      (l) => l.label.trim() || l.service_id || l.product_id || Number(l.unit_price) > 0,
     );
     if (validLines.length === 0) {
       setErrors({ items: t('invoices.noItems') });
@@ -304,10 +334,15 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
         const created = await clientsApi.create({
           first_name: newClient.first_name.trim(),
           last_name: newClient.last_name.trim(),
-          email: newClient.email.trim() || `client-${Date.now()}@pekegno.local`,
+          email: newClient.email.trim() || undefined,
           phone: newClient.phone.trim() || null,
+          city: newClient.city.trim() || undefined,
           country: newClient.country || undefined,
+          nationality: newClient.nationality.trim() || undefined,
+          quartier: newClient.quartier.trim() || undefined,
+          occupation: newClient.occupation.trim() || undefined,
           registered_agency_id: agencyId || undefined,
+          commercial_user_id: currentUser?.id ?? undefined,
         });
         resolvedClientId = created.id;
       }
@@ -324,6 +359,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
         vat_rate: Number(vatRate) || undefined,
         items: validLines.map((l) => ({
           service_id: l.kind === 'service' ? l.service_id || undefined : undefined,
+          product_id: l.kind === 'product' ? l.product_id || undefined : undefined,
           label: l.label.trim() || undefined,
           unit_price: Number(l.unit_price) || 0,
           quantity: Number(l.quantity) || 1,
@@ -455,21 +491,24 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
           </div>
           <div className="flex flex-col gap-3">
             {lines.map((line, index) => {
-              const tiers = productOptions.find((o) => o.value === line.service_id)?.tiers ?? [];
+              const lineValue = line.kind && (line.service_id || line.product_id)
+                ? `${line.kind}:${line.kind === 'service' ? line.service_id : line.product_id}`
+                : '';
+              const tiers = productOptions.find((o) => o.value === lineValue)?.tiers ?? [];
               const hasTiers = tiers.length > 0;
               return (
                 <div key={line.key} className="flex flex-col gap-2 rounded-xl border border-gray-100 p-3 dark:border-gray-800 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1">
                     <Select
                       label={index === 0 ? t('invoices.itemProduct') : undefined}
-                      value={line.service_id}
+                      value={lineValue}
                       onChange={(e) => handleProductSelect(line.key, e.target.value)}
                       error={index === 0 ? errors.items : undefined}
                     >
                       <option value="">{agencyId ? t('invoices.itemProductPlaceholder') : t('services.selectAgencyPlaceholder')}</option>
                       {productOptions.map((o) => (
                         <option key={o.value} value={o.value}>
-                          {`${o.label} — ${formatCurrency(o.price, currency)}`}
+                          {`${o.kind === 'product' ? '📦 ' : ''}${o.label} — ${formatCurrency(o.price, currency)}`}
                         </option>
                       ))}
                     </Select>

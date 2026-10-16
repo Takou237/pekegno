@@ -3,6 +3,8 @@ export interface DashboardStats {
   revenue: number;
   payments_total: number;
   advances_total: number;
+  expenses_total?: number;
+  net_cash?: number;
   outstanding: number;
   invoices_total: number;
   invoices_paid: number;
@@ -11,6 +13,7 @@ export interface DashboardStats {
   agencies_total: number;
   departments_total: number;
   users_total: number;
+  has_agencies?: boolean;
   top_commercials: {
     id: string;
     first_name: string;
@@ -26,6 +29,9 @@ export interface AgencyStats {
   agency: { id: string; name: string };
   period: { from: string; to: string };
   revenue: number;
+  payments_total?: number;
+  expenses_total?: number;
+  net_cash?: number;
   outstanding: number;
   sales_count: number;
   top_commercials: {
@@ -96,6 +102,8 @@ export interface CountryStat {
   revenue: number;
   outstanding: number;
   invoices_count: number;
+  expenses_total?: number;
+  has_agencies?: boolean;
 }
 
 export interface GroupStats {
@@ -225,4 +233,5 @@ export interface ServiceGroupStats {
 export interface GroupReportStats {
   training: TrainingGroupStats;
   services: ServiceGroupStats;
+  expenses_total?: number;
 }

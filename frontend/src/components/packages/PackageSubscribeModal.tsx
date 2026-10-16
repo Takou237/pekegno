@@ -124,9 +124,14 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
         const created = await clientsApi.create({
           first_name: newClient.first_name.trim(),
           last_name: newClient.last_name.trim(),
-          email: newClient.email.trim(),
+          email: newClient.email.trim() || undefined,
           phone: newClient.phone.trim() || null,
+          city: newClient.city.trim() || undefined,
           country: newClient.country || undefined,
+          nationality: newClient.nationality.trim() || undefined,
+          quartier: newClient.quartier.trim() || undefined,
+          occupation: newClient.occupation.trim() || undefined,
+          commercial_user_id: user?.id ?? undefined,
         });
         resolvedClientId = created.id;
       }

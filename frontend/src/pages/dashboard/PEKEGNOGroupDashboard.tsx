@@ -472,6 +472,10 @@ export default function PEKEGNOGroupDashboard() {
                     <p className="mt-0.5 text-xs text-gray-400">
                       {c.agencies_count} {t('dashboard.agencies').toLowerCase()} ·{' '}
                       {c.invoices_count} {t('dashboard.invoices').toLowerCase()}
+                      {(c.expenses_total ?? 0) > 0 && (
+                        <> · {t('dashboard.expenses').toLowerCase()} : {formatCurrency(c.expenses_total ?? 0, c.currency_code)}</>
+                      )}
+                      {c.has_agencies === false && <> · ⚠ {t('dashboard.countryNoAgencyShort')}</>}
                     </p>
                   </Link>
                 );

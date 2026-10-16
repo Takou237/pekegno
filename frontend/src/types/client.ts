@@ -33,7 +33,7 @@ export interface ClientListParams {
 export interface ClientPayload {
   first_name: string;
   last_name: string;
-  email: string;
+  email?: string;
   phone?: string | null;
   password?: string;
   password_confirmation?: string;
@@ -46,6 +46,7 @@ export interface ClientPayload {
   is_active?: boolean;
   country_id?: string | null;
   registered_agency_id?: string | null;
+  commercial_user_id?: string | null;
 }
 
 export interface RegisterPayload {

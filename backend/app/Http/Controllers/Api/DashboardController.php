@@ -142,6 +142,17 @@ class DashboardController extends Controller
             ->get(['invoices.agency_id', 'invoices.total_amount', 'invoices.amount_paid'])
             ->sum(fn (Invoice $i) => $i->balance_due * ($rates[$i->agency_id] ?? 1));
 
+        // Dépenses comptables du niveau (même périmètre agences) : cohérence
+        // avec /stats/group (expenses_total / net_cash).
+        $expenseRate = $country ? '' : ' * '.GroupCurrency::rateSql('accounting_transactions.agency_id');
+        $expenses = \App\Models\AccountingTransaction::where('type', 'expense')
+            ->whereBetween('transacted_at', [$from, $to])
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->when($country, fn ($q) => $q->whereIn('agency_id', \App\Models\Agency::idsForCountry($country->id)))
+            ->when($city, fn ($q) => $q->whereIn('agency_id', \App\Models\Agency::where('city_id', $city->id)->pluck('id')))
+            ->when($agency, fn ($q) => $q->where('agency_id', $agency->id))
+            ->sum(DB::raw('amount'.$expenseRate));
+
         $agenciesPerNode = $agencies->map(fn (Agency $a) => [
             'agency_id' => $a->id,
             'country_id' => $a->country_id,
@@ -161,6 +172,8 @@ class DashboardController extends Controller
             'kpis' => [
                 'revenue' => (float) $agenciesPerNode->sum('revenue'),
                 'payments_total' => (float) $payments,
+                'expenses_total' => (float) $expenses,
+                'net_cash' => round((float) $payments - (float) $expenses, 2),
                 'outstanding' => (float) $outstanding,
                 'invoices_total' => (int) $agenciesPerNode->sum('invoices_total'),
                 'invoices_paid' => (int) $agenciesPerNode->sum('invoices_paid'),
@@ -180,7 +193,15 @@ class DashboardController extends Controller
             ->with('geoCountry:id,name,code,currency_code', 'geoCity:id,name,code')
             ->whereNull('deleted_at')
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('id', $agencyIds))
-            ->when($country, fn ($q) => $q->where('country_id', $country->id))
+            // Repli libellé legacy quand aucune FK (cf. Agency::idsForCountry).
+            ->when($country, function ($q) use ($country) {
+                $ids = Agency::idsForCountry($country->id);
+                if (! empty($ids)) {
+                    $q->whereIn('id', $ids);
+                } else {
+                    $q->where('country_id', $country->id);
+                }
+            })
             ->when($city, fn ($q) => $q->where('city_id', $city->id))
             ->when($agency, fn ($q) => $q->whereKey($agency->id))
             ->orderBy('name')

@@ -19,6 +19,7 @@ export interface InvoiceItem {
   id: string;
   invoice_id: string;
   service_id: string | null;
+  product_id: string | null;
   label: string;
   unit_price: string;
   quantity: number;
@@ -137,6 +138,7 @@ export interface InvoiceListParams {
 
 export interface InvoiceLinePayload {
   service_id?: string;
+  product_id?: string;
   label?: string;
   unit_price: number;
   quantity: number;

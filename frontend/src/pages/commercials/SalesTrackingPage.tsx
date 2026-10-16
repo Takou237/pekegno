@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Printer, RefreshCw, RotateCcw, TrendingUp } from 'lucide-react';
-import {
-  reportsApi,
+import { reportsApi,
   type SalesTrackingLine,
   type SalesTrackingResponse,
   type SalesTrackingStatus,
@@ -12,6 +11,7 @@ import {
   type SalesTrackingType,
 } from '@/api/reports.api';
 import { commercialsApi } from '@/api/commercials.api';
+import { employeesApi } from '@/api/employees.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, formatNumber } from '@/utils/number';
@@ -41,6 +41,7 @@ export default function SalesTrackingPage() {
   const [from, setFrom] = useState(initialPeriod.from);
   const [to, setTo] = useState(initialPeriod.to);
   const [commercialFilter, setCommercialFilter] = useState('');
+  const [sellerFilter, setSellerFilter] = useState('');
   const [agencyId, setAgencyId] = useState('');
   const [city, setCity] = useState('');
   const [activity, setActivity] = useState('');
@@ -60,6 +61,7 @@ export default function SalesTrackingPage() {
       from: from || undefined,
       to: to || undefined,
       commercial_id: isCommercial ? undefined : commercialFilter || undefined,
+      seller_user_id: isCommercial ? undefined : sellerFilter || undefined,
       agency_id: agencyId || undefined,
       city: city.trim() || undefined,
       activity: activity.trim() || undefined,
@@ -67,7 +69,7 @@ export default function SalesTrackingPage() {
       type: (type || undefined) as SalesTrackingType | undefined,
       search: search.trim() || undefined,
     }),
-    [from, to, isCommercial, commercialFilter, agencyId, city, activity, status, type, search],
+    [from, to, isCommercial, commercialFilter, sellerFilter, agencyId, city, activity, status, type, search],
   );
 
   // Recharge systématiquement en page 1 quand un filtre change.
@@ -76,12 +78,46 @@ export default function SalesTrackingPage() {
   }, [query]);
 
   const fetchOptions = useCallback(async (q: string): Promise<AutocompleteOption[]> => {
-    const results = await commercialsApi.search(q);
-    return results.map((c) => ({
-      id: c.id,
-      label: [c.first_name, c.last_name].filter(Boolean).join(' '),
-      subtitle: c.agency?.name ?? '',
-    }));
+    // Inclut les profils employés (caissiers kind=employe) : l'ancien filtre
+    // ne proposait que les commerciaux et leurs ventes restaient introuvables.
+    const [coms, emps] = await Promise.all([
+      commercialsApi.search(q).catch(() => []),
+      employeesApi.search(q).catch(() => []),
+    ]);
+    const seen = new Set<string>();
+    const out: AutocompleteOption[] = [];
+    for (const c of [...coms, ...emps]) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      out.push({
+        id: c.id,
+        label: [c.first_name, c.last_name].filter(Boolean).join(' '),
+        subtitle: (c as { agency?: { name?: string } }).agency?.name ?? '',
+      });
+    }
+    return out;
+  }, []);
+
+  const fetchSellerOptions = useCallback(async (q: string): Promise<AutocompleteOption[]> => {
+    // Vendeur guichet (seller_user_id = users.id) : retrouve les actions d'un
+    // caissier précis même quand commercial_id est NULL.
+    const [coms, emps] = await Promise.all([
+      commercialsApi.search(q).catch(() => []),
+      employeesApi.search(q).catch(() => []),
+    ]);
+    const seen = new Set<string>();
+    const out: AutocompleteOption[] = [];
+    for (const c of [...(coms as unknown as Record<string, unknown>[]), ...(emps as unknown as Record<string, unknown>[])]) {
+      const userId = c['user_id'] as string | undefined;
+      if (!userId || seen.has(userId)) continue;
+      seen.add(userId);
+      const first = (c['first_name'] as string) ?? '';
+      const last = (c['last_name'] as string) ?? '';
+      const email = (c['email'] as string) ?? '';
+      const agency = (c['agency'] as { name?: string } | undefined)?.name ?? '';
+      out.push({ id: userId, label: [first, last].filter(Boolean).join(' ') || email, subtitle: agency || email });
+    }
+    return out;
   }, []);
 
   useEffect(() => {
@@ -124,6 +160,7 @@ export default function SalesTrackingPage() {
 
   const resetFilters = () => {
     setCommercialFilter('');
+    setSellerFilter('');
     setAgencyId('');
     setCity('');
     setActivity('');
@@ -165,6 +202,15 @@ export default function SalesTrackingPage() {
               value={commercialFilter}
               onChange={setCommercialFilter}
               fetchOptions={fetchOptions}
+            />
+          )}
+          {!isCommercial && (
+            <Autocomplete
+              label={t('reports.salesTracking.seller')}
+              placeholder={t('reports.salesTracking.sellerPlaceholder')}
+              value={sellerFilter}
+              onChange={setSellerFilter}
+              fetchOptions={fetchSellerOptions}
             />
           )}
           {!isCommercial && (

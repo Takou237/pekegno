@@ -6,6 +6,7 @@ import {
   DollarSign,
   GraduationCap,
   Percent,
+  TrendingDown,
   TrendingUp,
   UserCheck,
   Users,
@@ -76,6 +77,7 @@ export default function AcademyDashboardPage({ fixedAgencyId }: { fixedAgencyId?
   const { countryId: routeCountryId } = useParams<{ countryId?: string }>();
   const { countries } = useOrgContext();
   const [training, setTraining] = useState<TrainingGroupStats | null>(null);
+  const [expensesTotal, setExpensesTotal] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [filterCountryId, setFilterCountryId] = useState<string>(routeCountryId ?? '');
   const [filterAgencyId, setFilterAgencyId] = useState<string>('');
@@ -100,7 +102,10 @@ export default function AcademyDashboardPage({ fixedAgencyId }: { fixedAgencyId?
         agencyId: scopedAgencyId || undefined,
       })
       .then((res) => {
-        if (active) setTraining(res.training);
+        if (active) {
+          setTraining(res.training);
+          setExpensesTotal(res.expenses_total ?? 0);
+        }
       })
       .catch(() => {
         if (active) setTraining(null);
@@ -221,6 +226,12 @@ export default function AcademyDashboardPage({ fixedAgencyId }: { fixedAgencyId?
               value={formatCurrency(training.outstanding)}
               icon={<TrendingUp className="h-5 w-5" />}
               tone="bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
+            />
+            <StatCard
+              label={t('dashboard.expensesTotal')}
+              value={formatCurrency(expensesTotal)}
+              icon={<TrendingDown className="h-5 w-5" />}
+              tone="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
             />
             <StatCard
               label={t('reports.trainers')}

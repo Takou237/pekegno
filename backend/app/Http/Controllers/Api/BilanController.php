@@ -28,10 +28,9 @@ class BilanController extends Controller
             return $agencyIds;
         }
 
-        $countryAgencyIds = Agency::query()
-            ->where('country_id', $countryId)
-            ->whereNull('deleted_at')
-            ->pluck('id');
+        $countryAgencyIds = collect(Agency::idsForCountry($countryId))
+            ->filter(fn ($id) => Agency::whereKey($id)->whereNull('deleted_at')->exists())
+            ->values();
 
         if ($agencyIds !== null) {
             $countryAgencyIds = $countryAgencyIds->intersect($agencyIds)->values();

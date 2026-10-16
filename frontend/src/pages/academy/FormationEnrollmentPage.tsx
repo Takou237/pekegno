@@ -362,10 +362,15 @@ export default function FormationEnrollmentPage() {
         const created = await clientsApi.create({
           first_name: newLearner.first_name,
           last_name: newLearner.last_name,
-          email: newLearner.email,
+          email: newLearner.email.trim() || undefined,
           phone: newLearner.phone || null,
+          city: newLearner.city || undefined,
           country: newLearner.country || undefined,
+          nationality: newLearner.nationality || undefined,
+          quartier: newLearner.quartier || undefined,
+          occupation: newLearner.occupation || undefined,
           registered_agency_id: agencyId,
+          commercial_user_id: currentUser?.id ?? undefined,
         });
         learnerUserId = created.id;
       }
