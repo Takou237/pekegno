@@ -70,6 +70,21 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 | `15_10/seed-permissions-chefs-2026-10-15.sql` | parité chefs (agence + département) : 14 grants responsable-agence + 25 grants responsable-departement (idempotent, aucune migration de schéma) |
 | `15_10/frontend-dist.zip` | build admin du 15/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
 
+⏳ **À appliquer avec le déploiement du 16/10/2026** (voir
+`16_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `16_10/migration-2026-10-16.sql` | rattrapage `country_id`/`city_id` des agences (CA Côte d'Ivoire) + ligne `migrations` (données seules, aucun changement de schéma, aucune permission) |
+| `16_10/frontend-dist.zip` | build admin du 16/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
+
+🆕 **Remise à neuf (optionnel, irréversible)** : `reset-prod-fresh-2026-10-16.sql`
+vide toute la base métier (factures, clients, prospects, agences, pays,
+départements, catalogue, prestations, inscriptions, comptabilité, utilisateurs…)
+et ne garde que `admin@pekegno.com` + `admin2@pekegno.com` (mot de passe :
+`12345678`) ; rôles, permissions, réglages et plan comptable conservés.
+Sauvegarde obligatoire avant, import via l'onglet Importer.
+
 Dernière migration Laravel présente en prod :
 `2026_09_30_000003_add_payer_phone_to_invoices_table`. Pour un prochain
 déploiement, n'importer que les **nouveaux** scripts SQL correspondant aux
@@ -378,6 +393,7 @@ pas l'OPcache du site web. Ne jamais lancer `php artisan route:cache` /
 | `mail-test.php` | One-shot : diagnostic SMTP (config chargée, connexions sortantes, envoi test), puis supprimer |
 | `migration-2026-09-28.sql` | ✅ **Appliqué en prod.** Mise à jour de la BD pour les tickets du 28/09 (remise inscription, taux de change pays, monnaie groupe, commission caissier) |
 | `reset-transactions.sql` | Remet à zéro toutes les transactions (factures, paiements, dépenses, compta, trésorerie, commissions, points, inscriptions, abonnements) en conservant la configuration — **sauvegarde obligatoire avant** |
+| `reset-prod-fresh-2026-10-16.sql` | 🆕 Remise à neuf complète : vide TOUTE la base métier (factures, clients, prospects, agences, pays, départements, catalogue, prestations, inscriptions, comptabilité, utilisateurs…) et ne garde que `admin@pekegno.com` + `admin2@pekegno.com` (`12345678`) ; rôles, permissions, réglages et plan comptable conservés — **sauvegarde obligatoire avant** |
 | `reset-opcache.php` | Script à visiter une fois puis supprimer (piège #3.4) |
 | `setup-storage-link.php` | Équivalent de `php artisan storage:link` sans terminal |
 | `vendor-prod.zip` / `frontend-dist.zip` | Derniers builds prêts à uploader (peuvent être obsolètes — régénérer si le code a changé depuis) |
