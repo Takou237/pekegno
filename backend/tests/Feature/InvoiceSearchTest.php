@@ -22,23 +22,37 @@ class InvoiceSearchTest extends TestCase
         $this->seed([PermissionSeeder::class, RoleSeeder::class]);
     }
 
+    private ?User $admin = null;
+
     private function actingAsAdmin(): User
     {
-        $admin = User::factory()->create([
+        $this->admin ??= User::factory()->create([
             'role_id' => Role::where('name', 'super-admin')->value('id'),
         ]);
-        Sanctum::actingAs($admin);
+        Sanctum::actingAs($this->admin);
 
-        return $admin;
+        return $this->admin;
     }
 
+    /** La règle métier exige une avance pour le super-admin : une facture « en
+     * attente » sans avance est le flux du caissier, identité sous laquelle la
+     * création se fait ici. L'identité adminetest restaurée pour la suite. */
     private function createInvoice(array $attributes = []): array
     {
-        return $this->postJson('/api/invoices', array_merge([
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'caissier')->value('id'),
+        ]));
+        $invoice = $this->postJson('/api/invoices', array_merge([
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 8000, 'quantity' => 1],
             ],
         ], $attributes))->assertStatus(201)->json();
+
+        if ($this->admin) {
+            Sanctum::actingAs($this->admin);
+        }
+
+        return $invoice;
     }
 
     public function test_search_invoices_by_number(): void
@@ -175,21 +189,21 @@ class InvoiceSearchTest extends TestCase
 
         $this->actingAsAdmin();
 
-        $this->postJson('/api/invoices', [
+        $this->createInvoice([
             'commercial_id' => $commercial->id,
             'agency_id' => $agency->id,
             'items' => [
                 ['label' => 'Vente commercial 1', 'unit_price' => 5000, 'quantity' => 1],
             ],
-        ])->assertStatus(201);
+        ]);
 
-        $this->postJson('/api/invoices', [
+        $this->createInvoice([
             'commercial_id' => $other->id,
             'agency_id' => $agency->id,
             'items' => [
                 ['label' => 'Vente commercial 2', 'unit_price' => 6000, 'quantity' => 1],
             ],
-        ])->assertStatus(201);
+        ]);
 
         Sanctum::actingAs($commercialUser);
 
@@ -211,19 +225,19 @@ class InvoiceSearchTest extends TestCase
 
         $this->actingAsAdmin();
 
-        $invoiceA = $this->postJson('/api/invoices', [
+        $invoiceA = $this->createInvoice([
             'agency_id' => $agencyA->id,
             'items' => [
                 ['label' => 'Vente agence A', 'unit_price' => 5000, 'quantity' => 1],
             ],
-        ])->assertStatus(201)->json();
+        ]);
 
-        $this->postJson('/api/invoices', [
+        $this->createInvoice([
             'agency_id' => $agencyB->id,
             'items' => [
                 ['label' => 'Vente agence B', 'unit_price' => 6000, 'quantity' => 1],
             ],
-        ])->assertStatus(201);
+        ]);
 
         Sanctum::actingAs($caissier);
 

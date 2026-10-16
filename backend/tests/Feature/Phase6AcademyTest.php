@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\PointsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -33,6 +34,30 @@ class Phase6AcademyTest extends TestCase
     {
         parent::setUp();
         $this->seed();
+    }
+
+    /**
+     * La règle métier exige une avance (montant versé) pour les inscriptions
+     * saisies par le super-admin. Les écrans de test créent des inscriptions
+     * sans avance : ce flux correspond au caissier, identité sous laquelle la
+     * création se fait ici. L'identité courante (admin, chef d'agence…) est
+     * restaurée ensuite ; les autres rôles passent tels quels.
+     */
+    private function postEnrollment(array $payload): TestResponse
+    {
+        $current = auth()->user();
+
+        if ($current?->role?->name !== 'super-admin') {
+            return $this->postJson('/api/formation-enrollments', $payload);
+        }
+
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'caissier')->value('id'),
+        ]));
+        $response = $this->postJson('/api/formation-enrollments', $payload);
+        Sanctum::actingAs($current);
+
+        return $response;
     }
 
     private function admin(): User
@@ -144,7 +169,7 @@ class Phase6AcademyTest extends TestCase
         $course = $this->createCourse();
         $client = $this->createClient();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertCreated();
@@ -360,7 +385,7 @@ class Phase6AcademyTest extends TestCase
         ])->assertStatus(201)
             ->json();
 
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201)
@@ -399,7 +424,7 @@ class Phase6AcademyTest extends TestCase
         ])->assertCreated()
             ->json();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
@@ -435,7 +460,7 @@ class Phase6AcademyTest extends TestCase
         ])->assertCreated()
             ->json();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertCreated();
@@ -465,7 +490,7 @@ class Phase6AcademyTest extends TestCase
         ])->assertCreated()
             ->json();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
@@ -503,7 +528,7 @@ class Phase6AcademyTest extends TestCase
         $this->assertSame(['online'], collect($onlyOnline)->pluck('mode')->unique()->values()->all());
 
         // Une formation en ligne n'a pas de session : elle reste inscriptible.
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $online['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201)
@@ -534,7 +559,7 @@ class Phase6AcademyTest extends TestCase
 
         // Aucune session choisie : le choix est ambigu, on n'affecte rien plutôt
         // que d'inscrire l'apprenant aux deux.
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201)->json();
@@ -544,7 +569,7 @@ class Phase6AcademyTest extends TestCase
         ]);
 
         // Une session explicitement demandée est bien prise en compte.
-        $scoped = $this->postJson('/api/formation-enrollments', [
+        $scoped = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $this->createClient()->id,
             'training_session_id' => $first['id'],
@@ -564,7 +589,7 @@ class Phase6AcademyTest extends TestCase
             'role_id' => Role::where('name', 'commercial')->value('id'),
         ]);
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $commercial->id,
         ])->assertStatus(422);
@@ -576,12 +601,12 @@ class Phase6AcademyTest extends TestCase
         $course = $this->createCourse();
         $client = $this->createClient();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(409);
@@ -600,14 +625,14 @@ class Phase6AcademyTest extends TestCase
         ])->assertCreated()
             ->json();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
 
         $other = $this->createClient();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $other->id,
         ])->assertStatus(201);
@@ -635,7 +660,7 @@ class Phase6AcademyTest extends TestCase
             'start_at' => now()->addDays(21)->toISOString(),
         ])->assertCreated()->json();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'training_session_id' => $first['id'],
@@ -662,7 +687,7 @@ class Phase6AcademyTest extends TestCase
             'start_at' => now()->addDays(7)->toISOString(),
         ])->assertCreated()->json();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $courseA['id'],
             'learner_user_id' => $client->id,
             'training_session_id' => $sessionB['id'],
@@ -682,13 +707,13 @@ class Phase6AcademyTest extends TestCase
             'max_capacity' => 1,
         ])->assertCreated()->json();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $first->id,
             'training_session_id' => $session['id'],
         ])->assertStatus(201);
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $second->id,
             'training_session_id' => $session['id'],
@@ -701,7 +726,7 @@ class Phase6AcademyTest extends TestCase
         $course = $this->createCourse();
         $client = $this->createClient();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
@@ -718,7 +743,7 @@ class Phase6AcademyTest extends TestCase
         $course = $this->createCourse();
         $client = $this->createClient();
 
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201)
@@ -751,7 +776,7 @@ class Phase6AcademyTest extends TestCase
             'status' => 'planned',
         ]);
 
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertCreated()
@@ -771,7 +796,7 @@ class Phase6AcademyTest extends TestCase
             'status' => 'cancelled',
         ]);
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertCreated();
@@ -800,7 +825,7 @@ class Phase6AcademyTest extends TestCase
             'status' => 'completed',
         ]);
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertCreated();
@@ -817,11 +842,11 @@ class Phase6AcademyTest extends TestCase
         $first = $this->createClient();
         $second = $this->createClient();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $first->id,
         ])->assertCreated();
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $second->id,
         ])->assertCreated();
@@ -873,7 +898,7 @@ class Phase6AcademyTest extends TestCase
         $course = $this->createCourse(['price' => 50000]);
         $client = $this->createClient();
 
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201)
@@ -917,7 +942,7 @@ class Phase6AcademyTest extends TestCase
         ])->assertCreated()
             ->json();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'training_session_id' => $session['id'],
@@ -960,7 +985,7 @@ class Phase6AcademyTest extends TestCase
         ])->assertCreated()
             ->json();
 
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
@@ -1043,7 +1068,7 @@ class Phase6AcademyTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->postJson('/api/formation-enrollments', [
+        $response = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_trainer_id' => $trainer->id,
@@ -1064,7 +1089,7 @@ class Phase6AcademyTest extends TestCase
         ]);
 
         // Un vendeur utilisateur et un formateur ne peuvent pas être envoyés ensemble.
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $this->createClient()->id,
             'seller_user_id' => $admin->id,
@@ -1091,7 +1116,7 @@ class Phase6AcademyTest extends TestCase
         ]);
 
         // Inscription vendue par le formateur (identifié par seller_trainer_id).
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_trainer_id' => $trainer->id,
@@ -1329,7 +1354,7 @@ class Phase6AcademyTest extends TestCase
 
     public function test_invoice_sold_by_trainer_account_creates_employee_seller_profile_and_service_sales(): void
     {
-        $this->admin();
+        $admin = $this->admin();
         $agency = $this->agencyIn('CMR');
         $trainer = $this->createTrainer();
         $trainer->update(['agency_id' => $agency->id]);
@@ -1338,6 +1363,11 @@ class Phase6AcademyTest extends TestCase
         // Aucun profil vendeur avant la première vente.
         $this->assertDatabaseCount('seller_profiles', 0);
 
+        // La règle métier exige une avance pour le super-admin : la vente de
+        // service est créée sous identité caissier, puis admin est restauré.
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'caissier')->value('id'),
+        ]));
         $invoice = $this->postJson('/api/invoices', [
             'agency_id' => $agency->id,
             'client_id' => $client->id,
@@ -1346,16 +1376,18 @@ class Phase6AcademyTest extends TestCase
                 ['label' => 'Conseil en gestion', 'unit_price' => 10000, 'quantity' => 1],
             ],
         ])->assertStatus(201)->json();
+        Sanctum::actingAs($admin);
 
         $this->assertSame($trainer->user_id, $invoice['seller_user_id']);
 
-        // Profil vendeur auto-créé pour le formateur (employé, sans taux inventé).
+        // Profil vendeur auto-créé pour le formateur (employé, avec la commission
+        // réseau par défaut : 20 %, réglages Pekegno Groupe).
         $this->assertDatabaseHas('seller_profiles', [
             'user_id' => $trainer->user_id,
             'agency_id' => $agency->id,
             'kind' => 'employee',
-            'commission_type' => 'none',
-            'commission_value' => 0,
+            'commission_type' => 'percent',
+            'commission_value' => 20,
             'is_active' => true,
         ]);
 
@@ -1379,7 +1411,7 @@ class Phase6AcademyTest extends TestCase
         $client = $this->createClient();
 
         // Vente de formation attribuée au formateur via son compte utilisateur.
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
@@ -1389,18 +1421,24 @@ class Phase6AcademyTest extends TestCase
         $this->assertDatabaseHas('seller_profiles', [
             'user_id' => $trainer->user_id,
             'kind' => 'employee',
-            'commission_type' => 'none',
+            'commission_type' => 'percent',
         ]);
 
-        // Encaissement : aucune commission automatique (profil sans taux).
+        // Encaissement : commission automatique du vendeur (20 % du versement).
         $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
             'amount' => 50000,
             'payment_method' => 'cash',
         ])->assertOk();
 
-        $this->assertDatabaseMissing('commission_entries', ['invoice_id' => $enrollment['invoice_id']]);
-
         $profile = SellerProfile::where('user_id', $trainer->user_id)->firstOrFail();
+
+        $this->assertDatabaseHas('commission_entries', [
+            'invoice_id' => $enrollment['invoice_id'],
+            'seller_profile_id' => $profile->id,
+            'category' => 'training',
+            'amount' => 10000,
+            'status' => 'calculated',
+        ]);
 
         // Pilotage manuel : ajout + surcharge de montant, par catégorie.
         $trainingEntry = $this->postJson('/api/commissions/entries', [
@@ -1436,11 +1474,11 @@ class Phase6AcademyTest extends TestCase
             ->assertJsonPath('stats.formation_sales.count', 1)
             ->assertJsonPath('stats.formation_sales.turnover', 50000)
             ->assertJsonPath('stats.service_sales.count', 0)
-            ->assertJsonPath('stats.commissions_training', 2500)
+            ->assertJsonPath('stats.commissions_training', 12500)
             ->assertJsonPath('stats.commissions_service', 1500)
-            ->assertJsonPath('stats.commissions_earned', 4000)
+            ->assertJsonPath('stats.commissions_earned', 14000)
             ->assertJsonPath('stats.commissions_paid', 2500)
-            ->assertJsonPath('stats.commissions_balance', 1500)
+            ->assertJsonPath('stats.commissions_balance', 11500)
             ->assertJsonPath('recent_formation_sales.0.amount', 50000);
     }
 
@@ -1454,7 +1492,7 @@ class Phase6AcademyTest extends TestCase
         $client = $this->createClient();
 
         // Vente de formation attribuée au formateur via son compte utilisateur.
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
@@ -1502,7 +1540,7 @@ class Phase6AcademyTest extends TestCase
         $trainer->update(['agency_id' => $agency->id]);
         $client = $this->createClient();
 
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
@@ -1543,7 +1581,7 @@ class Phase6AcademyTest extends TestCase
         ])->assertStatus(201);
 
         // Vente de formation attribuée au formateur, soldée → 3 points + 1 vente.
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
@@ -1580,7 +1618,7 @@ class Phase6AcademyTest extends TestCase
         ])->assertCreated();
 
         $client = $this->createClient();
-        $this->postJson('/api/formation-enrollments', [
+        $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
         ])->assertStatus(201);
@@ -1682,7 +1720,7 @@ class Phase6AcademyTest extends TestCase
         $trainer->update(['agency_id' => $agency->id]);
         $client = $this->createClient();
 
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
@@ -1712,11 +1750,21 @@ class Phase6AcademyTest extends TestCase
         $trainer->update(['agency_id' => $agency->id]);
         $client = $this->createClient();
 
-        $enrollment = $this->postJson('/api/formation-enrollments', [
+        $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
         ])->assertStatus(201)->json();
+
+        $profile = SellerProfile::where('user_id', $trainer->user_id)->firstOrFail();
+
+        // Le profil formateur est créé avec la commission réseau par défaut (20 %).
+        // Pour conserver l'essence du test (taux fixé après l'encaissement), on la
+        // désactive d'abord sur la fiche.
+        $this->putJson('/api/seller-profiles/'.$profile->id, [
+            'commission_type' => 'none',
+            'commission_value' => 0,
+        ])->assertOk();
 
         // Encaissement intégral : aucun profil avec taux → aucune commission automatique.
         $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
@@ -1724,7 +1772,6 @@ class Phase6AcademyTest extends TestCase
             'payment_method' => 'cash',
         ])->assertOk();
 
-        $profile = SellerProfile::where('user_id', $trainer->user_id)->firstOrFail();
         $this->assertDatabaseMissing('commission_entries', ['invoice_id' => $enrollment['invoice_id']]);
 
         // Le responsable fixe un taux de 10 % depuis la fiche (l'envoi réinitialise tous les champs).

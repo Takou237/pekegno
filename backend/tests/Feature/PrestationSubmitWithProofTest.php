@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
 use App\Models\Prestation;
+use App\Models\PrestationOffer;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -30,6 +31,8 @@ class PrestationSubmitWithProofTest extends TestCase
 
     private Department $department;
 
+    private PrestationOffer $offer;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -39,6 +42,12 @@ class PrestationSubmitWithProofTest extends TestCase
         $this->department = Department::factory()->create([
             'agency_id' => $this->agency->id,
             'type' => Department::TYPE_AGENCY,
+        ]);
+        // Une prestation part désormais d'une offre (catalogue du département).
+        $this->offer = PrestationOffer::create([
+            'agency_id' => $this->agency->id,
+            'department_id' => $this->department->id,
+            'name' => 'Lancement réseaux sociaux',
         ]);
     }
 
@@ -63,6 +72,7 @@ class PrestationSubmitWithProofTest extends TestCase
         return $this->postJson('/api/prestations', [
             'agency_id' => $this->agency->id,
             'department_id' => $this->department->id,
+            'offer_id' => $this->offer->id,
             'name' => 'Lancement réseaux sociaux',
             'client_id' => $client->id,
             'start_date' => today()->toDateString(),

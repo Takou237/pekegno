@@ -29,10 +29,14 @@ class PaymentReceiptNumberTest extends TestCase
         Sanctum::actingAs($cashier);
 
         $agency = Agency::factory()->create();
+        // Facture sans avance = flux d'un autre caissier (l'avance est
+        // obligatoire pour le super-admin) ; l'identité restaurée ensuite.
+        Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'caissier')->value('id')]));
         $invoice = $this->postJson('/api/invoices', [
             'agency_id' => $agency->id,
             'items' => [['label' => 'Formation', 'unit_price' => 100000, 'quantity' => 1]],
         ])->assertCreated()->json();
+        Sanctum::actingAs($cashier);
 
         $this->postJson("/api/invoices/{$invoice['id']}/payments", ['amount' => 30000, 'payment_method' => 'cash'])->assertOk();
         $this->postJson("/api/invoices/{$invoice['id']}/payments", ['amount' => 20000, 'payment_method' => 'om'])->assertOk();

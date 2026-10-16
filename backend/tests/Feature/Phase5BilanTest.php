@@ -26,14 +26,16 @@ class Phase5BilanTest extends TestCase
         $this->seed([PermissionSeeder::class, RoleSeeder::class, AccountingCategorySeeder::class]);
     }
 
+    private ?User $admin = null;
+
     private function actingAsAdmin(): User
     {
-        $admin = User::factory()->create([
+        $this->admin ??= User::factory()->create([
             'role_id' => Role::where('name', 'super-admin')->value('id'),
         ]);
-        Sanctum::actingAs($admin);
+        Sanctum::actingAs($this->admin);
 
-        return $admin;
+        return $this->admin;
     }
 
     private function createAgency(): Agency
@@ -41,14 +43,25 @@ class Phase5BilanTest extends TestCase
         return Agency::factory()->create();
     }
 
+    /** Facture sans avance = flux caissier (l'avance est obligatoire pour le
+     * super-admin) ; l'identité admin est restaurée ensuite. */
     private function createInvoice(array $attributes = []): array
     {
-        return $this->postJson('/api/invoices', array_merge([
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'caissier')->value('id'),
+        ]));
+        $invoice = $this->postJson('/api/invoices', array_merge([
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
                 ['label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 2],
             ],
         ], $attributes))->assertStatus(201)->json();
+
+        if ($this->admin) {
+            Sanctum::actingAs($this->admin);
+        }
+
+        return $invoice;
     }
 
     public function test_daily_bilan_returns_services_and_totals(): void

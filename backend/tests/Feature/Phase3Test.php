@@ -29,12 +29,31 @@ class Phase3Test extends TestCase
         ]);
     }
 
+    private ?User $admin = null;
+
     private function actingAsAdmin(): User
     {
-        $admin = $this->userWithRole('super-admin');
-        Sanctum::actingAs($admin);
+        $this->admin ??= $this->userWithRole('super-admin');
+        Sanctum::actingAs($this->admin);
 
-        return $admin;
+        return $this->admin;
+    }
+
+    /** Règle métier : le super-admin doit déclarer une avance à la création
+     * d'une facture. Ici la facture est créée via un caissier (facture en
+     * attente), puis l'identité admin est restaurée pour la suite du test. */
+    private function createInvoiceAsCashier(array $attributes = []): array
+    {
+        Sanctum::actingAs($this->userWithRole('caissier'));
+        $invoice = $this->postJson('/api/invoices', $attributes)
+            ->assertStatus(201)
+            ->json();
+
+        if ($this->admin) {
+            Sanctum::actingAs($this->admin);
+        }
+
+        return $invoice;
     }
 
     public function test_register_creates_client_role_and_number(): void
@@ -150,11 +169,11 @@ class Phase3Test extends TestCase
     {
         $this->actingAsAdmin();
 
-        $invoice = $this->postJson('/api/invoices', [
+        $invoice = $this->createInvoiceAsCashier([
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 8000, 'quantity' => 1],
             ],
-        ])->json();
+        ]);
 
         $this->postJson("/api/invoices/{$invoice['id']}/payments", ['amount' => 999999, 'payment_method' => 'cash'])
             ->assertStatus(422);
@@ -171,11 +190,11 @@ class Phase3Test extends TestCase
     {
         $this->actingAsAdmin();
 
-        $invoice = $this->postJson('/api/invoices', [
+        $invoice = $this->createInvoiceAsCashier([
             'items' => [
                 ['label' => 'Conseil', 'unit_price' => 5000, 'quantity' => 1],
             ],
-        ])->json();
+        ]);
 
         $this->postJson("/api/invoices/{$invoice['id']}/cancel")->assertOk();
         $this->assertDatabaseHas('invoices', ['id' => $invoice['id'], 'status' => 'cancelled']);

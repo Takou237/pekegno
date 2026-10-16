@@ -113,14 +113,15 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            // Règle métier : l'avance est obligatoire pour le super-admin. Sur
+            // une vente au comptoir, elle correspond au montant encaissé
+            // immédiatement : la facture est validée et soldée dès la création
+            // (le versement est enregistré, plus aucun paiement manuel).
+            'advance' => 15000,
         ])->assertStatus(201)->json();
 
         $this->assertSame(Invoice::VALIDATION_VALIDATED, $invoice['validation_status']);
-
-        $this->postJson("/api/invoices/{$invoice['id']}/payments", [
-            'amount' => 15000,
-            'payment_method' => 'cash',
-        ])->assertOk();
+        $this->assertSame('paid', $invoice['status']);
     }
 
     public function test_commercial_stats_rise_after_validation_and_collection(): void

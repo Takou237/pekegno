@@ -116,6 +116,11 @@ class Phase8SeminarTest extends TestCase
 
         $service = $this->createSeminarService();
 
+        // Facture sans avance = flux caissier (l'avance est obligatoire pour
+        // le super-admin) ; l'identité admin est restaurée ensuite.
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'caissier')->value('id'),
+        ]));
         $invoice = $this->postJson('/api/invoices', [
             'items' => [
                 [
@@ -125,6 +130,7 @@ class Phase8SeminarTest extends TestCase
                 ],
             ],
         ])->assertStatus(201)->json();
+        $this->actingAsAdmin();
 
         $this->assertCount(1, $invoice['items']);
         $item = $invoice['items'][0];

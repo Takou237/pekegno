@@ -109,6 +109,11 @@ class AgencyDepartmentTest extends TestCase
         return $this->actingAsRole('super-admin');
     }
 
+    private function caissier(): User
+    {
+        return $this->userWithRole('caissier');
+    }
+
     private function client(): User
     {
         return $this->userWithRole('client');
@@ -201,17 +206,21 @@ class AgencyDepartmentTest extends TestCase
 
     public function test_subscribing_to_two_packages_creates_two_contracts_and_prefilled_prestations(): void
     {
-        $this->admin();
+        $admin = $this->admin();
         $client = $this->client();
         $starter = $this->createPackage();
         $shooting = $this->createPackage(['name' => 'Shooting', 'price_per_month' => 50000, 'original_price' => null, 'items' => [
             ['label' => 'Shooting photo', 'quantity' => 1, 'frequency' => 'per_month', 'action_type' => 'content_production'],
         ]]);
 
+        // Vente sans avance = flux caissier (l'avance est obligatoire pour le
+        // super-admin) ; l'identité admin est restaurée pour les vérifications.
+        Sanctum::actingAs($this->caissier());
         $first = $this->postJson("/api/packages/{$starter['id']}/subscribe", ['client_id' => $client->id, 'periods' => 3])
             ->assertStatus(201)->json();
         $this->postJson("/api/packages/{$shooting['id']}/subscribe", ['client_id' => $client->id, 'periods' => 1])
             ->assertStatus(201);
+        Sanctum::actingAs($admin);
 
         $this->assertSame(2, Contract::where('client_id', $client->id)->where('origin', 'package')->count());
         $this->assertSame(2, Prestation::where('client_id', $client->id)->count());
@@ -414,9 +423,12 @@ class AgencyDepartmentTest extends TestCase
             'created_by' => $admin->id,
         ]);
 
+        // Vente sans avance = flux caissier ; admin restauré ensuite.
+        Sanctum::actingAs($this->caissier());
         $result = $this->postJson("/api/packages/{$package['id']}/subscribe", [
             'client_id' => $this->client()->id, 'periods' => 1, 'commercial_id' => $commercial->id,
         ])->assertStatus(201)->json();
+        Sanctum::actingAs($admin);
 
         $invoice = Invoice::findOrFail($result['invoice']['id']);
         $this->pay($invoice, 40000);
@@ -639,8 +651,11 @@ class AgencyDepartmentTest extends TestCase
     {
         $this->admin();
         $package = $this->createPackage(['price_per_month' => 100000, 'original_price' => null]);
+        // Vente sans avance = flux caissier ; admin restauré ensuite.
+        Sanctum::actingAs($this->caissier());
         $result = $this->postJson("/api/packages/{$package['id']}/subscribe", ['client_id' => $this->client()->id, 'periods' => 1])
             ->assertStatus(201)->json();
+        $this->admin();
         $this->pay(Invoice::findOrFail($result['invoice']['id']), 100000);
 
         $child = $this->postJson("/api/contracts/{$result['contract']['id']}/renew")->assertStatus(201)->json();

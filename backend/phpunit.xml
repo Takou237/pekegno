@@ -30,6 +30,10 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <env name="AGENCY_SUBSCRIPTIONS_READ_ONLY" value="false"/>
+        <!-- Les tests du cycle de vie des abonnements legacy supposent que les
+             écritures /subscriptions sont permises, quel que soit le .env local
+             (reprise vers les contrats Agency finie). -->
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

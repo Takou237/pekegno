@@ -24,14 +24,16 @@ class Phase2Test extends TestCase
         $this->seed([PermissionSeeder::class, RoleSeeder::class]);
     }
 
+    private ?User $admin = null;
+
     private function actingAsAdmin(): User
     {
-        $admin = User::factory()->create([
+        $this->admin ??= User::factory()->create([
             'role_id' => Role::where('name', 'super-admin')->value('id'),
         ]);
-        Sanctum::actingAs($admin);
+        Sanctum::actingAs($this->admin);
 
-        return $admin;
+        return $this->admin;
     }
 
     private function createCommercial(array $attributes = []): array
@@ -45,13 +47,25 @@ class Phase2Test extends TestCase
         ], $attributes))->assertStatus(201)->json();
     }
 
+    /** La règle métier exige une avance pour le super-admin : une facture « en
+     * attente » sans avance est le flux du caissier, identité sous laquelle la
+     * création se fait ici. L'identité admin est restaurée pour la suite. */
     private function createInvoice(array $attributes = []): array
     {
-        return $this->postJson('/api/invoices', array_merge([
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'caissier')->value('id'),
+        ]));
+        $invoice = $this->postJson('/api/invoices', array_merge([
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
         ], $attributes))->assertStatus(201)->json();
+
+        if ($this->admin) {
+            Sanctum::actingAs($this->admin);
+        }
+
+        return $invoice;
     }
 
     private function pay(string $invoiceId, float $amount, string $method = 'cash'): TestResponse
