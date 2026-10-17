@@ -294,7 +294,17 @@ class TrainerController extends Controller
     private function scopedSessions(Request $request, Trainer $trainer)
     {
         $query = $trainer->sessions();
-        $agencyIds = $this->scopeService->agencyIds($request->user());
+        $user = $request->user();
+
+        // Le formateur consulte son propre espace : il doit voir toutes les
+        // sessions qui lui sont affectées, sans filtrage par agence. Ses
+        // sessions peuvent être rattachées à une autre agence (ou à aucune),
+        // et le filtre d'agence les masquait alors toutes.
+        if ($user && $trainer->user_id && $user->id === $trainer->user_id) {
+            return $query;
+        }
+
+        $agencyIds = $this->scopeService->agencyIds($user);
 
         if ($agencyIds !== null) {
             $query->whereIn('agency_id', $agencyIds);

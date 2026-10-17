@@ -101,7 +101,9 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   const location = useLocation();
   const { user } = useAuth();
   const { countries, selection, loading, setSelection } = useOrgContext();
-  const showOrgSelectors = !['commercial', 'caissier'].includes(user?.role?.name ?? '');
+  // Le formateur n'a pas de périmètre géographique à choisir : on masque les
+  // sélecteurs Pays/Agence/Département en haut de son espace.
+  const showOrgSelectors = !['commercial', 'caissier', 'formateur'].includes(user?.role?.name ?? '');
 
   const canValidate = CAN_VALIDATE_ROLES.has(user?.role?.name ?? '');
   const isCommercial = user?.role?.name === COMMERCIAL_ROLE;

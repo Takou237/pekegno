@@ -46,7 +46,7 @@ export default function TeamPrestationScope() {
     );
   }
 
-  if (!context?.departmentId) return <SkeletonDetail />;
+  if (!context) return <SkeletonDetail />;
 
   return <Outlet context={context} />;
 }

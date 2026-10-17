@@ -30,6 +30,7 @@ class PaymentProof extends Model
         'payment_method',
         'phone_number_used',
         'reference',
+        'amount',
         'file_path',
         'status',
         'reviewed_by',
@@ -40,6 +41,7 @@ class PaymentProof extends Model
     protected function casts(): array
     {
         return [
+            'amount' => 'decimal:2',
             'reviewed_at' => 'datetime',
         ];
     }

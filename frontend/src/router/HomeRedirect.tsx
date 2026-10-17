@@ -44,7 +44,7 @@ export function HomeRedirect() {
   }
 
   if (role === 'formateur') {
-    return <Navigate to="/formateur/dashboard" replace />;
+    return <Navigate to="/formateur" replace />;
   }
 
   if (role === 'community-manager') {

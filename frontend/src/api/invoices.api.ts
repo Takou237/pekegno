@@ -5,6 +5,7 @@ import type {
   InvoiceListParams,
   InvoiceTotals,
   PayInvoicePayload,
+  PayRemainingPayload,
   PaymentProof,
   PaymentProofStatus,
   RejectInvoicePayload,
@@ -81,6 +82,22 @@ export const invoicesApi = {
 
   async pay(id: string, payload: PayInvoicePayload): Promise<Invoice> {
     const { data } = await client.post<Invoice>(`/invoices/${id}/payments`, payload);
+    return data;
+  },
+
+  /** Règle le reste à payer d'une facture partielle : montant + moyen + preuve,
+   *  transmis au caissier pour validation (encaissement automatique à l'acceptation). */
+  async payRemaining(id: string, payload: PayRemainingPayload): Promise<{ payment_proof: PaymentProof; url: string }> {
+    const formData = new FormData();
+    formData.append('amount', String(payload.amount));
+    formData.append('payment_method', payload.payment_method);
+    if (payload.phone_number_used) formData.append('phone_number_used', payload.phone_number_used);
+    if (payload.reference) formData.append('reference', payload.reference);
+    formData.append('file', payload.file);
+    const { data } = await client.post<{ payment_proof: PaymentProof; url: string }>(
+      `/invoices/${id}/pay-remaining`,
+      formData,
+    );
     return data;
   },
 

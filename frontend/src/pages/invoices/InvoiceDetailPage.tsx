@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Printer, XCircle, Wallet, Pencil, ImageIcon, ThumbsUp, ThumbsDown, Receipt } from 'lucide-react';
+import { ArrowLeft, Printer, XCircle, Wallet, Pencil, ImageIcon, ThumbsUp, ThumbsDown, Receipt, Camera, HandCoins } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
@@ -10,7 +10,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { currentLocale } from '@/i18n';
-import { formatDateTimeFr, formatRelativeDate, todayLocal } from '@/utils/date';
+import { businessInstantForDay, formatDateTimeFr, formatRelativeDate, todayLocal } from '@/utils/date';
 import { formatCurrency } from '@/utils/number';
 import { invoiceBackPath, invoiceListPathForDetail } from '@/utils/invoiceNavigation';
 import { Button } from '@/components/ui/Button';
@@ -69,6 +69,18 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
   const [paySubmitting, setPaySubmitting] = useState(false);
 
+  // « Payer le reste » (commercial / vendeur) : montant + moyen + preuve,
+  // transmis au caissier qui encaisse à l'acceptation.
+  const [remainingOpen, setRemainingOpen] = useState(false);
+  const [remAmount, setRemAmount] = useState('');
+  const [remMethod, setRemMethod] = useState<PaymentMethod>('cash');
+  const [remPhone, setRemPhone] = useState('');
+  const [remReference, setRemReference] = useState('');
+  const [remFile, setRemFile] = useState<File | null>(null);
+  const [remPreview, setRemPreview] = useState<string | null>(null);
+  const [remErrors, setRemErrors] = useState<Record<string, string>>({});
+  const [remSubmitting, setRemSubmitting] = useState(false);
+
   const [editClientId, setEditClientId] = useState('');
   const [editCommercialId, setEditCommercialId] = useState('');
   const [editPaymentType, setEditPaymentType] = useState<'' | PaymentMethod>('');
@@ -121,8 +133,10 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         next.delete('print');
         setSearchParams(next, { replace: true });
       }
+      return inv;
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('invoices.loadFailed')));
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -131,6 +145,16 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   useEffect(() => {
     fetchInvoice();
   }, [fetchInvoice]);
+
+  useEffect(() => {
+    if (!remFile) {
+      setRemPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(remFile);
+    setRemPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [remFile]);
 
   function resetPayForm() {
     setPayAmount('');
@@ -184,7 +208,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       const updated = await invoicesApi.pay(invoice.id, {
         amount,
         payment_method: payMethod,
-        paid_at: payPaidAt || undefined,
+        paid_at: payPaidAt ? businessInstantForDay(payPaidAt) : undefined,
         comment: payComment || undefined,
       });
       showToast(t('invoices.paid'), 'success');
@@ -199,6 +223,61 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       if (msg) showToast(msg, 'error');
     } finally {
       setPaySubmitting(false);
+    }
+  }
+
+  function openRemaining() {
+    if (!invoice) return;
+    setRemAmount(String(invoice.balance_due));
+    setRemMethod('cash');
+    setRemPhone('');
+    setRemReference('');
+    setRemFile(null);
+    setRemErrors({});
+    setRemainingOpen(true);
+  }
+
+  function closeRemaining() {
+    setRemainingOpen(false);
+    setRemErrors({});
+    setRemFile(null);
+  }
+
+  async function handleRemaining(event: FormEvent) {
+    event.preventDefault();
+    if (!invoice) return;
+    const amount = Number(remAmount);
+    if (!amount || amount <= 0) {
+      setRemErrors({ amount: t('invoices.payAmountError') });
+      return;
+    }
+    if (amount > invoice.balance_due) {
+      setRemErrors({ amount: t('invoices.payOverpayment') });
+      return;
+    }
+    if (!remFile) {
+      setRemErrors({ file: t('invoices.remainingProofRequired') });
+      return;
+    }
+    setRemSubmitting(true);
+    setRemErrors({});
+    try {
+      await invoicesApi.payRemaining(invoice.id, {
+        amount,
+        payment_method: remMethod,
+        phone_number_used: remPhone || undefined,
+        reference: remReference || undefined,
+        file: remFile,
+      });
+      showToast(t('invoices.remainingSent'), 'success');
+      closeRemaining();
+      fetchInvoice();
+    } catch (error) {
+      setRemErrors(extractFieldErrors(error));
+      const msg = extractErrorMessage(error, t('invoices.payFailed'));
+      if (msg) showToast(msg, 'error');
+    } finally {
+      setRemSubmitting(false);
     }
   }
 
@@ -263,6 +342,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   async function handleApproveProof(proof: PaymentProof) {
     setProofSubmitting(true);
     setProofError(null);
+    const knownIds = new Set((invoice?.payments ?? []).map((p) => p.id));
+    const isRemaining = Number(proof.amount ?? 0) > 0;
     try {
       const result = await invoicesApi.approveProof(proof.id);
       if (result.invoice?.validation_status === 'validated') {
@@ -271,7 +352,13 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         showToast(t('invoices.proofApproved'), 'success');
       }
       setProofPreview(null);
-      fetchInvoice();
+      const updated = await fetchInvoice();
+      // Règlement du reste à payer : l'acceptation encaisse automatiquement, on
+      // affiche donc directement le reçu du versement créé.
+      if (isRemaining) {
+        const created = (updated?.payments ?? []).find((p) => !knownIds.has(p.id));
+        if (created) setReceiptPaymentId(created.id);
+      }
     } catch (error) {
       setProofError(extractErrorMessage(error, t('invoices.proofError')));
     } finally {
@@ -335,11 +422,26 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   // les autres profils gardent l'impression réservée aux factures soldées.
   const canPrintUnpaid = ['super-admin', 'caissier'].includes(currentUser?.role?.name ?? '');
   const canPrint = invoice.status === 'paid' || canPrintUnpaid;
-  // Versements ordonnés du plus ancien au plus récent (paid_at asc, id asc) :
-  // le n° d'ordre affiché est le rang du reçu dans cette séquence.
-  const sortedPayments = [...(invoice.payments ?? [])].sort(
-    (a, b) => new Date(a.paid_at ?? 0).getTime() - new Date(b.paid_at ?? 0).getTime() || String(a.id).localeCompare(String(b.id)),
-  );
+
+  // « Payer le reste » : le commercial (ou le vendeur) règle le solde d'une
+  // facture partielle déjà validée, via une preuve qui part chez le caissier.
+  const isSeller = invoice.seller_user_id != null && invoice.seller_user_id === currentUser?.id;
+  const canPayRemaining =
+    !invoice.is_cancelled &&
+    invoice.validation_status === 'validated' &&
+    invoice.status !== 'paid' &&
+    invoice.balance_due > 0 &&
+    (isCommercial || isSeller);
+  // Versements dans l'ordre chronologique ; le n° d'ordre affiché est le rang du
+  // reçu dans cette séquence. `paid_at` étant daté au jour, deux versements du
+  // même jour ont la même valeur : on départage par le numéro de reçu
+  // (séquentiel) plutôt que par l'id (UUID aléatoire) — sinon l'ordre et la
+  // numérotation changent à chaque rechargement.
+  const sortedPayments = [...(invoice.payments ?? [])].sort((a, b) => {
+    const byDate = new Date(a.paid_at ?? 0).getTime() - new Date(b.paid_at ?? 0).getTime();
+    if (byDate !== 0) return byDate;
+    return (a.receipt_number ?? '').localeCompare(b.receipt_number ?? '');
+  });
   const receiptPayment = invoice.payments?.find((p) => p.id === receiptPaymentId) ?? null;
 
   return (
@@ -382,6 +484,12 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               <Button onClick={openPay} disabled={invoice.payments ? invoice.payments.length >= 3 : false}>
                 <Wallet className="h-4 w-4" />
                 {t('invoices.pay')}
+              </Button>
+            )}
+            {canPayRemaining && (
+              <Button onClick={openRemaining}>
+                <HandCoins className="h-4 w-4" />
+                {t('invoices.payRemaining')}
               </Button>
             )}
             {!invoice.is_cancelled && (!isCommercial || invoice.validation_status !== 'validated') && (
@@ -579,6 +687,11 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                         : proof.payment_method === 'momo'
                         ? t('invoices.paymentMomo')
                         : proof.payment_method}
+                      {Number(proof.amount ?? 0) > 0 && (
+                        <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                          {formatCurrency(proof.amount, invoice.currency_code)}
+                        </span>
+                      )}
                     </p>
                     <p className="text-gray-500 dark:text-gray-400">
                       {t('invoices.proofStatus')}:{' '}
@@ -816,6 +929,90 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       </Modal>
 
       <Modal
+        isOpen={remainingOpen}
+        onClose={closeRemaining}
+        title={t('invoices.payRemainingTitle', { number: invoice.number })}
+        maxWidth="max-w-lg"
+      >
+        <form onSubmit={handleRemaining} className="flex flex-col gap-4">
+          {Object.keys(remErrors).length > 0 && (
+            <Alert variant="error">{Object.values(remErrors).join(' ')}</Alert>
+          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('invoices.payRemainingHint')}</p>
+          <Input
+            label={t('invoices.payRemainingAmount')}
+            type="number"
+            min={0.01}
+            step="0.01"
+            required
+            max={invoice.balance_due}
+            value={remAmount}
+            onChange={(e) => setRemAmount(e.target.value)}
+            error={remErrors.amount}
+            hint={`${t('invoices.balanceDueShort')} : ${formatCurrency(invoice.balance_due, invoice.currency_code)}`}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label={t('invoices.payMethod')}
+              value={remMethod}
+              onChange={(e) => setRemMethod(e.target.value as PaymentMethod)}
+            >
+              <option value="cash">{t('invoices.paymentCash')}</option>
+              <option value="om">{t('invoices.paymentOm')}</option>
+              <option value="momo">{t('invoices.paymentMomo')}</option>
+            </Select>
+            <Input
+              label={t('invoices.proofPhone')}
+              value={remPhone}
+              onChange={(e) => setRemPhone(e.target.value)}
+            />
+          </div>
+          <Input
+            label={t('invoices.proofReference')}
+            value={remReference}
+            onChange={(e) => setRemReference(e.target.value)}
+          />
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('invoices.payRemainingProofHint')}</p>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-4 text-sm text-gray-500 hover:border-brand-500 hover:text-brand-700 dark:border-gray-700 dark:text-gray-400">
+              <Camera className="h-4 w-4" />
+              {remFile ? remFile.name : t('invoices.uploadProof')}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  setRemFile(e.target.files?.[0] ?? null);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            {remPreview && (
+              <img
+                src={remPreview}
+                alt={t('invoices.paymentProof')}
+                className="max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700"
+              />
+            )}
+            {remErrors.file && <p className="text-xs text-error-500">{remErrors.file}</p>}
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={closeRemaining} className="flex-1">
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="submit"
+              isLoading={remSubmitting}
+              className="flex-1"
+              disabled={!remFile || !remAmount || Number(remAmount) <= 0 || Number(remAmount) > invoice.balance_due}
+            >
+              {t('invoices.remainingSubmit')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
         isOpen={editOpen}
         onClose={closeEdit}
         title={t('invoices.editTitle')}
@@ -921,6 +1118,9 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             )}
             <div className="text-sm text-gray-600 dark:text-gray-300">
               <p className="flex justify-between"><span>{t('invoices.paymentMethod')}</span><span className="font-medium capitalize">{proofPreview.payment_method}</span></p>
+              {Number(proofPreview.amount ?? 0) > 0 && (
+                <p className="flex justify-between mt-1"><span>{t('invoices.proofAmount')}</span><span className="font-medium">{formatCurrency(proofPreview.amount, invoice.currency_code)}</span></p>
+              )}
               {proofPreview.phone_number_used && <p className="flex justify-between mt-1"><span>{t('invoices.proofPhone')}</span><span className="font-medium">{proofPreview.phone_number_used}</span></p>}
               {proofPreview.reference && <p className="flex justify-between mt-1"><span>{t('invoices.proofReference')}</span><span className="font-medium">{proofPreview.reference}</span></p>}
               {proofPreview.submitter && (

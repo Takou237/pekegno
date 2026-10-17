@@ -44,8 +44,10 @@ export function PrestationFormModal({
   const { t } = useTranslation();
   const [categories, setCategories] = useState<AgencyCategory[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [offers, setOffers] = useState<PrestationOffer[]>([]);
   const [form, setForm] = useState({
     name: '',
+    offer_id: '',
     category_id: '',
     agency_id: '',
     description: '',
@@ -67,6 +69,9 @@ export function PrestationFormModal({
   // est toujours affiché (l'offre peut présélectionner son agence, modifiable
   // seulement à la création — une souscription suit son offre).
   const needsAgencyChoice = !prestation && !offer;
+  // « Nouvelle souscription » sans offre présélectionnée : la prestation à
+  // souscrire (offre) se choisit dans le formulaire, le backend l'exige.
+  const needsOfferChoice = !prestation && !offer;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -82,6 +87,7 @@ export function PrestationFormModal({
     setNewClient(emptyNewLearnerForm);
     setForm({
       name: prestation?.name ?? (!prestation && offer ? offer.name : ''),
+      offer_id: offer?.id ?? '',
       category_id: prestation?.category_id ?? offer?.category_id ?? '',
       agency_id: prestation?.agency_id ?? offer?.agency_id ?? agencyId ?? '',
       description: prestation?.description ?? '',
@@ -94,6 +100,15 @@ export function PrestationFormModal({
       commission_value: prestation?.commission_value ? String(Number(prestation.commission_value)) : '',
     });
   }, [isOpen, prestation, offer, departmentId, countryId, needsAgencyChoice]);
+
+  // Choix de la prestation (offre) à souscrire : offres actives de l'agence.
+  useEffect(() => {
+    if (!isOpen || !needsOfferChoice) return;
+    agencyDeptApi
+      .offers({ agency_id: form.agency_id || agencyId, country_id: countryId, is_active: true, per_page: 100 })
+      .then((res) => setOffers(res.data ?? []))
+      .catch(() => setOffers([]));
+  }, [isOpen, needsOfferChoice, form.agency_id, agencyId, countryId]);
 
 
   const budgetLocked = !!prestation?.contract_id;
@@ -168,7 +183,7 @@ export function PrestationFormModal({
         ? await agencyDeptApi.updatePrestation(prestation.id, payload)
         : await agencyDeptApi.createPrestation({
             ...payload,
-            offer_id: offer?.id,
+            offer_id: offer?.id ?? (form.offer_id || undefined),
             agency_id: offer?.agency_id ?? form.agency_id ?? agencyId,
             department_id: (departmentId ?? offer?.department_id) || undefined,
           });
@@ -200,13 +215,35 @@ export function PrestationFormModal({
               : t('agencyDept.prestations.newSubscriptionHint')}
           </p>
         )}
+        {!prestation && needsOfferChoice && (
+          <div className="sm:max-w-md">
+            <Select
+              label={t('agencyDept.prestations.selectOffer')}
+              required
+              value={form.offer_id}
+              onChange={(e) => {
+                const selected = offers.find((o) => o.id === e.target.value) ?? null;
+                setForm((f) => ({
+                  ...f,
+                  offer_id: e.target.value,
+                  name: selected ? selected.name : f.name,
+                  category_id: selected?.category_id ?? f.category_id,
+                  agency_id: selected?.agency_id ?? f.agency_id,
+                }));
+              }}
+            >
+              <option value="">{t('agencyDept.prestations.selectOfferPlaceholder')}</option>
+              {offers.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </Select>
+          </div>
+        )}
         {!prestation && needsAgencyChoice && (
           <div className="sm:max-w-xs">
             <Select
               label={t('agencyDept.agency')}
               required
               value={form.agency_id}
-              onChange={(e) => setForm({ ...form, agency_id: e.target.value })}
+              onChange={(e) => setForm((f) => ({ ...f, agency_id: e.target.value, offer_id: '', category_id: '', name: '' }))}
             >
               <option value="">{t('services.selectAgency')}</option>
               {agencies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -276,7 +313,7 @@ export function PrestationFormModal({
         </label>
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="submit" isLoading={saving} disabled={!prestation && clientMode === 'existing' && !form.client_id}>{t('common.save')}</Button>
+          <Button type="submit" isLoading={saving} disabled={(!prestation && clientMode === 'existing' && !form.client_id) || (needsOfferChoice && !form.offer_id)}>{t('common.save')}</Button>
         </div>
       </form>
     </Modal>

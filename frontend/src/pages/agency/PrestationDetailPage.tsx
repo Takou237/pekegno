@@ -14,6 +14,7 @@ import {
   canEditPrestation,
   canManageActions,
   canManageTeam,
+  canSubmitPrestation,
   canUpdateActionExecution,
   canValidatePrestation,
 } from '@/utils/agencyDeptPermissions';
@@ -124,6 +125,8 @@ export default function PrestationDetailPage() {
 
   const allowed = (prestation.allowed_transitions ?? []).filter((s) => {
     if (s === 'validated' || s === 'rejected') return canValidatePrestation(user);
+    // Le commercial / caissier (prestations.creer) soumet la souscription à validation.
+    if (s === 'pending_validation') return canSubmitPrestation(user);
     return canEditPrestation(user);
   });
 

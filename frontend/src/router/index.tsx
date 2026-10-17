@@ -27,7 +27,12 @@ const ResetPasswordPage = lazyWithRetry(() => import('@/pages/auth/ResetPassword
 const AcademyDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/AcademyDashboardPage'));
 const CountryDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/CountryDashboardPage'));
 const CashierDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/CashierDashboardPage'));
-const TrainerDashboardPage = lazyWithRetry(() => import('@/pages/dashboard/TrainerDashboardPage'));
+const TrainerLayout = lazyWithRetry(() => import('@/pages/trainer/TrainerLayout'));
+const TrainerOverviewPage = lazyWithRetry(() => import('@/pages/trainer/TrainerOverviewPage'));
+const TrainerCoursesPage = lazyWithRetry(() => import('@/pages/trainer/TrainerCoursesPage'));
+const TrainerLearnersPage = lazyWithRetry(() => import('@/pages/trainer/TrainerLearnersPage'));
+const TrainerSessionsPage = lazyWithRetry(() => import('@/pages/trainer/TrainerSessionsPage'));
+const TrainerPlanningPage = lazyWithRetry(() => import('@/pages/trainer/TrainerPlanningPage'));
 const ProfilePage = lazyWithRetry(() => import('@/pages/profile/ProfilePage'));
 const ProfileSettingsPage = lazyWithRetry(() => import('@/pages/profile/ProfileSettingsPage'));
 const AgencyListPage = lazyWithRetry(() => import('@/pages/agencies/AgencyListPage'));
@@ -73,6 +78,7 @@ const AgencyCommercialReportPage = lazyWithRetry(
 );
 const InvoiceListPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceListPage'));
 const PendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/PendingInvoicesPage'));
+const PaymentProofsPage = lazyWithRetry(() => import('@/pages/invoices/PaymentProofsPage'));
 const CountryPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/CountryPendingInvoicesPage'));
 const DepartmentPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/DepartmentPendingInvoicesPage'));
 const InvoiceFormPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceFormPage'));
@@ -221,7 +227,18 @@ export const router = createBrowserRouter([
         children: withErrorBoundary([
           { path: '/', element: page(<HomeRedirect />, dashboard) },
           { path: '/caissier/dashboard', element: page(<CashierDashboardPage />, dashboard) },
-          { path: '/formateur/dashboard', element: page(<TrainerDashboardPage />, dashboard) },
+          {
+            path: '/formateur',
+            element: page(<TrainerLayout />, dashboard),
+            children: [
+              { index: true, element: page(<TrainerOverviewPage />, dashboard) },
+              { path: 'formations', element: page(<TrainerCoursesPage />, cards) },
+              { path: 'apprenants', element: page(<TrainerLearnersPage />, table) },
+              { path: 'sessions', element: page(<TrainerSessionsPage />, table) },
+              { path: 'planning', element: page(<TrainerPlanningPage />, table) },
+            ],
+          },
+          { path: '/formateur/dashboard', element: <Navigate to="/formateur" replace /> },
           { path: '/caissier/commissions', element: page(<CashierCommissionsPage />, table) },
           { path: '/profile', element: page(<ProfilePage />, detail) },
           { path: '/profile/settings', element: page(<ProfileSettingsPage />, detail) },
@@ -272,6 +289,7 @@ export const router = createBrowserRouter([
           { path: '/reports/comparison', element: page(<ComparisonReportPage />, table) },
           { path: '/invoices', element: page(<InvoiceListPage />, table) },
           { path: '/invoices/pending', element: page(<PendingInvoicesPage />, table) },
+          { path: '/invoices/payment-proofs', element: page(<PaymentProofsPage />, table) },
           { path: '/invoices/receivables', element: page(<ReceivablesPage />, table) },
           { path: '/invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: '/invoices/quick', element: page(<QuickSalePage />, form) },

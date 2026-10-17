@@ -200,6 +200,8 @@ export interface PaymentProof {
   payment_method: string;
   phone_number_used: string | null;
   reference: string | null;
+  /** Montant porté par la preuve (règlement du reste à payer) ; null à la création. */
+  amount?: string | null;
   file_path: string;
   file_url: string | null;
   status: PaymentProofStatus;
@@ -226,4 +228,13 @@ export interface PaymentProof {
 export interface ProofReviewResponse {
   proof: PaymentProof;
   invoice: Invoice | null;
+}
+
+/** Règlement du reste à payer d'une facture partielle (preuve + montant). */
+export interface PayRemainingPayload {
+  amount: number;
+  payment_method: PaymentMethod;
+  phone_number_used?: string;
+  reference?: string;
+  file: File;
 }

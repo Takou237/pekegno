@@ -23,6 +23,14 @@ export function canCreatePrestation(user: User | null): boolean {
   return [...MANAGERS, 'commercial', 'caissier'].includes(role(user));
 }
 
+/**
+ * Soumission d'une prestation à validation (avec preuve d'encaissement) :
+ * miroir de la permission backend `prestations.creer` (route submit).
+ */
+export function canSubmitPrestation(user: User | null): boolean {
+  return [...MANAGERS, 'commercial', 'caissier'].includes(role(user));
+}
+
 export function canEditPrestation(user: User | null): boolean {
   return MANAGERS.includes(role(user));
 }

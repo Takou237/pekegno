@@ -24,10 +24,15 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
   const total = Number(invoice.total_amount);
   const amount = Number(payment.amount);
 
-  // Versements triés (paid_at asc, id asc) : cumul jusqu'à celui-ci inclus + son numéro d'ordre.
-  const payments = [...(invoice.payments ?? [])].sort(
-    (a, b) => new Date(a.paid_at ?? 0).getTime() - new Date(b.paid_at ?? 0).getTime() || String(a.id).localeCompare(String(b.id)),
-  );
+  // Versements triés : cumul jusqu'à celui-ci inclus + son numéro d'ordre.
+  // Deux versements encaissés dans la même seconde ont un `paid_at` identique :
+  // on départage alors par le numéro de reçu (séquentiel), jamais par l'id (UUID
+  // aléatoire) — sinon l'ordre — donc le cumul affiché — change à chaque reçu.
+  const payments = [...(invoice.payments ?? [])].sort((a, b) => {
+    const byDate = new Date(a.paid_at ?? 0).getTime() - new Date(b.paid_at ?? 0).getTime();
+    if (byDate !== 0) return byDate;
+    return (a.receipt_number ?? '').localeCompare(b.receipt_number ?? '');
+  });
   const index = payments.findIndex((p) => p.id === payment.id);
   const order = Math.max(index, 0) + 1;
   const paidBefore = payments.slice(0, Math.max(index, 0)).reduce((sum, p) => sum + Number(p.amount), 0);

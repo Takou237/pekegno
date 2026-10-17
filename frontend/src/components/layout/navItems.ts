@@ -75,10 +75,18 @@ export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'res
 // « Factures » ne doit pas rester actif sur la page des validations (/invoices/pending),
 // sinon il serait surligné en même temps que « Validations ».
 const isInvoiceActive = (pathname: string): boolean =>
-  pathname !== '/invoices/pending' && !pathname.startsWith('/invoices/pending/');
+  pathname !== '/invoices/pending' &&
+  !pathname.startsWith('/invoices/pending/') &&
+  pathname !== '/invoices/payment-proofs' &&
+  !pathname.startsWith('/invoices/payment-proofs/');
 
 function invoiceItem(t: TranslateFn, badge?: number): NavItem {
   return { to: '/invoices', label: t('nav.invoices'), icon: FileText, end: false, badge, isPathActive: isInvoiceActive };
+}
+
+/** File de validation des preuves de règlement du reste à payer (caissier / responsables). */
+function paymentProofsItem(t: TranslateFn): NavItem {
+  return { to: '/invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false };
 }
 
 /** Suivi personnel : prestations et actions liées au connecté (tous les rôles). */
@@ -124,6 +132,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       invoiceItem(t),
       { to: '/contracts', label: t('nav.contracts'), icon: FileText, end: false },
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
+      paymentProofsItem(t),
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
@@ -148,6 +157,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
         ? [{ to: `/users?agency_id=${agencyId}`, label: t('nav.myTeam'), icon: Users, end: false as const }]
         : []),
       catalogItem(t),
+      { to: '/invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false },
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
       { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
@@ -181,6 +191,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t),
       { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
+      { to: '/invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false },
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       // Comptabilité de son agence : mêmes actions que l'admin (le backend
       // restreint déjà au périmètre des agences du caissier).
@@ -227,6 +238,18 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       salesTrackingItem(t),
       catalogItem(t),
       myProfileItem(t),
+    ];
+  }
+
+  if (roleName === 'formateur') {
+    // Espace formateur : uniquement ses formations, ses apprenants, ses
+    // sessions et son planning (pas de Pays/Agence/Département).
+    return [
+      { to: '/formateur', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+      { to: '/formateur/formations', label: t('nav.courses'), icon: BookOpen, end: false },
+      { to: '/formateur/apprenants', label: t('nav.learners'), icon: UserCheck, end: false },
+      { to: '/formateur/sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
+      { to: '/formateur/planning', label: t('nav.planning'), icon: CalendarCheck, end: false },
     ];
   }
 

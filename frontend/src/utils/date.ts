@@ -45,6 +45,51 @@ export function parseDay(value: string | Date): Date {
   return new Date(value);
 }
 
+/** Décalage (ms) du fuseau `timeZone` par rapport à UTC à l'instant `date`. */
+function timeZoneOffsetMs(timeZone: string, date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'));
+  return asUtc - (date.getTime() - date.getMilliseconds());
+}
+
+/**
+ * Instant UTC d'une opération datée par un champ « date » seul : on combine le
+ * jour choisi avec l'heure courante du fuseau métier (Africa/Douala). Sans cela,
+ * une date seule ("2026-10-16") est stockée à minuit UTC et s'affiche à 01h00
+ * en heure de Douala alors que l'opération a bien eu lieu « maintenant ».
+ */
+export function businessInstantForDay(day: string, now: Date = new Date()): string {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day.trim());
+  if (!parts) return new Date(day).toISOString();
+  const clock = new Intl.DateTimeFormat('en-GB', {
+    timeZone: BUSINESS_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => Number(clock.find((p) => p.type === type)?.value ?? 0);
+  const wallAsUtc = Date.UTC(
+    Number(parts[1]),
+    Number(parts[2]) - 1,
+    Number(parts[3]),
+    get('hour') % 24,
+    get('minute'),
+    get('second'),
+  );
+  return new Date(wallAsUtc - timeZoneOffsetMs(BUSINESS_TIMEZONE, now)).toISOString();
+}
+
 /**
  * Formate une date à la façon WhatsApp :
  * - aujourd'hui -> "Aujourd'hui"
