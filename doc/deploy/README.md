@@ -78,6 +78,14 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 | `16_10/migration-2026-10-16.sql` | rattrapage `country_id`/`city_id` des agences (CA Côte d'Ivoire) + ligne `migrations` (données seules, aucun changement de schéma, aucune permission) |
 | `16_10/frontend-dist.zip` | build admin du 16/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
 
+⏳ **À appliquer avec le déploiement du 17/10/2026** (voir
+`17_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `17_10/migration-2026-10-17.sql` | colonne `amount` sur `payment_proofs` (règlement du reste à payer) + ligne `migrations` (données seules, aucune permission nouvelle) |
+| `17_10/frontend-dist.zip` | build admin du 17/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
+
 🆕 **Remise à neuf (optionnel, irréversible)** : `reset-prod-fresh-2026-10-16.sql`
 vide toute la base métier (factures, clients, prospects, agences, pays,
 départements, catalogue, prestations, inscriptions, comptabilité, utilisateurs…)
