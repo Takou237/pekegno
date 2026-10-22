@@ -197,8 +197,8 @@ export default {
     startsOn: 'Start',
     endsOn: 'End',
     description: 'Description',
-    computeTitle: 'Monthly bonuses',
-    computeHint: 'Computes "Monthly revenue" and "Growth" rules for a month (automatic on the 1st). Re-runnable: unvalidated bonuses are recomputed.',
+    computeTitle: 'Monthly bonuses (revenue tiers)',
+    computeHint: 'Some bonuses depend on a month\'s total: sales reps\' revenue tiers and agency managers\' target. At the start of the month, pick the past month and click the button: bonuses are created in Commissions, to validate then pay. Safe to run again (bonuses not yet validated are recomputed).',
     period: 'Month',
     compute: 'Compute',
     computeDone: '{{created}} bonus(es) created, {{updated}} updated.',
@@ -227,6 +227,7 @@ export default {
     everyRenewal: 'Every renewal',
     onTime: 'on time',
     renewalOnTime: 'Only if renewed on time (paid before the previous period ends)',
+    computeFor: 'Compute bonuses for {{month}}',
   },
 
   catalogRevenue: {

@@ -353,4 +353,17 @@ class RoleCommissionRulesTest extends TestCase
         $this->assertContains('invoices.consulter', $names);
         $this->assertNotContains('invoices.valider', $names);
     }
+
+    public function test_only_super_admin_can_compute_monthly_bonuses(): void
+    {
+        $period = now()->subMonth()->format('Y-m');
+
+        Sanctum::actingAs($this->userWithRole('direction-generale'));
+        $this->postJson('/api/commission-rules/compute-period', ['period' => $period])->assertForbidden();
+
+        Sanctum::actingAs($this->admin);
+        $this->postJson('/api/commission-rules/compute-period', ['period' => $period])
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['created', 'updated', 'rows']]);
+    }
 }

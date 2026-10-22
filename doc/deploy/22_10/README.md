@@ -35,7 +35,6 @@ Contrôle : `SELECT migration FROM migrations ORDER BY id DESC LIMIT 3;`
 | `migration-2026-10-22.sql` | Les **7 migrations** du 22/10 (table `training_sessions_synced`, `invoices.created_by` + rattrapage, colonnes/tables des règles par rôle, droits `invoices.valider` = super-admin + DG + caissier) + lignes `migrations` | Importer **en 1er** |
 | `seed-commission-rules-2026-10-22.sql` | Les **18 règles** de la grille + leurs rôles (miroir de `DefaultCommissionRulesSeeder`) | Importer **en 2e** |
 | `frontend-dist.zip` | Build admin du 22/10 (`VITE_API_URL=https://pekegnogroup.com/api`), `.htaccess` inclus | Extraire sur `/plateforme.pekegnogroup.com` |
-| `compute-role-commissions.php` | One-shot : calcule les primes mensuelles (CA par paliers, croissance) d'un mois, puis **supprimer** | Après le déploiement, puis chaque début de mois |
 | `README.md` | Ce fichier | — |
 
 **Pas de rebuild `vendor/`** (`composer.json`/`composer.lock` inchangés —
@@ -89,15 +88,17 @@ précédent, réuploader l'ancien build. Les nouvelles tables/colonnes sont sans
 effet sur l'ancien code (attention : la restauration rend aussi
 `invoices.valider` aux rôles qui l'avaient).
 
-## 4. Primes mensuelles (pas de cron sur o2switch)
+## 4. Primes mensuelles (bouton super-admin, aucun fichier à déposer)
 
-Les règles « CA mensuel » (commerciaux) et « Croissance » (chefs d'agence) se
-calculent par mois. Sans tâche planifiée sur le serveur, au **début de chaque
-mois** : uploader `compute-role-commissions.php` dans `backend/public/`, ouvrir
-`https://pekegnogroup.com/compute-role-commissions.php` (mois précédent) ou
-`…?period=AAAA-MM`, lire le résultat (« n prime(s) créée(s) »), **supprimer le
-fichier**. Relançable sans doublon. Les primes apparaissent dans Commissions
-(statut « calculée ») pour validation puis paiement.
+Les règles « CA mensuel » (paliers des commerciaux) et « Croissance »
+(objectif des chefs d'agence) dépendent du **total d'un mois**. Il n'y a pas de
+tâche planifiée sur o2switch : au **début de chaque mois**, le **super-admin**
+ouvre **Réglages → Commissions → « Primes du mois (paliers de CA) »**, garde le
+mois proposé (le mois écoulé) et clique **« Calculer les primes de … »**.
+Les primes apparaissent dans Commissions (statut « calculée ») pour validation
+puis paiement. Relançable sans doublon (les primes non encore validées sont
+recalculées). Bloc invisible pour les autres rôles ; l'API refuse tout autre
+rôle (403).
 
 ## 5. Recette
 
@@ -110,4 +111,5 @@ fichier**. Relançable sans doublon. Les primes apparaissent dans Commissions
 - [ ] **Commercial** : « Nouvelle vente » → le champ Client trouve n'importe quel client (même en minuscules) ; « Nouveau client » exige tous les champs.
 - [ ] **Nouvelle facture** : Type Produits / Formations / Packages / Prestations filtre la recherche ; le commentaire saisi apparaît sur la facture imprimée.
 - [ ] **Caissier → Comptabilité → « Par produit »** : tous les produits / formations / packages / prestations, colonnes par moyen de paiement ; un produit créé ensuite apparaît aussitôt.
+- [ ] **Super-admin → Réglages → Commissions → « Primes du mois »** : bouton « Calculer les primes de [mois écoulé] » → message « n prime(s) créée(s) » ; le bloc est absent pour le DG et les autres rôles.
 - [ ] **Rôle personnalisé** (Rôles & permissions → nouveau rôle avec quelques droits) : à la connexion, le menu ne montre que les pages autorisées.

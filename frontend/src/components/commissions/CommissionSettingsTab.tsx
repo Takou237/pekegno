@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Gift, Pencil, Plus, Save, Trash2 } from 'lucide-react';
+import { Calculator, Gift, Pencil, Plus, Save, Trash2 } from 'lucide-react';
 import { commissionsApi } from '@/api/commissions.api';
 import { settingsApi } from '@/api/settings.api';
 import { rolesApi } from '@/api/roles.api';
@@ -12,6 +12,7 @@ import { academyApi } from '@/api/academy.api';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/utils/number';
 import { Alert } from '@/components/ui/Alert';
 import { Autocomplete } from '@/components/ui/Autocomplete';
@@ -366,6 +367,7 @@ export function CommissionSettingsTab() {
   return (
     <div className="flex flex-col gap-6">
       <DefaultCommissionCard />
+      <MonthlyBonusCard />
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -742,6 +744,65 @@ function RuleFormFields({
         <Button type="submit" isLoading={saving} className="flex-1"><Save className="h-4 w-4" />{t('common.save')}</Button>
       </div>
     </form>
+  );
+}
+
+/** Mois précédent au format AAAA-MM. */
+function previousMonth(): string {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Primes calculées sur le total d'un mois (paliers de CA des commerciaux,
+ * objectif des chefs d'agence) : le super-admin les lance en début de mois
+ * pour le mois écoulé. Relançable sans doublon.
+ */
+function MonthlyBonusCard() {
+  const { t, i18n } = useTranslation();
+  const { showToast } = useToast();
+  const { user } = useAuth();
+  const [period, setPeriod] = useState(previousMonth);
+  const [computing, setComputing] = useState(false);
+  const [result, setResult] = useState<{ created: number; updated: number } | null>(null);
+
+  if (user?.role?.name !== 'super-admin') return null;
+
+  const monthLabel = period
+    ? new Date(`${period}-01T00:00:00`).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' })
+    : '';
+
+  async function handleCompute() {
+    setComputing(true);
+    setResult(null);
+    try {
+      const data = await commissionsApi.computePeriod(period);
+      setResult({ created: data.created, updated: data.updated });
+      showToast(t('commissionRules.computeDone', { created: data.created, updated: data.updated }), 'success');
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('commissionRules.computeFailed')), 'error');
+    } finally {
+      setComputing(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{t('commissionRules.computeTitle')}</h2>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('commissionRules.computeHint')}</p>
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <Input label={t('commissionRules.period')} type="month" value={period} onChange={(e) => { setPeriod(e.target.value); setResult(null); }} />
+        <Button onClick={handleCompute} isLoading={computing} disabled={!period}>
+          <Calculator className="h-4 w-4" />
+          {t('commissionRules.computeFor', { month: monthLabel })}
+        </Button>
+      </div>
+      {result && (
+        <p className="mt-3 text-sm text-success-600">{t('commissionRules.computeDone', result)}</p>
+      )}
+    </div>
   );
 }
 

@@ -197,8 +197,8 @@ export default {
     startsOn: 'Début',
     endsOn: 'Fin',
     description: 'Description',
-    computeTitle: 'Primes mensuelles',
-    computeHint: 'Calcule les règles « CA mensuel » et « Croissance » pour un mois (automatique le 1er du mois). Relançable : les primes non validées sont recalculées.',
+    computeTitle: 'Primes du mois (paliers de CA)',
+    computeHint: 'Certaines primes dépendent du total d\'un mois : paliers de CA des commerciaux (0,5 %, 1 %, 2 %… + primes) et objectif des chefs d\'agence. En début de mois, choisissez le mois écoulé et cliquez sur le bouton : les primes sont créées dans Commissions, à valider puis payer. Vous pouvez relancer sans risque de doublon (les primes non encore validées sont recalculées).',
     period: 'Mois',
     compute: 'Calculer',
     computeDone: '{{created}} prime(s) créée(s), {{updated}} mise(s) à jour.',
@@ -227,6 +227,7 @@ export default {
     everyRenewal: 'Chaque renouvellement',
     onTime: 'à date',
     renewalOnTime: 'Seulement si renouvelé à date (payé avant la fin de la période précédente)',
+    computeFor: 'Calculer les primes de {{month}}',
   },
 
   catalogRevenue: {
