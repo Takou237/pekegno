@@ -25,6 +25,8 @@ import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
 import { AgencySwitcher } from '@/components/agencies/AgencySwitcher';
+import { useAuth } from '@/hooks/useAuth';
+import { canValidateInvoices } from '@/utils/invoicePermissions';
 import type { Agency } from '@/types/agency';
 
 interface MenuItem {
@@ -34,7 +36,7 @@ interface MenuItem {
   end: boolean;
 }
 
-function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType?: Agency['type']): MenuItem[] {
+function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType: Agency['type'] | undefined, roleName?: string): MenuItem[] {
   return [
     { to: '', label: t('nav.overview'), icon: LayoutDashboard, end: true },
     { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
@@ -49,7 +51,9 @@ function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType?: 
     { to: 'commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
     { to: 'employees', label: t('nav.employees'), icon: UserCheck, end: false },
     { to: 'invoices', label: t('nav.invoices'), icon: FileText, end: false },
-    { to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
+    ...(canValidateInvoices(roleName)
+      ? [{ to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false }]
+      : []),
     { to: 'invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
     { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
     { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
@@ -62,6 +66,7 @@ export function AgencyLayout() {
   const { t } = useTranslation();
   const { agencyId, countryId } = useParams<{ agencyId: string; countryId?: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [agency, setAgency] = useState<Agency | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -102,7 +107,7 @@ export function AgencyLayout() {
     }`;
   }
 
-  const subItems = getAgencyItems(t, agency?.type);
+  const subItems = getAgencyItems(t, agency?.type, user?.role?.name);
 
   const backToAgencies = countryId
     ? `/countries/${countryId}/agencies`

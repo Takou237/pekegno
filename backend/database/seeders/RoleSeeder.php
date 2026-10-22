@@ -37,7 +37,7 @@ class RoleSeeder extends Seeder
 
         $assignments = [
             'super-admin' => $all,
-            'direction-generale' => $all,
+            'direction-generale' => array_values(array_diff($all, ['invoices.valider'])),
             'responsable-agence' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('agencies', ['consulter', 'modifier', 'exporter']),
@@ -52,7 +52,7 @@ class RoleSeeder extends Seeder
                 $p('employes', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
                 $p('countries', ['consulter']),
                 $p('cities', ['consulter']),
-                $p('invoices', ['consulter', 'creer', 'modifier', 'imprimer', 'annuler', 'encaisser', 'exporter', 'valider']),
+                $p('invoices', ['consulter', 'creer', 'modifier', 'imprimer', 'annuler', 'encaisser', 'exporter']),
                 $p('stats', ['consulter']),
                 $p('tresories', ['consulter', 'modifier']),
                 $p('comptabilite', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),

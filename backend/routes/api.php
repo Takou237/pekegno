@@ -312,8 +312,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoices.consulter');
     Route::put('/invoices/{invoice}', [InvoiceController::class, 'update']);
     Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'pay'])->middleware('permission:invoices.encaisser');
-    Route::post('/invoices/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->middleware('permission:invoices.valider');
-    Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])->middleware('permission:invoices.valider');
+    Route::post('/invoices/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->middleware(['invoice.validator', 'permission:invoices.valider']);
+    Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])->middleware(['invoice.validator', 'permission:invoices.valider']);
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:invoices.annuler');
 
     Route::post('/invoices/{invoice}/payment-proof', [PaymentProofController::class, 'uploadStaffProof'])->middleware('permission:invoices.creer');
@@ -321,8 +321,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     // validation chez le caissier, qui l'accepte pour déclencher l'encaissement.
     Route::post('/invoices/{invoice}/pay-remaining', [PaymentProofController::class, 'payRemaining'])->middleware('permission:invoices.creer');
     Route::get('/payment-proofs', [PaymentProofController::class, 'index'])->middleware('permission:invoices.consulter');
-    Route::post('/payment-proofs/{proof}/approve', [PaymentProofController::class, 'approve'])->middleware('permission:invoices.valider');
-    Route::post('/payment-proofs/{proof}/reject', [PaymentProofController::class, 'reject'])->middleware('permission:invoices.valider');
+    Route::post('/payment-proofs/{proof}/approve', [PaymentProofController::class, 'approve'])->middleware(['invoice.validator', 'permission:invoices.valider']);
+    Route::post('/payment-proofs/{proof}/reject', [PaymentProofController::class, 'reject'])->middleware(['invoice.validator', 'permission:invoices.valider']);
 
     Route::post('/orders', [OrderController::class, 'store'])->middleware('permission:orders.creer');
     Route::get('/orders/{order}', [OrderController::class, 'show'])->middleware('permission:orders.consulter');

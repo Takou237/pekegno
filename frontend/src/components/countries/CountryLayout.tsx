@@ -25,16 +25,20 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
+import { useAuth } from '@/hooks/useAuth';
+import { canValidateInvoices } from '@/utils/invoicePermissions';
 import type { CountryStat } from '@/types/stats';
 
-function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
+function getSubItems(t: ReturnType<typeof useTranslation>['t'], roleName?: string) {
   return [
     { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
     { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
     { to: 'agencies', label: t('nav.agencies'), icon: FolderTree, end: false },
     { to: 'services', label: t('nav.services'), icon: Package, end: false },
     { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
-    { to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
+    ...(canValidateInvoices(roleName)
+      ? [{ to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false }]
+      : []),
     { to: 'receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
     { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
     { to: 'bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
@@ -48,6 +52,7 @@ function getSubItems(t: ReturnType<typeof useTranslation>['t']) {
 
 export function CountryLayout() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { countryId } = useParams<{ countryId: string }>();
   const navigate = useNavigate();
   const [country, setCountry] = useState<CountryStat | null>(null);
@@ -87,7 +92,7 @@ export function CountryLayout() {
     }`;
   }
 
-  const subItems = getSubItems(t);
+  const subItems = getSubItems(t, user?.role?.name);
 
   const backButton = (
     <Link

@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\PaymentProof;
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
@@ -19,7 +21,7 @@ use Tests\TestCase;
 
 /**
  * Workflow de validation des factures par le staff — Phase 3 du plan.
- * Permissions clés : invoices.valider (caissier, direction-generale).
+ * Permissions clés : invoices.valider (super-admin, caissier).
  */
 class Phase3ValidationWorkflowTest extends TestCase
 {
@@ -168,9 +170,43 @@ class Phase3ValidationWorkflowTest extends TestCase
         $this->postJson("/api/invoices/{$invoice->id}/reject", ['rejection_reason' => 'Non'])->assertForbidden();
     }
 
-    public function test_director_can_validate_pending_invoice(): void
+    public function test_only_super_admin_and_cashier_receive_invoice_validation_permission(): void
     {
-        $this->staffWithRole('direction-generale');
+        foreach (Role::all() as $role) {
+            $hasPermission = $role->permissions()->where('permissions.name', 'invoices.valider')->exists();
+            $shouldHavePermission = in_array($role->name, ['super-admin', 'caissier'], true);
+
+            $this->assertSame($shouldHavePermission, $hasPermission, "Unexpected invoice validation permission for {$role->name}.");
+        }
+    }
+
+    public function test_director_cannot_validate_even_if_permission_is_granted(): void
+    {
+        $director = $this->staffWithRole('direction-generale');
+        $invoice = $this->pendingInvoice();
+        $permissionId = Permission::where('name', 'invoices.valider')->value('id');
+        $director->role->permissions()->attach($permissionId);
+        $proof = PaymentProof::create([
+            'invoice_id' => $invoice->id,
+            'submitted_by' => $director->id,
+            'payment_method' => 'om',
+            'file_path' => 'payment-proofs/test.png',
+        ]);
+
+        $this->postJson("/api/invoices/{$invoice->id}/validate")->assertForbidden();
+        $this->postJson("/api/invoices/{$invoice->id}/reject", ['rejection_reason' => 'Non'])->assertForbidden();
+        $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertForbidden();
+        $this->postJson("/api/payment-proofs/{$proof->id}/reject", ['notes' => 'Non'])->assertForbidden();
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'validation_status' => Invoice::VALIDATION_PENDING,
+        ]);
+    }
+
+    public function test_super_admin_can_validate_pending_invoice(): void
+    {
+        $this->staffWithRole('super-admin');
         $invoice = $this->pendingInvoice();
 
         $this->postJson("/api/invoices/{$invoice->id}/validate")->assertOk();
@@ -179,5 +215,16 @@ class Phase3ValidationWorkflowTest extends TestCase
             'id' => $invoice->id,
             'validation_status' => Invoice::VALIDATION_VALIDATED,
         ]);
+    }
+
+    public function test_sales_created_by_other_roles_start_pending(): void
+    {
+        $this->staffWithRole('direction-generale');
+
+        $invoice = $this->postJson('/api/invoices', [
+            'items' => [['label' => 'Vente', 'unit_price' => 2000, 'quantity' => 1]],
+        ])->assertCreated()->json();
+
+        $this->assertSame(Invoice::VALIDATION_PENDING, $invoice['validation_status']);
     }
 }

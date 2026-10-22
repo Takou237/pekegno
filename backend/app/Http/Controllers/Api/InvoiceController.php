@@ -304,18 +304,19 @@ class InvoiceController extends Controller
                 ]);
             }
 
-            // Une facture créée par un commercial passe par le workflow de validation : elle
-            // naît en attente et ne devient définitive (entrée en comptabilité, encaissable)
-            // qu'après validation par un caissier / la direction. Les ventes de guichet
-            // (caissier / admin / comptable) sont validées directement.
-            $needsValidation = $request->user()->role?->name === 'commercial';
+            // Seuls le super-admin et le caissier valident directement leurs ventes.
+            // Toutes les autres factures commencent en attente, y compris celles créées
+            // par un rôle qui ne peut pas valider.
+            $creatorRole = $request->user()->role?->name;
+            $isCommercialSale = $creatorRole === 'commercial';
+            $needsValidation = ! in_array($creatorRole, ['super-admin', 'caissier'], true);
 
             // Une vente faite par un commercial est automatiquement rattachée à son propre
             // profil même si l'écran de saisie n'envoie pas commercial_id (vente rapide, etc.).
             // Sans cette affectation, la facture serait orpheline : invisible dans ses factures
             // récentes et exclue de ses stats (nombre de ventes, CA, commission).
             $commercialId = $data['commercial_id'] ?? null;
-            if ($needsValidation && ! $commercialId) {
+            if ($isCommercialSale && ! $commercialId) {
                 $commercialId = $request->user()->commercialProfile?->id;
             }
 
@@ -388,7 +389,7 @@ class InvoiceController extends Controller
                     'file_path' => $path,
                     'status' => PaymentProof::STATUS_PENDING,
                 ]);
-            } elseif ($needsValidation) {
+            } elseif ($isCommercialSale) {
                 throw ValidationException::withMessages([
                     'proof_file' => 'Une preuve de paiement est obligatoire pour une vente effectuée par un commercial.',
                 ]);
@@ -644,7 +645,7 @@ class InvoiceController extends Controller
 
         // L'avance annoncée par le commercial à la création n'a pas été encaissée
         // (il ne peut pas manier de caisse) : elle est appliquée maintenant, au
-        // moment où un caissier / la direction valide la facture.
+        // moment où un super-admin / caissier valide la facture.
         if ((float) ($invoice->declared_advance ?? 0) > 0 && (float) $invoice->amount_paid === 0.0) {
             $this->paymentService->applyPayment(
                 $invoice,

@@ -23,7 +23,7 @@ use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
 /**
- * Examen des preuves de paiement par le personnel (caissier / direction).
+ * Examen des preuves de paiement par le super-admin / caissier.
  * Permet au caissier de vérifier une preuve soumise par un client (ou un
  * commercial pour un paiement numérique) avant de valider et encaisser.
  */
@@ -269,7 +269,7 @@ class PaymentProofController extends Controller
     public function approve(Request $request, PaymentProof $proof): JsonResponse
     {
         abort_unless(
-            in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'caissier'], true),
+            in_array($request->user()?->role?->name, ['super-admin', 'caissier'], true),
             403,
             'Seuls les administrateurs et les caissiers peuvent accepter une preuve de paiement.'
         );
@@ -301,6 +301,12 @@ class PaymentProofController extends Controller
     )]
     public function reject(Request $request, PaymentProof $proof): JsonResponse
     {
+        abort_unless(
+            in_array($request->user()?->role?->name, ['super-admin', 'caissier'], true),
+            403,
+            'Seuls le super-administrateur et le caissier peuvent rejeter une preuve de paiement.'
+        );
+
         $request->validate(['notes' => ['required', 'string']]);
 
         return $this->review($request, $proof, PaymentProof::STATUS_REJECTED);
@@ -386,7 +392,7 @@ class PaymentProofController extends Controller
 
         // L'avance annoncée par le commercial à la création n'a pas été encaissée
         // (il ne peut pas manier de caisse) : elle est appliquée maintenant, au
-        // moment où un caissier / la direction valide la facture via la preuve.
+        // moment où un super-admin / caissier valide la facture via la preuve.
         if ((float) ($invoice->declared_advance ?? 0) > 0 && (float) $invoice->amount_paid === 0.0) {
             $this->paymentService->applyPayment(
                 $invoice,

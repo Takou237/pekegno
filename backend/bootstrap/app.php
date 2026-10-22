@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\CompressResponse;
 use App\Http\Middleware\EnsurePermission;
+use App\Http\Middleware\EnsureInvoiceValidator;
 use App\Http\Middleware\EnsurePortal;
 use App\Http\Middleware\EnsureSingleSession;
 use App\Http\Middleware\EnsureSubscriptionsWritable;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'inactivity.logout' => InactivityLogout::class,
             'update.activity' => UpdateLastActivity::class,
             'permission' => EnsurePermission::class,
+            'invoice.validator' => EnsureInvoiceValidator::class,
             'portal' => EnsurePortal::class,
             'subscriptions.writable' => EnsureSubscriptionsWritable::class,
         ]);

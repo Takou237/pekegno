@@ -26,6 +26,7 @@ import { PaymentReceiptPrint } from '@/components/invoices/PaymentReceiptPrint';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Invoice, PaymentMethod, PaymentProof } from '@/types/invoice';
+import { canValidateInvoices } from '@/utils/invoicePermissions';
 
 export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { id: routeId = '', invoiceId = '' } = useParams();
@@ -93,6 +94,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const canCollect = ['super-admin', 'direction-generale', 'caissier'].includes(
     currentUser?.role?.name ?? ''
   );
+  const canReviewPaymentProofs = canValidateInvoices(currentUser?.role?.name);
 
   const canEditInvoice = Boolean(
     invoice &&
@@ -719,7 +721,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                     )}
                   </div>
                 </div>
-                {proof.status === 'pending' && canCollect && (
+                {proof.status === 'pending' && canReviewPaymentProofs && (
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={() => setProofPreview(proof)}>
                       <ImageIcon className="h-4 w-4" />
@@ -1140,7 +1142,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 </p>
               )}
             </div>
-            {proofPreview.status === 'pending' && canCollect && (
+            {proofPreview.status === 'pending' && canReviewPaymentProofs && (
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => openRejectProof(proofPreview)} disabled={proofSubmitting}>
                   <ThumbsDown className="h-4 w-4" />

@@ -21,6 +21,7 @@ import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
 import type { Invoice, InvoiceValidationStatus, InvoiceSource, PaymentProof } from '@/types/invoice';
 import type { Agency, PaginationMeta } from '@/types/agency';
+import { canValidateInvoices } from '@/utils/invoicePermissions';
 
 export function ValidationBadge({ status }: { status: InvoiceValidationStatus }) {
   const { t } = useTranslation();
@@ -56,9 +57,7 @@ export default function PendingInvoicesPage({
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
-  const canValidateInvoice = ['super-admin', 'direction-generale', 'responsable-agence', 'caissier'].includes(
-    currentUser?.role?.name ?? ''
-  );
+  const canValidateInvoice = canValidateInvoices(currentUser?.role?.name);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);

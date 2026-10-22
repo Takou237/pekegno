@@ -14,8 +14,8 @@ import { Spinner } from '@/components/ui/Spinner';
 import type { Invoice } from '@/types/invoice';
 import type { AgencyNotification } from '@/types/agencyDepartment';
 import { BrandLogo } from '@/components/common/BrandLogo';
+import { canValidateInvoices } from '@/utils/invoicePermissions';
 
-const CAN_VALIDATE_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence', 'caissier']);
 const COMMERCIAL_ROLE = 'commercial';
 
 function seenValidatedKey(userId: string) {
@@ -105,7 +105,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   // sélecteurs Pays/Agence/Département en haut de son espace.
   const showOrgSelectors = !['commercial', 'caissier', 'formateur'].includes(user?.role?.name ?? '');
 
-  const canValidate = CAN_VALIDATE_ROLES.has(user?.role?.name ?? '');
+  const canValidate = canValidateInvoices(user?.role?.name);
   const isCommercial = user?.role?.name === COMMERCIAL_ROLE;
   const [pendingInvoices, setPendingInvoices] = useState<Invoice[]>([]);
   const [pendingTotal, setPendingTotal] = useState(0);

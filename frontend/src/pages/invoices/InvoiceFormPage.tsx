@@ -57,10 +57,8 @@ export default function InvoiceFormPage({
 
   const isCommercial = currentUser?.role?.name === 'commercial';
   const isSuperAdmin = currentUser?.role?.name === 'super-admin';
-  // Caissier / admin (super-admin, direction-generale) sont des validateurs :
-  // une vente de guichet qu'ils saisissent est validée directement (pas de
-  // workflow de validation), donc le vendeur par défaut est leur propre
-  // compte et aucune preuve de paiement n'est exigée pour OM/MoMo.
+  // Le caissier et le super-admin valident directement leurs ventes de guichet.
+  // La direction garde son vendeur par défaut mais ses ventes restent en attente.
   const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(
     currentUser?.role?.name ?? ''
   );

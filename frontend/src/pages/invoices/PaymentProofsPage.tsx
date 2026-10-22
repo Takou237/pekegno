@@ -17,9 +17,11 @@ import { PrintPortal } from '@/components/invoices/InvoicePrint';
 import { PaymentReceiptPrint } from '@/components/invoices/PaymentReceiptPrint';
 import type { Invoice, InvoicePayment, PaymentProof } from '@/types/invoice';
 import type { PaginationMeta } from '@/types/agency';
+import { useAuth } from '@/hooks/useAuth';
+import { canValidateInvoices } from '@/utils/invoicePermissions';
 
 /**
- * File de validation des paiements (caissier / direction) : les preuves de
+ * File de validation des paiements (super-admin / caissier) : les preuves de
  * règlement soumises par les commerciaux (montant restant + preuve) y sont
  * acceptées ou rejetées. Accepter une preuve encaisse automatiquement le
  * montant et génère un reçu, affiché ici immédiatement.
@@ -27,6 +29,8 @@ import type { PaginationMeta } from '@/types/agency';
 export default function PaymentProofsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { user } = useAuth();
+  const canReviewProofs = canValidateInvoices(user?.role?.name);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [proofs, setProofs] = useState<PaymentProof[]>([]);
@@ -296,16 +300,18 @@ export default function PaymentProofsPage() {
 
             {proofError && <Alert variant="error">{proofError}</Alert>}
 
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="danger" onClick={() => openReject(viewProof)} disabled={submitting}>
-                <XCircle className="h-4 w-4" />
-                {t('invoices.proofReject')}
-              </Button>
-              <Button type="button" onClick={() => handleApprove(viewProof)} isLoading={submitting}>
-                <Check className="h-4 w-4" />
-                {t('invoices.proofApprove')}
-              </Button>
-            </div>
+            {canReviewProofs && (
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="danger" onClick={() => openReject(viewProof)} disabled={submitting}>
+                  <XCircle className="h-4 w-4" />
+                  {t('invoices.proofReject')}
+                </Button>
+                <Button type="button" onClick={() => handleApprove(viewProof)} isLoading={submitting}>
+                  <Check className="h-4 w-4" />
+                  {t('invoices.proofApprove')}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </Modal>
