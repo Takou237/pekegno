@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             DemoExtras2Seeder::class,
             DemoExtras3Seeder::class,
             PrestationOfferSeeder::class,
+            DefaultCommissionRulesSeeder::class,
         ]);
     }
 }

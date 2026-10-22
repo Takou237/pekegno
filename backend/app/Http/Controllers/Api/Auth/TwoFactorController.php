@@ -320,7 +320,7 @@ class TwoFactorController extends Controller
         return response()->json([
             // UserResource, comme le login classique et GET /user : sinon le champ
             // calculé "name" est absent du modèle brut (pas de colonne "name").
-            'user' => new UserResource($user->load('assignments')),
+            'user' => new UserResource($user->load('role.permissions', 'assignments')),
             'token' => $token,
         ]);
     }

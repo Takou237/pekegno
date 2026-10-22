@@ -103,7 +103,12 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   const { countries, selection, loading, setSelection } = useOrgContext();
   // Le formateur n'a pas de périmètre géographique à choisir : on masque les
   // sélecteurs Pays/Agence/Département en haut de son espace.
-  const showOrgSelectors = !['commercial', 'caissier', 'formateur'].includes(user?.role?.name ?? '');
+  // Les chefs d'agence / de département restent dans leur espace : pas de
+  // sélecteurs Pays/Agence/Département non plus.
+  // Sélecteurs Pays/Agence/Département : super-admin uniquement. Le directeur
+  // général n'a qu'Agence/Département, limités à son pays (contexte du périmètre).
+  const isDirector = user?.role?.name === 'direction-generale';
+  const showOrgSelectors = user?.role?.name === 'super-admin' || isDirector;
 
   const canValidate = canValidateInvoices(user?.role?.name);
   const isCommercial = user?.role?.name === COMMERCIAL_ROLE;
@@ -358,15 +363,17 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
 
   const orgSelectors = (itemClassName: string) => (
     <>
-      <SelectDropdown
-        className={itemClassName}
-        label={t('contextBar.country')}
-        icon={Globe}
-        value={selection.countryId}
-        onChange={handleCountryChange}
-        groups={countryGroups}
-        placeholder={t('contextBar.selectCountry')}
-      />
+      {!isDirector && (
+        <SelectDropdown
+          className={itemClassName}
+          label={t('contextBar.country')}
+          icon={Globe}
+          value={selection.countryId}
+          onChange={handleCountryChange}
+          groups={countryGroups}
+          placeholder={t('contextBar.selectCountry')}
+        />
+      )}
       <SelectDropdown
         className={itemClassName}
         label={t('contextBar.agency')}
@@ -415,6 +422,13 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
             <span className="mx-1 text-gray-300 dark:text-gray-600">|</span>
             {orgSelectors('max-w-[13rem]')}
           </div>
+        )}
+
+        {/* Sans sélecteurs (chefs, commercial, caissier…) : le logo reste affiché. */}
+        {!showOrgSelectors && (
+          <span className="hidden shrink-0 lg:inline-flex">
+            <BrandLogo className="h-7" />
+          </span>
         )}
 
         {leftSlot && <div className="shrink-0 sm:ml-2">{leftSlot}</div>}

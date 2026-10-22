@@ -8,11 +8,42 @@ export const COMMISSION_PAYMENT_METHODS: CommissionPaymentMethod[] = [
   'mobile_money',
 ];
 
+/** Assiette d'une règle : ce qui déclenche la commission. */
+export type CommissionBasis = 'sale' | 'renewal' | 'upgrade' | 'monthly_revenue' | 'growth' | 'manual';
+
+export const COMMISSION_BASES: CommissionBasis[] = ['sale', 'renewal', 'upgrade', 'monthly_revenue', 'growth', 'manual'];
+
+/** Palier « à partir de » (CA mensuel ou ratio de croissance). */
+export interface CommissionTier {
+  min: number;
+  percent: number;
+  fixed_bonus?: number;
+  pot_bonus?: number;
+  bonus_requires_recovery?: boolean;
+}
+
 export interface CommissionRule {
   id: string;
   rule_group_id: string;
   version: number;
   name: string;
+  basis?: CommissionBasis;
+  target_kind?: 'product' | 'service' | 'course' | 'package' | null;
+  description?: string | null;
+  product_id?: string | null;
+  category_id?: string | null;
+  renewal_number?: number | null;
+  renewal_on_time?: boolean;
+  revenue_scope?: 'own' | 'agency';
+  min_recovery_rate?: number | string | null;
+  recovery_period?: 'previous_month' | 'same_month_last_year';
+  growth_multiplier?: number | string | null;
+  max_percent?: number | string | null;
+  bonus_min?: number | string | null;
+  bonus_max?: number | string | null;
+  roles?: { id: string; name: string }[];
+  product?: { id: string; name: string } | null;
+  category?: { id: string; name: string } | null;
   beneficiary_commercial_id: string | null;
   beneficiary_seller_profile_id: string | null;
   scope_country_id: string | null;
@@ -48,6 +79,21 @@ export interface CommissionRule {
 
 export interface CommissionRulePayload {
   name: string;
+  basis?: CommissionBasis;
+  target_kind?: 'product' | 'service' | 'course' | 'package';
+  description?: string;
+  product_id?: string;
+  category_id?: string;
+  renewal_number?: number;
+  renewal_on_time?: boolean;
+  revenue_scope?: 'own' | 'agency';
+  min_recovery_rate?: number;
+  recovery_period?: 'previous_month' | 'same_month_last_year';
+  growth_multiplier?: number;
+  max_percent?: number;
+  bonus_min?: number;
+  bonus_max?: number;
+  role_ids?: string[];
   beneficiary_commercial_id?: string;
   beneficiary_seller_profile_id?: string;
   scope_country_id?: string;
@@ -60,14 +106,14 @@ export interface CommissionRulePayload {
   formula_type: string;
   percent_value?: number;
   fixed_amount?: number;
-  tiers_json?: unknown[];
+  tiers_json?: CommissionTier[];
   starts_on?: string;
   ends_on?: string;
 }
 
 export interface CommissionBeneficiary {
   id: string;
-  type: 'seller_profile' | 'commercial';
+  type: 'seller_profile' | 'commercial' | 'team_member' | 'user';
   name: string;
   kind: string | null;
   commission_type: string | null;
@@ -83,7 +129,7 @@ export interface CommissionBeneficiarySummary {
 }
 
 export interface CommissionPaymentPayload {
-  beneficiary_type: 'seller_profile' | 'commercial';
+  beneficiary_type: 'seller_profile' | 'commercial' | 'team_member' | 'user';
   beneficiary_id: string;
   amount: number;
   treasury_account_id?: string;
@@ -99,7 +145,10 @@ export interface CommissionEntry {
   rule_snapshot: Record<string, unknown>;
   beneficiary_commercial_id: string | null;
   seller_profile_id: string | null;
-  category: 'training' | 'service' | 'agency' | null;
+  category: 'training' | 'service' | 'agency' | 'bonus' | null;
+  beneficiary_user_id?: string | null;
+  period?: string | null;
+  beneficiaryUser?: { id: string; first_name: string; last_name: string } | null;
   product_id: string | null;
   product_type: 'course' | 'service' | 'package' | 'prestation' | null;
   base_amount: number;

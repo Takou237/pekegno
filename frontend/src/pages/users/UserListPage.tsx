@@ -9,6 +9,7 @@ import { client } from '@/api/client';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrgContext } from '@/context/OrgContext';
 import { useToast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -55,6 +56,7 @@ export default function UserListPage() {
   const selectedAgencyId = searchParams.get('agency_id') ?? '';
   const selectedDepartmentId = searchParams.get('department_id') ?? '';
   const selectedRoleId = searchParams.get('role_id') ?? '';
+  const { countries: scopeCountries } = useOrgContext();
 
   const [editUser, setEditUser] = useState<UserListItem | null>(null);
   const [editForm, setEditForm] = useState({
@@ -63,6 +65,7 @@ export default function UserListPage() {
     email: '',
     phone: '',
     role_id: '',
+    country_id: '',
     is_active: true,
   });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
@@ -97,6 +100,7 @@ export default function UserListPage() {
     role_id: '',
     agency_id: '',
     department_id: '',
+    country_id: '',
   });
   const setCreateUsername = useCallback((username: string) => setCreateForm((p) => ({ ...p, username })), []);
   useUsernameSuggestion(createForm.first_name ?? '', createForm.last_name ?? '', createForm.username, setCreateUsername);
@@ -174,6 +178,10 @@ export default function UserListPage() {
   useEffect(() => {
     usersApi.listRoles().then(setRoles).catch(() => {});
   }, []);
+
+  // Directeur général : son espace commence au pays qui lui est attribué.
+  const isDirectorRoleId = (roleId: string | null | undefined) =>
+    roles.find((r) => r.id === roleId)?.name === 'direction-generale';
 
   const assignableRoles = roles.filter((r) =>
     isRoleAssignableToForm(r.name, currentUser?.role?.name)
@@ -266,6 +274,7 @@ export default function UserListPage() {
       email: user.email,
       phone: user.phone ?? '',
       role_id: user.role_id ?? '',
+      country_id: user.country_id ?? '',
       is_active: user.is_active,
     });
     setEditErrors({});
@@ -459,6 +468,10 @@ export default function UserListPage() {
       setCreateErrors({ role_id: t('users.roleRequired') });
       return;
     }
+    if (isDirectorRoleId(createForm.role_id) && !createForm.country_id) {
+      setCreateErrors({ country_id: t('users.countryRequired') });
+      return;
+    }
     setCreateErrors({});
     setCreateSubmitting(true);
     try {
@@ -476,6 +489,7 @@ export default function UserListPage() {
         role_id: '',
         agency_id: '',
         department_id: '',
+        country_id: '',
       });
       fetchUsers(fetchParams);
     } catch (err) {
@@ -823,6 +837,22 @@ export default function UserListPage() {
                 <option value={editUser.role.id}>{editUser.role.name}</option>
               )}
           </Select>
+          {isDirectorRoleId(editForm.role_id) && (
+            <Select
+              label={t('users.directorCountry')}
+              value={editForm.country_id ?? ''}
+              required
+              onChange={(e) => setEditForm((p) => ({ ...p, country_id: e.target.value }))}
+              error={editErrors.country_id}
+            >
+              <option value="">{t('users.selectCountry')}</option>
+              {scopeCountries.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          )}
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setEditUser(null)} className="flex-1">
               {t('common.cancel')}
@@ -1007,6 +1037,23 @@ export default function UserListPage() {
               </option>
             ))}
           </Select>
+
+          {isDirectorRoleId(createForm.role_id) && (
+            <Select
+              label={t('users.directorCountry')}
+              value={createForm.country_id ?? ''}
+              required
+              onChange={(e) => setCreateForm((p) => ({ ...p, country_id: e.target.value }))}
+              error={createErrors.country_id}
+            >
+              <option value="">{t('users.selectCountry')}</option>
+              {scopeCountries.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          )}
 
           <Select
             label={t('users.optionalAgency')}

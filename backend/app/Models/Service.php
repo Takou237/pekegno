@@ -64,7 +64,7 @@ class Service extends Model
     {
         return $this->hasOne(Promotion::class)
             ->where('start_date', '<=', now())
-            ->where('end_date', '>=', now())
+            ->whereDate('end_date', '>=', today())
             ->orderByDesc('start_date');
     }
 

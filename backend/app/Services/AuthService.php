@@ -174,7 +174,7 @@ class AuthService
             // format que GET /user, notamment le champ calculé "name" (first_name +
             // last_name, pas une colonne réelle) utilisé partout côté front pour
             // pré-remplir le vendeur d'une vente/inscription.
-            'user' => new UserResource($user->load('role', 'assignments')),
+            'user' => new UserResource($user->load('role.permissions', 'assignments')),
             'token' => $token,
         ];
     }

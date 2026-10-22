@@ -86,6 +86,16 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 | `17_10/migration-2026-10-17.sql` | colonne `amount` sur `payment_proofs` (règlement du reste à payer) + ligne `migrations` (données seules, aucune permission nouvelle) |
 | `17_10/frontend-dist.zip` | build admin du 17/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
 
+⏳ **À appliquer avec le déploiement du 22/10/2026** (voir
+`22_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `22_10/migration-2026-10-22.sql` | 7 migrations : `training_sessions_synced`, `invoices.created_by` (+ rattrapage), règles de commission par rôle (`commission_rules` étendue, `commission_rule_role`, bénéficiaire utilisateur + période sur entrées/paiements), `invoices.valider` réservé à super-admin + direction-generale + caissier |
+| `22_10/seed-commission-rules-2026-10-22.sql` | 18 règles de la grille de rémunération + rôles (règles « à définir » inactives), rejouable |
+| `22_10/frontend-dist.zip` | build admin du 22/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
+| `22_10/compute-role-commissions.php` | one-shot mensuel : primes CA mensuel / croissance (pas de cron), puis supprimer |
+
 🆕 **Remise à neuf (optionnel, irréversible)** : `reset-prod-fresh-2026-10-16.sql`
 vide toute la base métier (factures, clients, prospects, agences, pays,
 départements, catalogue, prestations, inscriptions, comptabilité, utilisateurs…)

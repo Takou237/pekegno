@@ -181,25 +181,25 @@ class Phase3ValidationWorkflowTest extends TestCase
         $this->postJson("/api/invoices/{$invoice->id}/reject", ['rejection_reason' => 'Non'])->assertForbidden();
     }
 
-    public function test_only_super_admin_and_cashier_receive_invoice_validation_permission(): void
+    public function test_only_super_admin_director_and_cashier_receive_invoice_validation_permission(): void
     {
         foreach (Role::all() as $role) {
             $hasPermission = $role->permissions()->where('permissions.name', 'invoices.valider')->exists();
-            $shouldHavePermission = in_array($role->name, ['super-admin', 'caissier'], true);
+            $shouldHavePermission = in_array($role->name, ['super-admin', 'direction-generale', 'caissier'], true);
 
             $this->assertSame($shouldHavePermission, $hasPermission, "Unexpected invoice validation permission for {$role->name}.");
         }
     }
 
-    public function test_director_cannot_validate_even_if_permission_is_granted(): void
+    public function test_agency_chief_cannot_validate_even_if_permission_is_granted(): void
     {
-        $director = $this->staffWithRole('direction-generale');
+        $chief = $this->staffWithRole('responsable-agence');
         $invoice = $this->pendingInvoice();
         $permissionId = Permission::where('name', 'invoices.valider')->value('id');
-        $director->role->permissions()->attach($permissionId);
+        $chief->role->permissions()->syncWithoutDetaching([$permissionId]);
         $proof = PaymentProof::create([
             'invoice_id' => $invoice->id,
-            'submitted_by' => $director->id,
+            'submitted_by' => $chief->id,
             'payment_method' => 'om',
             'file_path' => 'payment-proofs/test.png',
         ]);
@@ -230,7 +230,8 @@ class Phase3ValidationWorkflowTest extends TestCase
 
     public function test_sales_created_by_other_roles_start_pending(): void
     {
-        $this->staffWithRole('direction-generale');
+        // Rôle non validateur (le directeur général, lui, valide directement).
+        $this->staffWithRole('responsable-agence');
 
         $invoice = $this->postJson('/api/invoices', [
             'items' => [['label' => 'Vente', 'unit_price' => 2000, 'quantity' => 1]],

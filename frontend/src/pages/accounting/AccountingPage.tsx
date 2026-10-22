@@ -28,6 +28,7 @@ import { COMMISSION_PAYMENT_METHODS } from '@/types/commissions';
 import type { PaginationMeta } from '@/types/agency';
 import { businessToday, formatDateTimeFr } from '@/utils/date';
 import { PeriodPresets } from '@/components/ui/PeriodPresets';
+import { CatalogRevenueTab } from '@/components/accounting/CatalogRevenueTab';
 
 export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { fixedAgencyId?: string; fixedDepartmentId?: string }) {
   const { agencyId: routeAgencyId, countryId: routeCountryId } = useParams<{ agencyId?: string; countryId?: string }>();
@@ -57,6 +58,8 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
 
   // Caissier : scope forcé à son agence d'affectation (primaire puis première).
   const isCaissier = currentUser?.role?.name === 'caissier';
+  // Onglets : écritures comptables / comptabilité par produit (catalogue).
+  const [view, setView] = useState<'entries' | 'catalog'>('entries');
   const caissierAgencyId =
     currentUser?.assignments?.find((a) => a.pivot?.is_primary)?.id ??
     currentUser?.assignments?.[0]?.id ??
@@ -381,6 +384,27 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
         </div>
       </div>
 
+      <div className="flex w-full gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800 sm:w-fit">
+        {(['entries', 'catalog'] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setView(key)}
+            className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              view === key
+                ? 'bg-white text-brand-700 shadow-sm dark:bg-gray-900 dark:text-brand-300'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+          >
+            {t(`catalogRevenue.tab_${key}`)}
+          </button>
+        ))}
+      </div>
+
+      {view === 'catalog' ? (
+        <CatalogRevenueTab agencyId={agencyId || agencyFilter || undefined} />
+      ) : (
+      <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('accounting.totalIncome')}</p>
@@ -507,6 +531,8 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
           </div>
         )}
       </div>
+      </>
+      )}
 
       <Modal isOpen={txOpen} onClose={() => setTxOpen(false)} title={editTx ? t('accounting.editTransaction') : t('accounting.newTransaction')} maxWidth="max-w-lg">
         <form onSubmit={handleTxSubmit} className="flex flex-col gap-4">

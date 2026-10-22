@@ -30,6 +30,7 @@ class UpdateUserRequest extends FormRequest
             'role_id' => ['sometimes', 'required', 'uuid', 'exists:roles,id'],
             'is_password_change_required' => ['sometimes', 'boolean'],
             'password' => ['sometimes', 'string', 'min:8', 'confirmed'],
+            'country_id' => ['sometimes', 'nullable', 'uuid', 'exists:countries,id'],
         ];
     }
 

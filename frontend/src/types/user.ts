@@ -21,6 +21,8 @@ export interface UserListItem {
   is_active: boolean;
   role: Role | null;
   role_id: string | null;
+  /** Pays d'attribution (directeur général). */
+  country_id?: string | null;
   email_verified_at: string | null;
   created_at: string;
   updated_at: string;
@@ -52,6 +54,7 @@ export interface CreateUserPayload {
   role_id?: string;
   agency_id?: string;
   department_id?: string;
+  country_id?: string;
 }
 
 export interface UpdateUserPayload {
@@ -60,6 +63,7 @@ export interface UpdateUserPayload {
   email?: string;
   phone?: string;
   role_id?: string | null;
+  country_id?: string | null;
   is_active?: boolean;
   password?: string;
   password_confirmation?: string;

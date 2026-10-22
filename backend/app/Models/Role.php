@@ -21,6 +21,15 @@ class Role extends Model
         return $this->belongsToMany(Permission::class, 'role_permission');
     }
 
+    /** Règles de commission attribuées à ce rôle (par groupe de règle). */
+    public function commissionRuleGroupIds(): array
+    {
+        return \Illuminate\Support\Facades\DB::table('commission_rule_role')
+            ->where('role_id', $this->id)
+            ->pluck('rule_group_id')
+            ->all();
+    }
+
     public function users(): HasMany
     {
         return $this->hasMany(User::class);

@@ -56,7 +56,7 @@ class OrderInvoicingService
                 } else {
                     $unitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
                         ? (float) $line['unit_price']
-                        : (float) $service->price;
+                        : (float) $service->effective_price;
                 }
             } elseif ($type === 'catalog' && ! empty($line['product_id'])) {
                 $product = Product::findOrFail($line['product_id']);

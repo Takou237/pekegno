@@ -29,7 +29,10 @@ class StoreInvoiceRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.service_id' => ['nullable', 'uuid', 'exists:services,id'],
             'items.*.product_id' => ['nullable', 'uuid', 'exists:products,id'],
-            'items.*.label' => ['required_without_all:items.*.service_id,items.*.product_id', 'nullable', 'string', 'max:255'],
+            // Formation (inscription créée pour le client) et package du catalogue.
+            'items.*.course_id' => ['nullable', 'uuid', 'exists:courses,id'],
+            'items.*.package_id' => ['nullable', 'uuid', 'exists:subscription_packs,id'],
+            'items.*.label' => ['required_without_all:items.*.service_id,items.*.product_id,items.*.course_id,items.*.package_id', 'nullable', 'string', 'max:255'],
             'items.*.unit_price' => ['required_if:items.*.pass_tier,null', 'numeric', 'min:0'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.pass_tier' => ['nullable', 'in:classique,premium,vip'],

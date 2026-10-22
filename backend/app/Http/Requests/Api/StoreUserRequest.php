@@ -31,6 +31,8 @@ class StoreUserRequest extends FormRequest
             'role_id' => ['required', 'string', 'exists:roles,id'],
             'agency_id' => ['sometimes', 'nullable', 'string', 'exists:agencies,id'],
             'department_id' => ['sometimes', 'nullable', 'string', 'exists:departments,id'],
+            // Pays d'attribution du directeur général (périmètre de son espace).
+            'country_id' => ['sometimes', 'nullable', 'string', 'exists:countries,id'],
         ];
     }
 

@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { homeSpace, isGroupLevelPath } from '@/utils/userScope';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { ContextBar } from './ContextBar';
@@ -7,6 +9,15 @@ import { ContextBar } from './ContextBar';
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const closeMobileNav = useCallback(() => setMobileOpen(false), []);
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+
+  // Chefs et directeur général : leur accès commence à leur espace ; les
+  // pages de niveau groupe les y renvoient.
+  const space = homeSpace(user);
+  if (space && isGroupLevelPath(pathname)) {
+    return <Navigate to={space.path} replace />;
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-950">

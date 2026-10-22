@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\ScopeService;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\Subscription;
@@ -186,7 +187,7 @@ class SubscriptionController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $subscriptions = Subscription::query()
+        $subscriptions = app(ScopeService::class)->scopeManagerQuery(Subscription::query(), $request->user())
             ->with('pack', 'agency:id,name', 'client:id,first_name,last_name,email', 'invoice', 'notifications')
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))

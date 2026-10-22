@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AxiosError } from 'axios';
 import {
@@ -27,6 +27,7 @@ import { SubNav } from '@/components/layout/SubNav';
 import { AgencySwitcher } from '@/components/agencies/AgencySwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
+import { homeSpace } from '@/utils/userScope';
 import type { Agency } from '@/types/agency';
 
 interface MenuItem {
@@ -108,6 +109,13 @@ export function AgencyLayout() {
   }
 
   const subItems = getAgencyItems(t, agency?.type, user?.role?.name);
+  const space = homeSpace(user);
+  // Chef d'agence : uniquement son agence ; chef de département : pas d'accès
+  // au niveau agence ; directeur général : les agences de son pays.
+  const outOfScope = space !== null && !(
+    (space.type === 'agency' && space.id === agencyId)
+    || (space.type === 'country' && (countryId ?? agency?.country_id) === space.id)
+  );
 
   const backToAgencies = countryId
     ? `/countries/${countryId}/agencies`
@@ -125,10 +133,14 @@ export function AgencyLayout() {
     </Link>
   );
 
+  if (outOfScope) {
+    return <Navigate to={space.path} replace />;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 dark:bg-gray-950">
       <ContextBar
-        leftSlot={backButton}
+        leftSlot={space?.type === 'agency' ? undefined : backButton}
         onMobileMenuToggle={() => setMobileOpen((v) => !v)}
       />
 

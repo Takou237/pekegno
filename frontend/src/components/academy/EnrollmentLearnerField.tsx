@@ -30,6 +30,11 @@ export const emptyNewLearnerForm: NewLearnerFormState = {
   occupation: '',
 };
 
+/** Tous les champs d'un nouveau client sont obligatoires. */
+export function isNewLearnerComplete(form: NewLearnerFormState): boolean {
+  return (Object.keys(emptyNewLearnerForm) as (keyof NewLearnerFormState)[]).every((key) => form[key].trim() !== '');
+}
+
 interface EnrollmentLearnerFieldProps {
   mode: LearnerMode;
   onModeChange: (mode: LearnerMode) => void;
@@ -73,10 +78,6 @@ export function EnrollmentLearnerField({
   const resolvedPlaceholder = searchPlaceholder ?? t('academy.searchLearnerPlaceholder');
   const resolvedInfo = newInfoLabel ?? t('academy.newLearnerInfo');
   const resolvedHint = newHintText ?? t('academy.newLearnerHint');
-
-  function set<K extends keyof NewLearnerFormState>(key: K, value: string) {
-    onNewLearnerChange({ ...newLearner, [key]: value });
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -122,66 +123,99 @@ export function EnrollmentLearnerField({
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {resolvedInfo}
           </span>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('common.firstName')}
-              required
-              value={newLearner.first_name}
-              onChange={(e) => set('first_name', e.target.value)}
-            />
-            <Input
-              label={t('common.lastName')}
-              required
-              value={newLearner.last_name}
-              onChange={(e) => set('last_name', e.target.value)}
-            />
-          </div>
-          <Input
-            label={t('common.email')}
-            type="email"
-            value={newLearner.email}
-            onChange={(e) => set('email', e.target.value)}
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('common.phone')}
-              value={newLearner.phone}
-              onChange={(e) => set('phone', e.target.value)}
-            />
-            <CountryAutocomplete
-              label={t('common.country')}
-              value={newLearner.country}
-              onChange={(value) => set('country', value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('common.city')}
-              value={newLearner.city}
-              onChange={(e) => set('city', e.target.value)}
-            />
-            <Input
-              label={t('common.nationality')}
-              value={newLearner.nationality}
-              onChange={(e) => set('nationality', e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('common.quartier')}
-              value={newLearner.quartier}
-              onChange={(e) => set('quartier', e.target.value)}
-            />
-            <Input
-              label={t('common.occupation')}
-              value={newLearner.occupation}
-              onChange={(e) => set('occupation', e.target.value)}
-            />
-          </div>
+          <NewClientFields value={newLearner} onChange={onNewLearnerChange} />
           <p className="text-xs text-gray-400 dark:text-gray-500">{resolvedHint}</p>
           {error && <p className="text-sm text-error-500">{error}</p>}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Champs d'un nouveau client, tous obligatoires. Partagés par tous les
+ * formulaires qui créent un client (vente, inscription, souscription,
+ * création rapide…) pour qu'ils demandent exactement les mêmes informations.
+ */
+export function NewClientFields({
+  value,
+  onChange,
+}: {
+  value: NewLearnerFormState;
+  onChange: (next: NewLearnerFormState) => void;
+}) {
+  const { t } = useTranslation();
+  const newLearner = value;
+
+  function set<K extends keyof NewLearnerFormState>(key: K, v: string) {
+    onChange({ ...value, [key]: v });
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label={t('common.firstName')}
+          required
+          value={newLearner.first_name}
+          onChange={(e) => set('first_name', e.target.value)}
+        />
+        <Input
+          label={t('common.lastName')}
+          required
+          value={newLearner.last_name}
+          onChange={(e) => set('last_name', e.target.value)}
+        />
+      </div>
+      <Input
+        label={t('common.email')}
+        type="email"
+        required
+        value={newLearner.email}
+        onChange={(e) => set('email', e.target.value)}
+      />
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label={t('common.phone')}
+          required
+          value={newLearner.phone}
+          onChange={(e) => set('phone', e.target.value)}
+        />
+        <CountryAutocomplete
+          label={t('common.country')}
+          required
+          value={newLearner.country}
+          onChange={(value) => set('country', value)}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label={t('common.city')}
+          required
+          value={newLearner.city}
+          onChange={(e) => set('city', e.target.value)}
+        />
+        <Input
+          label={t('common.nationality')}
+          required
+          value={newLearner.nationality}
+          onChange={(e) => set('nationality', e.target.value)}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label={t('common.quartier')}
+          required
+          value={newLearner.quartier}
+          onChange={(e) => set('quartier', e.target.value)}
+        />
+        <Input
+          label={t('common.occupation')}
+          required
+          value={newLearner.occupation}
+          onChange={(e) => set('occupation', e.target.value)}
+        />
+      </div>
+    </>
   );
 }

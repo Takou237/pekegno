@@ -74,3 +74,26 @@ export interface AccountingTotals {
   expense: number;
   balance: number;
 }
+
+/** Moyens de paiement normalisés (App\Services\RevenueService::MODES). */
+export type PaymentMode = 'cash' | 'om' | 'momo' | 'mobile' | 'bank';
+
+export const PAYMENT_MODES: PaymentMode[] = ['cash', 'om', 'momo', 'mobile', 'bank'];
+
+/** Ligne de la comptabilité par élément du catalogue. */
+export interface CatalogRevenueRow {
+  key: string;
+  kind: 'product' | 'service' | 'course' | 'package' | 'other';
+  id: string | null;
+  name: string;
+  category: string | null;
+  quantity: number;
+  billed: number;
+  collected: number;
+  by_mode: Record<PaymentMode, number>;
+}
+
+export interface CatalogRevenueReport {
+  rows: CatalogRevenueRow[];
+  totals: { quantity: number; billed: number; collected: number; by_mode: Record<PaymentMode, number> };
+}

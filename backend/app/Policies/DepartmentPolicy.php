@@ -26,7 +26,7 @@ class DepartmentPolicy
     public function view(User $user, Department $department): bool
     {
         if (in_array($user->role?->name, ['super-admin', 'direction-generale'])) {
-            return true;
+            return $this->inDirectorCountry($user, $department->agency_id);
         }
 
         if ($user->role?->name === 'responsable-agence') {
@@ -59,7 +59,7 @@ class DepartmentPolicy
     public function update(User $user, Department $department): bool
     {
         if (in_array($user->role?->name, ['super-admin', 'direction-generale'])) {
-            return true;
+            return $this->inDirectorCountry($user, $department->agency_id);
         }
 
         if ($user->role?->name === 'responsable-agence') {
@@ -108,5 +108,17 @@ class DepartmentPolicy
             ->wherePivot('department_id', $department->id)
             ->wherePivot('is_department_chief', true)
             ->exists();
+    }
+
+    /** Directeur général rattaché à un pays : uniquement les agences de ce pays. */
+    private function inDirectorCountry(User $user, ?string $agencyId): bool
+    {
+        $scope = app(\App\Services\ScopeService::class);
+
+        if ($scope->directorCountryId($user) === null) {
+            return true;
+        }
+
+        return in_array($agencyId, $scope->agencyIds($user) ?? [], true);
     }
 }

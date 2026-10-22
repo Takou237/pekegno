@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\CountryResource;
 use App\Models\Country;
 use App\Models\Organization;
+use App\Services\ScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -30,8 +31,12 @@ class CountryController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
+        // Directeur général rattaché à un pays : uniquement son pays.
+        $directorCountryId = app(ScopeService::class)->directorCountryId($request->user());
+
         $query = Country::query()
             ->withCount(['cities', 'agencies'])
+            ->when($directorCountryId, fn ($q, $id) => $q->whereKey($id))
             ->when($request->input('search'), function ($q, $search) {
                 $q->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")
@@ -112,8 +117,11 @@ class CountryController extends Controller
             new OA\Response(response: 200, description: 'Pays'),
         ]
     )]
-    public function show(Country $country): CountryResource
+    public function show(Request $request, Country $country): CountryResource
     {
+        $directorCountryId = app(ScopeService::class)->directorCountryId($request->user());
+        abort_if($directorCountryId !== null && $directorCountryId !== $country->id, 403, 'Ce pays est hors de votre périmètre.');
+
         $country->load(['organization', 'cities', 'agencies']);
 
         return new CountryResource($country);

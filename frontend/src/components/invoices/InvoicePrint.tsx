@@ -142,6 +142,13 @@ export function InvoicePrint({ invoice }: { invoice: Invoice }) {
         .
       </p>
 
+      {/* Commentaire saisi sur la facture */}
+      {invoice.comment?.trim() && (
+        <p className="mt-3 whitespace-pre-line pl-6 text-xs">
+          <strong>Commentaire :</strong> {invoice.comment}
+        </p>
+      )}
+
       {/* Moyens de paiement */}
       {accounts.length > 0 && (
         <table className="mt-4 w-full border-collapse border border-gray-800 text-[11px]">

@@ -22,8 +22,11 @@ import type { Category } from '@/types/category';
 
 const UserListPage = lazyWithRetry(() => import('@/pages/users/UserListPage'));
 const RolesPrivilegesPage = lazyWithRetry(() => import('@/pages/RolesPrivilegesPage'));
+const CommissionSettingsTab = lazyWithRetry(() =>
+  import('@/components/commissions/CommissionSettingsTab').then((m) => ({ default: m.CommissionSettingsTab })),
+);
 
-type Tab = 'general' | 'accounting-cats' | 'service-cats' | 'users' | 'privileges';
+type Tab = 'general' | 'commissions' | 'accounting-cats' | 'service-cats' | 'users' | 'privileges';
 
 interface SettingsForm {
   sales_points_per_sale: string;
@@ -53,7 +56,7 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
-  const isWideTab = activeTab === 'users' || activeTab === 'privileges';
+  const isWideTab = activeTab === 'users' || activeTab === 'privileges' || activeTab === 'commissions';
 
   return (
     <div className={`mx-auto flex w-full flex-col gap-6 ${isWideTab ? '' : 'max-w-4xl'}`}>
@@ -65,6 +68,7 @@ export default function SettingsPage() {
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
         {([
           ['general', t('settingsPage.tabGeneral')],
+          ['commissions', t('settingsPage.tabCommissions')],
           ['accounting-cats', t('settingsPage.tabAccountingCategories')],
           ['service-cats', t('settingsPage.tabServiceCategories')],
           ['users', t('settingsPage.tabUsers')],
@@ -85,6 +89,11 @@ export default function SettingsPage() {
       </div>
 
       {activeTab === 'general' && <GeneralSettingsTab />}
+      {activeTab === 'commissions' && (
+        <Suspense fallback={<SkeletonTable rows={5} />}>
+          <CommissionSettingsTab />
+        </Suspense>
+      )}
       {activeTab === 'accounting-cats' && <AccountingCategoriesTab />}
       {activeTab === 'service-cats' && <ServiceCategoriesTab />}
       {activeTab === 'users' && (
@@ -151,8 +160,6 @@ function GeneralSettingsTab() {
         prospect_points_per_conversion: Number(form.prospect_points_per_conversion),
         inactivity_period_days: Number(form.inactivity_period_days),
         inactivity_penalty_points: Number(form.inactivity_penalty_points),
-        default_commission_type: form.default_commission_type,
-        default_commission_value: Number(form.default_commission_value),
         invoice_prefix: form.invoice_prefix.trim() || 'PK',
         group_currency: form.group_currency.trim().toUpperCase() || 'XAF',
       });
@@ -192,17 +199,6 @@ function GeneralSettingsTab() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label={t('settingsPage.inactivityPeriodDays')} hint={t('settingsPage.inactivityPeriodDaysHint')} type="number" min="1" max="365" required value={form.inactivity_period_days} onChange={(e) => setForm((p) => ({ ...p, inactivity_period_days: e.target.value }))} />
             <Input label={t('settingsPage.inactivityPenaltyPoints')} hint={t('settingsPage.inactivityPenaltyPointsHint')} type="number" min="0" max="1000" required value={form.inactivity_penalty_points} onChange={(e) => setForm((p) => ({ ...p, inactivity_penalty_points: e.target.value }))} />
-          </div>
-        </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('settingsPage.commission')}</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Select label={t('settingsPage.defaultCommissionType')} value={form.default_commission_type} onChange={(e) => setForm((p) => ({ ...p, default_commission_type: e.target.value as CommissionType }))}>
-              <option value="none">{t('settingsPage.commissionNone')}</option>
-              <option value="percent">{t('settingsPage.commissionPercent')}</option>
-              <option value="fixed">{t('settingsPage.commissionFixed')}</option>
-            </Select>
-            <Input label={t('settingsPage.defaultCommissionValue')} type="number" min="0" step="0.01" required value={form.default_commission_value} onChange={(e) => setForm((p) => ({ ...p, default_commission_value: e.target.value }))} />
           </div>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">

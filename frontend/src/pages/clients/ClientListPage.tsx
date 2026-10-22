@@ -454,6 +454,7 @@ export default function ClientListPage() {
             label={t('clients.phone')}
             type="tel"
             name="phone"
+            required
             value={form.phone}
             onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
             error={formErrors.phone}
@@ -463,6 +464,7 @@ export default function ClientListPage() {
             <Input
               label={t('clients.city')}
               name="city"
+              required
               value={form.city}
               onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
               error={formErrors.city}
@@ -470,6 +472,7 @@ export default function ClientListPage() {
             <CountryAutocomplete
               label={t('clients.country')}
               name="country"
+              required
               value={form.country}
               onChange={(value) => setForm((p) => ({ ...p, country: value }))}
               error={formErrors.country}
@@ -487,6 +490,7 @@ export default function ClientListPage() {
             <Input
               label={t('clients.nationality')}
               name="nationality"
+              required
               value={form.nationality}
               onChange={(e) => setForm((p) => ({ ...p, nationality: e.target.value }))}
               error={formErrors.nationality}
@@ -494,6 +498,7 @@ export default function ClientListPage() {
             <Input
               label={t('clients.quartier')}
               name="quartier"
+              required
               value={form.quartier}
               onChange={(e) => setForm((p) => ({ ...p, quartier: e.target.value }))}
               error={formErrors.quartier}
@@ -501,6 +506,7 @@ export default function ClientListPage() {
             <Input
               label={t('clients.occupation')}
               name="occupation"
+              required
               value={form.occupation}
               onChange={(e) => setForm((p) => ({ ...p, occupation: e.target.value }))}
               error={formErrors.occupation}

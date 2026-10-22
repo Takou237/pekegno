@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\ScopeService;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use Illuminate\Http\JsonResponse;
@@ -32,7 +33,7 @@ class ActivityLogController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $query = ActivityLog::query()
+        $query = app(ScopeService::class)->scopeManagerQuery(ActivityLog::query(), $request->user())
             ->with('user:id,first_name,last_name,email', 'agency:id,name,code,country', 'country:id,name,code')
             ->when($request->user_id, fn ($q, $id) => $q->where('user_id', $id))
             ->when($request->entity_type, fn ($q, $t) => $q->where('entity_type', $t))

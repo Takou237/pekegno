@@ -7,6 +7,8 @@ use App\Models\AccountingTransaction;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
 use App\Services\ScopeService;
+use App\Services\CatalogRevenueService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +30,8 @@ class AccountingController extends Controller
     private function applyCashierScope($query, $user, string $column = 'agency_id')
     {
         if (($user->role?->name ?? '') !== 'caissier') {
-            return $query;
+            // Chefs et directeur général : écritures de leur espace uniquement.
+            return app(\App\Services\ScopeService::class)->scopeManagerQuery($query, $user, $column);
         }
         $agencyIds = DB::table('user_assignments')
             ->where('user_id', $user->id)
@@ -99,6 +102,38 @@ class AccountingController extends Controller
                 'balance' => round((float) $totals->income - (float) $totals->expense, 2),
             ],
         ]);
+    }
+
+    /**
+     * Comptabilité par élément du catalogue (produits, prestations, formations,
+     * packages) : quantités, facturé et encaissements par moyen de paiement.
+     * Construit à la volée depuis le catalogue : un élément créé apparaît
+     * aussitôt, même sans vente.
+     */
+    public function catalogRevenue(Request $request, CatalogRevenueService $service): JsonResponse
+    {
+        $validated = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'agency_id' => ['nullable', 'uuid', 'exists:agencies,id'],
+        ]);
+
+        $user = $request->user();
+        if ($user->role?->name === 'caissier') {
+            $agencyIds = DB::table('user_assignments')->where('user_id', $user->id)->pluck('agency_id')->filter()->values()->all();
+        } else {
+            $agencyIds = app(ScopeService::class)->agencyIds($user);
+        }
+
+        if (! empty($validated['agency_id'])) {
+            abort_if($agencyIds !== null && ! in_array($validated['agency_id'], $agencyIds, true), 403, 'Agence hors de votre périmètre.');
+            $agencyIds = [$validated['agency_id']];
+        }
+
+        $from = Carbon::parse($validated['from'] ?? now()->startOfMonth());
+        $to = Carbon::parse($validated['to'] ?? now());
+
+        return response()->json($service->report($from, $to, $agencyIds));
     }
 
     #[OA\Post(

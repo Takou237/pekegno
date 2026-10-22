@@ -36,7 +36,8 @@ class ProspectController extends Controller
         }
 
         if (in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
-            return $query;
+            // Directeur général rattaché à un pays : les agences de ce pays.
+            return app(\App\Services\ScopeService::class)->scopeManagerQuery($query, $user);
         }
 
         if (in_array($user->role?->name, ['responsable-agence', 'responsable-departement'], true)) {

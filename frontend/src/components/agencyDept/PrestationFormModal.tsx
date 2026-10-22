@@ -10,7 +10,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { CommercialPicker } from './Pickers';
-import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
+import { EnrollmentLearnerField, emptyNewLearnerForm, isNewLearnerComplete, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { clientsApi } from '@/api/clients.api';
 import type { AgencyCategory, Prestation, PrestationOffer } from '@/types/agencyDepartment';
 import type { Agency } from '@/types/agency';
@@ -141,7 +141,7 @@ export function PrestationFormModal({
     // Comme l'inscription à une formation : création du client à la volée.
     let resolvedClientId = form.client_id;
     if (!prestation && clientMode === 'new') {
-      if (!newClient.first_name.trim() || !newClient.last_name.trim()) {
+      if (!isNewLearnerComplete(newClient)) {
         setError(t('academy.newLearnerRequired'));
         setSaving(false);
         return;
@@ -208,11 +208,9 @@ export function PrestationFormModal({
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {error && <Alert variant="error">{error}</Alert>}
-        {!prestation && (
+        {!prestation && offer && (
           <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
-            {offer
-              ? t('agencyDept.offers.subscribingTo', { name: offer.name })
-              : t('agencyDept.prestations.newSubscriptionHint')}
+            {t('agencyDept.offers.subscribingTo', { name: offer.name })}
           </p>
         )}
         {!prestation && needsOfferChoice && (

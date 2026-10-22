@@ -76,9 +76,9 @@ class CourseController extends Controller
             ->when($request->promotion, function ($q, $v) {
                 $now = now();
                 if ($v === 'active') {
-                    $q->whereHas('promotions', fn ($pq) => $pq->where('start_date', '<=', $now)->where('end_date', '>=', $now));
+                    $q->whereHas('promotions', fn ($pq) => $pq->where('start_date', '<=', $now)->whereDate('end_date', '>=', $now->toDateString()));
                 } elseif ($v === 'none') {
-                    $q->whereDoesntHave('promotions', fn ($pq) => $pq->where('start_date', '<=', $now)->where('end_date', '>=', $now));
+                    $q->whereDoesntHave('promotions', fn ($pq) => $pq->where('start_date', '<=', $now)->whereDate('end_date', '>=', $now->toDateString()));
                 }
             })
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))

@@ -8,6 +8,8 @@ import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { servicesApi } from '@/api/services.api';
+import { academyApi } from '@/api/academy.api';
+import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { productsApi, type ProductSearchItem } from '@/api/products.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -25,11 +27,22 @@ import type { Commercial } from '@/types/commercial';
 import { todayLocal } from '@/utils/date';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 
+/** Type de ligne : il filtre la recherche du catalogue (champ à côté). */
+type LineKind = 'product' | 'course' | 'package' | 'service';
+
+interface CatalogOption {
+  id: string;
+  name: string;
+  price: number;
+}
+
 interface InvoiceLineDraft {
   key: string;
-  kind: 'service' | 'product' | 'free';
+  kind: LineKind;
   service_id: string;
   product_id: string;
+  course_id: string;
+  package_id: string;
   label: string;
   unit_price: string;
   quantity: string;
@@ -39,7 +52,7 @@ interface InvoiceLineDraft {
 let lineCounter = 0;
 function newLine(): InvoiceLineDraft {
   lineCounter += 1;
-  return { key: `line-${lineCounter}`, kind: 'service', service_id: '', product_id: '', label: '', unit_price: '', quantity: '1', pass_tier: '' };
+  return { key: `line-${lineCounter}`, kind: 'product', service_id: '', product_id: '', course_id: '', package_id: '', label: '', unit_price: '', quantity: '1', pass_tier: '' };
 }
 
 export default function InvoiceFormPage({
@@ -92,7 +105,7 @@ export default function InvoiceFormPage({
   const [myCommercial, setMyCommercial] = useState<Commercial | null>(null);
   const serviceResultsRef = useRef<Record<string, ServiceSearchItem[]>>({});
   const productResultsRef = useRef<Record<string, ProductSearchItem[]>>({});
-  const [creatingProduct, setCreatingProduct] = useState<Record<string, boolean>>({});
+  const offerResultsRef = useRef<Record<string, CatalogOption[]>>({});
 
   // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
   // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
@@ -200,6 +213,8 @@ export default function InvoiceFormPage({
       kind: 'service',
       service_id: service.id,
       product_id: '',
+      course_id: '',
+      package_id: '',
       label: service.name,
       unit_price: String(service.effective_price ?? service.price ?? ''),
     };
@@ -225,51 +240,75 @@ export default function InvoiceFormPage({
       kind: 'product',
       product_id: product.id,
       service_id: '',
+      course_id: '',
+      package_id: '',
       label: product.name,
       unit_price: String(product.selling_price ?? product.price_with_tax ?? ''),
       pass_tier: '',
     });
   }
 
-  /** Création d'un produit inexistant à la volée (puis sélection auto). */
-  async function handleCreateProduct(key: string) {
-    const line = lines.find((l) => l.key === key);
-    if (!line || !line.label.trim()) {
-      showToast(t('invoices.productNameRequired'), 'error');
+  /** Formation ou package choisi : prix effectif (promotion comprise). */
+  function handleOfferSelect(key: string, kind: 'course' | 'package', id: string) {
+    const offer = (offerResultsRef.current[key] ?? []).find((o) => o.id === id);
+    if (!offer) return;
+    const field = kind === 'course' ? 'course_id' : 'package_id';
+    if (lines.some((l) => l.key !== key && l[field] === id)) {
+      showToast(t('invoices.duplicateService'), 'error');
       return;
     }
-    if (!agencyId) {
-      showToast(t('services.selectAgency'), 'error');
-      return;
+    updateLine(key, {
+      kind,
+      service_id: '',
+      product_id: '',
+      course_id: kind === 'course' ? offer.id : '',
+      package_id: kind === 'package' ? offer.id : '',
+      label: offer.name,
+      unit_price: String(offer.price),
+      pass_tier: '',
+    });
+  }
+
+  /** Recherche du catalogue selon le type de la ligne. */
+  async function searchCatalog(key: string, kind: LineKind, query: string): Promise<AutocompleteOption[]> {
+    const q = query.trim();
+    if (kind === 'service') {
+      const res = await servicesApi.search(q);
+      serviceResultsRef.current[key] = res;
+      return res.map((s) => ({
+        id: s.id,
+        label: s.name,
+        subtitle: `${formatCurrency(Number(s.effective_price ?? s.price), currency)}${s.has_promotion ? ' · promo' : ''}${s.category ? ` · ${s.category}` : ''}`,
+      }));
     }
-    setCreatingProduct((p) => ({ ...p, [key]: true }));
-    try {
-      const created = await productsApi.create({
-        name: line.label.trim(),
-        selling_price: Number(line.unit_price) || 0,
-        agency_id: agencyId,
-      });
-      productResultsRef.current[key] = [...(productResultsRef.current[key] ?? []), created];
-      updateLine(key, {
-        kind: 'product',
-        product_id: created.id,
-        service_id: '',
-        label: created.name,
-        unit_price: String(created.selling_price ?? line.unit_price),
-        pass_tier: '',
-      });
-      showToast(t('invoices.productCreated'), 'success');
-    } catch (e) {
-      showToast(t('invoices.productCreateFailed'), 'error');
-    } finally {
-      setCreatingProduct((p) => ({ ...p, [key]: false }));
+    if (kind === 'product') {
+      const res = await productsApi.search(q, agencyId || undefined);
+      productResultsRef.current[key] = res;
+      return res.map((p) => ({
+        id: p.id,
+        label: p.name,
+        subtitle: `${formatCurrency(Number(p.selling_price), currency)}${p.category ? ` · ${p.category}` : ''}`,
+      }));
     }
+    const offers: CatalogOption[] = kind === 'course'
+      ? (await academyApi.courses({ search: q || undefined, agency_id: agencyId || undefined, per_page: 20 })).data.map((c) => ({
+          id: c.id,
+          name: c.name,
+          price: Number(c.effective_price ?? c.price ?? 0),
+        }))
+      : (await agencyDeptApi.packages({ search: q || undefined, agency_id: agencyId || undefined, per_page: 20 })).map((pk) => ({
+          id: pk.id,
+          name: pk.name,
+          price: Number(pk.effective_price ?? pk.price_per_month ?? 0),
+        }));
+    offerResultsRef.current[key] = offers;
+    return offers.map((o) => ({ id: o.id, label: o.name, subtitle: formatCurrency(o.price, currency) }));
   }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const validLines = lines.filter(
-      (l) => l.label.trim() || l.service_id || l.product_id || Number(l.unit_price) > 0
+      (l) => l.label.trim() || l.service_id || l.product_id || l.course_id || l.package_id || Number(l.unit_price) > 0
     );
     if (validLines.length === 0) {
       setErrors({ items: t('invoices.noItems') });
@@ -318,6 +357,8 @@ export default function InvoiceFormPage({
         items: validLines.map((l) => ({
           service_id: l.kind === 'service' ? l.service_id || undefined : undefined,
           product_id: l.kind === 'product' ? l.product_id || undefined : undefined,
+          course_id: l.kind === 'course' ? l.course_id || undefined : undefined,
+          package_id: l.kind === 'package' ? l.package_id || undefined : undefined,
           label: l.label.trim() || undefined,
           unit_price: Number(l.unit_price) || 0,
           quantity: Number(l.quantity) || 1,
@@ -367,7 +408,6 @@ export default function InvoiceFormPage({
               placeholder={t('invoices.headerClientPlaceholder')}
               value={clientId}
               onChange={setClientId}
-              freeText
               fetchOptions={async (query) => {
                 const res = await clientsApi.search(query.trim());
                 return res.map((c) => ({
@@ -531,74 +571,51 @@ export default function InvoiceFormPage({
               return (
               <div key={line.key} className="flex flex-col gap-3 rounded-xl border border-gray-100 p-3 dark:border-gray-800">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="w-full sm:w-36">
+                <div className="w-full sm:w-40">
                   <Select
                     label={index === 0 ? t('invoices.itemKind') : undefined}
                     value={line.kind}
                     onChange={(e) => {
-                      const kind = e.target.value as InvoiceLineDraft['kind'];
+                      // Changer de type vide la sélection : la recherche ne porte
+                      // plus sur le même catalogue.
                       updateLine(line.key, {
-                        kind,
-                        service_id: kind === 'service' ? line.service_id : '',
-                        product_id: kind === 'product' ? line.product_id : '',
-                        pass_tier: kind === 'service' ? line.pass_tier : '',
+                        kind: e.target.value as LineKind,
+                        service_id: '',
+                        product_id: '',
+                        course_id: '',
+                        package_id: '',
+                        label: '',
+                        unit_price: '',
+                        pass_tier: '',
                       });
                     }}
                   >
-                    <option value="service">{t('invoices.kindService')}</option>
-                    <option value="product">{t('invoices.kindProduct')}</option>
-                    <option value="free">{t('invoices.kindFree')}</option>
+                    <option value="product">{t('invoices.kindProducts')}</option>
+                    <option value="course">{t('invoices.kindCourses')}</option>
+                    <option value="package">{t('invoices.kindPackages')}</option>
+                    <option value="service">{t('invoices.kindPrestations')}</option>
                   </Select>
                 </div>
-                {line.kind === 'service' ? (
                 <div className="min-w-0 flex-1">
                   <Autocomplete
-                    label={index === 0 ? t('invoices.itemService') : undefined}
-                    placeholder={t('invoices.itemServicePlaceholder')}
-                    value={line.service_id}
-                    onChange={(serviceId) => handleServiceSelect(line.key, serviceId)}
-                      fetchOptions={async (query) => {
-                        const res = await servicesApi.search(query.trim());
-                        serviceResultsRef.current[line.key] = res;
-                        return res.map((s) => ({
-                          id: s.id,
-                          label: s.name,
-                          subtitle: `${formatCurrency(Number(s.effective_price ?? s.price), currency)}${
-                            s.has_promotion ? ' · promo' : ''
-                          }${s.category ? ` · ${s.category}` : ''}`,
-                        }));
-                      }}
+                    key={`${line.key}-${line.kind}`}
+                    label={index === 0 ? t(`invoices.kindSearch_${line.kind}`) : undefined}
+                    placeholder={t(`invoices.kindSearchPlaceholder_${line.kind}`)}
+                    value={
+                      line.kind === 'service' ? line.service_id
+                        : line.kind === 'product' ? line.product_id
+                        : line.kind === 'course' ? line.course_id
+                        : line.package_id
+                    }
+                    onChange={(id) => {
+                      if (!id) return;
+                      if (line.kind === 'service') handleServiceSelect(line.key, id);
+                      else if (line.kind === 'product') handleProductSelect(line.key, id);
+                      else handleOfferSelect(line.key, line.kind, id);
+                    }}
+                    fetchOptions={(query) => searchCatalog(line.key, line.kind, query)}
                   />
                 </div>
-                ) : line.kind === 'product' ? (
-                <div className="min-w-0 flex-1">
-                  <Autocomplete
-                    label={index === 0 ? t('invoices.itemProduct') : undefined}
-                    placeholder={t('invoices.itemProductPlaceholder')}
-                    value={line.product_id}
-                    onChange={(productId) => handleProductSelect(line.key, productId)}
-                      fetchOptions={async (query) => {
-                        const res = await productsApi.search(query.trim(), agencyId || undefined);
-                        productResultsRef.current[line.key] = res;
-                        return res.map((p) => ({
-                          id: p.id,
-                          label: p.name,
-                          subtitle: `${formatCurrency(Number(p.selling_price), currency)}${p.category ? ` · ${p.category}` : ''}`,
-                        }));
-                      }}
-                  />
-                </div>
-                ) : (
-                <div className="min-w-0 flex-1">
-                  <Input
-                    label={index === 0 ? t('invoices.itemLabel') : ''}
-                    value={line.label}
-                    onChange={(e) => updateLine(line.key, { label: e.target.value })}
-                    error={errors[`items.${index}.label`]}
-                    hint={index === 0 ? t('invoices.freeProductHint') : undefined}
-                  />
-                </div>
-                )}
                 {hasTiers && (
                   <div className="w-full sm:w-40">
                     <Select
@@ -620,7 +637,6 @@ export default function InvoiceFormPage({
                 )}
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                {line.kind !== 'free' && (
                 <div className="w-full sm:w-52">
                   <Input
                     label={index === 0 ? t('invoices.itemLabel') : ''}
@@ -629,22 +645,6 @@ export default function InvoiceFormPage({
                     error={errors[`items.${index}.label`]}
                   />
                 </div>
-                )}
-                {line.kind === 'product' && (
-                  <div className="flex items-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={creatingProduct[line.key] || !line.label.trim()}
-                      onClick={() => handleCreateProduct(line.key)}
-                      title={t('invoices.createProductHint')}
-                    >
-                      <Plus className="h-4 w-4" />
-                      {creatingProduct[line.key] ? '…' : t('invoices.createProduct')}
-                    </Button>
-                  </div>
-                )}
                 <div className="w-full sm:w-24">
                   <Input
                     label={index === 0 ? t('invoices.itemQuantity') : ''}

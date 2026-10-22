@@ -9,11 +9,15 @@ use App\Http\Requests\Api\UpdateInvoiceRequest;
 use App\Mail\InvoiceStatusMail;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Models\SubscriptionPack;
+use App\Models\Course;
 use App\Models\PaymentProof;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\SessionParticipant;
 use App\Models\User;
+use App\Services\ScopeService;
+use App\Support\InvoiceValidators;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
 use App\Services\CommissionService;
@@ -74,6 +78,15 @@ class InvoiceController extends Controller
                 ->all();
 
             return $query->whereIn('agency_id', $agencyIds);
+        }
+
+        // Chefs d'agence / de département, directeur général rattaché à un pays :
+        // uniquement les factures de leur périmètre (agences de leur espace).
+        if (in_array($user->role?->name, ['responsable-agence', 'responsable-departement', 'direction-generale'], true)) {
+            $agencyIds = app(ScopeService::class)->agencyIds($user);
+            if ($agencyIds !== null) {
+                return $query->whereIn('agency_id', $agencyIds);
+            }
         }
 
         return $query;
@@ -227,12 +240,21 @@ class InvoiceController extends Controller
             ]);
         }
 
+        // Chef d'agence / de département, directeur général : vente uniquement
+        // dans une agence de leur espace.
+        if (! empty($data['agency_id'])) {
+            $scoped = app(ScopeService::class)->scopeManagerQuery(\App\Models\Agency::query(), $request->user(), 'id');
+            abort_unless($scoped->whereKey($data['agency_id'])->exists(), 403, 'Cette agence est hors de votre périmètre.');
+        }
+
         $invoice = DB::transaction(function () use ($data, $request) {
             $items = collect($data['items'])->map(function (array $line) {
                 $service = isset($line['service_id']) ? Service::find($line['service_id']) : null;
                 $product = isset($line['product_id']) ? Product::find($line['product_id']) : null;
+                $course = isset($line['course_id']) ? Course::find($line['course_id']) : null;
+                $package = isset($line['package_id']) ? SubscriptionPack::find($line['package_id']) : null;
 
-                if ($service && $product) {
+                if (count(array_filter([$service, $product, $course, $package])) > 1) {
                     throw ValidationException::withMessages([
                         'items' => 'Une ligne ne peut pas référencer à la fois un service et un produit.',
                     ]);
@@ -257,11 +279,21 @@ class InvoiceController extends Controller
                     }
                 }
 
+                // Formation / package : prix effectif (promotion comprise) si l'écran
+                // envoie le prix normal ou rien.
+                $catalogPrice = match (true) {
+                    $course !== null => $this->offerUnitPrice((float) $course->price, (float) $course->effective_price, $line['unit_price'] ?? null),
+                    $package !== null => $this->offerUnitPrice((float) $package->price_per_month, (float) $package->effective_price, $line['unit_price'] ?? null),
+                    default => $this->catalogUnitPrice($service, $line['unit_price'] ?? null),
+                };
+
                 return [
                     'service_id' => $service?->id,
                     'product_id' => $product?->id,
-                    'label' => $line['label'] ?? $service?->name ?? $product?->name,
-                    'unit_price' => $pass ? (float) $pass->price : (float) ($line['unit_price'] ?? $service?->effective_price ?? 0),
+                    'course_id' => $course?->id,
+                    'package_id' => $package?->id,
+                    'label' => $line['label'] ?? $service?->name ?? $product?->name ?? $course?->name ?? $package?->name,
+                    'unit_price' => $pass ? (float) $pass->price : $catalogPrice,
                     'quantity' => (int) $line['quantity'],
                     'pass_tier' => $pass?->tier,
                     'pass_label' => $pass?->label,
@@ -288,12 +320,12 @@ class InvoiceController extends Controller
                 ]);
             }
 
-            // Seuls le super-admin et le caissier valident directement leurs ventes.
-            // Toutes les autres factures commencent en attente, y compris celles créées
-            // par un rôle qui ne peut pas valider.
+            // Les rôles validateurs (super-admin, directeur général, caissier)
+            // valident directement leurs ventes. Toutes les autres factures
+            // (commerciaux, chefs d'agence / de département…) commencent en attente.
             $creatorRole = $request->user()->role?->name;
             $isCommercialSale = $creatorRole === 'commercial';
-            $needsValidation = ! in_array($creatorRole, ['super-admin', 'caissier'], true);
+            $needsValidation = ! InvoiceValidators::allows($creatorRole);
 
             // Une vente faite par un commercial est automatiquement rattachée à son propre
             // profil même si l'écran de saisie n'envoie pas commercial_id (vente rapide, etc.).
@@ -348,6 +380,7 @@ class InvoiceController extends Controller
                 $invoice->items()->create([
                     'service_id' => $line['service_id'],
                     'product_id' => $line['product_id'] ?? null,
+                    'package_id' => $line['package_id'] ?? null,
                     'label' => $line['label'],
                     'unit_price' => $line['unit_price'],
                     'quantity' => $line['quantity'],
@@ -355,6 +388,21 @@ class InvoiceController extends Controller
                     'pass_tier' => $line['pass_tier'],
                     'pass_label' => $line['pass_label'],
                 ]);
+            }
+
+            // Ligne formation : le client est inscrit à la formation (module Academy),
+            // l'inscription est rattachée à cette facture.
+            if ($invoice->client_id) {
+                foreach ($items->pluck('course_id')->filter()->unique() as $courseId) {
+                    FormationEnrollment::create([
+                        'course_id' => $courseId,
+                        'learner_user_id' => $invoice->client_id,
+                        'invoice_id' => $invoice->id,
+                        'seller_user_id' => $invoice->seller_user_id,
+                        'enrolled_at' => now(),
+                        'status' => 'enrolled',
+                    ]);
+                }
             }
 
             // Preuve de paiement jointe à la création de la facture : le commercial
@@ -442,6 +490,40 @@ class InvoiceController extends Controller
      * Données du modèle de facture imprimable : émetteur (entité du pays de
      * l'agence), destinataire, description et période de chaque ligne.
      */
+    /**
+     * Prix unitaire d'une ligne catalogue. Un service en promotion se vend au
+     * prix promotionnel : si l'écran envoie le prix normal (catalogue chargé
+     * avant la promo, saisie par défaut), on le remplace par le prix promo pour
+     * que la facture, la comptabilité et les commissions portent le bon montant.
+     * Un prix saisi différent (remise négociée) est conservé.
+     */
+    private function catalogUnitPrice(?Service $service, mixed $requested): float
+    {
+        if ($requested === null || $requested === '') {
+            return (float) ($service?->effective_price ?? 0);
+        }
+
+        $requested = (float) $requested;
+
+        if ($service && abs($requested - (float) $service->price) < 0.005) {
+            return min($requested, (float) $service->effective_price);
+        }
+
+        return $requested;
+    }
+
+    /** Prix d'une formation / d'un package : le prix normal envoyé devient le prix effectif. */
+    private function offerUnitPrice(float $regular, float $effective, mixed $requested): float
+    {
+        if ($requested === null || $requested === '') {
+            return $effective;
+        }
+
+        $requested = (float) $requested;
+
+        return abs($requested - $regular) < 0.005 ? min($requested, $effective) : $requested;
+    }
+
     private function printData(Invoice $invoice): array
     {
         $country = $invoice->agency?->geoCountry;
@@ -582,15 +664,20 @@ class InvoiceController extends Controller
                         }
                     }
 
+                    // Ligne ajoutée pendant une promotion : le prix promotionnel s'applique.
+                    $unitPrice = $pass
+                        ? (float) $pass->price
+                        : ($existing ? (float) $line['unit_price'] : $this->catalogUnitPrice($service, $line['unit_price']));
+
                     $normalizedItems[] = [
                         'existing' => $existing,
                         'attributes' => [
                             'service_id' => $service?->id,
                             'product_id' => $product?->id,
                             'label' => $line['label'] ?? $service?->name ?? $product?->name ?? '',
-                            'unit_price' => $pass ? (float) $pass->price : (float) $line['unit_price'],
+                            'unit_price' => $unitPrice,
                             'quantity' => (int) $line['quantity'],
-                            'line_total' => round(($pass ? (float) $pass->price : (float) $line['unit_price']) * (int) $line['quantity'], 2),
+                            'line_total' => round($unitPrice * (int) $line['quantity'], 2),
                             'pass_tier' => $pass?->tier,
                             'pass_label' => $pass?->label,
                         ],

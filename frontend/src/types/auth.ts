@@ -30,6 +30,10 @@ export interface User {
   phone: string | null;
   role_id: string | null;
   role: Role | null;
+  /** Pays d'attribution (directeur général : son espace commence à ce pays). */
+  country_id?: string | null;
+  /** Noms des permissions du rôle (menu construit pour les rôles personnalisés). */
+  permissions?: string[];
   is_active: boolean;
   two_factor_enabled: boolean;
   two_factor_channel: TwoFactorChannel;

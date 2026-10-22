@@ -48,7 +48,9 @@ class Promotion extends Model
 
     public function isActive(): bool
     {
-        return $this->start_date <= now() && $this->end_date >= now();
+        // Les dates sont saisies au jour (00:00) : la promotion reste valable
+        // toute la journée de fin, sinon elle expire dès minuit le dernier jour.
+        return $this->start_date <= now() && $this->end_date?->copy()->endOfDay() >= now();
     }
 
     /**

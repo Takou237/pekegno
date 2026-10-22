@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\ScopeService;
 use App\Http\Controllers\Controller;
 use App\Models\Expense;
 use App\Services\ExpenseService;
@@ -33,6 +34,7 @@ class ExpenseController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Expense::query()->with(['agency', 'category', 'requestor']);
+        app(ScopeService::class)->scopeManagerQuery($query, $request->user());
 
         if ($request->filled('status')) {
             $query->ofStatus($request->input('status'));

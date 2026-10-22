@@ -317,7 +317,7 @@ class Phase4CustomersTest extends TestCase
 
     // ─── Application du périmètre (spec §3 sur les clients) ──────────────
 
-    public function test_client_list_and_search_are_scoped_for_assigned_user(): void
+    public function test_clients_are_global_for_assigned_user(): void
     {
         $this->admin();
 
@@ -335,13 +335,16 @@ class Phase4CustomersTest extends TestCase
 
         $this->chief('responsable-agence', $douala);
 
+        // Les clients ne sont rattachés à aucune agence : un chef d'agence de
+        // Douala retrouve aussi le client enregistré à Abidjan.
         $clients = $this->getJson('/api/clients')->assertOk()->json();
-        $this->assertCount(1, $clients['data']);
+        $this->assertCount(2, $clients['data']);
 
-        $search = $this->getJson('/api/clients/search?q=Scopé')->assertOk()->json();
-        $this->assertCount(1, $search);
+        $this->getJson('/api/clients/search?q=Scopé')->assertOk()->assertJsonCount(1);
+        $this->getJson('/api/clients/search?q=Hors')->assertOk()->assertJsonCount(1);
 
-        $this->getJson('/api/clients/search?q=Hors')->assertOk()->assertJsonCount(0);
+        // Le filtre explicite par agence d'inscription reste disponible.
+        $this->getJson("/api/clients?registered_agency_id={$douala->id}")->assertOk()->assertJsonCount(1, 'data');
     }
 
     // ─── Historique client (spec §9.3) ───────────────────────────────────

@@ -7,6 +7,8 @@ use App\Http\Requests\Api\StoreRoleRequest;
 use App\Http\Requests\Api\SyncRolePermissionsRequest;
 use App\Http\Requests\Api\UpdateRoleRequest;
 use App\Models\Role;
+use App\Models\Permission;
+use App\Support\InvoiceValidators;
 use App\Services\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use OpenApi\Attributes as OA;
@@ -58,7 +60,7 @@ class RoleController extends Controller
         $role = Role::create($request->only(['name', 'description']));
 
         if ($request->filled('permissions')) {
-            $role->permissions()->sync($request->input('permissions'));
+            $role->permissions()->sync($this->allowedPermissions($role, $request->input('permissions')));
         }
 
         $this->logger->log(
@@ -93,7 +95,7 @@ class RoleController extends Controller
         $role->update($request->only(['name', 'description']));
 
         if ($request->has('permissions')) {
-            $role->permissions()->sync($request->input('permissions', []));
+            $role->permissions()->sync($this->allowedPermissions($role, $request->input('permissions', [])));
         }
 
         $this->logger->log(
@@ -125,7 +127,7 @@ class RoleController extends Controller
     )]
     public function syncPermissions(SyncRolePermissionsRequest $request, Role $role): JsonResponse
     {
-        $role->permissions()->sync($request->input('permissions', []));
+        $role->permissions()->sync($this->allowedPermissions($role, $request->input('permissions', [])));
 
         $this->logger->log(
             action: 'permissions_synced',
@@ -187,5 +189,24 @@ class RoleController extends Controller
         );
 
         return response()->json(['message' => 'Rôle supprimé avec succès.']);
+    }
+
+    /**
+     * La validation des factures (invoices.valider) est réservée au
+     * super-admin, au directeur général et au caissier : elle est retirée de
+     * tout autre rôle, même cochée dans l'écran des privilèges.
+     *
+     * @param  array<int, string>  $permissionIds
+     * @return array<int, string>
+     */
+    private function allowedPermissions(Role $role, array $permissionIds): array
+    {
+        if (InvoiceValidators::allows($role->name)) {
+            return $permissionIds;
+        }
+
+        $validateId = Permission::where('name', 'invoices.valider')->value('id');
+
+        return array_values(array_filter($permissionIds, fn ($id) => $id !== $validateId));
     }
 }

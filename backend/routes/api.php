@@ -351,6 +351,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/exports/commercial-report', [ExportController::class, 'commercialReport'])->middleware('permission:commercials.reporting');
 
     Route::get('/accounting/transactions', [AccountingController::class, 'index'])->middleware('permission:comptabilite.consulter');
+
+    Route::get('/accounting/catalog-revenue', [AccountingController::class, 'catalogRevenue'])->middleware('permission:comptabilite.consulter');
     Route::post('/accounting/transactions', [AccountingController::class, 'store'])->middleware('permission:comptabilite.creer');
     Route::put('/accounting/transactions/{transaction}', [AccountingController::class, 'update'])->middleware('permission:comptabilite.modifier');
     Route::delete('/accounting/transactions/{transaction}', [AccountingController::class, 'destroy'])->middleware('permission:comptabilite.supprimer');
@@ -448,6 +450,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     // === Sprint 3 : Commissions ===
     Route::get('/commission-rules', [CommissionController::class, 'indexRules'])->middleware('permission:commissions.consulter');
     Route::get('/commission-rules/{rule}/versions', [CommissionController::class, 'ruleVersions'])->middleware('permission:commissions.consulter');
+    // Règles par rôle (réglages > commissions).
+    Route::post('/commission-rules/compute-period', [CommissionController::class, 'computePeriod'])->middleware('permission:commissions.valider');
+    Route::post('/commission-rules/{rule}/award', [CommissionController::class, 'awardManual'])->middleware('permission:commissions.valider');
+    Route::put('/roles/{role}/commission-rules', [CommissionController::class, 'syncRoleRules'])->middleware('permission:commissions.modifier');
     Route::post('/commission-rules', [CommissionController::class, 'storeRule'])->middleware('permission:commissions.creer');
     Route::put('/commission-rules/{rule}', [CommissionController::class, 'updateRule'])->middleware('permission:commissions.modifier');
     Route::delete('/commission-rules/{rule}', [CommissionController::class, 'destroyRule'])->middleware('permission:commissions.supprimer');

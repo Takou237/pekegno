@@ -11,8 +11,23 @@ import type {
 } from '@/types/commissions';
 
 export const commissionsApi = {
-  listRules(): Promise<CommissionRule[]> {
-    return client.get('/commission-rules').then((r) => r.data);
+  listRules(params?: { basis?: string; role_id?: string; is_active?: boolean }): Promise<CommissionRule[]> {
+    return client.get('/commission-rules', { params }).then((r) => r.data);
+  },
+
+  /** Règles attribuées à un rôle (groupes de règles). */
+  syncRoleRules(roleId: string, ruleGroupIds: string[]): Promise<string[]> {
+    return client.put(`/roles/${roleId}/commission-rules`, { rule_group_ids: ruleGroupIds }).then((r) => r.data.data);
+  },
+
+  /** Calcule les primes mensuelles (CA par paliers, croissance) d'un mois YYYY-MM. */
+  computePeriod(period: string, ruleId?: string): Promise<{ created: number; updated: number; rows: { rule: string; user: string; base: number; amount: number }[] }> {
+    return client.post('/commission-rules/compute-period', { period, rule_id: ruleId }).then((r) => r.data.data);
+  },
+
+  /** Prime manuelle (témoignage, qualité…) dans la fourchette de la règle. */
+  awardManual(ruleId: string, payload: { user_id: string; amount: number; label?: string }): Promise<CommissionEntry> {
+    return client.post(`/commission-rules/${ruleId}/award`, payload).then((r) => r.data);
   },
 
   createRule(payload: CommissionRulePayload): Promise<CommissionRule> {

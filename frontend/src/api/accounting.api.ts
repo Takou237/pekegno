@@ -6,6 +6,7 @@ import type {
   AccountingListParams,
   AccountingTransaction,
   AccountingTransactionPayload,
+  CatalogRevenueReport,
 } from '@/types/accounting';
 
 export interface AccountingListResponse {
@@ -14,6 +15,12 @@ export interface AccountingListResponse {
 }
 
 export const accountingApi = {
+  /** Comptabilité par produit / formation / package / prestation (encaissements par moyen de paiement). */
+  async catalogRevenue(params: { from?: string; to?: string; agency_id?: string }): Promise<CatalogRevenueReport> {
+    const { data } = await client.get<CatalogRevenueReport>('/accounting/catalog-revenue', { params });
+    return data;
+  },
+
   async list(params: AccountingListParams = {}, opts: { silentForbidden?: boolean } = {}): Promise<AccountingListResponse> {
     const { data } = await client.get<AccountingListResponse>('/accounting/transactions', { params, silentForbidden: opts.silentForbidden });
     return data;

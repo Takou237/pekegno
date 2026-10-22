@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UserRound, Settings, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { getMainItems, navLinkClass, INVOICES_ROLES, type NavItem } from '@/components/layout/navItems';
+import { getUserMainItems, navLinkClass, INVOICES_ROLES, type NavItem } from '@/components/layout/navItems';
 import { invoicesApi } from '@/api/invoices.api';
 import { BrandLogo } from '@/components/common/BrandLogo';
 
@@ -21,8 +21,6 @@ export function MobileNav({ isOpen, onClose, contextTitle, contextItems = [], co
   const { user } = useAuth();
   const location = useLocation();
   const [unpaidBadge, setUnpaidBadge] = useState<number>(0);
-  const agencyAssignment = user?.assignments?.find((a: any) => a.pivot?.is_primary === true);
-  const deptChiefAssignment = user?.assignments?.find((a: any) => a.pivot?.is_department_chief === true);
   const roleName = user?.role?.name;
 
   useEffect(() => {
@@ -34,7 +32,7 @@ export function MobileNav({ isOpen, onClose, contextTitle, contextItems = [], co
     return () => { cancelled = true; };
   }, [roleName]);
 
-  const mainItems = getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge, deptChiefAssignment?.pivot?.department_id ?? undefined).map((item) =>
+  const mainItems = getUserMainItems(t, user, unpaidBadge).map((item) =>
     // Garde-fou : jamais de pastille rouge sur le menu Factures en connexion
     // commercial (ni caissier), même si un badge était passé par erreur.
     roleName === 'commercial' || roleName === 'caissier' ? { ...item, badge: undefined } : item,

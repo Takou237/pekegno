@@ -45,11 +45,11 @@ class PromotionController extends Controller
             ->when($request->service_id, fn ($q, $serviceId) => $q->where('service_id', $serviceId));
 
         if ($request->status === 'active') {
-            $query->where('start_date', '<=', now())->where('end_date', '>=', now());
+            $query->where('start_date', '<=', now())->whereDate('end_date', '>=', today());
         } elseif ($request->status === 'upcoming') {
             $query->where('start_date', '>', now());
         } elseif ($request->status === 'expired') {
-            $query->where('end_date', '<', now());
+            $query->whereDate('end_date', '<', today());
         }
 
         $query->orderBy('start_date');

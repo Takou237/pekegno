@@ -11,9 +11,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
-import { CountryAutocomplete } from '@/components/ui/CountryAutocomplete';
 import { Alert } from '@/components/ui/Alert';
-import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
+import { EnrollmentLearnerField, NewClientFields, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { courseOptionLabel } from '@/utils/courseMode';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
@@ -43,25 +42,14 @@ const emptyEnrollmentForm: EnrollmentFormState = {
   notes: '',
 };
 
-interface LearnerFormState {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  city: string;
-  country: string;
+interface LearnerFormState extends NewLearnerFormState {
   address: string;
   password: string;
   password_confirmation: string;
 }
 
 const emptyLearnerForm: LearnerFormState = {
-  first_name: '',
-  last_name: '',
-  email: '',
-  phone: '',
-  city: '',
-  country: '',
+  ...emptyNewLearnerForm,
   address: '',
   password: '',
   password_confirmation: '',
@@ -309,9 +297,12 @@ export default function AcademyLearnersPage() {
         first_name: learnerForm.first_name,
         last_name: learnerForm.last_name,
         email: learnerForm.email,
-        phone: learnerForm.phone || null,
-        city: learnerForm.city || null,
-        country: learnerForm.country || null,
+        phone: learnerForm.phone,
+        city: learnerForm.city,
+        country: learnerForm.country,
+        nationality: learnerForm.nationality,
+        quartier: learnerForm.quartier,
+        occupation: learnerForm.occupation,
         address: learnerForm.address || null,
         password: learnerForm.password,
         password_confirmation: learnerForm.password_confirmation,
@@ -618,53 +609,8 @@ export default function AcademyLearnersPage() {
         <form onSubmit={handleLearnerSubmit} className="flex flex-col gap-4">
           {learnerError && <Alert variant="error">{learnerError}</Alert>}
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('common.firstName')}
-              required
-              value={learnerForm.first_name}
-              onChange={(e) => setLearnerForm((prev) => ({ ...prev, first_name: e.target.value }))}
-              error={learnerFieldErrors.first_name}
-            />
-            <Input
-              label={t('common.lastName')}
-              required
-              value={learnerForm.last_name}
-              onChange={(e) => setLearnerForm((prev) => ({ ...prev, last_name: e.target.value }))}
-              error={learnerFieldErrors.last_name}
-            />
-          </div>
-
-          <Input
-            label={t('common.email')}
-            type="email"
-            required
-            value={learnerForm.email}
-            onChange={(e) => setLearnerForm((prev) => ({ ...prev, email: e.target.value }))}
-            error={learnerFieldErrors.email}
-          />
-
-          <Input
-            label={t('common.phone')}
-            value={learnerForm.phone}
-            onChange={(e) => setLearnerForm((prev) => ({ ...prev, phone: e.target.value }))}
-            error={learnerFieldErrors.phone}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('clients.city')}
-              value={learnerForm.city}
-              onChange={(e) => setLearnerForm((prev) => ({ ...prev, city: e.target.value }))}
-              error={learnerFieldErrors.city}
-            />
-            <CountryAutocomplete
-              label={t('clients.country')}
-              value={learnerForm.country}
-              onChange={(value) => setLearnerForm((prev) => ({ ...prev, country: value }))}
-              error={learnerFieldErrors.country}
-            />
-          </div>
+          {/* Mêmes champs obligatoires que tous les formulaires « Nouveau client ». */}
+          <NewClientFields value={learnerForm} onChange={(next) => setLearnerForm((prev) => ({ ...prev, ...next }))} />
 
           <Input
             label={t('clients.address')}

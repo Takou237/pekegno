@@ -35,7 +35,7 @@ class AcademyReportService
             })
             ->get();
 
-        $enrollments = FormationEnrollment::with('course:id,name,price,agency_id,mode')
+        $enrollments = FormationEnrollment::with(['course:id,name,price,agency_id,mode', 'invoice:id,total_amount'])
             ->when($agencyIds !== null, fn ($q) => $q->whereHas('course', fn ($c) => $c->whereIn('agency_id', $agencyIds)->orWhereNull('agency_id')))
             ->get();
 
@@ -149,7 +149,10 @@ class AcademyReportService
 
             $name = $e->course?->name ?? '—';
             $courseCounts[$name] = ($courseCounts[$name] ?? 0) + 1;
-            $courseRevenue[$name] = ($courseRevenue[$name] ?? 0) + (float) ($e->course?->price ?? 0);
+            // Montant réellement facturé (promotion et remise comprises), sinon
+            // le prix effectif de la formation.
+            $courseRevenue[$name] = ($courseRevenue[$name] ?? 0)
+                + (float) ($e->invoice?->total_amount ?? $e->course?->effective_price ?? $e->course?->price ?? 0);
         }
 
         ksort($byMonth);

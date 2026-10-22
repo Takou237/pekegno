@@ -24,7 +24,7 @@ class AgencyPolicy
     public function view(User $user, Agency $agency): bool
     {
         if (in_array($user->role?->name, ['super-admin', 'direction-generale'])) {
-            return true;
+            return $this->inDirectorCountry($user, $agency->id);
         }
 
         if ($user->role?->name === 'responsable-agence') {
@@ -53,7 +53,7 @@ class AgencyPolicy
     public function update(User $user, Agency $agency): bool
     {
         if (in_array($user->role?->name, ['super-admin', 'direction-generale'])) {
-            return true;
+            return $this->inDirectorCountry($user, $agency->id);
         }
 
         if ($user->role?->name === 'responsable-agence') {
@@ -79,5 +79,17 @@ class AgencyPolicy
     public function forceDelete(User $user): bool
     {
         return $user->role?->name === 'super-admin';
+    }
+
+    /** Directeur général rattaché à un pays : uniquement les agences de ce pays. */
+    private function inDirectorCountry(User $user, ?string $agencyId): bool
+    {
+        $scope = app(\App\Services\ScopeService::class);
+
+        if ($scope->directorCountryId($user) === null) {
+            return true;
+        }
+
+        return in_array($agencyId, $scope->agencyIds($user) ?? [], true);
     }
 }

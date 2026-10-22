@@ -13,6 +13,7 @@ use App\Services\ContractService;
 use App\Services\InvoiceRejectionNotifier;
 use App\Services\PaymentService;
 use App\Services\ScopeService;
+use App\Support\InvoiceValidators;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -261,6 +262,14 @@ class PaymentProofController extends Controller
 
     private function ensureCashierAgencyAccess(Invoice $invoice, ?User $user): void
     {
+        // Directeur général rattaché à un pays : factures de ce pays uniquement.
+        if ($user?->role?->name === 'direction-generale') {
+            $agencyIds = app(ScopeService::class)->agencyIds($user);
+            abort_unless($agencyIds === null || in_array($invoice->agency_id, $agencyIds, true), 404);
+
+            return;
+        }
+
         if ($user?->role?->name !== 'caissier') {
             return;
         }
@@ -291,9 +300,9 @@ class PaymentProofController extends Controller
     public function approve(Request $request, PaymentProof $proof): JsonResponse
     {
         abort_unless(
-            in_array($request->user()?->role?->name, ['super-admin', 'caissier'], true),
+            InvoiceValidators::allows($request->user()?->role?->name),
             403,
-            'Seuls les administrateurs et les caissiers peuvent accepter une preuve de paiement.'
+            'Seuls les administrateurs, le directeur général et les caissiers peuvent accepter une preuve de paiement.'
         );
 
         $this->ensureCashierAgencyAccess($proof->invoice, $request->user());
@@ -326,9 +335,9 @@ class PaymentProofController extends Controller
     public function reject(Request $request, PaymentProof $proof): JsonResponse
     {
         abort_unless(
-            in_array($request->user()?->role?->name, ['super-admin', 'caissier'], true),
+            InvoiceValidators::allows($request->user()?->role?->name),
             403,
-            'Seuls le super-administrateur et le caissier peuvent rejeter une preuve de paiement.'
+            'Seuls le super-administrateur, le directeur général et le caissier peuvent rejeter une preuve de paiement.'
         );
 
         $this->ensureCashierAgencyAccess($proof->invoice, $request->user());

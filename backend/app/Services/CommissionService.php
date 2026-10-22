@@ -16,7 +16,10 @@ use Illuminate\Support\Facades\DB;
 
 class CommissionService
 {
-    public function __construct(private readonly ActivityLogger $logger) {}
+    public function __construct(
+        private readonly ActivityLogger $logger,
+        private readonly RoleCommissionService $roleCommissions,
+    ) {}
 
     /**
      * Calcule les commissions versées à l'occasion d'un encaissement (règle multi-lignes).
@@ -127,6 +130,13 @@ class CommissionService
             return;
         }
 
+        // Règles attribuées aux rôles (réglages > commissions) : cumulables entre
+        // bénéficiaires (vendeur, équipiers, chefs). Si le vendeur lui-même est
+        // couvert par une règle de son rôle, elle remplace son taux par défaut.
+        if ($this->roleCommissions->recordForPayment($invoice, $payment)['seller_covered']) {
+            return;
+        }
+
         if ($this->recordSellerFallback($invoice, $payment, $actorUserId) > 0) {
             return;
         }
@@ -145,6 +155,9 @@ class CommissionService
 
         $rules = CommissionRule::query()
             ->active()
+            // Les règles attribuées à des rôles ont leur propre moteur.
+            ->where(fn ($q) => $q->whereNull('basis')->orWhere('basis', CommissionRule::BASIS_SALE))
+            ->whereNotIn('rule_group_id', DB::table('commission_rule_role')->select('rule_group_id'))
             ->where(fn ($q) => $q->whereNull('starts_on')->orWhere('starts_on', '<=', now()->toDateString()))
             ->where(fn ($q) => $q->whereNull('ends_on')->orWhere('ends_on', '>=', now()->toDateString()))
             ->where(function ($q) use ($isFirstPayment, $becomesFullPaid) {

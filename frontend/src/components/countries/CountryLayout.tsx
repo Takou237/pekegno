@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AxiosError } from 'axios';
 import {
@@ -27,6 +27,7 @@ import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
 import { useAuth } from '@/hooks/useAuth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
+import { homeSpace } from '@/utils/userScope';
 import type { CountryStat } from '@/types/stats';
 
 function getSubItems(t: ReturnType<typeof useTranslation>['t'], roleName?: string) {
@@ -93,6 +94,7 @@ export function CountryLayout() {
   }
 
   const subItems = getSubItems(t, user?.role?.name);
+  const space = homeSpace(user);
 
   const backButton = (
     <Link
@@ -104,10 +106,15 @@ export function CountryLayout() {
     </Link>
   );
 
+  // Chefs : pas d'accès au niveau pays. Directeur général : son pays uniquement.
+  if (space && !(space.type === 'country' && space.id === countryId)) {
+    return <Navigate to={space.path} replace />;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 dark:bg-gray-950">
       <ContextBar
-        leftSlot={backButton}
+        leftSlot={space ? undefined : backButton}
         onMobileMenuToggle={() => setMobileOpen((v) => !v)}
       />
 

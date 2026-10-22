@@ -51,6 +51,12 @@ class UserResource extends JsonResource
             'is_password_change_required' => (bool) $this->is_password_change_required,
             'role' => $this->whenLoaded('role'),
             'role_id' => $this->role_id,
+            // Utilisateur connecté (/user, login) : noms des permissions de son
+            // rôle, pour construire le menu d'un rôle personnalisé.
+            'permissions' => $this->when(
+                $this->relationLoaded('role') && $this->role?->relationLoaded('permissions'),
+                fn () => $this->role->permissions->pluck('name')->values()->all(),
+            ),
             'email_verified_at' => $this->email_verified_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

@@ -66,17 +66,9 @@ class ClientController extends Controller
             ])
             ->whereHas('role', fn ($q) => $q->where('name', 'client'));
 
-        if ($request) {
-            $agencyIds = $this->scopeService->agencyIds($request->user());
-
-            if ($agencyIds !== null) {
-                $query->where(function ($q) use ($agencyIds) {
-                    $q->whereIn('registered_agency_id', $agencyIds)
-                        ->orWhereHas('clientInvoices', fn ($q) => $q->whereIn('agency_id', $agencyIds));
-                });
-            }
-        }
-
+        // Les clients sont globaux : ils ne sont rattachés à aucune agence et
+        // tout le personnel peut les retrouver pour leur vendre (les filtres
+        // agency_id / registered_agency_id restent disponibles explicitement).
         return $query;
     }
 
@@ -111,11 +103,11 @@ class ClientController extends Controller
                 $q->where(function ($q) use ($terms) {
                     foreach ($terms as $term) {
                         $q->where(function ($inner) use ($term) {
-                            $inner->where('first_name', 'like', "%{$term}%")
-                                ->orWhere('last_name', 'like', "%{$term}%")
-                                ->orWhere('email', 'like', "%{$term}%")
-                                ->orWhere('phone', 'like', "%{$term}%")
-                                ->orWhere('client_number', 'like', "%{$term}%");
+                            $inner->whereRaw('lower(first_name) like ?', ['%'.mb_strtolower($term).'%'])
+                                ->orWhereRaw('lower(last_name) like ?', ['%'.mb_strtolower($term).'%'])
+                                ->orWhereRaw('lower(email) like ?', ['%'.mb_strtolower($term).'%'])
+                                ->orWhereRaw('lower(phone) like ?', ['%'.mb_strtolower($term).'%'])
+                                ->orWhereRaw('lower(client_number) like ?', ['%'.mb_strtolower($term).'%']);
                         });
                     }
                 });
@@ -438,11 +430,11 @@ class ClientController extends Controller
         $clients = $this->clientQuery($request)
             ->when($q, function ($query) use ($q) {
                 $query->where(function ($query) use ($q) {
-                    $query->where('first_name', 'like', "%{$q}%")
-                        ->orWhere('last_name', 'like', "%{$q}%")
-                        ->orWhere('email', 'like', "%{$q}%")
-                        ->orWhere('phone', 'like', "%{$q}%")
-                        ->orWhere('client_number', 'like', "%{$q}%");
+                    $query->whereRaw('lower(first_name) like ?', ['%'.mb_strtolower($q).'%'])
+                        ->orWhereRaw('lower(last_name) like ?', ['%'.mb_strtolower($q).'%'])
+                        ->orWhereRaw('lower(email) like ?', ['%'.mb_strtolower($q).'%'])
+                        ->orWhereRaw('lower(phone) like ?', ['%'.mb_strtolower($q).'%'])
+                        ->orWhereRaw('lower(client_number) like ?', ['%'.mb_strtolower($q).'%']);
                 });
             })
             ->limit(10)

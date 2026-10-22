@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -33,10 +34,43 @@ class CommissionRule extends Model
         self::FORMULA_TIERED,
     ];
 
+    /** Assiette : ce qui déclenche la commission. */
+    public const BASIS_SALE = 'sale';
+    public const BASIS_RENEWAL = 'renewal';
+    public const BASIS_UPGRADE = 'upgrade';
+    public const BASIS_MONTHLY_REVENUE = 'monthly_revenue';
+    public const BASIS_GROWTH = 'growth';
+    public const BASIS_MANUAL = 'manual';
+
+    public const BASES = [
+        self::BASIS_SALE,
+        self::BASIS_RENEWAL,
+        self::BASIS_UPGRADE,
+        self::BASIS_MONTHLY_REVENUE,
+        self::BASIS_GROWTH,
+        self::BASIS_MANUAL,
+    ];
+
+    /** Assiettes calculées à chaque encaissement (les autres le sont par mois ou à la main). */
+    public const PAYMENT_BASES = [self::BASIS_SALE, self::BASIS_RENEWAL, self::BASIS_UPGRADE];
+
+    /** Assiettes calculées à la clôture d'un mois. */
+    public const PERIOD_BASES = [self::BASIS_MONTHLY_REVENUE, self::BASIS_GROWTH];
+
+    public const REVENUE_SCOPES = ['own', 'agency'];
+
+    /** Genres ciblables : toute ligne de ce genre (un élément précis reste optionnel). */
+    public const TARGET_KINDS = ['product', 'service', 'course', 'package'];
+
+    public const RECOVERY_PERIODS = ['previous_month', 'same_month_last_year'];
+
     protected $fillable = [
         'rule_group_id',
         'version',
         'name',
+        'basis',
+        'target_kind',
+        'description',
         'beneficiary_commercial_id',
         'beneficiary_seller_profile_id',
         'scope_country_id',
@@ -45,6 +79,17 @@ class CommissionRule extends Model
         'service_id',
         'course_id',
         'package_id',
+        'product_id',
+        'category_id',
+        'renewal_number',
+        'renewal_on_time',
+        'revenue_scope',
+        'min_recovery_rate',
+        'recovery_period',
+        'growth_multiplier',
+        'max_percent',
+        'bonus_min',
+        'bonus_max',
         'trigger_event',
         'formula_type',
         'percent_value',
@@ -66,6 +111,13 @@ class CommissionRule extends Model
             'starts_on' => 'date',
             'ends_on' => 'date',
             'is_active' => 'boolean',
+            'renewal_number' => 'integer',
+            'renewal_on_time' => 'boolean',
+            'min_recovery_rate' => 'decimal:2',
+            'growth_multiplier' => 'decimal:2',
+            'max_percent' => 'decimal:2',
+            'bonus_min' => 'decimal:2',
+            'bonus_max' => 'decimal:2',
         ];
     }
 
@@ -109,6 +161,31 @@ class CommissionRule extends Model
         return $this->belongsTo(Service::class);
     }
 
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * Rôles bénéficiaires. Rattachés au groupe de la règle (rule_group_id) pour
+     * que l'attribution survive aux nouvelles versions.
+     */
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'commission_rule_role', 'rule_group_id', 'role_id', 'rule_group_id')
+            ->withTimestamps();
+    }
+
+    public function isPeriodic(): bool
+    {
+        return in_array($this->basis, self::PERIOD_BASES, true);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -135,6 +212,46 @@ class CommissionRule extends Model
             self::FORMULA_TIERED => $this->computeTiered($baseAmount),
             default => 0.0,
         };
+    }
+
+    /**
+     * Paliers « à partir de » (CA mensuel, croissance) :
+     * [{min, percent, fixed_bonus, pot_bonus, bonus_requires_recovery}].
+     * Le palier retenu est le plus haut dont le seuil est atteint par $reference
+     * (le CA, ou le ratio de croissance) ; le pourcentage s'applique à $baseAmount.
+     * Les bonus (prime fixe, cagnotte) peuvent exiger la condition de recouvrement.
+     *
+     * @return array{amount: float, tier: array|null}
+     */
+    public function computeThresholdTiers(float $baseAmount, float $reference, bool $recoveryOk): array
+    {
+        $tiers = is_array($this->tiers_json) ? $this->tiers_json : [];
+        usort($tiers, fn ($a, $b) => ((float) ($a['min'] ?? 0)) <=> ((float) ($b['min'] ?? 0)));
+
+        $selected = null;
+        foreach ($tiers as $tier) {
+            if ($reference >= (float) ($tier['min'] ?? 0)) {
+                $selected = $tier;
+            }
+        }
+
+        if ($selected === null) {
+            return ['amount' => 0.0, 'tier' => null];
+        }
+
+        $percent = (float) ($selected['percent'] ?? 0);
+        if ($this->max_percent !== null) {
+            $percent = min($percent, (float) $this->max_percent);
+        }
+
+        $amount = ($percent / 100) * $baseAmount;
+
+        $bonusAllowed = empty($selected['bonus_requires_recovery']) || $recoveryOk;
+        if ($bonusAllowed) {
+            $amount += (float) ($selected['fixed_bonus'] ?? 0) + (float) ($selected['pot_bonus'] ?? 0);
+        }
+
+        return ['amount' => round($amount, 2), 'tier' => $selected + ['bonus_applied' => $bonusAllowed]];
     }
 
     private function computeTiered(float $baseAmount): float
@@ -179,6 +296,16 @@ class CommissionRule extends Model
             'service_id' => $this->service_id,
             'course_id' => $this->course_id,
             'package_id' => $this->package_id,
+            'basis' => $this->basis,
+            'target_kind' => $this->target_kind,
+            'product_id' => $this->product_id,
+            'category_id' => $this->category_id,
+            'renewal_number' => $this->renewal_number,
+            'renewal_on_time' => $this->renewal_on_time,
+            'revenue_scope' => $this->revenue_scope,
+            'min_recovery_rate' => $this->min_recovery_rate,
+            'growth_multiplier' => $this->growth_multiplier,
+            'max_percent' => $this->max_percent,
             'trigger_event' => $this->trigger_event,
             'formula_type' => $this->formula_type,
             'percent_value' => $this->percent_value,

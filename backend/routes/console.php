@@ -12,3 +12,5 @@ Artisan::command('inspire', function () {
 Schedule::job(new PenalizeInactiveCommercials)->dailyAt('01:00');
 Schedule::command('subscriptions:check-expiry')->dailyAt('06:00');
 Schedule::command('agency:check-renewals')->dailyAt('06:15');
+// Primes mensuelles des règles par rôle (mois écoulé), le 1er de chaque mois.
+Schedule::command('commissions:compute-period')->monthlyOn(1, '05:00');

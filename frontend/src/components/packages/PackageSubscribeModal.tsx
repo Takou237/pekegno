@@ -13,7 +13,7 @@ import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { CommercialPicker } from '@/components/agencyDept/Pickers';
-import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
+import { EnrollmentLearnerField, emptyNewLearnerForm, isNewLearnerComplete, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { clientsApi } from '@/api/clients.api';
 import type { AgencyPackage } from '@/types/agencyDepartment';
 
@@ -116,7 +116,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
       // Comme l'inscription à une formation : création du client à la volée.
       let resolvedClientId = clientId;
       if (clientMode === 'new') {
-        if (!newClient.first_name.trim() || !newClient.last_name.trim()) {
+        if (!isNewLearnerComplete(newClient)) {
           setError(t('academy.newLearnerRequired'));
           setSaving(false);
           return;

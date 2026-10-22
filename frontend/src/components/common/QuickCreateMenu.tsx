@@ -20,6 +20,8 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { clientsApi } from '@/api/clients.api';
+import { homeSpace } from '@/utils/userScope';
+import { NewClientFields, emptyNewLearnerForm, isNewLearnerComplete, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { extractErrorMessage } from '@/api/errors';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
@@ -99,17 +101,15 @@ export function QuickCreateMenu() {
   const ref = useRef<HTMLDivElement>(null);
 
   const role = user?.role?.name ?? '';
-  const isAdmin = role === 'super-admin' || role === 'direction-generale' || role === 'responsable-agence' || role === 'responsable-departement';
+  // Création rapide : super-admin et directeur général uniquement.
+  const isAdmin = role === 'super-admin' || role === 'direction-generale';
 
   const [prefs, setPrefs] = useState<Prefs>({ hidden: [], custom: [] });
   const [customLabel, setCustomLabel] = useState('');
   const [customPath, setCustomPath] = useState('');
 
   // Nouveau client (formulaire inline).
-  const [clientFirst, setClientFirst] = useState('');
-  const [clientLast, setClientLast] = useState('');
-  const [clientEmail, setClientEmail] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
+  const [newClient, setNewClient] = useState<NewLearnerFormState>(emptyNewLearnerForm);
   const [clientError, setClientError] = useState<string | null>(null);
   const [clientSaving, setClientSaving] = useState(false);
 
@@ -171,7 +171,10 @@ export function QuickCreateMenu() {
     setOpen(false);
     setManaging(false);
     if (id === 'invoice') {
-      navigate('/invoices/new');
+      // Directeur général : la facture se crée dans l'espace de son pays (retour
+      // ensuite sur /countries/:id/invoices), pas dans la vue groupe.
+      const space = homeSpace(user);
+      navigate(space?.type === 'country' ? `${space.path}/invoices/new` : '/invoices/new');
       return;
     }
     if (id === 'expense') {
@@ -183,7 +186,8 @@ export function QuickCreateMenu() {
 
   async function handleCreateClient(e: FormEvent) {
     e.preventDefault();
-    if (!clientFirst.trim() || !clientLast.trim()) {
+    // Mêmes champs obligatoires que tous les autres formulaires « Nouveau client ».
+    if (!isNewLearnerComplete(newClient)) {
       setClientError(t('academy.newLearnerRequired'));
       return;
     }
@@ -191,17 +195,20 @@ export function QuickCreateMenu() {
     setClientError(null);
     try {
       await clientsApi.create({
-        first_name: clientFirst.trim(),
-        last_name: clientLast.trim(),
-        email: clientEmail.trim() || `client-${Date.now()}@pekegno.local`,
-        phone: clientPhone.trim() || null,
+        first_name: newClient.first_name.trim(),
+        last_name: newClient.last_name.trim(),
+        email: newClient.email.trim(),
+        phone: newClient.phone.trim(),
+        city: newClient.city.trim(),
+        country: newClient.country,
+        nationality: newClient.nationality.trim(),
+        quartier: newClient.quartier.trim(),
+        occupation: newClient.occupation.trim(),
+        commercial_user_id: user?.id,
       });
       showToast(t('clients.created'), 'success');
       setActiveModal(null);
-      setClientFirst('');
-      setClientLast('');
-      setClientEmail('');
-      setClientPhone('');
+      setNewClient(emptyNewLearnerForm);
     } catch (err) {
       setClientError(extractErrorMessage(err, t('clients.saveFailed')));
     } finally {
@@ -342,15 +349,11 @@ export function QuickCreateMenu() {
 
       <QuickSaleModal isOpen={activeModal === 'sale'} onClose={closeModals} />
 
-      <Modal isOpen={activeModal === 'client'} onClose={closeModals} title={t('clients.createTitle')} maxWidth="max-w-md">
+      <Modal isOpen={activeModal === 'client'} onClose={closeModals} title={t('clients.createTitle')} maxWidth="max-w-lg">
         <form onSubmit={handleCreateClient} className="flex flex-col gap-4">
           {clientError && <Alert variant="error">{clientError}</Alert>}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label={`${t('clients.firstName')} *`} required value={clientFirst} onChange={(e) => setClientFirst(e.target.value)} />
-            <Input label={`${t('clients.lastName')} *`} required value={clientLast} onChange={(e) => setClientLast(e.target.value)} />
-          </div>
-          <Input label={t('clients.email')} type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
-          <Input label={t('clients.phone')} type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
+          <NewClientFields value={newClient} onChange={setNewClient} />
+          <p className="text-xs text-gray-400 dark:text-gray-500">{t('academy.newLearnerHint')}</p>
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={closeModals}>
               {t('common.cancel')}

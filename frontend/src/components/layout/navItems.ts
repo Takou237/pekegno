@@ -36,7 +36,9 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import type { DepartmentType } from '@/types/department';
+import type { User } from '@/types/auth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
+import { homeSpace, isGroupLevelPath } from '@/utils/userScope';
 
 export const ADMIN_ROLES = ['super-admin', 'direction-generale'];
 
@@ -268,6 +270,101 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     trackingItem(t),
     catalogItem(t),
   ];
+}
+
+/** Rôles livrés avec une interface dédiée ; tout autre rôle est « personnalisé ». */
+export const BUILT_IN_ROLES = new Set([
+  'super-admin',
+  'direction-generale',
+  'responsable-agence',
+  'responsable-departement',
+  'caissier',
+  'comptable',
+  'commercial',
+  'formateur',
+  'community-manager',
+  'client',
+]);
+
+export function isCustomRole(roleName: string | null | undefined): boolean {
+  return Boolean(roleName) && !BUILT_IN_ROLES.has(roleName as string);
+}
+
+/**
+ * Menu d'un rôle personnalisé, construit à partir de ses privilèges : chaque
+ * entrée n'apparaît que si le rôle a la permission qui ouvre la page. Ainsi un
+ * rôle créé depuis « Rôles & permissions » ne voit que ce qu'il peut ouvrir,
+ * au lieu d'une interface générique qui répond « accès non autorisé ».
+ */
+export function getPermissionItems(t: TranslateFn, permissions: string[]): NavItem[] {
+  const has = (...names: string[]) => names.some((name) => permissions.includes(name));
+
+  const items: Array<[boolean, NavItem]> = [
+    [has('stats.consulter'), { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true }],
+    [true, trackingItem(t)],
+    [has('countries.consulter'), { to: '/countries', label: t('nav.geography'), icon: Globe, end: false }],
+    [has('agencies.consulter'), { to: '/agencies', label: t('nav.agencies'), icon: Building2, end: false }],
+    [has('departments.consulter'), { to: '/departments', label: t('nav.departments'), icon: FolderTree, end: false }],
+    [has('clients.consulter'), { to: '/clients', label: t('nav.clients'), icon: Contact, end: false }],
+    [has('prospects.consulter'), { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false }],
+    [has('commercials.consulter'), { to: '/commercials', label: t('nav.commercials'), icon: Briefcase, end: false }],
+    [has('employes.consulter'), { to: '/employees', label: t('nav.employees'), icon: UserCheck, end: false }],
+    [has('users.consulter'), { to: '/users', label: t('nav.users'), icon: Users, end: false }],
+    [has('invoices.consulter'), invoiceItem(t)],
+    // Validation des factures : réservée au super-admin, au directeur général et
+    // au caissier (jamais à un rôle personnalisé).
+    [has('invoices.consulter', 'invoices.encaisser'), { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false }],
+    [has('contrats.consulter'), { to: '/contracts', label: t('nav.contracts'), icon: FileText, end: false }],
+    [has('abonnements.consulter'), { to: '/subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false }],
+    [has('comptabilite.consulter'), { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false }],
+    [has('bilans.consulter'), { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false }],
+    [has('tresories.consulter'), { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false }],
+    [has('depenses.consulter'), { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false }],
+    [has('commissions.consulter'), { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: Coins, end: false }],
+    [has('entreprises.consulter'), { to: '/companies', label: t('nav.companies'), icon: Building2, end: false }],
+    [has('opportunites.consulter'), { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false }],
+    [has('courses.consulter', 'sessions.consulter'), { to: '/academy', label: t('nav.statAca'), icon: GraduationCap, end: false }],
+    [has('reports.consulter'), { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false }],
+    [has('reports.consulter'), { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false }],
+    [has('reports.consulter', 'abonnements.consulter'), { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false }],
+    [has('commercials.reporting'), { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false }],
+    [has('commercials.reporting'), monthlyReportItem(t)],
+    [has('services.consulter', 'products.consulter'), catalogItem(t)],
+    [has('activity-logs.consulter'), { to: '/audit', label: t('nav.audit'), icon: ScrollText, end: false }],
+    [has('settings.modifier', 'roles.consulter'), { to: '/settings', label: t('nav.settings'), icon: Settings, end: false }],
+  ];
+
+  return items.filter(([allowed]) => allowed).map(([, item]) => item);
+}
+
+/**
+ * Menu principal de l'utilisateur connecté :
+ * - rôle personnalisé → menu construit depuis ses permissions ;
+ * - rôle livré → menu dédié ;
+ * - rôle à espace (chefs, directeur général d'un pays) → sans les pages de
+ *   niveau groupe, qui les renverraient de toute façon vers leur espace.
+ */
+export function getUserMainItems(t: TranslateFn, user: User | null | undefined, unpaidBadge?: number): NavItem[] {
+  const roleName = user?.role?.name;
+  const agencyAssignment = user?.assignments?.find((a) => a.pivot?.is_primary === true);
+  const deptChiefAssignment = user?.assignments?.find((a) => a.pivot?.is_department_chief === true);
+
+  const items = isCustomRole(roleName)
+    ? getPermissionItems(t, user?.permissions ?? [])
+    : getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge, deptChiefAssignment?.pivot?.department_id ?? undefined);
+
+  const space = homeSpace(user);
+  if (!space) return items;
+
+  const scoped = items.filter((item) => !isGroupLevelPath(item.to.split('?')[0]));
+  // Directeur général : son pays remplace le tableau de bord groupe.
+  if (space.type === 'country') {
+    return [
+      { to: space.path, label: t('nav.myCountry'), icon: Globe, end: false },
+      ...scoped.filter((item) => item.to !== '/'),
+    ];
+  }
+  return scoped;
 }
 
 /**

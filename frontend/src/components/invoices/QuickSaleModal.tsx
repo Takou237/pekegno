@@ -18,7 +18,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
-import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
+import { EnrollmentLearnerField, emptyNewLearnerForm, isNewLearnerComplete, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import type { PaymentMethod } from '@/types/invoice';
 import type { SeminarTier, Service } from '@/types/service';
 import type { Commercial } from '@/types/commercial';
@@ -301,7 +301,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
       setErrors({ client_id: t('invoices.colClient') });
       return;
     }
-    if (clientMode === 'new' && (!newClient.first_name.trim() || !newClient.last_name.trim())) {
+    if (clientMode === 'new' && !isNewLearnerComplete(newClient)) {
       setErrors({ client_id: t('academy.newLearnerRequired') });
       return;
     }

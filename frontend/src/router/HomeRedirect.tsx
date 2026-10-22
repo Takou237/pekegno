@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { departmentsApi } from '@/api/departments.api';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import PEKEGNOGroupDashboard from '@/pages/dashboard/PEKEGNOGroupDashboard';
+import { getUserMainItems, isCustomRole } from '@/components/layout/navItems';
 
 /**
  * Redirige la racine / vers la vue adaptée au rôle connecté :
@@ -16,6 +18,7 @@ import PEKEGNOGroupDashboard from '@/pages/dashboard/PEKEGNOGroupDashboard';
  * - autres → tableau de bord global
  */
 export function HomeRedirect() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const role = user?.role?.name;
 
@@ -35,6 +38,11 @@ export function HomeRedirect() {
     return <DepartmentHomeRedirect />;
   }
 
+  // Directeur général rattaché à un pays : son espace est ce pays.
+  if (role === 'direction-generale' && user?.country_id) {
+    return <Navigate to={`/countries/${user.country_id}`} replace />;
+  }
+
   if (role === 'caissier') {
     return <Navigate to="/caissier/dashboard" replace />;
   }
@@ -49,6 +57,12 @@ export function HomeRedirect() {
 
   if (role === 'community-manager') {
     return <Navigate to="/team/tracking" replace />;
+  }
+
+  // Rôle personnalisé sans accès au tableau de bord : on l'envoie sur la
+  // première page de son menu (construit depuis ses permissions).
+  if (isCustomRole(role) && !user?.permissions?.includes('stats.consulter')) {
+    return <Navigate to={getUserMainItems(t, user)[0]?.to ?? '/team/tracking'} replace />;
   }
 
   return <PEKEGNOGroupDashboard />;

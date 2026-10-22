@@ -8,11 +8,14 @@ use App\Models\Commercial;
 use App\Models\CommissionEntry;
 use App\Models\CommissionPayment;
 use App\Models\CommissionRule;
+use App\Models\Role;
 use App\Models\SellerProfile;
 use App\Models\TeamMember;
 use App\Models\TreasuryAccount;
+use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\CommissionService;
+use App\Services\RoleCommissionService;
 use App\Services\ScopeService;
 use App\Services\TreasuryService;
 use Illuminate\Http\JsonResponse;
@@ -24,16 +27,22 @@ use OpenApi\Attributes as OA;
 
 class CommissionController extends Controller
 {
+    private const RULE_RELATIONS = [
+        'beneficiary', 'sellerProfile.user', 'course:id,name,code', 'service:id,name', 'package:id,name',
+        'product:id,name', 'category:id,name', 'roles:id,name', 'scopeAgency', 'scopeCountry', 'scopeDepartment',
+    ];
+
     public function __construct(
         private readonly TreasuryService $treasuryService,
         private readonly AccountingService $accountingService,
         private readonly CommissionService $commissionService,
+        private readonly RoleCommissionService $roleCommissions,
     ) {}
 
     #[OA\Get(path: '/api/commission-rules', summary: 'Lister les règles (dernières versions)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Règles')])]
     public function indexRules(Request $request): JsonResponse
     {
-        $query = CommissionRule::query()->with(['beneficiary', 'sellerProfile.user', 'course', 'service', 'package:id,name', 'scopeAgency', 'scopeCountry', 'scopeDepartment']);
+        $query = CommissionRule::query()->with(self::RULE_RELATIONS);
 
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
@@ -51,6 +60,15 @@ class CommissionController extends Controller
             $query->whereNotNull('package_id');
         }
 
+        // Règles par rôle (réglages > commissions) : toutes celles qui portent une assiette.
+        if ($request->filled('basis')) {
+            $query->where('basis', $request->input('basis'));
+        }
+
+        if ($request->filled('role_id')) {
+            $query->whereIn('rule_group_id', DB::table('commission_rule_role')->where('role_id', $request->input('role_id'))->select('rule_group_id'));
+        }
+
         $latestIds = CommissionRule::query()
             ->selectRaw('DISTINCT ON (rule_group_id) id')
             ->orderBy('rule_group_id')
@@ -66,6 +84,8 @@ class CommissionController extends Controller
     public function storeRule(Request $request): JsonResponse
     {
         $data = $this->validateRulePayload($request);
+        $roleIds = $data['role_ids'] ?? null;
+        unset($data['role_ids']);
 
         $rule = CommissionRule::create($data + [
             'rule_group_id' => (string) Str::uuid(),
@@ -74,13 +94,19 @@ class CommissionController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
-        return response()->json($rule->fresh()->load(['beneficiary', 'sellerProfile.user', 'course', 'service', 'scopeAgency', 'scopeCountry', 'scopeDepartment']), 201);
+        if ($roleIds !== null) {
+            $rule->roles()->sync($roleIds);
+        }
+
+        return response()->json($rule->fresh()->load(self::RULE_RELATIONS), 201);
     }
 
     #[OA\Put(path: '/api/commission-rules/{rule}', summary: 'Modifier → nouvelle version (ancienne désactivée)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Nouvelle version')])]
     public function updateRule(Request $request, CommissionRule $rule): JsonResponse
     {
         $data = $this->validateRulePayload($request);
+        $roleIds = $data['role_ids'] ?? null;
+        unset($data['role_ids']);
 
         $rule->update(['is_active' => false]);
 
@@ -91,7 +117,80 @@ class CommissionController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
-        return response()->json($newVersion->fresh()->load(['beneficiary', 'sellerProfile.user', 'course', 'service', 'scopeAgency', 'scopeCountry', 'scopeDepartment']));
+        // Rôles rattachés au groupe : la nouvelle version en hérite.
+        if ($roleIds !== null) {
+            $newVersion->roles()->sync($roleIds);
+        }
+
+        return response()->json($newVersion->fresh()->load(self::RULE_RELATIONS));
+    }
+
+    /**
+     * Règles attribuées à un rôle (depuis l'onglet Commissions, vue par rôle).
+     */
+    public function syncRoleRules(Request $request, Role $role): JsonResponse
+    {
+        $validated = $request->validate([
+            'rule_group_ids' => ['present', 'array'],
+            'rule_group_ids.*' => ['uuid', 'exists:commission_rules,rule_group_id'],
+        ]);
+
+        DB::transaction(function () use ($role, $validated) {
+            DB::table('commission_rule_role')->where('role_id', $role->id)->delete();
+            $now = now();
+            DB::table('commission_rule_role')->insert(
+                collect($validated['rule_group_ids'])->unique()->map(fn ($groupId) => [
+                    'rule_group_id' => $groupId,
+                    'role_id' => $role->id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])->values()->all()
+            );
+        });
+
+        return response()->json(['data' => $role->commissionRuleGroupIds()]);
+    }
+
+    /**
+     * Calcule les primes périodiques (CA mensuel par paliers, croissance N-1)
+     * d'un mois. Relançable : les entrées non validées sont recalculées.
+     */
+    public function computePeriod(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'period' => ['required', 'date_format:Y-m'],
+            'rule_id' => ['nullable', 'uuid', 'exists:commission_rules,id'],
+        ]);
+
+        $groupId = isset($validated['rule_id']) ? CommissionRule::whereKey($validated['rule_id'])->value('rule_group_id') : null;
+
+        return response()->json(['data' => $this->roleCommissions->computePeriod($validated['period'], $groupId)]);
+    }
+
+    /**
+     * Prime manuelle (témoignage, qualité, innovation…) attribuée à un
+     * utilisateur dont le rôle porte la règle, dans la fourchette prévue.
+     */
+    public function awardManual(Request $request, CommissionRule $rule): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_id' => ['required', 'uuid', 'exists:users,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'label' => ['nullable', 'string', 'max:250'],
+        ]);
+
+        abort_if($rule->basis !== CommissionRule::BASIS_MANUAL, 422, 'Cette règle n\'est pas une prime manuelle.');
+
+        $user = User::findOrFail($validated['user_id']);
+        abort_unless($rule->roles()->where('roles.id', $user->role_id)->exists(), 422, 'Le rôle de cet utilisateur ne porte pas cette règle.');
+
+        $amount = (float) $validated['amount'];
+        abort_if($rule->bonus_min !== null && $amount < (float) $rule->bonus_min, 422, 'Montant inférieur au minimum de la prime ('.number_format((float) $rule->bonus_min, 0, ',', ' ').').');
+        abort_if($rule->bonus_max !== null && $amount > (float) $rule->bonus_max, 422, 'Montant supérieur au maximum de la prime ('.number_format((float) $rule->bonus_max, 0, ',', ' ').').');
+
+        $entry = $this->roleCommissions->awardManual($rule, $user, $amount, $validated['label'] ?? null, $request->user()->id);
+
+        return response()->json($entry->load(['beneficiaryUser:id,first_name,last_name', 'rule']), 201);
     }
 
     #[OA\Get(path: '/api/commission-rules/{rule}/versions', summary: 'Historique des versions d\'une règle', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Versions')])]
@@ -111,7 +210,7 @@ class CommissionController extends Controller
     #[Get(path: '/api/commissions/entries', summary: 'Lister les lignes de commission', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Entrées paginées')])]
     public function indexEntries(Request $request): JsonResponse
     {
-        $query = CommissionEntry::query()->with(['invoice', 'beneficiary', 'teamMember:id,first_name,last_name', 'sellerProfile.user', 'rule', 'validator', 'payer']);
+        $query = CommissionEntry::query()->with(['invoice', 'beneficiary', 'teamMember:id,first_name,last_name', 'beneficiaryUser:id,first_name,last_name,role_id', 'sellerProfile.user', 'rule', 'validator', 'payer']);
 
         if ($request->filled('status')) {
             $query->ofStatus($request->input('status'));
@@ -132,6 +231,14 @@ class CommissionController extends Controller
 
         if ($request->filled('seller_profile_id')) {
             $query->where('seller_profile_id', $request->input('seller_profile_id'));
+        }
+
+        if ($request->filled('beneficiary_user_id')) {
+            $query->where('beneficiary_user_id', $request->input('beneficiary_user_id'));
+        }
+
+        if ($request->filled('period')) {
+            $query->where('period', $request->input('period'));
         }
 
         if ($request->filled('from') && $request->filled('to')) {
@@ -231,11 +338,15 @@ class CommissionController extends Controller
         $commercial = $entry->beneficiary;
         $teamMember = $entry->teamMember;
 
-        $agencyId = $sellerProfile?->agency_id ?? $commercial?->agency_id ?? $teamMember?->agency_id;
+        $beneficiaryUser = $entry->beneficiaryUser;
+
+        $agencyId = $sellerProfile?->agency_id ?? $commercial?->agency_id ?? $teamMember?->agency_id
+            ?? ($beneficiaryUser ? $this->userAgencyId($beneficiaryUser) : null);
         $scopeIds = app(ScopeService::class)->agencyIds($request->user());
         abort_if($scopeIds !== null && ! in_array($agencyId, $scopeIds, true), 403, 'Ce bénéficiaire est hors de votre périmètre.');
         $beneficiaryName = $sellerProfile?->full_name
             ?? ($teamMember ? $teamMember->full_name : null)
+            ?? ($beneficiaryUser && ! $commercial ? trim("{$beneficiaryUser->first_name} {$beneficiaryUser->last_name}") : null)
             ?? trim("{$commercial?->first_name} {$commercial?->last_name}")
             ?: 'Bénéficiaire';
 
@@ -269,6 +380,7 @@ class CommissionController extends Controller
             $commissionPayment = CommissionPayment::create([
                 'commercial_id' => $commercial?->id,
                 'seller_profile_id' => $sellerProfile?->id,
+                'beneficiary_user_id' => $commercial || $sellerProfile ? null : $entry->beneficiary_user_id,
                 'commission_entry_id' => $paidEntryId,
                 'treasury_account_id' => $account?->id,
                 'amount' => $amount,
@@ -400,10 +512,44 @@ class CommissionController extends Controller
             ->filter()
             ->values();
 
+        // Bénéficiaires de règles par rôle sans profil commercial (chefs,
+        // community managers, caissiers…).
+        $userIds = CommissionEntry::query()
+            ->whereNotNull('beneficiary_user_id')
+            ->whereNull('beneficiary_commercial_id')
+            ->whereNull('seller_profile_id')
+            ->distinct()
+            ->pluck('beneficiary_user_id');
+
+        $users = User::query()
+            ->with('role:id,name')
+            ->whereIn('id', $userIds)
+            ->get()
+            ->filter(function (User $u) use ($agencyId, $scopeIds) {
+                $userAgency = $this->userAgencyId($u);
+                if ($agencyId && $userAgency !== $agencyId) {
+                    return false;
+                }
+
+                return $scopeIds === null || in_array($userAgency, $scopeIds, true);
+            })
+            ->map(fn (User $u) => $this->summaryBeneficiary(
+                id: $u->id,
+                type: 'user',
+                name: trim("{$u->first_name} {$u->last_name}") ?: $u->username,
+                kind: $u->role?->name,
+                commissionType: null,
+                commissionValue: null,
+                search: $search,
+            ))
+            ->filter()
+            ->values();
+
         $all = collect()
             ->merge($sellers)
             ->merge($commercials)
             ->merge($teamMembers)
+            ->merge($users)
             ->sortByDesc(fn ($b) => $b['balance'] ?? 0)
             ->values();
 
@@ -424,7 +570,7 @@ class CommissionController extends Controller
     public function storePayment(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'beneficiary_type' => ['required', 'string', 'in:seller_profile,commercial,team_member'],
+            'beneficiary_type' => ['required', 'string', 'in:seller_profile,commercial,team_member,user'],
             'beneficiary_id' => ['required', 'uuid'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
@@ -438,6 +584,7 @@ class CommissionController extends Controller
         $sellerProfile = null;
         $commercial = null;
         $teamMember = null;
+        $beneficiaryUser = null;
         $agencyId = null;
         $beneficiaryName = 'Bénéficiaire';
 
@@ -449,6 +596,10 @@ class CommissionController extends Controller
             $teamMember = TeamMember::where('is_active', true)->findOrFail($validated['beneficiary_id']);
             $agencyId = $teamMember->agency_id;
             $beneficiaryName = $teamMember->full_name ?: 'Équipier';
+        } elseif ($validated['beneficiary_type'] === 'user') {
+            $beneficiaryUser = User::findOrFail($validated['beneficiary_id']);
+            $agencyId = $this->userAgencyId($beneficiaryUser);
+            $beneficiaryName = trim("{$beneficiaryUser->first_name} {$beneficiaryUser->last_name}") ?: $beneficiaryUser->username;
         } else {
             $commercial = Commercial::with('user')->where('is_active', true)->findOrFail($validated['beneficiary_id']);
             $agencyId = $commercial->agency_id;
@@ -459,7 +610,7 @@ class CommissionController extends Controller
         $scopeIds = app(ScopeService::class)->agencyIds($request->user());
         abort_if($scopeIds !== null && ! in_array($agencyId, $scopeIds, true), 403, 'Ce bénéficiaire est hors de votre périmètre.');
 
-        $balance = $this->balanceForBeneficiary($sellerProfile, $commercial, $teamMember);
+        $balance = $this->balanceForBeneficiary($sellerProfile, $commercial, $teamMember, $beneficiaryUser);
 
         abort_if($amount > $balance + 0.005, 422, 'Impossible de payer : le montant excède le solde disponible ('.number_format(max($balance, 0), 2).' FCFA).');
 
@@ -478,7 +629,7 @@ class CommissionController extends Controller
                 ->first();
         }
 
-        $payment = DB::transaction(function () use ($sellerProfile, $commercial, $teamMember, $amount, $account, $validated, $actorId, $agencyId, $beneficiaryName) {
+        $payment = DB::transaction(function () use ($sellerProfile, $commercial, $teamMember, $beneficiaryUser, $amount, $account, $validated, $actorId, $agencyId, $beneficiaryName) {
             // 1. Marquage FIFO des entrées couvertes par ce paiement (paiement partiel possible).
             $entriesQuery = CommissionEntry::query()
                 ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED])
@@ -489,6 +640,8 @@ class CommissionController extends Controller
                 $entriesQuery->where('seller_profile_id', $sellerProfile->id);
             } elseif ($teamMember) {
                 $entriesQuery->where('beneficiary_team_member_id', $teamMember->id);
+            } elseif ($beneficiaryUser) {
+                $this->userOnlyEntries($entriesQuery, $beneficiaryUser->id);
             } else {
                 $entriesQuery->where('beneficiary_commercial_id', $commercial->id);
             }
@@ -518,13 +671,14 @@ class CommissionController extends Controller
                 }
             }
 
-            $reference = 'COMM-'.strtoupper(substr($sellerProfile?->id ?? $commercial?->id ?? $teamMember?->id ?? '', 0, 8)).'-'.now()->format('YmdHis');
+            $reference = 'COMM-'.strtoupper(substr($sellerProfile?->id ?? $commercial?->id ?? $teamMember?->id ?? $beneficiaryUser?->id ?? '', 0, 8)).'-'.now()->format('YmdHis');
 
             // 2. Paiement enregistré.
             $commissionPayment = CommissionPayment::create([
                 'commercial_id' => $commercial?->id,
                 'seller_profile_id' => $sellerProfile?->id,
                 'beneficiary_team_member_id' => $teamMember?->id,
+                'beneficiary_user_id' => $beneficiaryUser?->id,
                 'commission_entry_id' => $coveredEntry,
                 'treasury_account_id' => $account?->id,
                 'amount' => $amount,
@@ -571,12 +725,12 @@ class CommissionController extends Controller
             return $commissionPayment;
         });
 
-        $payment->load(['commercial.user', 'sellerProfile.user', 'teamMember', 'treasuryAccount', 'commissionEntry']);
+        $payment->load(['commercial.user', 'sellerProfile.user', 'teamMember', 'beneficiaryUser:id,first_name,last_name', 'treasuryAccount', 'commissionEntry']);
 
         return response()->json($payment, 201);
     }
 
-    private function balanceForBeneficiary(?SellerProfile $sellerProfile, ?Commercial $commercial, ?TeamMember $teamMember = null): float
+    private function balanceForBeneficiary(?SellerProfile $sellerProfile, ?Commercial $commercial, ?TeamMember $teamMember = null, ?User $user = null): float
     {
         $query = CommissionEntry::query()
             ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED]);
@@ -585,6 +739,8 @@ class CommissionController extends Controller
             $query->where('seller_profile_id', $sellerProfile->id);
         } elseif ($teamMember) {
             $query->where('beneficiary_team_member_id', $teamMember->id);
+        } elseif ($user) {
+            $this->userOnlyEntries($query, $user->id);
         } elseif ($commercial) {
             $query->where('beneficiary_commercial_id', $commercial->id);
         } else {
@@ -609,17 +765,27 @@ class CommissionController extends Controller
             return null;
         }
 
-        $entryColumn = $type === 'seller_profile'
-            ? 'seller_profile_id'
-            : ($type === 'team_member' ? 'beneficiary_team_member_id' : 'beneficiary_commercial_id');
-        $paymentColumn = $type === 'seller_profile'
-            ? 'seller_profile_id'
-            : ($type === 'team_member' ? 'beneficiary_team_member_id' : 'commercial_id');
+        $entryColumn = match ($type) {
+            'seller_profile' => 'seller_profile_id',
+            'team_member' => 'beneficiary_team_member_id',
+            'user' => 'beneficiary_user_id',
+            default => 'beneficiary_commercial_id',
+        };
+        $paymentColumn = match ($type) {
+            'seller_profile' => 'seller_profile_id',
+            'team_member' => 'beneficiary_team_member_id',
+            'user' => 'beneficiary_user_id',
+            default => 'commercial_id',
+        };
 
-        $owed = (float) CommissionEntry::query()
-            ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED])
-            ->where($entryColumn, $id)
-            ->sum('amount');
+        $owedQuery = CommissionEntry::query()
+            ->whereIn('status', [CommissionEntry::STATUS_CALCULATED, CommissionEntry::STATUS_VALIDATED]);
+        if ($type === 'user') {
+            $this->userOnlyEntries($owedQuery, $id);
+        } else {
+            $owedQuery->where($entryColumn, $id);
+        }
+        $owed = (float) $owedQuery->sum('amount');
 
         $paid = (float) CommissionPayment::query()
             ->where('rule', 'commission_payment')
@@ -654,6 +820,9 @@ class CommissionController extends Controller
             'rule_snapshot' => $entry->rule_snapshot,
             'seller_profile_id' => $entry->seller_profile_id,
             'beneficiary_commercial_id' => $entry->beneficiary_commercial_id,
+            'beneficiary_team_member_id' => $entry->beneficiary_team_member_id,
+            'beneficiary_user_id' => $entry->beneficiary_user_id,
+            'period' => $entry->period,
             'category' => $entry->category,
             'product_id' => $entry->product_id,
             'product_type' => $entry->product_type,
@@ -691,8 +860,47 @@ class CommissionController extends Controller
             'percent_value' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fixed_amount' => ['nullable', 'numeric', 'min:0'],
             'tiers_json' => ['nullable', 'array'],
+            'tiers_json.*.min' => ['nullable', 'numeric', 'min:0'],
+            'tiers_json.*.percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'tiers_json.*.fixed_bonus' => ['nullable', 'numeric', 'min:0'],
+            'tiers_json.*.pot_bonus' => ['nullable', 'numeric', 'min:0'],
+            'tiers_json.*.bonus_requires_recovery' => ['nullable', 'boolean'],
             'starts_on' => ['nullable', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
-        ]);
+            // Règles par rôle.
+            'basis' => ['nullable', 'string', 'in:'.implode(',', CommissionRule::BASES)],
+            'target_kind' => ['nullable', 'string', 'in:'.implode(',', CommissionRule::TARGET_KINDS)],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'product_id' => ['nullable', 'uuid', 'exists:products,id'],
+            'category_id' => ['nullable', 'uuid', 'exists:categories,id'],
+            'renewal_number' => ['nullable', 'integer', 'min:1', 'max:120'],
+            'renewal_on_time' => ['nullable', 'boolean'],
+            'revenue_scope' => ['nullable', 'string', 'in:'.implode(',', CommissionRule::REVENUE_SCOPES)],
+            'min_recovery_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'recovery_period' => ['nullable', 'string', 'in:'.implode(',', CommissionRule::RECOVERY_PERIODS)],
+            'growth_multiplier' => ['nullable', 'numeric', 'min:0'],
+            'max_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'bonus_min' => ['nullable', 'numeric', 'min:0'],
+            'bonus_max' => ['nullable', 'numeric', 'min:0', 'gte:bonus_min'],
+            'role_ids' => ['nullable', 'array'],
+            'role_ids.*' => ['uuid', 'exists:roles,id'],
+        ]) + ['basis' => CommissionRule::BASIS_SALE, 'revenue_scope' => 'own', 'recovery_period' => 'previous_month'];
+    }
+
+    /** Entrées d'un bénéficiaire « utilisateur » (sans profil commercial ni vendeur). */
+    private function userOnlyEntries($query, string $userId): void
+    {
+        $query->where('beneficiary_user_id', $userId)
+            ->whereNull('beneficiary_commercial_id')
+            ->whereNull('seller_profile_id');
+    }
+
+    /** Agence de rattachement d'un utilisateur (agence dont il est chef, sinon la première). */
+    private function userAgencyId(User $user): ?string
+    {
+        return DB::table('user_assignments')
+            ->where('user_id', $user->id)
+            ->orderByDesc('is_primary')
+            ->value('agency_id');
     }
 }
