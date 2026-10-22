@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Printer, XCircle, Wallet, Pencil, ImageIcon, ThumbsUp, ThumbsDown, Receipt, Camera, HandCoins } from 'lucide-react';
+import { ArrowLeft, Printer, XCircle, Wallet, Pencil, ImageIcon, ThumbsUp, ThumbsDown, Receipt, Camera, HandCoins, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
+import { servicesApi } from '@/api/services.api';
+import { productsApi, type ProductSearchItem } from '@/api/products.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -18,7 +20,7 @@ import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
+import { Autocomplete, FREE_TEXT_PREFIX, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoicePrint, InvoicePrintPortal, PrintPortal } from '@/components/invoices/InvoicePrint';
@@ -27,6 +29,41 @@ import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Invoice, PaymentMethod, PaymentProof } from '@/types/invoice';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
+import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
+import type { ServiceSearchItem } from '@/types/service';
+
+interface EditInvoiceLine {
+  key: string;
+  id?: string;
+  kind: 'service' | 'product' | 'free';
+  service_id: string;
+  product_id: string;
+  label: string;
+  unit_price: string;
+  quantity: string;
+  pass_tier: string;
+}
+
+let editLineCounter = 0;
+function newEditLine(): EditInvoiceLine {
+  editLineCounter += 1;
+  return { key: `edit-line-${editLineCounter}`, kind: 'service', service_id: '', product_id: '', label: '', unit_price: '', quantity: '1', pass_tier: '' };
+}
+
+function invoiceItemToEditLine(item: NonNullable<Invoice['items']>[number]): EditInvoiceLine {
+  editLineCounter += 1;
+  return {
+    key: `edit-line-${editLineCounter}`,
+    id: item.id,
+    kind: item.service_id ? 'service' : item.product_id ? 'product' : 'free',
+    service_id: item.service_id ?? '',
+    product_id: item.product_id ?? '',
+    label: item.label ?? '',
+    unit_price: String(item.unit_price ?? ''),
+    quantity: String(item.quantity ?? 1),
+    pass_tier: item.pass_tier ?? '',
+  };
+}
 
 export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: string }) {
   const { id: routeId = '', invoiceId = '' } = useParams();
@@ -84,7 +121,19 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
   const [editClientId, setEditClientId] = useState('');
   const [editCommercialId, setEditCommercialId] = useState('');
+  const [editSellerLabel, setEditSellerLabel] = useState('');
+  const [editSellerIsTrainer, setEditSellerIsTrainer] = useState(false);
+  const [editSellerUserId, setEditSellerUserId] = useState('');
   const [editPaymentType, setEditPaymentType] = useState<'' | PaymentMethod>('');
+  const [editInvoiceDate, setEditInvoiceDate] = useState('');
+  const [editPayerPhone, setEditPayerPhone] = useState('');
+  const [editAdvance, setEditAdvance] = useState('');
+  const [editDiscount, setEditDiscount] = useState('');
+  const [editVatRate, setEditVatRate] = useState('');
+  const [editLines, setEditLines] = useState<EditInvoiceLine[]>([newEditLine()]);
+  const [editCatalogRevision, setEditCatalogRevision] = useState(0);
+  const editServiceResultsRef = useRef<Record<string, ServiceSearchItem[]>>({});
+  const editProductResultsRef = useRef<Record<string, ProductSearchItem[]>>({});
   const [editComment, setEditComment] = useState('');
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -105,6 +154,19 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   );
 
   const isCommercial = currentUser?.role?.name === 'commercial';
+  const editCurrency = useAgencyCurrency(invoice?.agency_id);
+  const editTotals = useMemo(() => {
+    const subtotal = editLines.reduce(
+      (sum, line) => sum + (Number(line.unit_price) || 0) * (Number(line.quantity) || 0),
+      0,
+    );
+    const discount = Math.min(Math.max(Number(editDiscount) || 0, 0), subtotal);
+    const afterDiscount = subtotal - discount;
+    const vat = afterDiscount * ((Number(editVatRate) || 0) / 100);
+    const total = Math.round((afterDiscount + vat) * 100) / 100;
+    const advance = Number(editAdvance) || 0;
+    return { subtotal, discount, vat, total, advance, balance: Math.max(0, total - advance) };
+  }, [editLines, editDiscount, editVatRate, editAdvance]);
 
   const fetchInvoice = useCallback(async () => {
     setIsLoading(true);
@@ -113,9 +175,24 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       const inv = await invoicesApi.get(id);
       setInvoice(inv);
       setEditClientId(inv.client_name ? FREE_TEXT_PREFIX + inv.client_name : inv.client_id ?? '');
-      setEditCommercialId(inv.commercial_id ?? '');
+      const invoiceHasTrainerSeller = !inv.commercial_id && Boolean(inv.seller_user_id);
+      setEditCommercialId(inv.commercial_id ?? inv.seller_user_id ?? '');
+      setEditSellerLabel(inv.commercial
+        ? [inv.commercial.first_name, inv.commercial.last_name].filter(Boolean).join(' ')
+        : inv.seller
+          ? [inv.seller.first_name, inv.seller.last_name].filter(Boolean).join(' ') || inv.seller.email
+          : '');
+      setEditSellerIsTrainer(invoiceHasTrainerSeller);
+      setEditSellerUserId(inv.seller_user_id ?? '');
       setEditPaymentType(inv.payment_type ?? '');
       setEditComment(inv.comment ?? '');
+      setEditInvoiceDate(String(inv.invoice_date ?? '').slice(0, 10));
+      setEditPayerPhone(inv.payer_phone ?? '');
+      setEditAdvance(inv.declared_advance ?? '');
+      setEditDiscount(inv.discount ?? '0');
+      setEditVatRate(inv.vat_rate ?? '0');
+      const initialLines = (inv.items ?? []).map(invoiceItemToEditLine);
+      setEditLines(initialLines.length ? initialLines : [newEditLine()]);
       // Arrivée depuis la liste des en attente ("Valider") : ouvrir directement
       // la première preuve de paiement à analyser.
       // Arrivée depuis « Encaisser » : ouvrir le reçu du versement demandé.
@@ -177,9 +254,26 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     setEditErrors({});
     if (!invoice) return;
     setEditClientId(invoice.client_name ? FREE_TEXT_PREFIX + invoice.client_name : invoice.client_id ?? '');
-    setEditCommercialId(invoice.commercial_id ?? '');
+    const invoiceHasTrainerSeller = !invoice.commercial_id && Boolean(invoice.seller_user_id);
+    setEditCommercialId(invoice.commercial_id ?? invoice.seller_user_id ?? '');
+    setEditSellerLabel(invoice.commercial
+      ? [invoice.commercial.first_name, invoice.commercial.last_name].filter(Boolean).join(' ')
+      : invoice.seller
+        ? [invoice.seller.first_name, invoice.seller.last_name].filter(Boolean).join(' ') || invoice.seller.email
+        : '');
+    setEditSellerIsTrainer(invoiceHasTrainerSeller);
+    setEditSellerUserId(invoice.seller_user_id ?? '');
     setEditPaymentType(invoice.payment_type ?? '');
     setEditComment(invoice.comment ?? '');
+    setEditInvoiceDate(String(invoice.invoice_date ?? '').slice(0, 10));
+    setEditPayerPhone(invoice.payer_phone ?? '');
+    setEditAdvance(invoice.declared_advance ?? '');
+    setEditDiscount(invoice.discount ?? '0');
+    setEditVatRate(invoice.vat_rate ?? '0');
+    const initialLines = (invoice.items ?? []).map(invoiceItemToEditLine);
+    setEditLines(initialLines.length ? initialLines : [newEditLine()]);
+    editServiceResultsRef.current = {};
+    editProductResultsRef.current = {};
   }
 
   function openPay() {
@@ -320,26 +414,127 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
   function openEdit() {
     resetEditForm();
+    const lines = (invoice?.items ?? []).map(invoiceItemToEditLine);
+    lines.filter((line) => line.service_id).forEach((line) => {
+      servicesApi.search(line.label).then((results) => {
+        editServiceResultsRef.current[line.key] = results;
+        setEditCatalogRevision((revision) => revision + 1);
+      }).catch(() => {});
+    });
+    setEditLines(lines.length ? lines : [newEditLine()]);
     setEditOpen(true);
+  }
+
+  function updateEditLine(key: string, patch: Partial<EditInvoiceLine>) {
+    setEditLines((lines) => lines.map((line) => line.key === key ? { ...line, ...patch } : line));
+  }
+
+  function removeEditLine(key: string) {
+    setEditLines((lines) => lines.length > 1 ? lines.filter((line) => line.key !== key) : lines);
+  }
+
+  function selectEditService(key: string, serviceId: string) {
+    const service = (editServiceResultsRef.current[key] ?? []).find((result) => result.id === serviceId);
+    if (!service) {
+      updateEditLine(key, { service_id: '', pass_tier: '' });
+      return;
+    }
+    const tiers = service.seminar_tiers ?? [];
+    const tier = tiers[0];
+    updateEditLine(key, {
+      kind: 'service',
+      service_id: service.id,
+      product_id: '',
+      label: service.name,
+      unit_price: String(tier?.price ?? service.effective_price ?? service.price ?? ''),
+      pass_tier: tier?.tier ?? '',
+    });
+  }
+
+  function selectEditProduct(key: string, productId: string) {
+    const product = (editProductResultsRef.current[key] ?? []).find((result) => result.id === productId);
+    if (!product) {
+      updateEditLine(key, { product_id: '' });
+      return;
+    }
+    updateEditLine(key, {
+      kind: 'product',
+      product_id: product.id,
+      service_id: '',
+      label: product.name,
+      unit_price: String(product.selling_price ?? product.price_with_tax ?? ''),
+      pass_tier: '',
+    });
   }
 
   async function handleEdit(event: FormEvent) {
     event.preventDefault();
     if (!invoice) return;
+    const validLines = editLines.filter((line) => line.label.trim() || line.service_id || line.product_id || Number(line.unit_price) > 0);
+    if (!validLines.length) {
+      setEditErrors({ items: t('invoices.noItems') });
+      return;
+    }
+    if (!editClientId) {
+      setEditErrors({ client_id: t('invoices.colClient') });
+      return;
+    }
+    if ((editPaymentType === 'om' || editPaymentType === 'momo') && !editPayerPhone.trim()) {
+      setEditErrors({ payer_phone: t('invoices.payerPhoneRequired') });
+      return;
+    }
+    if (editTotals.advance > editTotals.total) {
+      setEditErrors({ advance: t('invoices.advanceExceedsTotal') });
+      return;
+    }
     setEditSubmitting(true);
     setEditErrors({});
     try {
       const freeClientName = editClientId.startsWith(FREE_TEXT_PREFIX) ? editClientId.slice(FREE_TEXT_PREFIX.length) : '';
-      await invoicesApi.update(invoice.id, {
-        client_id: freeClientName ? undefined : editClientId || undefined,
-        client_name: freeClientName || undefined,
-        commercial_id: editCommercialId || undefined,
-        payment_type: editPaymentType || undefined,
-        comment: editComment || undefined,
+      const updated = await invoicesApi.update(invoice.id, {
+        client_id: freeClientName ? null : editClientId || null,
+        client_name: freeClientName || null,
+        commercial_id: editSellerIsTrainer ? null : editCommercialId || null,
+        seller_user_id: editSellerUserId || null,
+        invoice_date: editInvoiceDate,
+        payment_type: editPaymentType || null,
+        payer_phone: editPaymentType === 'om' || editPaymentType === 'momo' ? editPayerPhone.trim() : null,
+        comment: editComment || null,
+        advance: Number(editAdvance) || 0,
+        discount: Number(editDiscount) || 0,
+        vat_rate: Number(editVatRate) || 0,
+        items: validLines.map((line) => ({
+          id: line.id,
+          service_id: line.kind === 'service' ? line.service_id || undefined : undefined,
+          product_id: line.kind === 'product' ? line.product_id || undefined : undefined,
+          label: line.label.trim() || undefined,
+          unit_price: Number(line.unit_price) || 0,
+          quantity: Number(line.quantity) || 1,
+          pass_tier: line.kind === 'service' ? line.pass_tier || undefined : undefined,
+        })),
       });
+      setInvoice((current) => current ? { ...current, ...updated } : updated);
+      setEditClientId(updated.client_name ? FREE_TEXT_PREFIX + updated.client_name : updated.client_id ?? '');
+      const updatedHasTrainerSeller = !updated.commercial_id && Boolean(updated.seller_user_id);
+      setEditCommercialId(updated.commercial_id ?? updated.seller_user_id ?? '');
+      setEditSellerLabel(updated.commercial
+        ? [updated.commercial.first_name, updated.commercial.last_name].filter(Boolean).join(' ')
+        : updated.seller
+          ? [updated.seller.first_name, updated.seller.last_name].filter(Boolean).join(' ') || updated.seller.email
+          : '');
+      setEditSellerIsTrainer(updatedHasTrainerSeller);
+      setEditSellerUserId(updated.seller_user_id ?? '');
+      setEditPaymentType(updated.payment_type ?? '');
+      setEditInvoiceDate(String(updated.invoice_date ?? '').slice(0, 10));
+      setEditPayerPhone(updated.payer_phone ?? '');
+      setEditAdvance(updated.declared_advance ?? '');
+      setEditDiscount(updated.discount ?? '0');
+      setEditVatRate(updated.vat_rate ?? '0');
+      const updatedLines = (updated.items ?? []).map(invoiceItemToEditLine);
+      setEditLines(updatedLines.length ? updatedLines : [newEditLine()]);
+      setEditComment(updated.comment ?? '');
       showToast(t('invoices.updated'), 'success');
-      closeEdit();
-      fetchInvoice();
+      setEditOpen(false);
     } catch (error) {
       setEditErrors(extractFieldErrors(error));
       const msg = extractErrorMessage(error, t('invoices.saveFailed'));
@@ -484,7 +679,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               <Printer className="h-4 w-4" />
               {t('invoices.print')}
             </Button>
-            {!invoice.is_cancelled && !invoice.payments?.some((p) => !p.is_advance) && canEditInvoice && (
+            {!invoice.is_cancelled && !invoice.payments?.length && canEditInvoice && (
               <Button variant="outline" onClick={openEdit}>
                 <Pencil className="h-4 w-4" />
                 {t('common.edit')}
@@ -1026,73 +1221,296 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         isOpen={editOpen}
         onClose={closeEdit}
         title={t('invoices.editTitle')}
-        maxWidth="max-w-lg"
+        maxWidth="max-w-5xl"
       >
-        <form onSubmit={handleEdit} className="flex flex-col gap-4">
+        <form onSubmit={handleEdit} className="flex flex-col gap-5" data-catalog-revision={editCatalogRevision}>
           {Object.keys(editErrors).length > 0 && (
             <Alert variant="error">{Object.values(editErrors).join(' ')}</Alert>
           )}
-          <Autocomplete
-            label={t('invoices.headerClient')}
-            placeholder={t('invoices.headerClientPlaceholder')}
-            value={editClientId}
-            onChange={setEditClientId}
-            freeText
-            fetchOptions={async (query) => {
-              const res = await clientsApi.search(query.trim());
-              return res.map((c) => ({
-                id: c.id,
-                label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                subtitle: c.email,
-              }));
-            }}
-            error={editErrors.client_id}
-          />
-          <Autocomplete
-            label={t('invoices.headerCommercial')}
-            placeholder={t('invoices.headerCommercialPlaceholder')}
-            value={editCommercialId}
-            onChange={setEditCommercialId}
-            fetchOptions={async (query) => {
-              const [coms, emps] = await Promise.all([
-                commercialsApi.search(query.trim()).catch(() => []),
-                employeesApi.search(query.trim()).catch(() => []),
-              ]);
-              const seen = new Set<string>();
-              const results: { id: string; label: string; subtitle: string }[] = [];
-              for (const c of [...coms, ...emps]) {
-                if (seen.has(c.id)) continue;
-                seen.add(c.id);
-                results.push({
-                  id: c.id,
-                  label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                  subtitle: c.email ?? '',
-                });
-              }
-              return results;
-            }}
-          />
-          <Select
-            label={t('invoices.headerPaymentType')}
-            value={editPaymentType}
-            onChange={(e) => setEditPaymentType(e.target.value as '' | PaymentMethod)}
-          >
-            <option value="">—</option>
-            <option value="cash">{t('invoices.paymentCash')}</option>
-            <option value="om">{t('invoices.paymentOm')}</option>
-            <option value="momo">{t('invoices.paymentMomo')}</option>
-          </Select>
-          <Input
-            label={t('invoices.headerComment')}
-            value={editComment}
-            onChange={(e) => setEditComment(e.target.value)}
-            error={editErrors.comment}
-          />
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:p-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Autocomplete
+                label={t('invoices.headerClient')}
+                placeholder={t('invoices.headerClientPlaceholder')}
+                value={editClientId}
+                onChange={setEditClientId}
+                freeText
+                fetchOptions={async (query) => {
+                  const res = await clientsApi.search(query.trim());
+                  return res.map((client) => ({
+                    id: client.id,
+                    label: [client.first_name, client.last_name].filter(Boolean).join(' ') || client.email || '',
+                    subtitle: client.email,
+                  }));
+                }}
+                error={editErrors.client_id}
+              />
+              <Autocomplete
+                label={t('invoices.seller')}
+                placeholder={t('invoices.headerCommercialPlaceholder')}
+                value={editCommercialId}
+                onChange={(id) => {
+                  setEditCommercialId(id);
+                  if (!id) {
+                    setEditSellerLabel('');
+                    setEditSellerIsTrainer(false);
+                    setEditSellerUserId('');
+                  }
+                }}
+                onPick={(option) => {
+                  setEditSellerLabel(option.label);
+                  setEditSellerIsTrainer(Boolean(option.isTrainer));
+                  setEditSellerUserId(option.userId ?? (option.isTrainer ? option.id : ''));
+                }}
+                selectedOption={editCommercialId ? {
+                  id: editCommercialId,
+                  label: editSellerLabel,
+                } : null}
+                fetchOptions={async (query) => {
+                  const [commercials, employees] = await Promise.all([
+                    commercialsApi.search(query.trim()).catch(() => []),
+                    employeesApi.search(query.trim()).catch(() => []),
+                  ]);
+                  const seen = new Set<string>();
+                  const options: AutocompleteOption[] = [];
+                  for (const seller of [...commercials, ...employees]) {
+                    if (seen.has(seller.id)) continue;
+                    seen.add(seller.id);
+                    const label = [seller.first_name, seller.last_name].filter(Boolean).join(' ') || seller.email || '';
+                    if (seller.is_trainer && seller.user_id) {
+                      options.push({ id: seller.user_id, userId: seller.user_id, isTrainer: true, label, subtitle: seller.email ?? '' });
+                    } else {
+                      options.push({ id: seller.id, userId: seller.user_id ?? undefined, label, subtitle: seller.email ?? '' });
+                    }
+                  }
+                  return options;
+                }}
+              />
+              <Input label={t('invoices.headerAgency')} value={invoice?.agency?.name ?? ''} disabled />
+              <Input
+                label={t('invoices.headerDate')}
+                type="date"
+                value={editInvoiceDate}
+                onChange={(event) => setEditInvoiceDate(event.target.value)}
+                error={editErrors.invoice_date}
+              />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Select
+                  label={t('invoices.headerPaymentType')}
+                  value={editPaymentType}
+                  onChange={(event) => setEditPaymentType(event.target.value as '' | PaymentMethod)}
+                  error={editErrors.payment_type}
+                >
+                  <option value="">—</option>
+                  <option value="cash">{t('invoices.paymentCash')}</option>
+                  <option value="om">{t('invoices.paymentOm')}</option>
+                  <option value="momo">{t('invoices.paymentMomo')}</option>
+                  <option value="mobile">{t('invoices.paymentMobile')}</option>
+                </Select>
+                {(editPaymentType === 'om' || editPaymentType === 'momo') && (
+                  <Input
+                    label={`${t('invoices.payerPhone')} *`}
+                    value={editPayerPhone}
+                    onChange={(event) => setEditPayerPhone(event.target.value)}
+                    error={editErrors.payer_phone}
+                    hint={t('invoices.payerPhoneHint')}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:p-5">
+            <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-100">{t('invoices.items')}</h3>
+            <div className="flex flex-col gap-4">
+              {editLines.map((line, index) => {
+                const services = editServiceResultsRef.current[line.key] ?? [];
+                const selectedService = services.find((service) => service.id === line.service_id);
+                const tiers = selectedService?.seminar_tiers ?? [];
+                return (
+                  <div key={line.key} className="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-12">
+                      <div className="sm:col-span-2">
+                        <Select
+                          label={index === 0 ? t('invoices.itemKind') : undefined}
+                          value={line.kind}
+                          onChange={(event) => {
+                            const kind = event.target.value as EditInvoiceLine['kind'];
+                            updateEditLine(line.key, {
+                              kind,
+                              service_id: kind === 'service' ? line.service_id : '',
+                              product_id: kind === 'product' ? line.product_id : '',
+                              pass_tier: kind === 'service' ? line.pass_tier : '',
+                            });
+                          }}
+                        >
+                          <option value="service">{t('invoices.kindService')}</option>
+                          <option value="product">{t('invoices.kindProduct')}</option>
+                          <option value="free">{t('invoices.kindFree')}</option>
+                        </Select>
+                      </div>
+                      <div className="sm:col-span-4">
+                        {line.kind === 'service' ? (
+                          <Autocomplete
+                            label={index === 0 ? t('invoices.itemService') : undefined}
+                            placeholder={t('invoices.itemServicePlaceholder')}
+                            value={line.service_id}
+                            selectedOption={line.service_id ? { id: line.service_id, label: line.label } : null}
+                            onChange={(serviceId) => selectEditService(line.key, serviceId)}
+                            fetchOptions={async (query) => {
+                              const results = await servicesApi.search(query.trim(), invoice?.agency_id ?? undefined);
+                              editServiceResultsRef.current[line.key] = results;
+                              return results.map((service) => ({ id: service.id, label: service.name }));
+                            }}
+                          />
+                        ) : line.kind === 'product' ? (
+                          <Autocomplete
+                            label={index === 0 ? t('invoices.itemProduct') : undefined}
+                            placeholder={t('invoices.itemProductPlaceholder')}
+                            value={line.product_id}
+                            selectedOption={line.product_id ? { id: line.product_id, label: line.label } : null}
+                            onChange={(productId) => selectEditProduct(line.key, productId)}
+                            fetchOptions={async (query) => {
+                              const results = await productsApi.search(query.trim(), invoice?.agency_id ?? undefined);
+                              editProductResultsRef.current[line.key] = results;
+                              return results.map((product) => ({ id: product.id, label: product.name }));
+                            }}
+                          />
+                        ) : (
+                          <Input
+                            label={index === 0 ? t('invoices.itemLabel') : undefined}
+                            value={line.label}
+                            onChange={(event) => updateEditLine(line.key, { label: event.target.value })}
+                            error={editErrors[`items.${index}.label`]}
+                          />
+                        )}
+                      </div>
+                      {line.kind !== 'free' && (
+                        <div className="sm:col-span-3">
+                          <Input
+                            label={index === 0 ? t('invoices.itemLabel') : undefined}
+                            value={line.label}
+                            onChange={(event) => updateEditLine(line.key, { label: event.target.value })}
+                          />
+                        </div>
+                      )}
+                      {line.kind === 'service' && line.pass_tier && tiers.length > 0 && (
+                        <div className="sm:col-span-3">
+                          <Select
+                            label={index === 0 ? t('invoices.passTier') : undefined}
+                            value={line.pass_tier}
+                            onChange={(event) => {
+                              const tier = tiers.find((candidate) => candidate.tier === event.target.value);
+                              updateEditLine(line.key, {
+                                pass_tier: event.target.value,
+                                unit_price: tier ? String(tier.price) : line.unit_price,
+                              });
+                            }}
+                          >
+                            {tiers.map((tier) => <option key={tier.tier} value={tier.tier}>{tier.label}</option>)}
+                          </Select>
+                        </div>
+                      )}
+                      <div className="sm:col-span-2">
+                        <Input
+                          label={index === 0 ? t('invoices.itemQuantity') : undefined}
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={line.quantity}
+                          onChange={(event) => updateEditLine(line.key, { quantity: event.target.value })}
+                          error={editErrors[`items.${index}.quantity`]}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Input
+                          label={index === 0 ? t('invoices.itemUnitPrice') : undefined}
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={line.unit_price}
+                          onChange={(event) => updateEditLine(line.key, { unit_price: event.target.value })}
+                          error={editErrors[`items.${index}.unit_price`]}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3 sm:col-span-3 sm:justify-end">
+                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                          {formatCurrency((Number(line.unit_price) || 0) * (Number(line.quantity) || 0), editCurrency)}
+                        </span>
+                        <button type="button" onClick={() => removeEditLine(line.key)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800" title={t('invoices.removeLine')}>
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <Button type="button" variant="outline" onClick={() => setEditLines((lines) => [...lines, newEditLine()])} className="mt-4">
+              <Plus className="h-4 w-4" />
+              {t('invoices.addLine')}
+            </Button>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:p-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Input
+                label={t('invoices.discount')}
+                type="number"
+                min={0}
+                step="0.01"
+                value={editDiscount}
+                onChange={(event) => setEditDiscount(event.target.value)}
+                error={editErrors.discount}
+                hint={t('invoices.discountHint', { currency: editCurrency })}
+              />
+              <Input
+                label={t('invoices.vatRate')}
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={editVatRate}
+                onChange={(event) => setEditVatRate(event.target.value)}
+                error={editErrors.vat_rate}
+                hint={t('invoices.vatHint')}
+              />
+              <Input
+                label={t('invoices.advance')}
+                type="number"
+                min={0}
+                step="0.01"
+                value={editAdvance}
+                onChange={(event) => setEditAdvance(event.target.value)}
+                error={editErrors.advance}
+                hint={t('invoices.declaredAdvanceHint')}
+              />
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('invoices.headerComment')}</label>
+                <textarea
+                  value={editComment}
+                  onChange={(event) => setEditComment(event.target.value)}
+                  placeholder={t('invoices.headerCommentPlaceholder')}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                />
+                {editErrors.comment && <p className="mt-1 text-sm text-error-500">{editErrors.comment}</p>}
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
+              <div className="text-sm"><span className="text-gray-500">{t('invoices.totalAfterDiscount')}</span><p className="text-lg font-semibold">{formatCurrency(editTotals.subtotal, editCurrency)}</p></div>
+              {editTotals.discount > 0 && <div className="text-sm"><span className="text-gray-500">- {t('invoices.discount')}</span><p className="text-lg font-semibold text-error-500">- {formatCurrency(editTotals.discount, editCurrency)}</p></div>}
+              {editTotals.vat > 0 && <div className="text-sm"><span className="text-gray-500">{t('invoices.vatAmount')}</span><p className="text-lg font-semibold">+ {formatCurrency(editTotals.vat, editCurrency)}</p></div>}
+              <div className="text-sm"><span className="text-gray-500">{t('invoices.totalAmount')}</span><p className="text-lg font-semibold">{formatCurrency(editTotals.total, editCurrency)}</p></div>
+              <div className="text-sm"><span className="text-gray-500">{t('invoices.balanceDue')}</span><p className="text-lg font-semibold text-brand-600">{formatCurrency(editTotals.balance, editCurrency)}</p></div>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={closeEdit} className="flex-1">
+            <Button type="button" variant="outline" onClick={closeEdit}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" isLoading={editSubmitting} className="flex-1">
+            <Button type="submit" isLoading={editSubmitting}>
               {t('common.save')}
             </Button>
           </div>

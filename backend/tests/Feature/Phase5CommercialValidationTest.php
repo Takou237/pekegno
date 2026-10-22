@@ -52,6 +52,16 @@ class Phase5CommercialValidationTest extends TestCase
         return $user;
     }
 
+    private function assignCashierToInvoiceAgency(User $cashier, string $invoiceId): void
+    {
+        DB::table('user_assignments')->insert([
+            'user_id' => $cashier->id,
+            'agency_id' => Invoice::findOrFail($invoiceId)->agency_id,
+            'is_primary' => false,
+            'is_department_chief' => false,
+        ]);
+    }
+
     public function test_commercial_created_invoice_is_pending_and_cannot_be_collected(): void
     {
         $commercial = $this->createCommercialUser();
@@ -91,7 +101,8 @@ class Phase5CommercialValidationTest extends TestCase
         // Le caissier accepte d'abord la preuve (→ validation automatique),
         // puis peut encaisser.
         $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
-        $this->actingAsRole('caissier');
+        $cashier = $this->actingAsRole('caissier');
+        $this->assignCashierToInvoiceAgency($cashier, $invoice['id']);
         $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
 
         $this->assertDatabaseHas('invoices', [
@@ -162,7 +173,8 @@ class Phase5CommercialValidationTest extends TestCase
         $this->assertSame(0.0, (float) $stats['commissions']);
 
         // Le caissier valide : toujours pas comptabilisé (pas encore encaissé).
-        $this->actingAsRole('caissier');
+        $cashier = $this->actingAsRole('caissier');
+        $this->assignCashierToInvoiceAgency($cashier, $invoice['id']);
         $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
         $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
         $stats = $this->scopedStats($commercial->id);
@@ -237,7 +249,8 @@ class Phase5CommercialValidationTest extends TestCase
         $this->assertNotNull($proof->file_path);
 
         // Le caissier ne peut pas valider tant que la preuve n'a pas été acceptée.
-        $this->actingAsRole('caissier');
+        $cashier = $this->actingAsRole('caissier');
+        $this->assignCashierToInvoiceAgency($cashier, $invoice['id']);
         $this->postJson("/api/invoices/{$invoice['id']}/validate")
             ->assertStatus(422);
     }
@@ -259,7 +272,8 @@ class Phase5CommercialValidationTest extends TestCase
         $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
 
         // Le caissier accepte la preuve → la facture est automatiquement validée.
-        $this->actingAsRole('caissier');
+        $cashier = $this->actingAsRole('caissier');
+        $this->assignCashierToInvoiceAgency($cashier, $invoice['id']);
         $response = $this->postJson("/api/payment-proofs/{$proof->id}/approve")
             ->assertOk()
             ->json();
@@ -296,7 +310,8 @@ class Phase5CommercialValidationTest extends TestCase
         $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
 
         // Le caissier rejette la preuve → la facture est automatiquement rejetée.
-        $this->actingAsRole('caissier');
+        $cashier = $this->actingAsRole('caissier');
+        $this->assignCashierToInvoiceAgency($cashier, $invoice['id']);
         $response = $this->postJson("/api/payment-proofs/{$proof->id}/reject", [
             'notes' => 'Capture illisible.',
         ])->assertOk()
@@ -332,7 +347,8 @@ class Phase5CommercialValidationTest extends TestCase
         ])->assertStatus(201)->json();
 
         // Un caissier valide puis encaisse la facture (statut paid).
-        $this->actingAsRole('caissier');
+        $cashier = $this->actingAsRole('caissier');
+        $this->assignCashierToInvoiceAgency($cashier, $invoice['id']);
         $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
         $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
@@ -420,13 +436,8 @@ class Phase5CommercialValidationTest extends TestCase
         );
     }
 
-    /**
-     * La file de validation ne peut pas être bornée à la seule agence du caissier :
-     * une vente d'un commercial rattaché à une autre agence du même pays resterait
-     * en attente indéfiniment, invisible de tous les caissiers (et hors de portée de
-     * la validation métier que le caissier a pour mission d'accomplir).
-     */
-    public function test_cashier_sees_pending_invoice_of_a_commercial_in_another_agency_of_same_country(): void
+    /** Une facture d'une autre agence reste hors du périmètre du caissier. */
+    public function test_cashier_does_not_see_pending_invoice_from_another_agency_of_same_country(): void
     {
         $country = Country::create([
             'name' => 'Cameroun',
@@ -468,19 +479,12 @@ class Phase5CommercialValidationTest extends TestCase
 
         $this->getJson('/api/invoices?validation_status=pending')
             ->assertOk()
-            ->assertJsonPath('invoices.meta.total', 1)
-            ->assertJsonPath('invoices.data.0.id', $invoiceId)
-            ->assertJsonPath('invoices.data.0.payment_proofs_count', 1);
+            ->assertJsonPath('invoices.meta.total', 0)
+            ->assertJsonMissing(['id' => $invoiceId]);
     }
 
-    /**
-     * Le clic sur « Valider » ouvre la modale d'examen de la preuve. Si la preuve
-     * n'est pas dans le périmètre du caissier, la liste annonce pourtant
-     * payment_proofs_count = 1 et l'écran affiche « aucune preuve à afficher » :
-     * le commercial est bloqué avec un aller-retour inutile. Le périmètre des
-     * preuves doit donc suivre celui de la facture qu'elles justifient.
-     */
-    public function test_cashier_can_read_the_proof_of_a_pending_invoice_from_another_agency(): void
+    /** La consultation et l'examen de preuve respectent aussi le périmètre d'agence. */
+    public function test_cashier_cannot_read_or_review_a_proof_from_another_agency(): void
     {
         $country = Country::create([
             'name' => 'Cameroun',
@@ -520,22 +524,18 @@ class Phase5CommercialValidationTest extends TestCase
 
         Sanctum::actingAs($cashier);
 
-        $proofId = $this->getJson("/api/payment-proofs?invoice_id={$invoiceId}&status=pending&per_page=1")
-            ->assertOk()
-            ->assertJsonPath('total', 1)
-            ->assertJsonPath('data.0.payment_method', 'momo')
-            ->json('data.0.id');
+        $proofId = PaymentProof::where('invoice_id', $invoiceId)->value('id');
 
-        // Et le caissier peut aller au bout : accepter la preuve valide la facture.
-        $this->postJson("/api/payment-proofs/{$proofId}/approve")
+        $this->getJson("/api/payment-proofs?invoice_id={$invoiceId}&status=pending&per_page=1")
             ->assertOk()
-            ->assertJsonPath('invoice.validation_status', Invoice::VALIDATION_VALIDATED);
+            ->assertJsonPath('total', 0)
+            ->assertJsonCount(0, 'data');
+
+        $this->postJson("/api/payment-proofs/{$proofId}/approve")->assertNotFound();
+        $this->assertSame(Invoice::VALIDATION_PENDING, Invoice::findOrFail($invoiceId)->validation_status);
     }
 
-    /**
-     * L'élargissement au pays ne doit pas ouvrir le registre : une facture déjà
-     * validée dans un autre pays reste hors périmètre du caissier.
-     */
+    /** Une facture validée dans une autre agence reste hors périmètre du caissier. */
     public function test_cashier_does_not_see_validated_invoice_from_another_country(): void
     {
         $ownCountry = Country::create(['name' => 'Cameroun', 'code' => 'CMR', 'currency_code' => 'XAF']);

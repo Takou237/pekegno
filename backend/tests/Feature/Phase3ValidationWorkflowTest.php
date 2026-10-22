@@ -78,6 +78,13 @@ class Phase3ValidationWorkflowTest extends TestCase
         return app(OrderInvoicingService::class)->invoiceFromOrder($order, $client->id);
     }
 
+    private function assignCashierToInvoice(User $cashier, Invoice $invoice): void
+    {
+        $cashier->assignments()->sync([
+            $invoice->agency_id => ['is_primary' => true],
+        ]);
+    }
+
     public function test_cashier_filters_pending_invoices_and_validates_them(): void
     {
         $caissier = $this->staffWithRole('caissier');
@@ -107,8 +114,9 @@ class Phase3ValidationWorkflowTest extends TestCase
 
     public function test_reject_requires_a_reason_and_records_it(): void
     {
-        $this->staffWithRole('caissier');
+        $cashier = $this->staffWithRole('caissier');
         $invoice = $this->pendingInvoice();
+        $this->assignCashierToInvoice($cashier, $invoice);
 
         $this->postJson("/api/invoices/{$invoice->id}/reject", [])
             ->assertStatus(422);
@@ -124,8 +132,9 @@ class Phase3ValidationWorkflowTest extends TestCase
 
     public function test_validation_only_accepts_pending_invoices(): void
     {
-        $this->staffWithRole('caissier');
+        $cashier = $this->staffWithRole('caissier');
         $invoice = $this->pendingInvoice();
+        $this->assignCashierToInvoice($cashier, $invoice);
 
         $this->postJson("/api/invoices/{$invoice->id}/validate")->assertOk();
 
@@ -134,6 +143,7 @@ class Phase3ValidationWorkflowTest extends TestCase
 
         // Rejetée : ne peut plus être validée.
         $second = $this->pendingInvoice();
+        $this->assignCashierToInvoice($cashier, $second);
         $this->postJson("/api/invoices/{$second->id}/reject", ['rejection_reason' => 'Doublon'])->assertOk();
         $this->postJson("/api/invoices/{$second->id}/validate")->assertStatus(422);
     }
@@ -149,7 +159,8 @@ class Phase3ValidationWorkflowTest extends TestCase
             'payment_method' => 'om',
         ])->assertStatus(422);
 
-        $this->staffWithRole('caissier');
+        $cashier = $this->staffWithRole('caissier');
+        $this->assignCashierToInvoice($cashier, $invoice);
         $this->postJson("/api/invoices/{$invoice->id}/validate")->assertOk();
 
         $this->staffWithRole('comptable');

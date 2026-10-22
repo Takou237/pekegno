@@ -86,7 +86,7 @@ class PendingInvoiceNotificationTest extends TestCase
         Mail::assertNotSent(PendingInvoiceMail::class, fn ($mail) => $mail->hasTo('caisse@autre.test'));
     }
 
-    public function test_falls_back_to_cashiers_of_the_same_country(): void
+    public function test_does_not_notify_cashiers_of_another_agency_in_the_same_country(): void
     {
         $country = Country::create(['name' => 'Cameroun', 'code' => 'CMR', 'currency_code' => 'XAF']);
         $agencyWithoutCashier = Agency::factory()->create(['country_id' => $country->id]);
@@ -96,7 +96,7 @@ class PendingInvoiceNotificationTest extends TestCase
 
         $this->sellAs($this->commercialIn($agencyWithoutCashier), $agencyWithoutCashier);
 
-        Mail::assertSent(PendingInvoiceMail::class, fn ($mail) => $mail->hasTo('caisse@pays.test'));
+        Mail::assertNotSent(PendingInvoiceMail::class, fn ($mail) => $mail->hasTo('caisse@pays.test'));
     }
 
     public function test_cashier_sale_sends_no_pending_email(): void

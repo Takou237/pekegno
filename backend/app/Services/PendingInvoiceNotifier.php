@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Mail\PendingInvoiceMail;
-use App\Models\Agency;
 use App\Models\Invoice;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,11 +16,8 @@ use Throwable;
  * Envoie un email aux caissiers quand un commercial enregistre une vente : la
  * facture naît en attente et ne devient définitive qu'après leur validation.
  *
- * Destinataires, du plus proche au plus large (même logique que la file de
- * validation, cf. InvoiceController::scopeQuery) : les caissiers affectés à
- * l'agence de la facture, à défaut ceux du même pays, à défaut tous les
- * caissiers actifs — une vente ne doit jamais rester en attente sans que
- * personne ne soit prévenu. Un SMTP indisponible ne bloque pas la vente.
+ * Seuls les caissiers affectés à l'agence de la facture sont avertis. Un SMTP
+ * indisponible ne bloque pas la vente.
  */
 class PendingInvoiceNotifier
 {
@@ -52,22 +48,11 @@ class PendingInvoiceNotifier
      */
     private function recipientsFor(Invoice $invoice): Collection
     {
-        if ($invoice->agency_id) {
-            $byAgency = $this->cashierEmails([$invoice->agency_id]);
-            if ($byAgency->isNotEmpty()) {
-                return $byAgency;
-            }
-
-            $countryId = Agency::whereKey($invoice->agency_id)->value('country_id');
-            if ($countryId) {
-                $byCountry = $this->cashierEmails(Agency::where('country_id', $countryId)->pluck('id')->all());
-                if ($byCountry->isNotEmpty()) {
-                    return $byCountry;
-                }
-            }
+        if (! $invoice->agency_id) {
+            return collect();
         }
 
-        return $this->cashierEmails(null);
+        return $this->cashierEmails([$invoice->agency_id]);
     }
 
     /**

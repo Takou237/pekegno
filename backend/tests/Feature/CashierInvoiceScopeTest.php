@@ -17,10 +17,8 @@ use Tests\TestCase;
 /**
  * Périmètre factures du caissier (InvoiceController::scopeByRole).
  *
- * Une facture d'une autre agence du MÊME pays reste visible après validation :
- * bornée aux seules factures pending, elle sortait du périmètre au moment où le
- * caissier la validait et disparaissait de son onglet Factures (l'admin, non
- * soumis au cadrage, continuait de la voir).
+ * Le caissier ne voit et n'ouvre que les factures des agences qui lui sont affectées,
+ * qu'elles soient en attente ou déjà validées.
  */
 class CashierInvoiceScopeTest extends TestCase
 {
@@ -86,29 +84,25 @@ class CashierInvoiceScopeTest extends TestCase
             ->json('invoices.data.*.number');
     }
 
-    public function test_cashier_sees_validated_invoices_of_any_agency_in_his_country(): void
+    public function test_cashier_sees_only_invoices_of_assigned_agencies(): void
     {
         $assigned = $this->invoice($this->assignedAgency, Invoice::VALIDATION_VALIDATED);
         $sibling = $this->invoice($this->siblingAgency, Invoice::VALIDATION_VALIDATED);
+        $pendingSibling = $this->invoice($this->siblingAgency, Invoice::VALIDATION_PENDING);
 
         $numbers = $this->listedNumbers();
 
         $this->assertContains($assigned->number, $numbers, 'agence affectée');
-        $this->assertContains($sibling->number, $numbers, 'facture validée d une autre agence du même pays');
+        $this->assertNotContains($sibling->number, $numbers, 'facture validée d une autre agence du même pays');
+        $this->assertNotContains($pendingSibling->number, $numbers, 'facture en attente d une autre agence du même pays');
     }
 
-    public function test_cashier_keeps_seeing_a_sister_agency_invoice_after_validating_it(): void
+    public function test_cashier_cannot_open_invoice_from_another_agency_by_id(): void
     {
         $invoice = $this->invoice($this->siblingAgency, Invoice::VALIDATION_PENDING);
 
-        $this->assertContains($invoice->number, $this->listedNumbers(), 'en attente');
-
-        $invoice->update([
-            'validation_status' => Invoice::VALIDATION_VALIDATED,
-            'validated_at' => now(),
-        ]);
-
-        $this->assertContains($invoice->number, $this->listedNumbers(), 'validée : ne doit pas disparaître');
+        Sanctum::actingAs($this->cashier);
+        $this->getJson("/api/invoices/{$invoice->id}")->assertNotFound();
     }
 
     public function test_cashier_never_sees_invoices_of_another_country(): void

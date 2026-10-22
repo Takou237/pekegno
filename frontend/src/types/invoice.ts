@@ -163,11 +163,18 @@ export interface CreateInvoicePayload {
 }
 
 export interface UpdateInvoicePayload {
-  client_id?: string;
-  client_name?: string;
-  commercial_id?: string;
-  payment_type?: PaymentMethod;
-  comment?: string;
+  client_id?: string | null;
+  client_name?: string | null;
+  commercial_id?: string | null;
+  seller_user_id?: string | null;
+  payment_type?: PaymentMethod | null;
+  payer_phone?: string | null;
+  invoice_date?: string;
+  comment?: string | null;
+  advance?: number | null;
+  discount?: number;
+  vat_rate?: number;
+  items?: (InvoiceLinePayload & { id?: string })[];
 }
 
 export interface PayInvoicePayload {

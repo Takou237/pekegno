@@ -54,15 +54,18 @@ class PaymentProofController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
+        $isCashier = $request->user()?->role?->name === 'caissier';
+        $agencyIds = $isCashier
+            ? DB::table('user_assignments')
+                ->where('user_id', $request->user()->id)
+                ->whereNotNull('agency_id')
+                ->pluck('agency_id')
+                ->all()
+            : app(ScopeService::class)->agencyIds($request->user());
 
-        // Une preuve n'est examinable que par qui peut valider sa facture : le
-        // périmètre des preuves suit donc exactement celui des factures
-        // (InvoiceController::scopeByRole). Sans l'élargissement au pays, une
-        // facture en attente d'un commercial d'une autre agence était bien
-        // listée, mais sa preuve restait filtrée ici — le caissier arrivait sur
-        // « Valider » et se trouvait devant « aucune preuve à afficher ».
-        $pendingCountryIds = $agencyIds === null
+        // Les preuves visibles par un caissier suivent strictement ses agences
+        // affectées, y compris lorsque la facture est encore en attente.
+        $pendingCountryIds = $agencyIds === null || $isCashier
             ? collect()
             : Agency::whereIn('id', $agencyIds)
                 ->whereNotNull('country_id')
@@ -76,7 +79,8 @@ class PaymentProofController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('agency_id'), fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->where('agency_id', $request->input('agency_id'))))
             ->when($request->filled('country_id'), fn ($q) => $q->whereHas('invoice.agency', fn ($inner) => $inner->where('country_id', $request->input('country_id'))))
-            ->when($agencyIds !== null, fn ($q) => $q->where(function ($q) use ($agencyIds, $pendingCountryIds) {
+            ->when($isCashier, fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
+            ->when(! $isCashier && $agencyIds !== null, fn ($q) => $q->where(function ($q) use ($agencyIds, $pendingCountryIds) {
                 $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds))
                     ->orWhereHas('invoice', fn ($inner) => $inner->whereNull('agency_id'))
                     ->when($pendingCountryIds->isNotEmpty(), fn ($q) => $q->orWhereHas('invoice', fn ($inner) => $inner
@@ -105,6 +109,7 @@ class PaymentProofController extends Controller
     )]
     public function uploadStaffProof(Request $request, Invoice $invoice): JsonResponse
     {
+        $this->ensureCashierAgencyAccess($invoice, $request->user());
         abort_if($invoice->validation_status === Invoice::VALIDATION_VALIDATED, 422, 'Cette facture est déjà validée.');
         abort_if($invoice->validation_status === Invoice::VALIDATION_REJECTED, 422, 'Cette facture a été rejetée : elle ne peut plus recevoir de preuve de paiement.');
 
@@ -158,6 +163,7 @@ class PaymentProofController extends Controller
     )]
     public function payRemaining(Request $request, Invoice $invoice): JsonResponse
     {
+        $this->ensureCashierAgencyAccess($invoice, $request->user());
         abort_if($invoice->is_cancelled, 422, 'Impossible de régler une facture annulée.');
         abort_if(
             $invoice->validation_status !== Invoice::VALIDATION_VALIDATED,
@@ -253,6 +259,22 @@ class PaymentProofController extends Controller
         );
     }
 
+    private function ensureCashierAgencyAccess(Invoice $invoice, ?User $user): void
+    {
+        if ($user?->role?->name !== 'caissier') {
+            return;
+        }
+
+        abort_unless(
+            $invoice->agency_id !== null
+                && DB::table('user_assignments')
+                    ->where('user_id', $user->id)
+                    ->where('agency_id', $invoice->agency_id)
+                    ->exists(),
+            404,
+        );
+    }
+
     #[OA\Post(
         path: '/api/payment-proofs/{proof}/approve',
         summary: 'Accepter une preuve de paiement',
@@ -273,6 +295,8 @@ class PaymentProofController extends Controller
             403,
             'Seuls les administrateurs et les caissiers peuvent accepter une preuve de paiement.'
         );
+
+        $this->ensureCashierAgencyAccess($proof->invoice, $request->user());
 
         return $this->review($request, $proof, PaymentProof::STATUS_ACCEPTED);
     }
@@ -306,6 +330,8 @@ class PaymentProofController extends Controller
             403,
             'Seuls le super-administrateur et le caissier peuvent rejeter une preuve de paiement.'
         );
+
+        $this->ensureCashierAgencyAccess($proof->invoice, $request->user());
 
         $request->validate(['notes' => ['required', 'string']]);
 

@@ -62,6 +62,13 @@ class EnrollmentValidationWorkflowTest extends TestCase
         ]);
     }
 
+    private function assignCashierToInvoice(User $cashier, string $invoiceId): void
+    {
+        $cashier->assignments()->sync([
+            Invoice::findOrFail($invoiceId)->agency_id => ['is_primary' => true],
+        ]);
+    }
+
     private function createCourse(): Course
     {
         return Course::factory()->create(['price' => 50000]);
@@ -247,7 +254,8 @@ class EnrollmentValidationWorkflowTest extends TestCase
 
         $proofId = PaymentProof::where('invoice_id', $invoiceId)->first()->id;
 
-        $this->userWithRole('caissier');
+        $cashier = $this->userWithRole('caissier');
+        $this->assignCashierToInvoice($cashier, $invoiceId);
 
         $this->postJson("/api/payment-proofs/{$proofId}/approve")
             ->assertOk()
@@ -384,7 +392,8 @@ class EnrollmentValidationWorkflowTest extends TestCase
             'payment_method' => 'orange_money',
         ])->assertCreated();
 
-        $this->userWithRole('caissier');
+        $cashier = $this->userWithRole('caissier');
+        $this->assignCashierToInvoice($cashier, $invoiceId);
 
         $proofId = $this->getJson('/api/payment-proofs?status=pending')
             ->assertOk()
@@ -467,7 +476,8 @@ class EnrollmentValidationWorkflowTest extends TestCase
 
         $proofId = PaymentProof::where('invoice_id', $invoiceId)->first()->id;
 
-        $this->userWithRole('caissier');
+        $cashier = $this->userWithRole('caissier');
+        $this->assignCashierToInvoice($cashier, $invoiceId);
         $this->postJson("/api/payment-proofs/{$proofId}/approve")->assertOk();
 
         $this->createCommercialUser();

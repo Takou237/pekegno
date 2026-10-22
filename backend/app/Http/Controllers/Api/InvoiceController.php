@@ -7,7 +7,6 @@ use App\Http\Requests\Api\StoreInvoicePaymentRequest;
 use App\Http\Requests\Api\StoreInvoiceRequest;
 use App\Http\Requests\Api\UpdateInvoiceRequest;
 use App\Mail\InvoiceStatusMail;
-use App\Models\Agency;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
@@ -66,41 +65,26 @@ class InvoiceController extends Controller
             return $query->where('commercial_id', $user->commercialProfile->id);
         }
 
-        // Un caissier ne voit que les factures de ses agences affectées. Les factures
-        // sans agence (vente d'un commercial sans agence rattachée, formation globale,
-        // etc.) restent visibles : sinon une facture en attente pourrait devenir
-        // introuvable pour tout le monde sauf l'admin.
+        // Un caissier ne voit que les factures rattachées à ses agences affectées.
         if ($user->role?->name === 'caissier') {
             $agencyIds = DB::table('user_assignments')
                 ->where('user_id', $user->id)
                 ->whereNotNull('agency_id')
-                ->pluck('agency_id');
+                ->pluck('agency_id')
+                ->all();
 
-            // La file de validation, elle, s'élargit au pays : une facture en attente
-            // doit toujours être atteignable par un caissier habilité à la valider.
-            // Filtrer sur la seule agence laissait les ventes d'un commercial d'une
-            // agence sans caissier affecté (ex. Yaoundé Centre) en attente
-            // indéfiniment, invisibles de la validation — sauf pour l'admin.
-            // L'élargissement vaut pour tous les statuts : limité aux seules factures
-            // pending, une facture sortait du périmètre du caissier au moment même où
-            // il la validait et disparaissait de son onglet Factures.
-            $countryIds = Agency::whereIn('id', $agencyIds)
-                ->whereNotNull('country_id')
-                ->pluck('country_id')
-                ->unique()
-                ->values();
-
-            return $query->where(function ($q) use ($agencyIds, $countryIds) {
-                $q->whereIn('agency_id', $agencyIds)
-                    ->orWhereNull('agency_id')
-                    ->when($countryIds->isNotEmpty(), fn ($q) => $q->orWhere(fn ($q) => $q->whereHas(
-                        'agency',
-                        fn ($a) => $a->whereIn('country_id', $countryIds),
-                    )));
-            });
+            return $query->whereIn('agency_id', $agencyIds);
         }
 
         return $query;
+    }
+
+    private function ensureInvoiceInScope(Invoice $invoice, ?User $user): void
+    {
+        abort_unless(
+            $this->scopeByRole(Invoice::query(), $user)->whereKey($invoice->id)->exists(),
+            404,
+        );
     }
 
     #[OA\Get(
@@ -432,8 +416,10 @@ class InvoiceController extends Controller
             new OA\Response(response: 200, description: 'Détail de la facture'),
         ]
     )]
-    public function show(Invoice $invoice): JsonResponse
+    public function show(Request $request, Invoice $invoice): JsonResponse
     {
+        $this->ensureInvoiceInScope($invoice, $request->user());
+
         $invoice->load([
             'items',
             // Caissier et compte : affichés dans l'historique et sur le reçu de chaque versement.
@@ -507,7 +493,7 @@ class InvoiceController extends Controller
 
     #[OA\Put(
         path: '/api/invoices/{invoice}',
-        summary: 'Modifier les informations d\'une facture (client, commercial, type de paiement, commentaire)',
+        summary: 'Modifier une facture en attente (informations, lignes et totaux)',
         tags: ['Factures'],
         security: [['sanctum' => []]],
         parameters: [
@@ -519,12 +505,185 @@ class InvoiceController extends Controller
     )]
     public function update(UpdateInvoiceRequest $request, Invoice $invoice): JsonResponse
     {
+        $this->ensureInvoiceInScope($invoice, $request->user());
         abort_if($invoice->is_cancelled, 422, 'Impossible de modifier une facture annulée.');
         abort_if($invoice->validation_status === Invoice::VALIDATION_VALIDATED, 422, 'Une facture validée ne peut plus être modifiée.');
         abort_unless($invoice->created_by === $request->user()->id, 403, 'Seul le créateur de la facture peut la modifier.');
 
-        $old = $invoice->only(['client_id', 'client_name', 'commercial_id', 'payment_type', 'comment']);
-        $invoice->update($request->only(['client_id', 'client_name', 'commercial_id', 'payment_type', 'comment']));
+        abort_if(
+            $invoice->payments()->exists() || (float) $invoice->amount_paid > 0,
+            422,
+            'Une facture ayant déjà reçu un paiement ne peut plus être modifiée.'
+        );
+
+        $data = $request->validated();
+        $old = $invoice->only([
+            'client_id', 'client_name', 'commercial_id', 'seller_user_id', 'invoice_date', 'payment_type',
+            'payer_phone', 'total_amount', 'declared_advance', 'discount', 'vat_rate', 'comment',
+        ]);
+
+        DB::transaction(function () use ($data, $invoice) {
+            $updates = [];
+            foreach ([
+                'client_id', 'client_name', 'commercial_id', 'seller_user_id', 'invoice_date', 'payment_type',
+                'payer_phone', 'comment',
+            ] as $field) {
+                if (array_key_exists($field, $data)) {
+                    $updates[$field] = $data[$field];
+                }
+            }
+
+            if (array_key_exists('client_id', $data) || array_key_exists('client_name', $data)) {
+                if (($data['client_id'] ?? null) !== null) {
+                    $updates['client_name'] = null;
+                } elseif (($data['client_name'] ?? null) !== null) {
+                    $updates['client_id'] = null;
+                } else {
+                    $updates['client_id'] = null;
+                    $updates['client_name'] = null;
+                }
+            }
+
+            if (array_key_exists('items', $data)) {
+                $existingItems = $invoice->items()->get()->keyBy('id');
+                $retainedIds = [];
+                $normalizedItems = [];
+
+                foreach ($data['items'] as $index => $line) {
+                    if (! empty($line['service_id']) && ! empty($line['product_id'])) {
+                        throw ValidationException::withMessages([
+                            "items.{$index}.product_id" => 'Une ligne ne peut pas référencer à la fois un service et un produit.',
+                        ]);
+                    }
+
+                    $existing = ! empty($line['id']) ? $existingItems->get($line['id']) : null;
+                    if (! empty($line['id']) && ! $existing) {
+                        throw ValidationException::withMessages([
+                            "items.{$index}.id" => 'Cette ligne ne fait pas partie de la facture.',
+                        ]);
+                    }
+
+                    $service = ! empty($line['service_id']) ? Service::find($line['service_id']) : null;
+                    $product = ! empty($line['product_id']) ? Product::find($line['product_id']) : null;
+                    $passTier = $line['pass_tier'] ?? null;
+                    $pass = null;
+
+                    if ($passTier) {
+                        if (! $service || ! $service->is_seminar) {
+                            throw ValidationException::withMessages([
+                                "items.{$index}.pass_tier" => 'Un pass séminaire ne peut être choisi que pour un service séminaire.',
+                            ]);
+                        }
+                        $pass = $service->seminarTiers()->where('tier', $passTier)->first();
+                        if (! $pass) {
+                            throw ValidationException::withMessages([
+                                "items.{$index}.pass_tier" => "Le pass {$passTier} n'existe pas pour ce séminaire.",
+                            ]);
+                        }
+                    }
+
+                    $normalizedItems[] = [
+                        'existing' => $existing,
+                        'attributes' => [
+                            'service_id' => $service?->id,
+                            'product_id' => $product?->id,
+                            'label' => $line['label'] ?? $service?->name ?? $product?->name ?? '',
+                            'unit_price' => $pass ? (float) $pass->price : (float) $line['unit_price'],
+                            'quantity' => (int) $line['quantity'],
+                            'line_total' => round(($pass ? (float) $pass->price : (float) $line['unit_price']) * (int) $line['quantity'], 2),
+                            'pass_tier' => $pass?->tier,
+                            'pass_label' => $pass?->label,
+                        ],
+                    ];
+
+                    if ($existing) {
+                        $retainedIds[] = $existing->id;
+                    }
+                }
+
+                $subtotal = round(collect($normalizedItems)->sum(fn ($line) => $line['attributes']['line_total']), 2);
+                $discount = round((float) ($data['discount'] ?? $invoice->discount ?? 0), 2);
+                if ($discount > $subtotal) {
+                    throw ValidationException::withMessages([
+                        'discount' => 'La remise ne peut pas dépasser le montant total de la facture.',
+                    ]);
+                }
+
+                $vatRate = round((float) ($data['vat_rate'] ?? $invoice->vat_rate ?? 0), 2);
+                $total = round(($subtotal - $discount) * (1 + $vatRate / 100), 2);
+                $advance = array_key_exists('advance', $data)
+                    ? (float) ($data['advance'] ?? 0)
+                    : (float) ($invoice->declared_advance ?? 0);
+                if ($advance > $total) {
+                    throw ValidationException::withMessages([
+                        'advance' => "L'avance ne peut pas dépasser le total de la facture ({$total} FCFA).",
+                    ]);
+                }
+
+                $updates['total_amount'] = $total;
+                $updates['discount'] = $discount;
+                $updates['vat_rate'] = $vatRate;
+                $updates['declared_advance'] = $advance > 0 ? $advance : null;
+
+                foreach ($normalizedItems as $line) {
+                    $attributes = $line['attributes'];
+                    if ($line['existing']) {
+                        $keepsExistingLink = ! $attributes['service_id'] && ! $attributes['product_id'];
+                        $attributes['package_id'] = $keepsExistingLink ? $line['existing']->package_id : null;
+                        $attributes['prestation_id'] = $keepsExistingLink ? $line['existing']->prestation_id : null;
+                        $attributes['is_pass_through'] = $keepsExistingLink && $line['existing']->is_pass_through;
+                        $line['existing']->update($attributes);
+                    } else {
+                        $invoice->items()->create($attributes);
+                    }
+                }
+
+                $invoice->items()->when(
+                    count($retainedIds) > 0,
+                    fn ($query) => $query->whereNotIn('id', $retainedIds),
+                    fn ($query) => $query,
+                )->delete();
+            } else {
+                $hasFinancialUpdate = array_key_exists('discount', $data)
+                    || array_key_exists('vat_rate', $data)
+                    || array_key_exists('advance', $data);
+                if ($hasFinancialUpdate) {
+                    $subtotal = round((float) $invoice->items()->sum('line_total'), 2);
+                    $discount = round((float) ($data['discount'] ?? $invoice->discount ?? 0), 2);
+                    $vatRate = round((float) ($data['vat_rate'] ?? $invoice->vat_rate ?? 0), 2);
+                    if ($discount > $subtotal) {
+                        throw ValidationException::withMessages([
+                            'discount' => 'La remise ne peut pas dépasser le montant total de la facture.',
+                        ]);
+                    }
+
+                    $total = round(($subtotal - $discount) * (1 + $vatRate / 100), 2);
+                    $advance = array_key_exists('advance', $data)
+                        ? (float) ($data['advance'] ?? 0)
+                        : (float) ($invoice->declared_advance ?? 0);
+                    if ($advance > $total) {
+                        throw ValidationException::withMessages([
+                            'advance' => "L'avance ne peut pas dépasser le total de la facture ({$total} FCFA).",
+                        ]);
+                    }
+
+                    $updates['total_amount'] = $total;
+                    $updates['discount'] = $discount;
+                    $updates['vat_rate'] = $vatRate;
+                    if (array_key_exists('advance', $data)) {
+                        $updates['declared_advance'] = $advance > 0 ? $advance : null;
+                    }
+                }
+            }
+
+            $invoice->update($updates);
+            if (! empty($updates['seller_user_id'])) {
+                $seller = User::find($updates['seller_user_id']);
+                if ($seller) {
+                    $this->sellerProfiles->ensureForUser($seller, $invoice->agency_id);
+                }
+            }
+        });
 
         $this->logger->log(
             'updated',
@@ -532,11 +691,14 @@ class InvoiceController extends Controller
             $invoice->id,
             "Facture {$invoice->number} modifiée",
             oldValues: $old,
-            newValues: $invoice->only(['client_id', 'client_name', 'commercial_id', 'payment_type', 'comment']),
+            newValues: $invoice->fresh()->only([
+                'client_id', 'client_name', 'commercial_id', 'seller_user_id', 'invoice_date', 'payment_type',
+                'payer_phone', 'total_amount', 'declared_advance', 'discount', 'vat_rate', 'comment',
+            ]),
             agencyId: $invoice->agency_id,
         );
 
-        return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
+        return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency', 'seller']));
     }
 
     #[OA\Post(
@@ -554,6 +716,7 @@ class InvoiceController extends Controller
     )]
     public function pay(StoreInvoicePaymentRequest $request, Invoice $invoice): JsonResponse
     {
+        $this->ensureInvoiceInScope($invoice, $request->user());
         abort_unless(
             in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'caissier'], true),
             403,
@@ -613,8 +776,9 @@ class InvoiceController extends Controller
             new OA\Response(response: 422, description: 'Facture non en attente ou déjà validée'),
         ]
     )]
-    public function validateInvoice(Invoice $invoice): JsonResponse
+    public function validateInvoice(Request $request, Invoice $invoice): JsonResponse
     {
+        $this->ensureInvoiceInScope($invoice, $request->user());
         abort_if($invoice->validation_status === Invoice::VALIDATION_VALIDATED, 422, 'Cette facture est déjà validée.');
         abort_if($invoice->validation_status !== Invoice::VALIDATION_PENDING, 422, 'Seule une facture en attente peut être validée.');
 
@@ -687,6 +851,7 @@ class InvoiceController extends Controller
     )]
     public function reject(Request $request, Invoice $invoice): JsonResponse
     {
+        $this->ensureInvoiceInScope($invoice, $request->user());
         abort_if($invoice->validation_status === Invoice::VALIDATION_REJECTED, 422, 'Cette facture est déjà rejetée.');
         abort_if($invoice->validation_status !== Invoice::VALIDATION_PENDING, 422, 'Seule une facture en attente peut être rejetée.');
 
@@ -736,6 +901,7 @@ class InvoiceController extends Controller
     )]
     public function cancel(Request $request, Invoice $invoice): JsonResponse
     {
+        $this->ensureInvoiceInScope($invoice, $request->user());
         abort_if($invoice->is_cancelled, 422, 'Cette facture est déjà annulée.');
 
         // Un commercial ne peut annuler que ses propres factures non encore validées

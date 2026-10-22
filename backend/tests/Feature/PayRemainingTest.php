@@ -40,6 +40,13 @@ class PayRemainingTest extends TestCase
         return User::factory()->create(['role_id' => Role::where('name', $role)->value('id')]);
     }
 
+    private function assignCashierToAgency(User $cashier): void
+    {
+        $cashier->assignments()->sync([
+            $this->agency->id => ['is_primary' => true],
+        ]);
+    }
+
     private function commercialUser(Agency $agency = null): User
     {
         $user = $this->userWithRole('commercial');
@@ -104,7 +111,9 @@ class PayRemainingTest extends TestCase
         $this->assertSame(40000.0, (float) $invoice->fresh()->amount_paid, 'rien d\'autre n\'est encaissé avant acceptation');
 
         // Le caissier accepte la preuve de règlement.
-        Sanctum::actingAs($this->userWithRole('caissier'));
+        $cashier = $this->userWithRole('caissier');
+        $this->assignCashierToAgency($cashier);
+        Sanctum::actingAs($cashier);
         $this->postJson("/api/payment-proofs/{$proofId}/approve")->assertOk();
 
         $invoice->refresh();
@@ -133,7 +142,9 @@ class PayRemainingTest extends TestCase
             'status' => PaymentProof::STATUS_PENDING,
         ]);
 
-        Sanctum::actingAs($this->userWithRole('caissier'));
+        $cashier = $this->userWithRole('caissier');
+        $this->assignCashierToAgency($cashier);
+        Sanctum::actingAs($cashier);
         $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
 
         $this->assertSame(100000.0, (float) $invoice->fresh()->amount_paid, 'le montant est plafonné au reste à payer');
@@ -197,7 +208,9 @@ class PayRemainingTest extends TestCase
         $response = $this->submitRemaining($commercial, $invoice, 60000)->assertStatus(201)->json();
         $proofId = $response['payment_proof']['id'];
 
-        Sanctum::actingAs($this->userWithRole('caissier'));
+        $cashier = $this->userWithRole('caissier');
+        $this->assignCashierToAgency($cashier);
+        Sanctum::actingAs($cashier);
         $this->postJson("/api/payment-proofs/{$proofId}/approve")->assertOk();
         $this->postJson("/api/payment-proofs/{$proofId}/approve")->assertStatus(422);
 
