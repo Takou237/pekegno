@@ -458,6 +458,7 @@ class FormationEnrollmentController extends Controller
             'number' => $this->invoiceNumber->next(),
             'agency_id' => $agencyId,
             'client_id' => $validated['learner_user_id'],
+            'created_by' => $request->user()->id,
             'client_name' => $learner ? trim("{$learner->first_name} {$learner->last_name}") : null,
             'commercial_id' => $commercialId,
             'seller_user_id' => $sellerUserId,

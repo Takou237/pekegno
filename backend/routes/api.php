@@ -230,6 +230,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/reports/training', [TrainingSessionController::class, 'report'])->middleware('permission:sessions.consulter');
     Route::post('/trainers', [TrainerController::class, 'store'])->middleware('permission:sessions.creer');
     Route::get('/trainers/available-users', [TrainerController::class, 'availableUsers'])->middleware('permission:sessions.consulter');
+    // Avant /trainers/{trainer} : « candidates » n'est pas un identifiant.
+    Route::get('/trainers/candidates', [TrainerController::class, 'candidates'])->middleware('permission:sessions.consulter');
     Route::post('/trainers/{trainer}/link-user', [TrainerController::class, 'linkUser'])->middleware('permission:sessions.modifier');
     Route::get('/trainers', [TrainerController::class, 'index'])->middleware('permission:sessions.consulter');
     // Avant /trainers/{trainer}/stats : sinon « me » serait résolu comme un UUID.
@@ -308,7 +310,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('permission:invoices.consulter');
     Route::post('/invoices', [InvoiceController::class, 'store'])->middleware('permission:invoices.creer');
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoices.consulter');
-    Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->middleware('permission:invoices.modifier');
+    Route::put('/invoices/{invoice}', [InvoiceController::class, 'update']);
     Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'pay'])->middleware('permission:invoices.encaisser');
     Route::post('/invoices/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->middleware('permission:invoices.valider');
     Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])->middleware('permission:invoices.valider');

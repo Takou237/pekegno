@@ -90,8 +90,16 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
-  const canCollect = ['super-admin', 'direction-generale', 'responsable-agence', 'caissier', 'comptable'].includes(
+  const canCollect = ['super-admin', 'direction-generale', 'caissier'].includes(
     currentUser?.role?.name ?? ''
+  );
+
+  const canEditInvoice = Boolean(
+    invoice &&
+      currentUser &&
+      !invoice.is_cancelled &&
+      invoice.validation_status !== 'validated' &&
+      invoice.created_by === currentUser.id
   );
 
   const isCommercial = currentUser?.role?.name === 'commercial';
@@ -474,7 +482,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               <Printer className="h-4 w-4" />
               {t('invoices.print')}
             </Button>
-            {!invoice.is_cancelled && !invoice.payments?.some((p) => !p.is_advance) && canCollect && (
+            {!invoice.is_cancelled && !invoice.payments?.some((p) => !p.is_advance) && canEditInvoice && (
               <Button variant="outline" onClick={openEdit}>
                 <Pencil className="h-4 w-4" />
                 {t('common.edit')}

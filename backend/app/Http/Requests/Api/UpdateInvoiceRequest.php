@@ -2,13 +2,18 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\Invoice;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateInvoiceRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $invoice = $this->route('invoice');
+
+        return $invoice instanceof Invoice
+            && $this->user() !== null
+            && $invoice->created_by === $this->user()->id;
     }
 
     public function rules(): array

@@ -268,6 +268,12 @@ class PaymentProofController extends Controller
     )]
     public function approve(Request $request, PaymentProof $proof): JsonResponse
     {
+        abort_unless(
+            in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'caissier'], true),
+            403,
+            'Seuls les administrateurs et les caissiers peuvent accepter une preuve de paiement.'
+        );
+
         return $this->review($request, $proof, PaymentProof::STATUS_ACCEPTED);
     }
 

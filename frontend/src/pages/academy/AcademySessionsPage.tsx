@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, ClipboardList } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,9 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
-import { Autocomplete } from '@/components/ui/Autocomplete';
+import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
+import { TrainerPicker, parseTrainerRef } from '@/components/academy/TrainerPicker';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
 import type { Department } from '@/types/department';
@@ -56,30 +58,33 @@ function statusBadge(status: SessionStatus, t: ReturnType<typeof useTranslation>
   }
 }
 
-interface FormState {
-  course_id: string;
-  trainer_id: string;
-  start_at: string;
-  end_at: string;
-  max_capacity: string;
-  status: SessionStatus;
-}
-
-const emptyForm: FormState = {
-  course_id: '',
-  trainer_id: '',
-  start_at: '',
-  end_at: '',
-  max_capacity: '',
-  status: 'planned',
-};
-
 function toDatetimeLocal(value: string | null): string {
   if (!value) return '';
   const date = new Date(value);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+interface FormState {
+  course_id: string;
+  /** Valeur composite de l'animateur : `user:<uuid>` ou `profile:<uuid>`. */
+  trainer_ref: string;
+  start_at: string;
+  end_at: string;
+  max_capacity: string;
+  status: SessionStatus;
+  sync_across_agencies: boolean;
+}
+
+const emptyForm: FormState = {
+  course_id: '',
+  trainer_ref: '',
+  start_at: '',
+  end_at: '',
+  max_capacity: '',
+  status: 'planned',
+  sync_across_agencies: false,
+};
 
 export default function AcademySessionsPage() {
   const { t } = useTranslation();
@@ -101,6 +106,7 @@ export default function AcademySessionsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [syncedWarning, setSyncedWarning] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<TrainingSession | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -164,44 +170,60 @@ export default function AcademySessionsPage() {
     [agencyId],
   );
 
-  const trainerOptions = useCallback(
-    async (query: string) => {
-      if (!agencyId) return [];
-      const response = await academyApi.trainers({
-        agency_id: agencyId,
-        search: query.trim() || undefined,
-        per_page: 20,
-      });
-      return response.data.map((trainer) => ({
-        id: trainer.id,
-        label: [trainer.first_name, trainer.last_name].filter(Boolean).join(' ') || trainer.email || '—',
-        subtitle: trainer.email ?? undefined,
-      }));
-    },
-    [agencyId],
-  );
+  // Libellé immédiat de l'animateur en cours d'édition, même s'il n'apparaît
+  // pas dans la première page de candidats (grande agence, autre rôle…).
+  const trainerSelectedOption = useMemo<AutocompleteOption | null>(() => {
+    const trainer = editing?.trainer;
+    if (!trainer || !form.trainer_ref) return null;
+    const ref = trainer.user_id ? `user:${trainer.user_id}` : `profile:${trainer.id}`;
+    if (ref !== form.trainer_ref) return null;
+    return {
+      id: ref,
+      label: [trainer.first_name, trainer.last_name].filter(Boolean).join(' ') || trainer.email,
+    };
+  }, [editing, form.trainer_ref]);
 
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
     setFormError(null);
     setFieldErrors({});
+    setSyncedWarning(null);
     setFormOpen(true);
   }
 
   function openEdit(session: TrainingSession) {
+    const sync = academyApi.courseDeployments(session.course?.id ?? '').then((ids) => {
+      const isSynced = ids.includes(session.agency?.id ?? '');
+      const warning = isSynced
+        ? t('academy.syncWarning')
+        : t('academy.syncNotConfigured');
+      setSyncedWarning(warning);
+      return ids;
+    });
+
     setEditing(session);
     setForm({
       course_id: session.course?.id ?? '',
-      trainer_id: session.trainer?.id ?? '',
+      trainer_ref: session.trainer
+        ? session.trainer.user_id
+          ? `user:${session.trainer.user_id}`
+          : `profile:${session.trainer.id}`
+        : '',
       start_at: toDatetimeLocal(session.start_at),
       end_at: toDatetimeLocal(session.end_at),
       max_capacity: session.max_capacity != null ? String(session.max_capacity) : '',
       status: session.status,
+      sync_across_agencies: false,
     });
     setFormError(null);
     setFieldErrors({});
+    setSyncedWarning(null);
     setFormOpen(true);
+
+    if (sync) {
+      Promise.all([sync]).catch(() => undefined);
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -211,14 +233,17 @@ export default function AcademySessionsPage() {
     setFieldErrors({});
     setIsSubmitting(true);
 
+    const trainer = parseTrainerRef(form.trainer_ref);
     const payload = {
       course_id: form.course_id,
-      trainer_id: form.trainer_id || null,
+      trainer_user_id: trainer.trainer_user_id,
+      trainer_id: trainer.trainer_id,
       agency_id: agencyId,
       start_at: form.start_at,
       end_at: form.end_at || null,
       max_capacity: form.max_capacity ? Number(form.max_capacity) : null,
       status: form.status,
+      ...(form.sync_across_agencies ? { sync_across_agencies: true } : {}),
     };
 
     try {
@@ -365,7 +390,9 @@ export default function AcademySessionsPage() {
                         </>
                       )}
                     </td>
-                    {/* Prix */}
+                    {/*
+                      Prix
+                    */}
                     <td className="px-5 py-3">
                       <span className="font-medium text-gray-800 dark:text-gray-100">
                         {session.effective_price != null
@@ -378,7 +405,9 @@ export default function AcademySessionsPage() {
                           <span className="ml-1.5 text-xs text-success-600 dark:text-success-400">-X%</span>
                         )}
                     </td>
-                    {/* Inscriptions avec barre de capacité */}
+                    {/*
+                      Inscriptions avec barre de capacité
+                    */}
                     <td className="px-5 py-3">
                       <div className="flex flex-col gap-1">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -406,7 +435,6 @@ export default function AcademySessionsPage() {
                     <td className="px-5 py-3">{statusBadge(session.status, t)}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        {/* Lien vers la feuille de présences */}
                         <Link
                           to={`/departments/${departmentId}/sessions/${session.id}/attendances`}
                           className="rounded-lg p-2 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-500/10"
@@ -453,6 +481,13 @@ export default function AcademySessionsPage() {
         )}
       </div>
 
+      {syncedWarning && (
+        <Alert variant="info">
+          <span className="font-medium">{t('academy.syncWarningTitle')}</span>{' '}
+          <span className="text-sm text-gray-600 dark:text-gray-300">{syncedWarning}</span>
+        </Alert>
+      )}
+
       <Modal
         isOpen={formOpen}
         onClose={() => setFormOpen(false)}
@@ -471,13 +506,13 @@ export default function AcademySessionsPage() {
             error={fieldErrors.course_id}
           />
 
-          <Autocomplete
+          <TrainerPicker
+            agencyId={undefined}
             label={t('nav.trainers')}
-            placeholder={t('academy.searchTrainerPlaceholder')}
-            value={form.trainer_id}
-            onChange={(trainerId) => setForm((prev) => ({ ...prev, trainer_id: trainerId }))}
-            fetchOptions={trainerOptions}
-            error={fieldErrors.trainer_id}
+            value={form.trainer_ref}
+            onChange={(ref) => setForm((prev) => ({ ...prev, trainer_ref: ref }))}
+            error={fieldErrors.trainer_user_id ?? fieldErrors.trainer_id}
+            selectedOption={trainerSelectedOption}
           />
 
           <div className="grid grid-cols-2 gap-4">
@@ -525,8 +560,25 @@ export default function AcademySessionsPage() {
             </div>
           </div>
 
+          <div className="flex flex-col gap-2 pt-2">
+            <Checkbox
+              label={t('academy.syncAcrossAgencies')}
+              checked={form.sync_across_agencies}
+              onChange={(e) => setForm((prev) => ({ ...prev, sync_across_agencies: e.target.checked }))}
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('academy.syncAcrossAgenciesHint')}
+            </p>
+          </div>
+
           <div className="mt-2 flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setFormOpen(false)} disabled={isSubmitting} className="flex-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFormOpen(false)}
+              disabled={isSubmitting}
+              className="flex-1"
+            >
               {t('common.cancel')}
             </Button>
             <Button type="submit" isLoading={isSubmitting} className="flex-1">

@@ -24,6 +24,17 @@ interface AutocompleteProps {
   freeText?: boolean;
   /** Rappel optionnel à la sélection d'une option (avant onChange). */
   onPick?: (option: AutocompleteOption) => void;
+  /**
+   * Change de valeur pour forcer le rechargement de la liste (ex. filtre par
+   * rôle). Ne dépend pas de l'identité de `fetchOptions` pour éviter les
+   * boucles de requêtes avec des callbacks non mémorisés.
+   */
+  refreshKey?: string | number;
+  /**
+   * Option correspondant à `value` lorsqu'elle n'est pas forcément dans la
+   * première page de résultats (permet d'afficher le libellé sans requête).
+   */
+  selectedOption?: AutocompleteOption | null;
 }
 
 export const FREE_TEXT_PREFIX = '__free__:';
@@ -42,6 +53,8 @@ export function Autocomplete({
   disabled = false,
   freeText = false,
   onPick,
+  refreshKey,
+  selectedOption,
 }: AutocompleteProps) {
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder || t('common.search');  const generatedId = useId();
@@ -56,6 +69,12 @@ export function Autocomplete({
   const requestSeqRef = useRef(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fetchOptionsRef = useRef(fetchOptions);
+  const refreshKeyRef = useRef(refreshKey);
+
+  useEffect(() => {
+    fetchOptionsRef.current = fetchOptions;
+  }, [fetchOptions]);
 
   /**
    * Select déroulant avec recherche : une requête vide retourne la liste
@@ -108,6 +127,35 @@ export function Autocomplete({
         .catch(() => {});
     }
   }, [value, selectedLabel, fetchOptions]);
+
+  // Valeur courante fournie par le parent : affichage immédiat du libellé,
+  // même si l'option n'apparaît pas dans la première page de résultats.
+  useEffect(() => {
+    if (!selectedOption || selectedOption.id !== value) return;
+    setSelectedLabel(selectedOption.label);
+    setInputValue(selectedOption.label);
+  }, [selectedOption?.id, selectedOption?.label, value]);
+
+  // Un filtre externe a changé (ex. rôle) : recharger la liste sans rouvrir
+  // le menu ni perdre la sélection courante.
+  useEffect(() => {
+    if (refreshKey === undefined || refreshKey === refreshKeyRef.current) return;
+    refreshKeyRef.current = refreshKey;
+    const seq = (requestSeqRef.current += 1);
+    setIsLoading(true);
+    fetchOptionsRef.current('')
+      .then((result) => {
+        if (seq !== requestSeqRef.current) return;
+        setOptions(Array.isArray(result) ? result : []);
+      })
+      .catch(() => {
+        if (seq !== requestSeqRef.current) return;
+        setOptions([]);
+      })
+      .finally(() => {
+        if (seq === requestSeqRef.current) setIsLoading(false);
+      });
+  }, [refreshKey]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

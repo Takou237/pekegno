@@ -22,6 +22,9 @@ class TrainingSessionResource extends JsonResource
                 'first_name' => $this->trainer?->first_name,
                 'last_name' => $this->trainer?->last_name,
                 'email' => $this->trainer?->email,
+                // Compte lié : permet à l'interface de distinguer un profil
+                // formateur autonome d'un profil adossé à un compte interne.
+                'user_id' => $this->trainer?->user_id,
             ]),
             'agency' => $this->whenLoaded('agency', fn () => [
                 'id' => $this->agency?->id,

@@ -33,6 +33,7 @@ class Invoice extends Model
         'client_name',
         'commercial_id',
         'seller_user_id',
+        'created_by',
         'invoice_date',
         'payment_type',
         'payer_phone',
@@ -89,6 +90,11 @@ class Invoice extends Model
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_user_id');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function contract(): BelongsTo

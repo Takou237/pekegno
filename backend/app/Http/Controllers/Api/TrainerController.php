@@ -15,6 +15,7 @@ use App\Models\SellerProfile;
 use App\Models\Trainer;
 use App\Models\User;
 use App\Services\ScopeService;
+use App\Services\TrainerAssignmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -30,6 +31,7 @@ class TrainerController extends Controller
 {
     public function __construct(
         private readonly ScopeService $scopeService,
+        private readonly TrainerAssignmentService $trainerService,
     ) {}
 
     private function scopeQuery(Request $request, $query)
@@ -136,6 +138,39 @@ class TrainerController extends Controller
         return response()->json($query);
     }
 
+    #[OA\Get(
+        path: '/api/trainers/candidates',
+        summary: 'Personnes pouvant animer une session : tous les comptes internes (tous rôles) et les profils formateurs sans compte',
+        tags: ['Académie — Formateurs'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'search', in: 'query', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'role', in: 'query', description: 'Nom du rôle', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20)),
+        ],
+        responses: [new OA\Response(response: 200, description: 'Liste des candidats formateur')]
+    )]
+    public function candidates(Request $request): JsonResponse
+    {
+        // On ne passe pas agency_id : la liste doit inclure tous les utilisateurs
+        // de la plateforme, indépendamment de leur agence / pays / département.
+        $candidates = $this->trainerService->candidates(
+            $request->user(),
+            null,  // pas de restriction par agence
+            $request->input('role'),
+            $request->input('search'),
+            min(max((int) $request->input('per_page', 20), 1), 100),
+        );
+
+        return response()->json([
+            'data' => $candidates,
+            'meta' => [
+                'roles' => $this->trainerService->internalRoles(),
+            ],
+        ]);
+    }
+
     #[OA\Post(
         path: '/api/trainers/{trainer}/link-user',
         summary: 'Lier un compte utilisateur (rôle formateur) à un profil formateur',
@@ -200,6 +235,7 @@ class TrainerController extends Controller
         $this->syncUserTrainers($request, $request->agency_id);
 
         $query = Trainer::query()
+            ->with('user.role:id,name')
             ->withCount('sessions')
             ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
@@ -251,7 +287,8 @@ class TrainerController extends Controller
     )]
     public function show(Request $request, Trainer $trainer): JsonResponse
     {
-        $trainer->loadCount(['sessions' => fn ($q) => $this->scopedSessions($request, $trainer)]);
+        $trainer->load('user.role:id,name')
+            ->loadCount(['sessions' => fn ($q) => $this->scopedSessions($request, $trainer)]);
 
         return response()->json([
             'data' => new \App\Http\Resources\TrainerResource($trainer),
@@ -542,6 +579,7 @@ class TrainerController extends Controller
                 'bio' => $trainer->bio,
                 'is_active' => $trainer->is_active,
                 'has_account' => $trainer->user_id !== null,
+                'user_role' => $trainer->user?->role?->name,
                 'created_at' => $trainer->created_at?->toISOString(),
             ],
             'stats' => [

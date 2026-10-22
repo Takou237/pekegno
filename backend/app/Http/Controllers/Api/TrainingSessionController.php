@@ -6,11 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreTrainingSessionRequest;
 use App\Http\Requests\Api\UpdateTrainingSessionRequest;
 use App\Http\Resources\TrainingSessionResource;
+use App\Models\Agency;
 use App\Models\Attendance;
 use App\Models\Course;
 use App\Models\FormationEnrollment;
 use App\Models\TrainingSession;
+use App\Models\TrainingSessionSynced;
 use App\Services\ScopeService;
+use App\Services\TrainerAssignmentService;
+use App\Services\TrainingSessionSyncService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -21,12 +26,12 @@ class TrainingSessionController extends Controller
 {
     public function __construct(
         private readonly ScopeService $scopeService,
-    ) {}
+        private readonly TrainingSessionSyncService $syncService,
+        private readonly TrainerAssignmentService $trainerService,
+    ) {
+    }
 
-    /**
-     * Réduit la requête au périmètre organisationnel : sessions des agences
-     * autorisées (une session hérite de l'agence de son cours sinon de la sienne).
-     */
+    /** Réduit la requête au périmètre organisationnel : sessions des agences autorisées (une session hérite de l'agence de son cours sinon de la sienne). */
     private function scopeQuery(Request $request, $query)
     {
         // Les sessions sont demandées pour une formation précise (course_id) :
@@ -54,12 +59,12 @@ class TrainingSessionController extends Controller
         tags: ['Académie — Sessions'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'course_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
-            new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
-            new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['planned', 'ongoing', 'completed', 'cancelled'])),
+            new OA\Parameter(name: 'course_id', in: 'query', description: 'Formation', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'agency_id', in: 'query', description: 'Agence', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'status', in: 'query', description: 'Statut', schema: new OA\Schema(type: 'string', enum: ['planned', 'ongoing', 'completed', 'cancelled'])),
             new OA\Parameter(name: 'from', in: 'query', description: 'Début de période (start_at)', schema: new OA\Schema(type: 'string', format: 'date')),
             new OA\Parameter(name: 'to', in: 'query', description: 'Fin de période (start_at)', schema: new OA\Schema(type: 'string', format: 'date')),
-            new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
+            new OA\Parameter(name: 'per_page', in: 'query', description: 'Résultats par page', schema: new OA\Schema(type: 'integer', default: 15)),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Liste paginée des sessions'),
@@ -99,18 +104,65 @@ class TrainingSessionController extends Controller
     {
         $data = $request->validated();
         $data['module_id'] = null;
+        $this->resolveTrainer($data);
 
+        // L'agence de la session vient de la requête, sinon elle hérite de celle du cours.
+        // Un cours global (sans agence) peut avoir des sessions sans agence.
         if (empty($data['agency_id'])) {
             $data['agency_id'] = Course::find($data['course_id'])?->agency_id;
         }
 
-        $session = DB::transaction(function () use ($data) {
+        $course = Course::find($data['course_id']);
+
+        if ($course && $this->syncService->isSynced($course, $data['agency_id'])) {
+            return response()->json([
+                'message' => 'Cette session existe déjà dans cette agence (formation synchronisée).',
+            ], 409);
+        }
+
+        $session = $this->syncService->sourceSessionForCourse($course, $data, $data['agency_id'], $data['session_id'] ?? null);
+
+        if ($session) {
+            $data['session_id'] = $session->id;
+        }
+
+        $created = DB::transaction(function () use ($data) {
             return TrainingSession::create($data);
         });
 
-        return (new TrainingSessionResource($session->load(['course', 'trainer', 'agency']) ))
+        if ($course && isset($data['sync_across_agencies']) && (bool) $data['sync_across_agencies'] === true) {
+            $this->syncService->syncForCourse(
+                $course,
+                $data,
+                $request->user()?->id,
+                true,
+            );
+        }
+
+        return (new TrainingSessionResource($created->load(['course', 'trainer', 'agency'])))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * N'importe quel compte interne peut animer une session. Le profil
+     * formateur est résolu (créé à la volée pour le compte retenu) avant
+     * l'enregistrement : `trainer_id` reste la source unique de vérité pour
+     * les statistiques, la synchronisation inter-agences et le tableau de bord.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveTrainer(array &$data): void
+    {
+        $trainerUserId = $data['trainer_user_id'] ?? null;
+
+        if (! empty($trainerUserId)) {
+            $data['trainer_id'] = $this->trainerService->resolveTrainerId(null, (string) $trainerUserId);
+        } elseif (array_key_exists('trainer_id', $data)) {
+            $data['trainer_id'] = $this->trainerService->resolveTrainerId($data['trainer_id'], null);
+        }
+
+        unset($data['trainer_user_id']);
     }
 
     #[OA\Get(
@@ -151,8 +203,26 @@ class TrainingSessionController extends Controller
     )]
     public function update(UpdateTrainingSessionRequest $request, TrainingSession $trainingSession): TrainingSessionResource
     {
+        $data = $request->validated();
+        $data['module_id'] = null;
+        $this->resolveTrainer($data);
+
+        $course = $trainingSession->course;
+
+        if ($course && isset($data['sync_across_agencies']) && (bool) $data['sync_across_agencies'] === true) {
+            // On passe la session en cours de modification : le service répercute
+            // ses nouvelles valeurs dans les autres agences (création ou mise à jour).
+            $this->syncService->syncForCourse(
+                $course,
+                $data,
+                $request->user()?->id,
+                true,
+                $trainingSession,
+            );
+        }
+
         $trainingSession->forceFill(['module_id' => null]);
-        $trainingSession->update($request->validated());
+        $trainingSession->update($data);
 
         return new TrainingSessionResource($trainingSession->fresh()->load(['course', 'trainer', 'agency']));
     }
@@ -233,12 +303,11 @@ class TrainingSessionController extends Controller
 
             $enrolled = $activeEnrollments->count();
             $completed = $activeEnrollments->where('status', 'completed')->count();
-            // La présence est enregistrée par (session, module) : le dénominateur du taux
-            // doit être le nombre de pointages réellement effectués (present + absent),
-            // pas enrolled × nombre de sessions (sous-évalué dès qu'un module par session).
+
             $attendanceStatuses = $sessionIds->isNotEmpty()
                 ? Attendance::whereIn('training_session_id', $sessionIds)->pluck('status')
                 : collect();
+
             $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
             $marked = $attendanceStatuses->count();
 

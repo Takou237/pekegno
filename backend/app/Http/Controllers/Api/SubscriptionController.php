@@ -525,6 +525,7 @@ class SubscriptionController extends Controller
             'number' => $this->numberGenerator->next(),
             'agency_id' => $pack->agency_id,
             'client_id' => $client->id,
+            'created_by' => $request->user()->id,
             'client_name' => $client->first_name.' '.$client->last_name,
             'seller_user_id' => $request->user()->id,
             'invoice_date' => now(),

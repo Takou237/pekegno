@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useOutletContext, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { academyApi, type Trainer } from '@/api/academy.api';
+import { academyApi } from '@/api/academy.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -13,13 +13,6 @@ import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { CourseModule, CourseModulePayload } from '@/types/formation';
-import type { Department } from '@/types/department';
-
-interface DepartmentLayoutContext {
-  department?: Department | null;
-  departmentId?: string;
-  agencyId?: string;
-}
 
 interface FormState {
   name: string;
@@ -37,7 +30,8 @@ export default function CourseModulesPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { courseId } = useParams<{ courseId: string }>();
-  const { agencyId } = useOutletContext<DepartmentLayoutContext>();
+  // Aucun paramètre de route n'est nécessaire pour le contexte
+  // const courseId est utilisé plus bas dans la fonction
 
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,20 +63,23 @@ export default function CourseModulesPage() {
   }, [fetchModules]);
 
   const trainerOptions = useCallback(
-    async (query: string) => {
-      if (!agencyId) return [];
-      const response = await academyApi.trainers({
-        agency_id: agencyId,
+    async (query: string): Promise<{ id: string; label: string; subtitle?: string }[]> => {
+      const response = await academyApi.trainerCandidates({
+        // Pas de restriction agency_id : afficher tous les utilisateurs de la plateforme
+        agency_id: undefined,
         search: query.trim() || undefined,
         per_page: 20,
       });
-      return response.data.map((trainer: Trainer) => ({
-        id: trainer.id,
-        label: [trainer.first_name, trainer.last_name].filter(Boolean).join(' ') || trainer.email || '—',
-        subtitle: trainer.email ?? undefined,
+      return response.data.map((candidate) => ({
+        id:
+          candidate.kind === 'user'
+            ? `user:${candidate.user_id}`
+            : `profile:${candidate.trainer_id}`,
+        label: [candidate.first_name, candidate.last_name].filter(Boolean).join(' ') || candidate.email || '—',
+        subtitle: candidate.email ?? undefined,
       }));
     },
-    [agencyId],
+    [],
   );
 
   function openCreate() {

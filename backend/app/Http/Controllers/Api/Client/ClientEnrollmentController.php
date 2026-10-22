@@ -114,6 +114,7 @@ class ClientEnrollmentController extends Controller
                     'number' => $this->invoiceNumber->next(),
                     'agency_id' => $course->agency_id,
                     'client_id' => $user->id,
+                    'created_by' => $user->id,
                     'client_name' => trim("{$user->first_name} {$user->last_name}"),
                     'invoice_date' => now(),
                     'total_amount' => $price,

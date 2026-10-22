@@ -116,6 +116,7 @@ class AgencyInvoicingService
             'client_name' => $client ? trim($client->first_name.' '.$client->last_name) : null,
             'commercial_id' => $commercialId,
             'seller_user_id' => $sellerUserId ?? $actorUserId,
+            'created_by' => $actorUserId,
             'invoice_date' => now(),
             'payment_type' => $paymentType,
             'total_amount' => $total,

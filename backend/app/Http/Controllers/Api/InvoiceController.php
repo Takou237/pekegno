@@ -333,6 +333,7 @@ class InvoiceController extends Controller
                 'client_name' => $data['client_name'] ?? null,
                 'commercial_id' => $commercialId,
                 'seller_user_id' => $data['seller_user_id'] ?? $request->user()->id,
+                'created_by' => $request->user()->id,
                 'invoice_date' => $data['invoice_date'] ?? now(),
                 'payment_type' => $data['payment_type'] ?? null,
                 'payer_phone' => $data['payer_phone'] ?? null,
@@ -518,6 +519,8 @@ class InvoiceController extends Controller
     public function update(UpdateInvoiceRequest $request, Invoice $invoice): JsonResponse
     {
         abort_if($invoice->is_cancelled, 422, 'Impossible de modifier une facture annulée.');
+        abort_if($invoice->validation_status === Invoice::VALIDATION_VALIDATED, 422, 'Une facture validée ne peut plus être modifiée.');
+        abort_unless($invoice->created_by === $request->user()->id, 403, 'Seul le créateur de la facture peut la modifier.');
 
         $old = $invoice->only(['client_id', 'client_name', 'commercial_id', 'payment_type', 'comment']);
         $invoice->update($request->only(['client_id', 'client_name', 'commercial_id', 'payment_type', 'comment']));
@@ -550,6 +553,11 @@ class InvoiceController extends Controller
     )]
     public function pay(StoreInvoicePaymentRequest $request, Invoice $invoice): JsonResponse
     {
+        abort_unless(
+            in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'caissier'], true),
+            403,
+            'Seuls les administrateurs et les caissiers peuvent encaisser une facture.'
+        );
         abort_if($invoice->is_cancelled, 422, "Impossible d'encaisser une facture annulée.");
         abort_if($invoice->status === 'paid', 422, 'Cette facture est déjà soldée.');
         abort_if($invoice->validation_status !== Invoice::VALIDATION_VALIDATED, 422, "La facture doit être validée avant d'être encaissée.");

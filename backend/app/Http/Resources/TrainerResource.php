@@ -21,6 +21,8 @@ class TrainerResource extends JsonResource
             /** Compte utilisateur lié : null si le formateur n'utilise pas la plateforme. */
             'user_id' => $this->user_id,
             'has_account' => $this->user_id !== null,
+            /** Rôle du compte lié : un profil peut être adossé à un compte non formateur. */
+            'user_role' => $this->whenLoaded('user', fn () => $this->user?->role?->name),
             'agency' => $this->whenLoaded('agency', fn () => [
                 'id' => $this->agency?->id,
                 'name' => $this->agency?->name,

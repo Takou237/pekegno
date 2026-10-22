@@ -74,6 +74,7 @@ export interface Invoice {
   client_label: string | null;
   commercial_id: string | null;
   seller_user_id: string | null;
+  created_by: string | null;
   invoice_date: string;
   payment_type: PaymentMethod | null;
   payer_phone: string | null;

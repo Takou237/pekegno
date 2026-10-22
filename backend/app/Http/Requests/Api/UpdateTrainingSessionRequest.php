@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use App\Models\Trainer;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,12 +19,14 @@ class UpdateTrainingSessionRequest extends FormRequest
         return [
             'course_id' => ['sometimes', 'string', 'exists:courses,id'],
             'trainer_id' => ['sometimes', 'nullable', 'string', Rule::exists('trainers', 'id')->whereNull('deleted_at')],
+            'trainer_user_id' => ['sometimes', 'nullable', 'string', Rule::exists('users', 'id')],
             'agency_id' => ['sometimes', 'nullable', 'string', Rule::exists('agencies', 'id')->whereNull('deleted_at')],
             'start_at' => ['sometimes', 'date'],
             'end_at' => ['sometimes', 'nullable', 'date', 'after:start_at'],
             'max_capacity' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'status' => ['sometimes', 'string', Rule::in(['planned', 'ongoing', 'completed', 'cancelled'])],
+            'sync_across_agencies' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -38,6 +41,26 @@ class UpdateTrainingSessionRequest extends FormRequest
 
             if ($trainer && ! $trainer->is_active) {
                 $validator->errors()->add('trainer_id', 'Le formateur sélectionné est inactif.');
+            }
+        });
+
+        $validator->after(function ($validator) {
+            if (! $this->filled('trainer_user_id')) {
+                return;
+            }
+
+            $user = User::find($this->input('trainer_user_id'));
+
+            if (! $user) {
+                return;
+            }
+
+            if ($user->role?->name === 'client') {
+                $validator->errors()->add('trainer_user_id', 'Un compte client ne peut pas animer une session.');
+            }
+
+            if (! $user->is_active) {
+                $validator->errors()->add('trainer_user_id', 'La personne sélectionnée est inactive.');
             }
         });
     }

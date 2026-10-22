@@ -127,6 +127,7 @@ class OrderInvoicingService
                 'client_name' => $client ? trim("{$client->first_name} {$client->last_name}") : null,
                 'commercial_id' => $order->commercial_id,
                 'seller_user_id' => $actorUserId,
+                'created_by' => $actorUserId,
                 'invoice_date' => now(),
                 'payment_type' => null,
                 'total_amount' => $order->total_amount,
