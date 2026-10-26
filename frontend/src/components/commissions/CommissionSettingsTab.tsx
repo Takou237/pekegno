@@ -567,7 +567,9 @@ function RuleFormFields({
     const q = query.trim();
     switch (form.target_type) {
       case 'product':
-        return (await productsApi.search(q)).map((p) => ({ id: p.id, label: p.name }));
+        // Écran de gestion : on garde le périmètre de l'utilisateur
+        // (forSale = false), contrairement aux formulaires de vente.
+        return (await productsApi.search(q, undefined, false)).map((p) => ({ id: p.id, label: p.name }));
       case 'service':
         return (await servicesApi.search(q)).map((s) => ({ id: s.id, label: s.name }));
       case 'course':
