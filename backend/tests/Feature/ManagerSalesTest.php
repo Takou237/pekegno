@@ -17,7 +17,9 @@ use Tests\TestCase;
 
 /**
  * Chef d'agence, chef de département et directeur général peuvent vendre /
- * créer des factures, dans leur espace uniquement.
+ * créer des factures, y compris pour une agence hors de leur périmètre :
+ * les rôles autorisés à vendre ne sont pas limités par le périmètre
+ * organisationnel. La facture est rattachée à l'agence choisie.
  */
 class ManagerSalesTest extends TestCase
 {
@@ -53,7 +55,7 @@ class ManagerSalesTest extends TestCase
         ]);
     }
 
-    public function test_agency_chief_sells_in_own_agency_only(): void
+    public function test_agency_chief_sells_in_own_agency_with_pending_validation(): void
     {
         $chief = $this->user('responsable-agence');
         $chief->assignments()->sync([$this->agency->id => ['is_primary' => true]]);
@@ -61,19 +63,35 @@ class ManagerSalesTest extends TestCase
 
         $id = $this->sell($this->agency)->assertCreated()->json('id');
         $this->assertSame(Invoice::VALIDATION_PENDING, Invoice::findOrFail($id)->validation_status, 'Validée ensuite par le caissier ou le DG.');
-        $this->sell($this->otherAgency)->assertForbidden();
     }
 
-    public function test_department_chief_sells_in_own_agency_only(): void
+    public function test_agency_chief_can_sell_in_another_agency(): void
+    {
+        $chief = $this->user('responsable-agence');
+        $chief->assignments()->sync([$this->agency->id => ['is_primary' => true]]);
+        Sanctum::actingAs($chief);
+
+        $id = $this->sell($this->otherAgency)->assertCreated()->json('id');
+
+        $this->assertSame(
+            $this->otherAgency->id,
+            Invoice::findOrFail($id)->agency_id,
+            'La facture est rattachée à l\'agence du produit, pas à celle du vendeur.'
+        );
+    }
+
+    public function test_department_chief_can_sell_in_another_agency(): void
     {
         $department = Department::factory()->create(['agency_id' => $this->agency->id]);
         $chief = $this->user('responsable-departement');
         $chief->assignments()->sync([$this->agency->id => ['is_department_chief' => true, 'department_id' => $department->id]]);
+
         \DB::table('department_chiefs')->insert(['id' => (string) Str::uuid(), 'user_id' => $chief->id, 'department_id' => $department->id]);
         Sanctum::actingAs($chief);
 
-        $this->sell($this->agency)->assertCreated();
-        $this->sell($this->otherAgency)->assertForbidden();
+        $id = $this->sell($this->otherAgency)->assertCreated()->json('id');
+
+        $this->assertSame($this->otherAgency->id, Invoice::findOrFail($id)->agency_id);
     }
 
     public function test_director_sells_in_own_country_and_sale_is_validated_directly(): void
@@ -86,6 +104,7 @@ class ManagerSalesTest extends TestCase
         $this->assertSame(Invoice::VALIDATION_VALIDATED, $invoice->validation_status);
         $this->assertSame(5000.0, (float) $invoice->amount_paid, 'L\'avance est encaissée tout de suite.');
 
-        $this->sell($this->otherAgency)->assertForbidden();
+        // Le directeur peut aussi facturer une agence d'un autre pays.
+        $this->sell($this->otherAgency)->assertCreated();
     }
 }

@@ -235,7 +235,9 @@ class Phase5BilanTest extends TestCase
         $this->actingAsAdmin();
 
         $agency = $this->createAgency();
-        $this->createInvoice(['agency_id' => $agency->id], 'direction-generale');
+        // Rôle non validateur : la facture reste impayée (avance déclarée mais
+        // non encaissée) et le bilan du jour ne doit rien compter.
+        $this->createInvoice(['agency_id' => $agency->id], 'responsable-agence');
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
@@ -253,7 +255,7 @@ class Phase5BilanTest extends TestCase
         $agency = $this->createAgency();
         $this->createInvoice(
             ['agency_id' => $agency->id, 'invoice_date' => Period::businessToday()->subDay()->toDateString()],
-            'direction-generale',
+            'responsable-agence',
         );
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
