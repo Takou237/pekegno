@@ -110,4 +110,43 @@ class InterAgencySaleTest extends TestCase
             'La facture doit être rattachée à l\'agence du produit, pas à celle du vendeur.'
         );
     }
+
+    public function test_management_lists_stay_scoped_to_the_chief_perimeter(): void
+    {
+        // Le chef facture une agence étrangère (vente autorisée)…
+        $client = User::factory()->create(['role_id' => Role::where('name', 'client')->value('id')]);
+        $invoiceId = $this->postJson('/api/invoices', [
+            'agency_id' => $this->yaounde->id,
+            'client_id' => $client->id,
+            'payment_type' => 'cash',
+            'advance' => 7500,
+            'items' => [
+                ['product_id' => $this->yaoundeProduct->id, 'unit_price' => 7500, 'quantity' => 1],
+            ],
+        ])->assertCreated()->json('id');
+
+        // … mais les listes de gestion restent limitées à son périmètre.
+        $invoices = collect($this->getJson('/api/invoices?per_page=100')->assertOk()->json('data'));
+        $this->assertFalse(
+            $invoices->pluck('id')->contains($invoiceId),
+            'La facture d\'une agence hors périmètre ne doit pas apparaître dans la liste de gestion.'
+        );
+        $this->getJson('/api/invoices/'.$invoiceId)->assertNotFound();
+
+        $products = collect($this->getJson('/api/products?per_page=100')->assertOk()->json('data'));
+        $this->assertFalse(
+            $products->pluck('id')->contains($this->yaoundeProduct->id),
+            'La liste de gestion des produits reste scopée au périmètre.'
+        );
+
+        $agencies = collect($this->getJson('/api/agencies?per_page=100')->assertOk()->json('data'));
+        $this->assertFalse(
+            $agencies->pluck('id')->contains($this->yaounde->id),
+            'La liste de gestion des agences reste scopée au périmètre.'
+        );
+
+        // Le sélecteur de vente, lui, doit rester complet (inter-agences).
+        $saleAgencies = collect($this->getJson('/api/scope/agencies')->assertOk()->json('data'));
+        $this->assertTrue($saleAgencies->pluck('id')->contains($this->yaounde->id));
+    }
 }
