@@ -301,6 +301,13 @@ export default function FormationEnrollmentModal({
         return;
       }
 
+      if (enrolling && netPrice > 0 && !(Number(form.amount_paid) > 0)) {
+        setFormError(t('invoices.advanceRequired'));
+        setFieldErrors({ amount_paid: t('invoices.advanceRequired') });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Un commercial doit joindre une preuve de paiement uniquement quand une
       // inscription (donc une facture) est créée.
       if (enrolling && isCommercial && !proofFile) {
@@ -543,10 +550,11 @@ export default function FormationEnrollmentModal({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label={`${t('academy.amountPaid')} (${currencyLabel(currency)})`}
+            label={`${t('academy.amountPaid')} (${currencyLabel(currency)})${form.course_id && netPrice > 0 ? ' *' : ''}`}
             type="number"
             min={0}
             placeholder="0"
+            required={Boolean(form.course_id) && netPrice > 0}
             value={form.amount_paid}
             onChange={(e) => setForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
             error={fieldErrors.amount_paid}

@@ -45,6 +45,10 @@ class Phase6AcademyTest extends TestCase
      */
     private function postEnrollment(array $payload): TestResponse
     {
+        if (! array_key_exists('amount_paid', $payload) && empty($payload['invoice_id'])) {
+            $payload['amount_paid'] = 10000;
+        }
+
         $current = auth()->user();
 
         if ($current?->role?->name !== 'super-admin') {
@@ -1120,12 +1124,8 @@ class Phase6AcademyTest extends TestCase
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_trainer_id' => $trainer->id,
+            'amount_paid' => 50000,
         ])->assertStatus(201)->json();
-
-        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
-            'amount' => 50000,
-            'payment_method' => 'cash',
-        ])->assertOk();
 
         // Le vendeur formateur touche sa commission via son profil vendeur.
         $this->assertDatabaseHas('commission_entries', [
@@ -1375,6 +1375,7 @@ class Phase6AcademyTest extends TestCase
             'items' => [
                 ['label' => 'Conseil en gestion', 'unit_price' => 10000, 'quantity' => 1],
             ],
+            'advance' => 1,
         ])->assertStatus(201)->json();
         Sanctum::actingAs($admin);
 
@@ -1396,7 +1397,7 @@ class Phase6AcademyTest extends TestCase
             ->assertOk()
             ->assertJsonPath('stats.service_sales.count', 1)
             ->assertJsonPath('stats.service_sales.turnover', 10000)
-            ->assertJsonPath('stats.service_sales.paid_count', 0)
+            ->assertJsonPath('stats.service_sales.paid_count', 1)
             ->assertJsonPath('stats.formation_sales.count', 0)
             ->assertJsonPath('recent_service_sales.0.number', $invoice['number']);
     }
@@ -1415,6 +1416,7 @@ class Phase6AcademyTest extends TestCase
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
+            'amount_paid' => 50000,
         ])->assertStatus(201)->json();
 
         $this->assertSame($trainer->user_id, $enrollment['seller_user_id']);
@@ -1423,12 +1425,6 @@ class Phase6AcademyTest extends TestCase
             'kind' => 'employee',
             'commission_type' => 'percent',
         ]);
-
-        // Encaissement : commission automatique du vendeur (20 % du versement).
-        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
-            'amount' => 50000,
-            'payment_method' => 'cash',
-        ])->assertOk();
 
         $profile = SellerProfile::where('user_id', $trainer->user_id)->firstOrFail();
 
@@ -1496,13 +1492,14 @@ class Phase6AcademyTest extends TestCase
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
+            'amount_paid' => 1,
         ])->assertStatus(201)->json();
 
         $invoiceId = $enrollment['invoice_id'];
 
         // Règlement partiel : pas encore « sold out », aucun point attribué.
         $this->postJson("/api/invoices/{$invoiceId}/payments", [
-            'amount' => 25000,
+            'amount' => 24999,
             'payment_method' => 'cash',
         ])->assertOk();
 
@@ -1544,12 +1541,8 @@ class Phase6AcademyTest extends TestCase
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
+            'amount_paid' => 50000,
         ])->assertStatus(201)->json();
-
-        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
-            'amount' => 50000,
-            'payment_method' => 'cash',
-        ])->assertOk();
 
         // Annuaire RH unifié : le formateur affiche ses points gagnés.
         $this->getJson('/api/employees?agency_id='.$agency->id.'&include_trainers=1&per_page=100')
@@ -1585,12 +1578,8 @@ class Phase6AcademyTest extends TestCase
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
+            'amount_paid' => 50000,
         ])->assertStatus(201)->json();
-
-        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
-            'amount' => 50000,
-            'payment_method' => 'cash',
-        ])->assertOk();
 
         $ranking = $this->getJson('/api/employees/ranking?limit=50')->assertOk()->json();
 
@@ -1724,13 +1713,8 @@ class Phase6AcademyTest extends TestCase
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
+            'amount_paid' => 4000,
         ])->assertStatus(201)->json();
-
-        // Encaissement partiel : 4000 sur 7000.
-        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
-            'amount' => 4000,
-            'payment_method' => 'cash',
-        ])->assertOk();
 
         // Le CA encaissé reflète la somme des versements, pas les seules factures payées.
         $this->getJson('/api/trainers/'.$trainer->id.'/stats')
@@ -1750,27 +1734,23 @@ class Phase6AcademyTest extends TestCase
         $trainer->update(['agency_id' => $agency->id]);
         $client = $this->createClient();
 
+        // Profil sans commission dès l'inscription : l'avance encaissée ne doit
+        // générer aucune entrée avant que le responsable ne fixe un taux.
+        $profile = SellerProfile::create([
+            'user_id' => $trainer->user_id,
+            'agency_id' => $agency->id,
+            'kind' => SellerProfile::KIND_EMPLOYEE,
+            'commission_type' => 'none',
+            'commission_value' => 0,
+            'is_active' => true,
+        ]);
+
         $enrollment = $this->postEnrollment([
             'course_id' => $course['id'],
             'learner_user_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
+            'amount_paid' => 10000,
         ])->assertStatus(201)->json();
-
-        $profile = SellerProfile::where('user_id', $trainer->user_id)->firstOrFail();
-
-        // Le profil formateur est créé avec la commission réseau par défaut (20 %).
-        // Pour conserver l'essence du test (taux fixé après l'encaissement), on la
-        // désactive d'abord sur la fiche.
-        $this->putJson('/api/seller-profiles/'.$profile->id, [
-            'commission_type' => 'none',
-            'commission_value' => 0,
-        ])->assertOk();
-
-        // Encaissement intégral : aucun profil avec taux → aucune commission automatique.
-        $this->postJson("/api/invoices/{$enrollment['invoice_id']}/payments", [
-            'amount' => 10000,
-            'payment_method' => 'cash',
-        ])->assertOk();
 
         $this->assertDatabaseMissing('commission_entries', ['invoice_id' => $enrollment['invoice_id']]);
 

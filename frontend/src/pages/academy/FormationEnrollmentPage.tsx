@@ -90,7 +90,6 @@ export default function FormationEnrollmentPage() {
   const currency = useAgencyCurrency(agencyId);
   const { user: currentUser } = useAuth();
   const isCommercial = currentUser?.role?.name === 'commercial';
-  const isSuperAdmin = currentUser?.role?.name === 'super-admin';
   const isSellerUser = isCommercial || currentUser?.role?.name === 'caissier';
 
   const [enrollments, setEnrollments] = useState<FormationEnrollment[]>([]);
@@ -344,8 +343,8 @@ export default function FormationEnrollmentPage() {
         setIsSubmitting(false);
         return;
       }
-      // Super-admin : avance (montant versé) obligatoire à la création.
-      if (!editing && isSuperAdmin && !(Number(form.amount_paid) > 0)) {
+      // Avance (montant versé) obligatoire dès qu'une facture est créée.
+      if (!editing && netPrice > 0 && !(Number(form.amount_paid) > 0)) {
         setFormError(t('invoices.advanceRequired'));
         setFieldErrors({ amount_paid: t('invoices.advanceRequired') });
         setIsSubmitting(false);
@@ -776,11 +775,11 @@ export default function FormationEnrollmentPage() {
           {!editing && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-              label={`${t('academy.amountPaid')} (${currencyLabel(currency)})${isSuperAdmin ? ' *' : ''}`}
+              label={`${t('academy.amountPaid')} (${currencyLabel(currency)})${netPrice > 0 ? ' *' : ''}`}
               type="number"
               min={0}
               placeholder="0"
-              required={isSuperAdmin}
+              required={netPrice > 0}
               value={form.amount_paid}
               onChange={(e) => setForm((prev) => ({ ...prev, amount_paid: e.target.value }))}
               error={fieldErrors.amount_paid}

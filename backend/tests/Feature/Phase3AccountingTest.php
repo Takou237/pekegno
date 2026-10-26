@@ -35,15 +35,15 @@ class Phase3AccountingTest extends TestCase
         return $this->admin;
     }
 
-    /** La règle métier exige une avance pour le super-admin : une facture « en
-     * attente » sans avance est le flux du caissier, identité sous laquelle la
-     * création se fait ici. L'identité admin est restaurée pour la suite. */
+    /** L'avance est obligatoire : on en déclare une symbolique pour laisser
+     * la facture ouverte. L'identité admin est restaurée pour la suite. */
     private function createInvoice(array $attributes = []): array
     {
         Sanctum::actingAs(User::factory()->create([
             'role_id' => Role::where('name', 'caissier')->value('id'),
         ]));
         $invoice = $this->postJson('/api/invoices', array_merge([
+            'advance' => 1,
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],

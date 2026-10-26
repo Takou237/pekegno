@@ -81,14 +81,6 @@ class FormationEnrollmentController extends Controller
             'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
         ]);
 
-        // Super-admin : avance (montant versé) obligatoire à l'inscription.
-        if ($request->user()?->role?->name === 'super-admin' && empty($validated['amount_paid'])) {
-            return response()->json([
-                'message' => "L'avance est obligatoire.",
-                'errors' => ['amount_paid' => ["L'avance est obligatoire."]],
-            ], 422);
-        }
-
         if (! User::whereKey($validated['learner_user_id'])->whereHas('role', fn ($q) => $q->where('name', 'client'))->exists()) {
             return response()->json([
                 'message' => 'Le bénéficiaire doit être un apprenant (client).',
@@ -144,7 +136,7 @@ class FormationEnrollmentController extends Controller
 
         $invoiceProvided = ! empty($validated['invoice_id']);
 
-        $enrollment = DB::transaction(function () use ($validated, $request, $existing, $requestedSessionId, $discountAmount) {
+        $enrollment = DB::transaction(function () use ($validated, $request, $existing, $requestedSessionId, $discountAmount, $invoiceProvided) {
             $invoiceId = $validated['invoice_id'] ?? null;
 
             if (! $invoiceId) {
@@ -168,6 +160,25 @@ class FormationEnrollmentController extends Controller
             }
 
             $this->assignToAvailableSessions($enrollment, $requestedSessionId);
+
+            // L'avance est encaissée une fois l'inscription créée : la résolution
+            // du vendeur (notamment formateur sans compte) s'appuie sur le lien
+            // formation_enrollments.invoice_id pour générer la commission.
+            $invoice = $invoiceId ? Invoice::find($invoiceId) : null;
+            $amountPaid = $invoice
+                ? min((float) ($validated['amount_paid'] ?? 0), (float) $invoice->total_amount)
+                : 0.0;
+            $needsValidation = $request->user()->role?->name === 'commercial';
+
+            if (! $invoiceProvided && $invoice && ! $needsValidation && $amountPaid > 0) {
+                $this->paymentService->applyPayment(
+                    $invoice,
+                    $amountPaid,
+                    $validated['payment_type'] ?? 'cash',
+                    $amountPaid < (float) $invoice->total_amount,
+                    $request->user()->id,
+                );
+            }
 
             $enrollment->load(['course', 'learner', 'invoice', 'seller', 'sellerTrainer']);
 
@@ -386,6 +397,12 @@ class FormationEnrollmentController extends Controller
 
         $total = round(max(0, $price - $discountAmount), 2);
 
+        if ($total > 0 && (float) ($validated['amount_paid'] ?? 0) <= 0) {
+            throw ValidationException::withMessages([
+                'amount_paid' => "L'avance est obligatoire.",
+            ]);
+        }
+
         // Le plafond d'encaissement suit le montant net : payer le prix catalogue
         // alors qu'une remise a été accordée ferait un trop-perçu sur la facture.
         $amountPaid = min((float) ($validated['amount_paid'] ?? 0), $total);
@@ -487,16 +504,6 @@ class FormationEnrollmentController extends Controller
             'quantity' => 1,
             'line_total' => $price,
         ]);
-
-        if (! $needsValidation && $amountPaid > 0) {
-            $this->paymentService->applyPayment(
-                $invoice,
-                $amountPaid,
-                $validated['payment_type'] ?? 'cash',
-                $amountPaid < $total,
-                $request->user()->id,
-            );
-        }
 
         // Preuve de paiement jointe à l'inscription : si le commercial en fournit une
         // dès la création, elle est rattachée à la facture (examinée par le caissier

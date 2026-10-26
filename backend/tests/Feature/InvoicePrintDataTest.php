@@ -41,12 +41,12 @@ class InvoicePrintDataTest extends TestCase
 
         $agency = Agency::factory()->create(['country_id' => $country->id]);
 
-        // Facture sans avance = flux caissier (l'avance est obligatoire pour
-        // le super-admin) ; l'identité admin est restaurée ensuite.
+        // L'avance est obligatoire pour tous les rôles ; l'identité admin est restaurée ensuite.
         Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'caissier')->value('id')]));
         $invoice = $this->postJson('/api/invoices', [
             'agency_id' => $agency->id,
             'items' => [['label' => 'Audit comptable', 'unit_price' => 180000, 'quantity' => 1]],
+            'advance' => 180000,
         ])->assertCreated()->json();
         Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]));
 

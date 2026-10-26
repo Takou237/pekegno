@@ -39,13 +39,12 @@ class Phase3Test extends TestCase
         return $this->admin;
     }
 
-    /** Règle métier : le super-admin doit déclarer une avance à la création
-     * d'une facture. Ici la facture est créée via un caissier (facture en
-     * attente), puis l'identité admin est restaurée pour la suite du test. */
+    /** L'avance est obligatoire pour tous les rôles : une avance symbolique
+     * laisse la facture ouverte. L'identité admin est restaurée pour la suite. */
     private function createInvoiceAsCashier(array $attributes = []): array
     {
         Sanctum::actingAs($this->userWithRole('caissier'));
-        $invoice = $this->postJson('/api/invoices', $attributes)
+        $invoice = $this->postJson('/api/invoices', array_merge(['advance' => 1], $attributes))
             ->assertStatus(201)
             ->json();
 
@@ -178,7 +177,7 @@ class Phase3Test extends TestCase
         $this->postJson("/api/invoices/{$invoice['id']}/payments", ['amount' => 999999, 'payment_method' => 'cash'])
             ->assertStatus(422);
 
-        $this->postJson("/api/invoices/{$invoice['id']}/payments", ['amount' => 8000, 'payment_method' => 'cash'])
+        $this->postJson("/api/invoices/{$invoice['id']}/payments", ['amount' => 7999, 'payment_method' => 'cash'])
             ->assertOk();
 
         $this->postJson("/api/invoices/{$invoice['id']}/payments", ['amount' => 1000, 'payment_method' => 'cash'])

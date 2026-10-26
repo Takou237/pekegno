@@ -7,6 +7,7 @@ import { clientsApi } from '@/api/clients.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
 import { agenciesApi } from '@/api/agencies.api';
+import { scopeApi, type AgencyOption } from '@/api/scope.api';
 import { servicesApi } from '@/api/services.api';
 import { academyApi } from '@/api/academy.api';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
@@ -69,7 +70,6 @@ export default function InvoiceFormPage({
   const [searchParams] = useSearchParams();
 
   const isCommercial = currentUser?.role?.name === 'commercial';
-  const isSuperAdmin = currentUser?.role?.name === 'super-admin';
   // Le caissier et le super-admin valident directement leurs ventes de guichet.
   // La direction garde son vendeur par défaut mais ses ventes restent en attente.
   const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(
@@ -106,6 +106,37 @@ export default function InvoiceFormPage({
   const serviceResultsRef = useRef<Record<string, ServiceSearchItem[]>>({});
   const productResultsRef = useRef<Record<string, ProductSearchItem[]>>({});
   const offerResultsRef = useRef<Record<string, CatalogOption[]>>({});
+
+  // Vente inter-agences : le sélecteur d'agence doit proposer TOUTES les agences
+  // (un chef de Douala peut facturer un produit de Yaoundé). Les listes de gestion
+  // restent scopées, seul ce sélecteur de vente est ouvert.
+  const [saleAgencies, setSaleAgencies] = useState<AgencyOption[] | null>(null);
+
+  useEffect(() => {
+    if (agencyLocked || isCommercial) return;
+    let active = true;
+    scopeApi
+      .agencies()
+      .then((rows) => {
+        if (active) setSaleAgencies(rows);
+      })
+      .catch(() => {
+        if (active) setSaleAgencies([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [agencyLocked, isCommercial]);
+
+  const selectedAgencyOption = useMemo(() => {
+    const found = saleAgencies?.find((a) => a.id === agencyId);
+    if (!found) return null;
+    return {
+      id: found.id,
+      label: found.name,
+      subtitle: [found.code, found.country_name].filter(Boolean).join(' — '),
+    };
+  }, [saleAgencies, agencyId]);
 
   // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
   // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
@@ -236,6 +267,13 @@ export default function InvoiceFormPage({
       showToast(t('invoices.duplicateService'), 'error');
       return;
     }
+
+    // Si le produit appartient à une agence différente, on bascule la facture
+    // sur cette agence pour garantir la cohérence (stock, CA, etc.).
+    if (product.agency_id && product.agency_id !== agencyId && !agencyLocked) {
+      setAgencyId(product.agency_id);
+    }
+
     updateLine(key, {
       kind: 'product',
       product_id: product.id,
@@ -282,7 +320,10 @@ export default function InvoiceFormPage({
       }));
     }
     if (kind === 'product') {
-      const res = await productsApi.search(q, agencyId || undefined);
+      // Recherche ouverte à tous les produits (for_sale) : le vendeur peut
+      // facturer un article d'une autre agence ; la facture bascule alors sur
+      // l'agence du produit sélectionné.
+      const res = await productsApi.search(q);
       productResultsRef.current[key] = res;
       return res.map((p) => ({
         id: p.id,
@@ -326,7 +367,7 @@ export default function InvoiceFormPage({
       setErrors({ advance: t('invoices.advanceExceedsTotal') });
       return;
     }
-    if (isSuperAdmin && !(Number(advance) > 0)) {
+    if (totals.total > 0 && !(Number(advance) > 0)) {
       setErrors({ advance: t('invoices.advanceRequired') });
       return;
     }
@@ -499,13 +540,25 @@ export default function InvoiceFormPage({
                 placeholder={t('commercials.agencyPlaceholder')}
                 value={agencyId}
                 onChange={setAgencyId}
+                selectedOption={selectedAgencyOption}
                 fetchOptions={async (query) => {
-                  const res = await agenciesApi.list({ search: query.trim() || undefined, per_page: 20 });
-                  return res.data.map((a) => ({
-                    id: a.id,
-                    label: a.name,
-                    subtitle: [a.code, a.city].filter(Boolean).join(' — '),
-                  }));
+                  // Liste non scopée : la vente peut viser une agence d'une autre
+                  // ville/pays que celle du vendeur.
+                  const rows = saleAgencies ?? (await scopeApi.agencies());
+                  const q = query.trim().toLowerCase();
+                  return rows
+                    .filter(
+                      (a) =>
+                        !q ||
+                        a.name.toLowerCase().includes(q) ||
+                        (a.code ?? '').toLowerCase().includes(q) ||
+                        (a.country_name ?? '').toLowerCase().includes(q)
+                    )
+                    .map((a) => ({
+                      id: a.id,
+                      label: a.name,
+                      subtitle: [a.code, a.country_name].filter(Boolean).join(' — '),
+                    }));
                 }}
                 error={errors.agency_id}
               />
@@ -724,11 +777,11 @@ export default function InvoiceFormPage({
           </div>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-              label={`${t('invoices.advance')}${isSuperAdmin ? ' *' : ''}`}
+              label={`${t('invoices.advance')}${totals.total > 0 ? ' *' : ''}`}
               type="number"
               min={0}
               step="0.01"
-              required={isSuperAdmin}
+              required={totals.total > 0}
               value={advance}
               onChange={(e) => setAdvance(e.target.value)}
               error={errors.advance}

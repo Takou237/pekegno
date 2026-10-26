@@ -87,7 +87,7 @@ class InvoiceStatusNotificationTest extends TestCase
     public function test_validation_sends_status_mail_to_client(): void
     {
         Mail::fake();
-        $this->staffWithRole('caissier');
+        $this->staffWithRole('super-admin');
         $invoice = $this->pendingInvoice();
 
         $this->postJson("/api/invoices/{$invoice->id}/validate")->assertOk();
@@ -103,7 +103,7 @@ class InvoiceStatusNotificationTest extends TestCase
     public function test_rejection_sends_status_mail_to_client_with_reason(): void
     {
         Mail::fake();
-        $this->staffWithRole('caissier');
+        $this->staffWithRole('super-admin');
         $invoice = $this->pendingInvoice();
 
         $this->postJson("/api/invoices/{$invoice->id}/reject", [
@@ -121,7 +121,7 @@ class InvoiceStatusNotificationTest extends TestCase
     public function test_no_mail_when_status_unchanged(): void
     {
         Mail::fake();
-        $this->staffWithRole('caissier');
+        $this->staffWithRole('super-admin');
         $invoice = $this->pendingInvoice();
 
         $this->postJson("/api/invoices/{$invoice->id}/validate")->assertOk();
@@ -137,7 +137,7 @@ class InvoiceStatusNotificationTest extends TestCase
     public function test_client_self_rejection_notifies_the_client_in_app_with_reason(): void
     {
         Mail::fake();
-        $this->staffWithRole('caissier');
+        $this->staffWithRole('super-admin');
         $invoice = $this->pendingInvoice();
 
         $this->postJson("/api/invoices/{$invoice->id}/reject", [
@@ -163,7 +163,7 @@ class InvoiceStatusNotificationTest extends TestCase
     public function test_commercial_sale_rejection_notifies_commercial_and_client(): void
     {
         Mail::fake();
-        $this->staffWithRole('caissier');
+        $this->staffWithRole('super-admin');
 
         $commercialUser = User::factory()->create([
             'role_id' => Role::where('name', 'commercial')->value('id'),
@@ -205,7 +205,7 @@ class InvoiceStatusNotificationTest extends TestCase
     public function test_rejection_mails_render(): void
     {
         Mail::fake();
-        $this->staffWithRole('caissier');
+        $this->staffWithRole('super-admin');
 
         $commercial = Commercial::factory()->create([
             'user_id' => User::factory()->create([

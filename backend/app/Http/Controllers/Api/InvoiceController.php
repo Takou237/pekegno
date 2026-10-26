@@ -233,20 +233,13 @@ class InvoiceController extends Controller
     {
         $data = $request->validated();
 
-        // Super-admin : avance obligatoire (montant encaissé à la création).
-        if ($request->user()?->role?->name === 'super-admin' && empty($data['advance'])) {
-            throw ValidationException::withMessages([
-                'advance' => "L'avance est obligatoire.",
-            ]);
-        }
-
-        // Chef d'agence / de département, directeur général : vente uniquement
-        // dans une agence de leur espace.
-        if (! empty($data['agency_id'])) {
-            $scoped = app(ScopeService::class)->scopeManagerQuery(\App\Models\Agency::query(), $request->user(), 'id');
-            abort_unless($scoped->whereKey($data['agency_id'])->exists(), 403, 'Cette agence est hors de votre périmètre.');
-        }
-
+        // L'avance est obligatoire pour tout total > 0 : contrôle commun à tous
+        // les rôles, appliqué à l'intérieur de la transaction (cf. ci-dessous).
+        //
+        // NOTE : aucun blocage de périmètre sur l'agence de la vente. Les rôles
+        // autorisés à vendre (chef d'agence, commercial, caissier…) peuvent
+        // facturer un article d'une autre agence ; la facture est alors rattachée
+        // à l'agence choisie (SaleAgencyResolver).
         $invoice = DB::transaction(function () use ($data, $request) {
             $items = collect($data['items'])->map(function (array $line) {
                 $service = isset($line['service_id']) ? Service::find($line['service_id']) : null;
@@ -313,6 +306,12 @@ class InvoiceController extends Controller
             $afterDiscount = max(0, $subtotal - $discount);
             $vatAmount = round($afterDiscount * ($vatRate / 100), 2);
             $total = round($afterDiscount + $vatAmount, 2);
+
+            if ($total > 0 && (float) ($data['advance'] ?? 0) <= 0) {
+                throw ValidationException::withMessages([
+                    'advance' => "L'avance est obligatoire.",
+                ]);
+            }
 
             if (! empty($data['advance']) && (float) $data['advance'] > $total) {
                 throw ValidationException::withMessages([

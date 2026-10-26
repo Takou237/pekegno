@@ -174,12 +174,15 @@ class ProductController extends Controller
     public function search(Request $request): JsonResponse
     {
         $q = trim((string) $request->query('q'));
+        $forSale = $request->boolean('for_sale');
 
         $query = Product::with('category')
             ->when($q, fn ($query) => $query->search($q))
             ->when($request->agency_id, fn ($query, $agencyId) => $query->availableIn($agencyId));
 
-        $this->scopeQuery($request, $query);
+        if (! $forSale) {
+            $this->scopeQuery($request, $query);
+        }
 
         $products = $query->limit(10)->get()
             ->map(fn (Product $product) => [
@@ -191,6 +194,7 @@ class ProductController extends Controller
                 'price_with_tax' => $product->price_with_tax,
                 'category' => $product->category?->name,
                 'is_stock_managed' => $product->is_stock_managed,
+                'agency_id' => $product->agency_id,
             ]);
 
         return response()->json($products);

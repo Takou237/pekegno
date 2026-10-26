@@ -10,6 +10,7 @@ export interface ProductSearchItem {
   price_with_tax?: number | string | null;
   category?: string | null;
   is_stock_managed?: boolean;
+  agency_id?: string | null;
 }
 
 export interface ProductPayload {
@@ -36,9 +37,9 @@ export const productsApi = {
     return data;
   },
 
-  async search(q: string, agencyId?: string): Promise<ProductSearchItem[]> {
+  async search(q: string, agencyId?: string, forSale = true): Promise<ProductSearchItem[]> {
     const { data } = await client.get<ProductSearchItem[]>('/products/search', {
-      params: { q, agency_id: agencyId || undefined },
+      params: { q, agency_id: agencyId || undefined, for_sale: forSale ? 1 : undefined },
     });
     return data;
   },

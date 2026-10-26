@@ -150,6 +150,14 @@ export default function QuickSalePage() {
       setErrors({ amount_received: t('invoices.quickReceiveAmountRequired') });
       return;
     }
+    if (!isCommercial && Number(amountReceived) > total) {
+      setErrors({ amount_received: t('invoices.advanceExceedsTotal') });
+      return;
+    }
+    if (isCommercial && !(Number(advance) > 0)) {
+      setErrors({ advance: t('invoices.advanceRequired') });
+      return;
+    }
     if (isCommercial && !proofFile) {
       setErrors({ proof_file: t('invoices.proofRequiredForSale') });
       return;
@@ -168,7 +176,8 @@ export default function QuickSalePage() {
           comment: comment || undefined,
           // L'avance d'un commercial est enregistrée comme avance déclarée
           // (declared_advance) côté backend, appliquée à la validation par le caissier.
-          advance: isCommercial ? Number(advance) || undefined : undefined,
+          // Au guichet, le montant reçu est encaissé directement comme avance.
+          advance: isCommercial ? Number(advance) : Number(amountReceived) || undefined,
           items: [
             {
               service_id: serviceId || undefined,
@@ -184,15 +193,8 @@ export default function QuickSalePage() {
       );
 
       // Un commercial ne peut pas encaisser : sa facture part en attente de validation.
-      // Seul un caissier / la direction valide puis encaisse.
-      let paymentId: string | undefined;
-      if (!isCommercial && Number(amountReceived) > 0) {
-        const paid = await invoicesApi.pay(invoice.id, {
-          amount: Number(amountReceived),
-          payment_method: paymentType as PaymentMethod,
-        });
-        paymentId = paid.payments?.[0]?.id;
-      }
+      // Au guichet, l'avance est appliquée directement par la création de la facture.
+      const paymentId = invoice.payments?.[0]?.id;
 
       showToast(isCommercial ? t('invoices.quickSuccessPending') : t('invoices.quickSuccess'), 'success');
       setLastInvoice({ id: invoice.id, number: invoice.number, paymentId });
@@ -381,10 +383,11 @@ export default function QuickSalePage() {
             )}
             {isCommercial ? (
               <Input
-                label={t('invoices.advance')}
+                label={`${t('invoices.advance')} *`}
                 type="number"
                 min={0}
                 step="0.01"
+                required
                 value={advance}
                 onChange={(e) => setAdvance(e.target.value)}
                 error={errors.advance}
@@ -392,10 +395,11 @@ export default function QuickSalePage() {
               />
             ) : (
               <Input
-                label={t('invoices.quickReceiveAmount')}
+                label={total > 0 ? `${t('invoices.quickReceiveAmount')} *` : t('invoices.quickReceiveAmount')}
                 type="number"
                 min={0}
                 step="0.01"
+                required={total > 0}
                 value={amountReceived}
                 onChange={(e) => setAmountReceived(e.target.value)}
                 error={errors.amount_received}

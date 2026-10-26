@@ -71,6 +71,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
@@ -95,6 +96,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
@@ -111,7 +113,7 @@ class Phase5CommercialValidationTest extends TestCase
         ]);
 
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
-            'amount' => 15000,
+            'amount' => 14000,
             'payment_method' => 'cash',
         ])->assertOk();
     }
@@ -158,6 +160,7 @@ class Phase5CommercialValidationTest extends TestCase
                 ['label' => 'Massage', 'unit_price' => 10000, 'quantity' => 2],
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 3],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
@@ -181,9 +184,9 @@ class Phase5CommercialValidationTest extends TestCase
         $this->assertSame(0, (int) $stats['sales_count']);
         $this->assertSame(0.0, (float) $stats['turnover']);
 
-        // Le caissier encaisse → les stats du commercial montent.
+        // Le caissier encaisse le solde → les stats du commercial montent.
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
-            'amount' => $total,
+            'amount' => $total - 1000,
             'payment_method' => 'cash',
         ])->assertOk();
 
@@ -210,7 +213,8 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
-        ])->assertStatus(422);
+            'advance' => 1000,
+        ])->assertStatus(422)->assertJsonValidationErrors('proof_file');
     }
 
     public function test_cashier_sale_does_not_require_proof_file(): void
@@ -222,6 +226,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Vente guichet', 'unit_price' => 8000, 'quantity' => 1],
             ],
+            'advance' => 8000,
         ])->assertStatus(201);
     }
 
@@ -236,6 +241,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
@@ -266,6 +272,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
@@ -286,9 +293,9 @@ class Phase5CommercialValidationTest extends TestCase
             'validation_status' => Invoice::VALIDATION_VALIDATED,
         ]);
 
-        // Le caissier peut ensuite encaisser directement.
+        // Le caissier peut ensuite encaisser le solde directement.
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
-            'amount' => 15000,
+            'amount' => 14000,
             'payment_method' => 'cash',
         ])->assertOk();
     }
@@ -304,6 +311,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
@@ -343,6 +351,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(201)->json();
 
@@ -352,7 +361,7 @@ class Phase5CommercialValidationTest extends TestCase
         $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
         $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
-            'amount' => 15000,
+            'amount' => 14000,
             'payment_method' => 'cash',
         ])->assertOk();
 
@@ -472,6 +481,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertCreated()->json('id');
 
@@ -519,6 +529,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertCreated()->json('id');
 
@@ -581,6 +592,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(422)->assertJsonValidationErrors('payer_phone');
 
@@ -590,6 +602,7 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertCreated()->json();
 
@@ -612,8 +625,28 @@ class Phase5CommercialValidationTest extends TestCase
             'items' => [
                 ['label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 1],
             ],
+            'advance' => 5000,
         ])->assertCreated()->json();
 
         $this->assertNull($invoice['payer_phone']);
+    }
+
+    public function test_invoice_creation_requires_a_positive_advance(): void
+    {
+        $this->actingAsRole('super-admin');
+
+        $payload = [
+            'items' => [
+                ['label' => 'Vente', 'unit_price' => 5000, 'quantity' => 1],
+            ],
+        ];
+
+        $this->postJson('/api/invoices', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('advance');
+
+        $this->postJson('/api/invoices', $payload + ['advance' => 0])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('advance');
     }
 }

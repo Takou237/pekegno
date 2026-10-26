@@ -116,8 +116,7 @@ class Phase8SeminarTest extends TestCase
 
         $service = $this->createSeminarService();
 
-        // Facture sans avance = flux caissier (l'avance est obligatoire pour
-        // le super-admin) ; l'identité admin est restaurée ensuite.
+        // Une avance symbolique ouvre la facture ; l'identité admin est restaurée ensuite.
         Sanctum::actingAs(User::factory()->create([
             'role_id' => Role::where('name', 'caissier')->value('id'),
         ]));
@@ -129,6 +128,7 @@ class Phase8SeminarTest extends TestCase
                     'quantity' => 2,
                 ],
             ],
+            'advance' => 1,
         ])->assertStatus(201)->json();
         $this->actingAsAdmin();
 

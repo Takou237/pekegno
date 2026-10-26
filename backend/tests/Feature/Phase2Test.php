@@ -47,15 +47,15 @@ class Phase2Test extends TestCase
         ], $attributes))->assertStatus(201)->json();
     }
 
-    /** La règle métier exige une avance pour le super-admin : une facture « en
-     * attente » sans avance est le flux du caissier, identité sous laquelle la
-     * création se fait ici. L'identité admin est restaurée pour la suite. */
+    /** L'avance est obligatoire : on en déclare une symbolique pour laisser
+     * la facture ouverte. L'identité admin est restaurée pour la suite. */
     private function createInvoice(array $attributes = []): array
     {
         Sanctum::actingAs(User::factory()->create([
             'role_id' => Role::where('name', 'caissier')->value('id'),
         ]));
         $invoice = $this->postJson('/api/invoices', array_merge([
+            'advance' => 1,
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
@@ -80,9 +80,8 @@ class Phase2Test extends TestCase
     {
         $this->actingAsAdmin();
 
-        $invoice = $this->createInvoice();
+        $invoice = $this->createInvoice(['advance' => 5000]);
 
-        $this->pay($invoice['id'], 5000)->assertOk();
         $this->pay($invoice['id'], 3000)->assertOk();
         $this->pay($invoice['id'], 3000)->assertOk();
         $this->pay($invoice['id'], 3000)->assertOk(); // plus de limite de 3 versements
@@ -120,13 +119,12 @@ class Phase2Test extends TestCase
 
         $commercial = $this->createCommercial(['commission_value' => 10]);
         $invoice = $this->createInvoice([
+            'advance' => 5000,
             'commercial_id' => $commercial['id'],
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
         ]);
-
-        $this->pay($invoice['id'], 5000)->assertOk();
 
         $this->assertDatabaseHas('commission_payments', [
             'invoice_id' => $invoice['id'],
@@ -156,9 +154,7 @@ class Phase2Test extends TestCase
             'commission_type' => 'fixed',
             'commission_value' => 1500,
         ]);
-        $invoice = $this->createInvoice(['commercial_id' => $commercial['id']]);
-
-        $this->pay($invoice['id'], 5000)->assertOk();
+        $invoice = $this->createInvoice(['advance' => 5000, 'commercial_id' => $commercial['id']]);
 
         $this->assertDatabaseHas('commission_payments', [
             'invoice_id' => $invoice['id'],
@@ -177,13 +173,12 @@ class Phase2Test extends TestCase
         $service = Service::factory()->create(['price' => 15000, 'bonus_fixed' => 300]);
         $commercial = $this->createCommercial(['commission_value' => 10]);
         $invoice = $this->createInvoice([
+            'advance' => 5000,
             'commercial_id' => $commercial['id'],
             'items' => [
                 ['service_id' => $service->id, 'unit_price' => 15000, 'quantity' => 1],
             ],
         ]);
-
-        $this->pay($invoice['id'], 5000)->assertOk();
 
         $this->assertDatabaseHas('commission_payments', [
             'invoice_id' => $invoice['id'],
@@ -203,14 +198,13 @@ class Phase2Test extends TestCase
         $service = Service::factory()->create(['price' => 10000, 'bonus_fixed' => 300]);
         $commercial = $this->createCommercial(['commission_value' => 10]);
         $invoice = $this->createInvoice([
+            'advance' => 15000,
             'commercial_id' => $commercial['id'],
             'items' => [
                 ['service_id' => $service->id, 'unit_price' => 10000, 'quantity' => 1],
                 ['label' => 'Conseil', 'unit_price' => 5000, 'quantity' => 1],
             ],
         ]);
-
-        $this->pay($invoice['id'], 15000)->assertOk();
 
         $this->assertDatabaseHas('commission_payments', [
             'invoice_id' => $invoice['id'],
@@ -232,9 +226,7 @@ class Phase2Test extends TestCase
         $this->actingAsAdmin();
 
         $commercial = $this->createCommercial();
-        $invoice = $this->createInvoice(['commercial_id' => $commercial['id']]);
-
-        $this->pay($invoice['id'], 5000)->assertOk();
+        $invoice = $this->createInvoice(['advance' => 5000, 'commercial_id' => $commercial['id']]);
 
         $this->assertDatabaseHas('invoices', [
             'id' => $invoice['id'],
@@ -260,9 +252,7 @@ class Phase2Test extends TestCase
         $this->actingAsAdmin();
 
         $commercial = $this->createCommercial();
-        $invoice = $this->createInvoice(['commercial_id' => $commercial['id']]);
-
-        $this->pay($invoice['id'], 5000)->assertOk();
+        $invoice = $this->createInvoice(['advance' => 5000, 'commercial_id' => $commercial['id']]);
 
         $fresh = $invoice;
         $payment = InvoicePayment::where('invoice_id', $invoice['id'])->firstOrFail();

@@ -88,6 +88,7 @@ class Phase3OrganizationTest extends TestCase
     private function createInvoice(array $attributes = []): void
     {
         $this->postJson('/api/invoices', array_merge([
+            'advance' => 1,
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 100000, 'quantity' => 1],
             ],

@@ -47,6 +47,7 @@ class StoreInvoiceRequest extends FormRequest
             'items.*.quantity.min' => 'La quantité doit être d\'au moins 1.',
             'items.*.pass_tier.in' => 'Le pass doit être classique, premium ou vip.',
             'payer_phone.required_if' => 'Le numéro ayant payé est obligatoire pour un règlement Orange Money ou MoMo.',
+            'advance.min' => "L'avance doit être supérieure à 0 FCFA.",
         ];
     }
 }

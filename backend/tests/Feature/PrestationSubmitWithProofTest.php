@@ -15,6 +15,7 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -130,7 +131,13 @@ class PrestationSubmitWithProofTest extends TestCase
         $invoice = Invoice::where('contract_id', $model->contract_id)->firstOrFail();
         $proof = PaymentProof::where('invoice_id', $invoice->id)->firstOrFail();
 
-        Sanctum::actingAs($this->userWithRole('caissier'));
+        $cashier = $this->userWithRole('caissier');
+        DB::table('user_assignments')->insert([
+            'user_id' => $cashier->id,
+            'agency_id' => $this->agency->id,
+            'is_primary' => true,
+        ]);
+        Sanctum::actingAs($cashier);
         $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
 
         $invoice->refresh();

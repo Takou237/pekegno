@@ -108,6 +108,7 @@ class EnrollmentValidationWorkflowTest extends TestCase
             'learner_user_id' => $client->id,
             'discount_type' => 'percent',
             'discount_value' => 10,
+            'amount_paid' => 45000,
         ])->assertCreated()->json();
 
         // La saisie est tracée sur l'inscription…
@@ -118,7 +119,7 @@ class EnrollmentValidationWorkflowTest extends TestCase
         $invoice = Invoice::find($response['invoice_id']);
         $this->assertSame(5000.0, (float) $invoice->discount);
         $this->assertSame(45000.0, (float) $invoice->total_amount);
-        $this->assertSame(45000.0, $invoice->balance_due);
+        $this->assertSame(0.0, $invoice->balance_due);
         // La ligne conserve le prix catalogue.
         $this->assertSame(50000.0, (float) $invoice->items()->first()->line_total);
     }
@@ -298,7 +299,7 @@ class EnrollmentValidationWorkflowTest extends TestCase
             'items' => [
                 ['label' => 'Vente guichet', 'unit_price' => 12000, 'quantity' => 1],
             ],
-            'amount_paid' => 12000,
+            'advance' => 12000,
             'payment_type' => 'cash',
         ])->assertStatus(201)->json();
 
@@ -315,6 +316,7 @@ class EnrollmentValidationWorkflowTest extends TestCase
         $enrollment = $this->postJson('/api/formation-enrollments', [
             'course_id' => $course->id,
             'learner_user_id' => $client->id,
+            'amount_paid' => 10000,
         ])->assertCreated()->json();
 
         $this->assertNotNull($enrollment['seller']);
@@ -330,6 +332,7 @@ class EnrollmentValidationWorkflowTest extends TestCase
         $enrollment = $this->postJson('/api/formation-enrollments', [
             'course_id' => $course->id,
             'learner_user_id' => $client->id,
+            'amount_paid' => 10000,
         ])->assertCreated()->json();
 
         $this->assertNotNull($enrollment['seller']);
@@ -347,6 +350,7 @@ class EnrollmentValidationWorkflowTest extends TestCase
         $enrollment = $this->postJson('/api/formation-enrollments', [
             'course_id' => $course->id,
             'learner_user_id' => $client->id,
+            'amount_paid' => 10000,
         ])->assertCreated()->json();
 
         $invoiceId = $enrollment['invoice_id'];
@@ -436,9 +440,11 @@ class EnrollmentValidationWorkflowTest extends TestCase
         $enrollment = $this->postJson('/api/formation-enrollments', [
             'course_id' => $course->id,
             'learner_user_id' => $client->id,
+            'amount_paid' => 10000,
         ])->assertCreated()->json();
 
         // État d'avant le correctif : montant payé sans ligne de paiement.
+        InvoicePayment::where('invoice_id', $enrollment['invoice_id'])->delete();
         Invoice::whereKey($enrollment['invoice_id'])->update(['amount_paid' => 10000]);
 
         $this->artisan('invoices:repair-enrollment-payments')->assertSuccessful();
@@ -464,6 +470,7 @@ class EnrollmentValidationWorkflowTest extends TestCase
         $enrollment = $this->postJson('/api/formation-enrollments', [
             'course_id' => $course->id,
             'learner_user_id' => $client->id,
+            'amount_paid' => 10000,
         ])->assertCreated()->json();
 
         $invoiceId = $enrollment['invoice_id'];
@@ -486,5 +493,25 @@ class EnrollmentValidationWorkflowTest extends TestCase
             'file' => UploadedFile::fake()->image('preuve.jpg'),
             'payment_method' => 'momo',
         ])->assertStatus(422);
+    }
+
+    public function test_enrollment_creation_requires_a_positive_advance(): void
+    {
+        $this->userWithRole('super-admin');
+        $course = $this->createCourse();
+        $client = $this->createClient();
+
+        $payload = [
+            'course_id' => $course->id,
+            'learner_user_id' => $client->id,
+        ];
+
+        $this->postJson('/api/formation-enrollments', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('amount_paid');
+
+        $this->postJson('/api/formation-enrollments', $payload + ['amount_paid' => 0])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('amount_paid');
     }
 }

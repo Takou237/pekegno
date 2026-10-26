@@ -49,6 +49,7 @@ class Phase7ReportingTest extends TestCase
     private function createInvoice(array $attributes = []): array
     {
         return $this->postJson('/api/invoices', array_merge([
+            'advance' => 10000,
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 10000, 'quantity' => 1],
             ],
@@ -88,6 +89,7 @@ class Phase7ReportingTest extends TestCase
         $this->postJson('/api/invoices', [
             'agency_id' => $agency->id,
             'items' => [['label' => 'Formation', 'unit_price' => 10000, 'quantity' => 1]],
+            'advance' => 1000,
             'payment_type' => 'cash',
             'proof_file' => File::fake()->image('proof.png'),
         ])->assertStatus(201);

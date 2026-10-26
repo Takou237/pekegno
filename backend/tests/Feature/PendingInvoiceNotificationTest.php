@@ -59,6 +59,7 @@ class PendingInvoiceNotificationTest extends TestCase
         $this->post('/api/invoices', [
             'agency_id' => $agency->id,
             'items' => [['label' => 'Service', 'unit_price' => 15000, 'quantity' => 1]],
+            'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertCreated();
     }
@@ -108,6 +109,7 @@ class PendingInvoiceNotificationTest extends TestCase
         $this->postJson('/api/invoices', [
             'agency_id' => $agency->id,
             'items' => [['label' => 'Service', 'unit_price' => 15000, 'quantity' => 1]],
+            'advance' => 15000,
         ])->assertCreated();
 
         Mail::assertNothingSent();

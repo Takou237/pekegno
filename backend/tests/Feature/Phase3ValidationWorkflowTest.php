@@ -152,18 +152,16 @@ class Phase3ValidationWorkflowTest extends TestCase
     {
         $invoice = $this->pendingInvoice();
 
-        $this->staffWithRole('comptable');
+        $cashier = $this->staffWithRole('caissier');
+        $this->assignCashierToInvoice($cashier, $invoice);
 
         $this->postJson("/api/invoices/{$invoice->id}/payments", [
             'amount' => 5000,
             'payment_method' => 'om',
         ])->assertStatus(422);
 
-        $cashier = $this->staffWithRole('caissier');
-        $this->assignCashierToInvoice($cashier, $invoice);
         $this->postJson("/api/invoices/{$invoice->id}/validate")->assertOk();
 
-        $this->staffWithRole('comptable');
         $paid = $this->postJson("/api/invoices/{$invoice->id}/payments", [
             'amount' => 20000,
             'payment_method' => 'om',
@@ -235,6 +233,7 @@ class Phase3ValidationWorkflowTest extends TestCase
 
         $invoice = $this->postJson('/api/invoices', [
             'items' => [['label' => 'Vente', 'unit_price' => 2000, 'quantity' => 1]],
+            'advance' => 1,
         ])->assertCreated()->json();
 
         $this->assertSame(Invoice::VALIDATION_PENDING, $invoice['validation_status']);

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\Course;
 use App\Models\DailyBalance;
+use App\Models\InvoicePayment;
 use App\Models\Product;
 use App\Models\Role;
 use App\Models\User;
@@ -43,14 +44,15 @@ class Phase5BilanTest extends TestCase
         return Agency::factory()->create();
     }
 
-    /** Facture sans avance = flux caissier (l'avance est obligatoire pour le
-     * super-admin) ; l'identité admin est restaurée ensuite. */
-    private function createInvoice(array $attributes = []): array
+    /** L'avance est obligatoire : on en déclare une symbolique pour laisser
+     * la facture ouverte. L'identité admin est restaurée ensuite. */
+    private function createInvoice(array $attributes = [], string $role = 'caissier'): array
     {
         Sanctum::actingAs(User::factory()->create([
-            'role_id' => Role::where('name', 'caissier')->value('id'),
+            'role_id' => Role::where('name', $role)->value('id'),
         ]));
         $invoice = $this->postJson('/api/invoices', array_merge([
+            'advance' => 1,
             'items' => [
                 ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
                 ['label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 2],
@@ -183,13 +185,15 @@ class Phase5BilanTest extends TestCase
         $this->actingAsAdmin();
 
         $agency = $this->createAgency();
-        $invoice = $this->createInvoice(['agency_id' => $agency->id]);
+        $invoice = $this->createInvoice([
+            'agency_id' => $agency->id,
+            'advance' => 25000,
+            'payment_type' => 'cash',
+        ]);
 
-        $this->postJson("/api/invoices/{$invoice['id']}/payments", [
-            'amount' => 25000,
-            'payment_method' => 'cash',
-            'paid_at' => Period::businessToday()->subDay()->toDateString(),
-        ])->assertOk();
+        InvoicePayment::where('invoice_id', $invoice['id'])->update([
+            'paid_at' => Period::businessToday()->subDay(),
+        ]);
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
@@ -231,7 +235,7 @@ class Phase5BilanTest extends TestCase
         $this->actingAsAdmin();
 
         $agency = $this->createAgency();
-        $this->createInvoice(['agency_id' => $agency->id]);
+        $this->createInvoice(['agency_id' => $agency->id], 'direction-generale');
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
@@ -247,7 +251,10 @@ class Phase5BilanTest extends TestCase
         $this->actingAsAdmin();
 
         $agency = $this->createAgency();
-        $this->createInvoice(['agency_id' => $agency->id, 'invoice_date' => Period::businessToday()->subDay()->toDateString()]);
+        $this->createInvoice(
+            ['agency_id' => $agency->id, 'invoice_date' => Period::businessToday()->subDay()->toDateString()],
+            'direction-generale',
+        );
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
