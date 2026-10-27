@@ -32,12 +32,14 @@ interface PackageSubscribeModalProps {
  */
 export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: PackageSubscribeModalProps) {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const { showToast } = useToast();
+    const { user } = useAuth();
+    const { showToast } = useToast();
 
-  const isCommercial = user?.role?.name === 'commercial';
-  const isCaissier = user?.role?.name === 'caissier';
-  const isSuperAdmin = user?.role?.name === 'super-admin';
+    const isCommercial = user?.role?.name === 'commercial';
+    const isCaissier = user?.role?.name === 'caissier';
+    const isSuperAdmin = user?.role?.name === 'super-admin';
+    const isResponsableAgence = user?.role?.name === 'responsable-agence';
+    const needsPaymentProof = isCommercial || isResponsableAgence;
 
   const [clientId, setClientId] = useState('');
   const [clientMode, setClientMode] = useState<LearnerMode>('existing');
@@ -53,6 +55,8 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
   const [autoRenew, setAutoRenew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [discountType, setDiscountType] = useState<'' | 'amount' | 'percent'>('');
+  const [discountValue, setDiscountValue] = useState('');
 
   // C2 : pour un commercial, pré-remplir son propre commercial (le backend le force aussi).
   // On affiche son NOM dans le champ lecture seule plutôt qu'un identifiant.
@@ -88,11 +92,17 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
     return () => URL.revokeObjectURL(url);
   }, [proofFile]);
 
-  const total = pkg.effective_price * Number(periods || 0);
+  const subtotal = pkg.effective_price * Number(periods || 0);
+  const discountAmount = discountType === 'percent' && discountValue
+    ? Math.round((subtotal * Number(discountValue)) / 100 * 100) / 100
+    : discountType === 'amount' && discountValue
+      ? Math.min(subtotal, Number(discountValue))
+      : 0;
+  const total = Math.max(0, Math.round((subtotal - discountAmount) * 100) / 100);
   const advanceValue = advance ? Number(advance) : 0;
-  // La preuve est obligatoire pour un commercial (le backend la refuse sinon).
+  // La preuve est obligatoire pour un commercial et un responsable d'agence (le backend la refuse sinon).
   // Super-admin : avance obligatoire + preuve retirée (pas de capture OM/MoMo).
-  const canSubmit = Boolean(clientMode === 'new' || clientId) && Number(periods) >= 1 && (!isCommercial || Boolean(proofFile)) && (!isSuperAdmin || advanceValue > 0);
+  const canSubmit = Boolean(clientMode === 'new' || clientId) && Number(periods) >= 1 && (!needsPaymentProof || Boolean(proofFile)) && (!isSuperAdmin || advanceValue > 0);
 
   async function clientOptions(query: string) {
     const rows = await clientsApi.search(query.trim());
@@ -145,6 +155,8 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
         advance: advanceValue > 0 ? advanceValue : undefined,
         payment_type: paymentType,
         proof_file: proofFile ?? undefined,
+        discount_type: discountType || undefined,
+        discount_value: discountType && discountValue ? Number(discountValue) : undefined,
       });
       showToast(t('agencyDept.packages.subscribed', { contract: res.contract.number }), 'success');
       onDone?.(res.prestation.id);
@@ -225,7 +237,32 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
           </Select>
         </div>
 
-        {/* Preuve de paiement : obligatoire pour le commercial, inutile pour
+        <div className="grid gap-3 rounded-xl border border-gray-100 p-3 sm:grid-cols-2 dark:border-gray-800">
+          <p className="text-xs text-gray-500 sm:col-span-2 dark:text-gray-400">{t('agencyDept.discounts.title', { defaultValue: 'Remise' })}</p>
+          <Select
+            label={t('agencyDept.discounts.type', { defaultValue: 'Type de remise' })}
+            value={discountType}
+            onChange={(e) => {
+              setDiscountType(e.target.value as '' | 'amount' | 'percent');
+              setDiscountValue('');
+            }}
+          >
+            <option value="">{t('common.none', { defaultValue: 'Aucune' })}</option>
+            <option value="percent">{t('agencyDept.discounts.percent', { defaultValue: 'Pourcentage (%)' })}</option>
+            <option value="amount">{t('agencyDept.discounts.amount', { defaultValue: 'Montant fixe' })}</option>
+          </Select>
+          <Input
+            label={discountType === 'percent' ? '%' : t('agencyDept.discounts.value', { defaultValue: 'Valeur' })}
+            type="number"
+            min={0}
+            max={discountType === 'percent' ? 100 : subtotal}
+            disabled={!discountType}
+            value={discountValue}
+            onChange={(e) => setDiscountValue(e.target.value)}
+          />
+        </div>
+
+        {/* Preuve de paiement : obligatoire pour le commercial et le responsable d'agence, inutile pour
             le caissier (c'est lui qui valide et encaisse) et retirée pour le
             super-admin. */}
         {!isCaissier && !isSuperAdmin && (
@@ -247,7 +284,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
           {proofPreview && (
             <img src={proofPreview} alt={t('invoices.paymentProof')} className="max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
           )}
-          {isCommercial && !proofFile && (
+          {needsPaymentProof && !proofFile && (
             <p className="text-xs text-error-500">{t('invoices.proofRequiredForSale')}</p>
           )}
         </div>
@@ -258,9 +295,19 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
           {t('agencyDept.packages.autoRenew')}
         </label>
 
-        <p className="text-right text-sm font-semibold text-gray-900 dark:text-white">
-          {t('agencyDept.total')} : {formatCurrency(total)}
-        </p>
+        <div className="flex flex-col items-end gap-1 text-sm">
+          <p className="text-gray-500 dark:text-gray-400">
+            {t('agencyDept.subtotal', { defaultValue: 'Sous-total' })} : {formatCurrency(subtotal)}
+          </p>
+          {discountAmount > 0 && (
+            <p className="text-emerald-600 dark:text-emerald-400">
+              {t('agencyDept.discounts.discount', { defaultValue: 'Remise' })} : -{formatCurrency(discountAmount)}
+            </p>
+          )}
+          <p className="text-base font-semibold text-gray-900 dark:text-white">
+            {t('agencyDept.total')} : {formatCurrency(total)}
+          </p>
+        </div>
 
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>

@@ -14,6 +14,7 @@ use App\Models\TeamMember;
 use App\Models\TreasuryAccount;
 use App\Models\User;
 use App\Services\AccountingService;
+use App\Services\CommercialProfileService;
 use App\Services\CommissionService;
 use App\Services\RoleCommissionService;
 use App\Services\ScopeService;
@@ -37,6 +38,7 @@ class CommissionController extends Controller
         private readonly AccountingService $accountingService,
         private readonly CommissionService $commissionService,
         private readonly RoleCommissionService $roleCommissions,
+        private readonly CommercialProfileService $commercialProfiles,
     ) {}
 
     #[OA\Get(path: '/api/commission-rules', summary: 'Lister les règles (dernières versions)', tags: ['Commissions'], security: [['sanctum' => []]], responses: [new OA\Response(response: 200, description: 'Règles')])]
@@ -849,7 +851,7 @@ class CommissionController extends Controller
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:150'],
-            'beneficiary_commercial_id' => ['nullable', 'uuid', 'exists:commercials,id'],
+            'beneficiary_commercial_id' => ['nullable', 'uuid', CommercialProfileService::commercialOrUserRule()],
             'beneficiary_seller_profile_id' => ['nullable', 'uuid', 'exists:seller_profiles,id'],
             'scope_country_id' => ['nullable', 'uuid', 'exists:countries,id'],
             'scope_agency_id' => ['nullable', 'uuid', 'exists:agencies,id'],
@@ -888,6 +890,15 @@ class CommissionController extends Controller
             'role_ids' => ['nullable', 'array'],
             'role_ids.*' => ['uuid', 'exists:roles,id'],
         ]) + ['basis' => CommissionRule::BASIS_SALE, 'revenue_scope' => 'own', 'recovery_period' => 'previous_month'];
+
+        // Le bénéficiaire peut être désigné par son compte utilisateur : sa fiche
+        // vendeur est créée à la volée s'il n'en a pas encore.
+        if (! empty($data['beneficiary_commercial_id'])) {
+            $data['beneficiary_commercial_id'] = $this->commercialProfiles
+                ->resolve($data['beneficiary_commercial_id'], $data['scope_agency_id'] ?? null)?->id;
+        }
+
+        return $data;
     }
 
     /** Entrées d'un bénéficiaire « utilisateur » (sans profil commercial ni vendeur). */

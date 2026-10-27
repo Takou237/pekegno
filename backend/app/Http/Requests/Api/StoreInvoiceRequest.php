@@ -17,7 +17,7 @@ class StoreInvoiceRequest extends FormRequest
             'agency_id' => ['nullable', 'uuid', 'exists:agencies,id'],
             'client_id' => ['nullable', 'uuid', 'exists:users,id'],
             'client_name' => ['nullable', 'string', 'max:255'],
-            'commercial_id' => ['nullable', 'uuid', 'exists:commercials,id'],
+            'commercial_id' => ['nullable', 'uuid', \App\Services\CommercialProfileService::commercialOrUserRule()],
             'seller_user_id' => ['nullable', 'uuid', 'exists:users,id'],
             'invoice_date' => ['nullable', 'date'],
             'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],

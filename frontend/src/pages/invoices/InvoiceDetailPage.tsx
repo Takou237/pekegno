@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
 import { commercialsApi } from '@/api/commercials.api';
-import { employeesApi } from '@/api/employees.api';
+import { usersApi } from '@/api/users.api';
 import { servicesApi } from '@/api/services.api';
 import { productsApi, type ProductSearchItem } from '@/api/products.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -1267,23 +1267,27 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                   label: editSellerLabel,
                 } : null}
                 fetchOptions={async (query) => {
-                  const [commercials, employees] = await Promise.all([
-                    commercialsApi.search(query.trim()).catch(() => []),
-                    employeesApi.search(query.trim()).catch(() => []),
+                  // Liste de tous les comptes du staff (clients exclus) : un
+                  // vendeur est attribuable même s'il n'a pas encore de fiche.
+                  const [usersRes, comsRes] = await Promise.all([
+                    usersApi.list({ search: query.trim() || undefined, per_page: 100 }).catch(() => ({ data: [] })),
+                    commercialsApi.list({ include_trainers: true, per_page: 100 }).catch(() => ({ data: [] })),
                   ]);
-                  const seen = new Set<string>();
-                  const options: AutocompleteOption[] = [];
-                  for (const seller of [...commercials, ...employees]) {
-                    if (seen.has(seller.id)) continue;
-                    seen.add(seller.id);
-                    const label = [seller.first_name, seller.last_name].filter(Boolean).join(' ') || seller.email || '';
-                    if (seller.is_trainer && seller.user_id) {
-                      options.push({ id: seller.user_id, userId: seller.user_id, isTrainer: true, label, subtitle: seller.email ?? '' });
-                    } else {
-                      options.push({ id: seller.id, userId: seller.user_id ?? undefined, label, subtitle: seller.email ?? '' });
-                    }
+                  // Fiches formateurs : la vente est rattachée via le compte
+                  // utilisateur (seller_user_id), comme avant.
+                  const trainerProfileByUserId = new Map<string, string>();
+                  for (const c of comsRes.data) {
+                    if (c.is_trainer && c.user_id) trainerProfileByUserId.set(c.user_id, c.id);
                   }
-                  return options;
+                  return usersRes.data
+                    .filter((u) => u.role?.name !== 'client')
+                    .map((u) => {
+                      const trainerProfileId = trainerProfileByUserId.get(u.id);
+                      const label = u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || u.email;
+                      return trainerProfileId
+                        ? { id: trainerProfileId, userId: u.id, isTrainer: true, label, subtitle: u.email }
+                        : { id: u.id, label, subtitle: u.role?.name ?? u.email };
+                    });
                 }}
               />
               <Input label={t('invoices.headerAgency')} value={invoice?.agency?.name ?? ''} disabled />

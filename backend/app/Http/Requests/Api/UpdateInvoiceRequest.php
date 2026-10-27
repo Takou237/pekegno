@@ -21,7 +21,7 @@ class UpdateInvoiceRequest extends FormRequest
         return [
             'client_id' => ['nullable', 'uuid', 'exists:users,id'],
             'client_name' => ['nullable', 'string', 'max:255'],
-            'commercial_id' => ['nullable', 'uuid', 'exists:commercials,id'],
+            'commercial_id' => ['nullable', 'uuid', \App\Services\CommercialProfileService::commercialOrUserRule()],
             'seller_user_id' => ['nullable', 'uuid', 'exists:users,id'],
             'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
             'payer_phone' => ['nullable', 'required_if:payment_type,om,momo', 'string', 'max:50'],

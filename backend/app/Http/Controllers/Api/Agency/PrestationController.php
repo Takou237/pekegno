@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Prestation;
 use App\Models\PrestationOffer;
 use App\Services\AgencyAccessService;
+use App\Services\CommercialProfileService;
 use App\Services\PrestationReviewService;
 use App\Services\PrestationService;
 use Illuminate\Database\Eloquent\Builder;
@@ -34,6 +35,7 @@ class PrestationController extends Controller
         private readonly PrestationService $prestations,
         private readonly PrestationReviewService $reviews,
         private readonly AgencyAccessService $access,
+        private readonly CommercialProfileService $commercialProfiles,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -128,9 +130,15 @@ class PrestationController extends Controller
 
         $data['agency_id'] = $offer->agency_id;
         $data['department_id'] = $this->inheritDepartment($data['department_id'] ?? null, $offer);
-        $data['category_id'] = $data['category_id'] ?? $offer->category_id;
+        $data['category_id'] = $data['category_id'] ?? $offer->category_id;            abort_unless(\App\Models\User::find($data['client_id'])?->role?->name === 'client', 422, 'Le client lié doit avoir le rôle client.');
 
-        abort_unless(\App\Models\User::find($data['client_id'])?->role?->name === 'client', 422, 'Le client lié doit avoir le rôle client.');
+        // Le vendeur peut être désigné par son compte utilisateur : la fiche
+        // manquante est créée à la volée.
+        $data['commercial_id'] = $data['commercial_id'] ?? null;
+        if ($data['commercial_id'] !== null) {
+            $data['commercial_id'] = $this->commercialProfiles
+                ->resolve($data['commercial_id'], $offer->agency_id)?->id;
+        }
 
         // Un commercial ne peut créer une prestation qu'à son nom.
         if ($request->user()->role?->name === 'commercial') {
@@ -162,6 +170,14 @@ class PrestationController extends Controller
         $end = $data['end_date'] ?? $prestation->end_date->toDateString();
         abort_if($end < $start, 422, 'La date de fin doit être postérieure ou égale à la date de début.');
 
+        // Le vendeur peut être désigné par son compte utilisateur (fiche créée
+        // à la volée) ; null conserve l'intention de vider le champ.
+        if (array_key_exists('commercial_id', $data)) {
+            $data['commercial_id'] = $data['commercial_id'] === null
+                ? null
+                : $this->commercialProfiles->resolve($data['commercial_id'], $prestation->agency_id)?->id;
+        }
+
         return response()->json($this->prestations->update($prestation, $data)->load(self::LIST_RELATIONS));
     }
 
@@ -185,6 +201,8 @@ class PrestationController extends Controller
             'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
             'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
             'proof' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
+            'discount_type' => ['nullable', 'required_with:discount_value', 'in:amount,percent'],
+            'discount_value' => ['nullable', 'required_with:discount_type', 'numeric', 'min:0'],
         ]);
 
         // Une preuve photo est exigée dès qu'un montant est déclaré (encaissement réel).
@@ -335,7 +353,7 @@ class PrestationController extends Controller
             'description' => ['nullable', 'string', 'max:5000'],
             'client_id' => [$required, 'uuid', 'exists:users,id'],
             'company_id' => ['nullable', 'uuid', 'exists:companies,id'],
-            'commercial_id' => ['nullable', 'uuid', 'exists:commercials,id'],
+            'commercial_id' => ['nullable', 'uuid', CommercialProfileService::commercialOrUserRule()],
             'start_date' => [$required, 'date'],
             'end_date' => $update ? ['sometimes', 'date'] : ['required', 'date', 'after_or_equal:start_date'],
             'budget' => [$required, 'numeric', 'min:0'],

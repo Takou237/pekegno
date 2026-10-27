@@ -11,6 +11,7 @@ use App\Models\Prospect;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\CommercialProfileService;
 use App\Services\PointsService;
 use App\Services\WelcomeEmailService;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,6 +28,7 @@ class ProspectController extends Controller
         private readonly PointsService $pointsService,
         private readonly ActivityLogger $logger,
         private readonly WelcomeEmailService $welcomeEmailService,
+        private readonly CommercialProfileService $commercialProfiles,
     ) {}
 
     private function scopeByRole(Builder $query, ?User $user): Builder
@@ -104,6 +106,13 @@ class ProspectController extends Controller
     {
         $data = $request->validated();
         $actor = $request->user();
+
+        // Le commercial qui suit le prospect peut être désigné par son compte
+        // utilisateur : la fiche manquante est créée à la volée.
+        if (! empty($data['commercial_id'])) {
+            $data['commercial_id'] = $this->commercialProfiles
+                ->resolve($data['commercial_id'])?->id;
+        }
 
         $prospect = DB::transaction(function () use ($data, $actor, $request) {
             // Un commercial crée toujours ses propres prospects.
@@ -188,7 +197,14 @@ class ProspectController extends Controller
 
         $oldValues = $prospect->only(['first_name', 'last_name', 'email', 'phone', 'city', 'country', 'address', 'notes']);
 
-        $prospect->update($request->validated());
+        $data = $request->validated();
+        // Le commercial peut être désigné par son compte utilisateur (fiche
+        // créée à la volée).
+        if (! empty($data['commercial_id'])) {
+            $data['commercial_id'] = $this->commercialProfiles
+                ->resolve($data['commercial_id'])?->id;
+        }
+        $prospect->update($data);
 
         $this->logger->log(
             action: 'updated',

@@ -14,7 +14,7 @@ class UpdateProspectRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'commercial_id' => ['sometimes', 'nullable', 'string', 'exists:commercials,id'],
+            'commercial_id' => ['sometimes', 'nullable', 'string', \App\Services\CommercialProfileService::commercialOrUserRule()],
             'agency_id' => ['sometimes', 'nullable', 'string', 'exists:agencies,id'],
             'first_name' => ['sometimes', 'required', 'string', 'max:150'],
             'last_name' => ['sometimes', 'required', 'string', 'max:150'],

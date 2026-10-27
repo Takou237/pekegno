@@ -9,6 +9,7 @@ use App\Models\Opportunity;
 use App\Models\Prospect;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\CommercialProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,10 @@ use OpenApi\Attributes as OA;
 
 class OpportunityController extends Controller
 {
-    public function __construct(private readonly ActivityLogger $logger) {}
+    public function __construct(
+        private readonly ActivityLogger $logger,
+        private readonly CommercialProfileService $commercialProfiles,
+    ) {}
 
     private function scopeByRole($query, ?User $user)
     {
@@ -107,10 +111,15 @@ class OpportunityController extends Controller
             'company_id' => ['nullable', 'uuid', 'exists:companies,id'],
             'agency_id' => ['required', 'uuid', 'exists:agencies,id'],
             'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
-            'commercial_id' => ['required', 'uuid', 'exists:commercials,id'],
+            'commercial_id' => ['required', 'uuid', CommercialProfileService::commercialOrUserRule()],
             'expected_amount' => ['nullable', 'numeric', 'min:0'],
             'expected_close_date' => ['nullable', 'date'],
         ]);
+
+        // Le vendeur peut être désigné par son compte utilisateur : la fiche
+        // manquante est créée à la volée.
+        $data['commercial_id'] = $this->commercialProfiles
+            ->resolve($data['commercial_id'], $data['agency_id'] ?? null)?->id;
 
         $opportunity = Opportunity::create($data + ['stage' => 'new']);
 
@@ -164,10 +173,17 @@ class OpportunityController extends Controller
             'company_id' => ['nullable', 'uuid', 'exists:companies,id'],
             'agency_id' => ['sometimes', 'required', 'uuid', 'exists:agencies,id'],
             'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
-            'commercial_id' => ['sometimes', 'required', 'uuid', 'exists:commercials,id'],
+            'commercial_id' => ['sometimes', 'required', 'uuid', CommercialProfileService::commercialOrUserRule()],
             'expected_amount' => ['nullable', 'numeric', 'min:0'],
             'expected_close_date' => ['nullable', 'date'],
         ]);
+
+        // Le vendeur peut être désigné par son compte utilisateur (fiche créée
+        // à la volée).
+        if (isset($data['commercial_id'])) {
+            $data['commercial_id'] = $this->commercialProfiles
+                ->resolve($data['commercial_id'], $opportunity->agency_id)?->id;
+        }
 
         $opportunity->update($data);
 

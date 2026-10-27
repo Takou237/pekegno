@@ -82,10 +82,10 @@ class PrestationService
      * Soumission d'une prestation. Sans preuve : simple transition de statut
      * (le contrat et la facture sont créés à la validation). Avec preuve : le
      * vendeur déclare le montant encaissé, la preuve est jointe et le contrat +
-     * la facture sont créés immédiatement — la facture naît « en attente », le
+     * la facture sont créés immédiatement – la facture naît en « en attente », le
      * caissier encaissera l'avance en acceptant la preuve (workflow PaymentProof).
      *
-     * @param  array{amount_paid?: ?float, payment_type?: ?string, treasury_account_id?: ?string}  $options
+     * @param  array{amount_paid?: ?float, payment_type?: ?string, treasury_account_id?: ?string, discount_type?: ?string, discount_value?: ?float}  $options
      */
     public function submit(
         Prestation $prestation,
@@ -103,8 +103,10 @@ class PrestationService
 
         $amountPaid = round((float) ($options['amount_paid'] ?? 0), 2);
         $paymentType = $options['payment_type'] ?? 'cash';
+        $discountType = $options['discount_type'] ?? null;
+        $discountValue = isset($options['discount_value']) ? (float) $options['discount_value'] : null;
 
-        return DB::transaction(function () use ($prestation, $amountPaid, $paymentType, $proof, $actor) {
+        return DB::transaction(function () use ($prestation, $amountPaid, $paymentType, $proof, $actor, $discountType, $discountValue) {
             $prestation = $this->transition($prestation, Prestation::STATUS_PENDING_VALIDATION);
 
             // Contrat + facture créés dès la soumission (si pas déjà liés) : la
@@ -120,6 +122,8 @@ class PrestationService
                 $paymentType,
                 $amountPaid > 0 ? $amountPaid : null,
                 true,
+                $discountType,
+                $discountValue,
             );
 
             $path = $proof->store('payment-proofs', 'public');
@@ -159,16 +163,16 @@ class PrestationService
     }
 
     /** D9 : la validation (chef d'agence / direction) crée le contrat et sa facture. */
-    public function validate(Prestation $prestation, User $actor): Prestation
+    public function validate(Prestation $prestation, User $actor, ?string $discountType = null, ?float $discountValue = null): Prestation
     {
-        return DB::transaction(function () use ($prestation, $actor) {
+        return DB::transaction(function () use ($prestation, $actor, $discountType, $discountValue) {
             $prestation = $this->transition($prestation, Prestation::STATUS_VALIDATED);
 
             $prestation->update(['validated_by' => $actor->id, 'validated_at' => now()]);
 
             if (! $prestation->contract_id) {
                 $contract = $this->contracts->createFromPrestation($prestation);
-                $this->invoicing->invoiceForPrestation($contract, $prestation->fresh(), $actor->id);
+                $this->invoicing->invoiceForPrestation($contract, $prestation->fresh(), $actor->id, null, null, false, $discountType, $discountValue);
             }
 
             return $prestation->fresh();

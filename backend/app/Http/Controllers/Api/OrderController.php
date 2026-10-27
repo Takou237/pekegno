@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\ActivityLogger;
+use App\Services\CommercialProfileService;
 use App\Services\OrderInvoicingService;
 use App\Services\OrderNumberGenerator;
 use App\Services\ScopeService;
@@ -21,6 +22,7 @@ class OrderController extends Controller
         private readonly OrderNumberGenerator $orderNumber,
         private readonly OrderInvoicingService $invoicing,
         private readonly ActivityLogger $logger,
+        private readonly CommercialProfileService $commercialProfiles,
     ) {}
 
     private function scopeQuery(Request $request, $query)
@@ -374,10 +376,10 @@ class OrderController extends Controller
 
     private function validateOrder(Request $request, bool $update = false): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'client_id' => [$update ? 'sometimes' : 'required', 'uuid', 'exists:users,id'],
             'agency_id' => ['nullable', 'uuid', 'exists:agencies,id'],
-            'commercial_id' => ['nullable', 'uuid', 'exists:commercials,id'],
+            'commercial_id' => ['nullable', 'uuid', CommercialProfileService::commercialOrUserRule()],
             'order_date' => ['nullable', 'date'],
             'status' => ['nullable', 'in:draft,confirmed,cancelled'],
             'channel' => ['nullable', 'in:in_person,commercial_online,client_self'],
@@ -392,5 +394,14 @@ class OrderController extends Controller
             'lines.*.unit_price' => ['required_if:lines.*.line_type,manual', 'nullable', 'numeric', 'min:0'],
             'lines.*.quantity' => ['nullable', 'integer', 'min:1', 'max:9999'],
         ]);
+
+        // Le vendeur peut être désigné par son compte utilisateur : la fiche
+        // manquante est créée à la volée.
+        if (isset($data['commercial_id'])) {
+            $data['commercial_id'] = $this->commercialProfiles
+                ->resolve($data['commercial_id'], $data['agency_id'] ?? $request->user()->agency_id ?? null)?->id;
+        }
+
+        return $data;
     }
 }

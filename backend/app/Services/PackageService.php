@@ -51,6 +51,8 @@ class PackageService
         ?string $paymentType = null,
         bool $needsValidation = false,
         ?array $paymentProof = null,
+        ?string $discountType = null,
+        ?float $discountValue = null,
     ): array {
         if (! $package->is_active) {
             throw ValidationException::withMessages(['package' => 'Ce package est inactif.']);
@@ -70,17 +72,33 @@ class PackageService
         }
 
         $unitPrice = $this->effectivePrice($package);
-        $total = round($unitPrice * $periods, 2);
+        $subtotal = round($unitPrice * $periods, 2);
+
+        if ($discountType === 'percent' && $discountValue !== null && $discountValue > 0) {
+            if ($discountValue > 100) {
+                throw ValidationException::withMessages(['discount_value' => 'Le pourcentage de remise doit être inférieur ou égal à 100.']);
+            }
+        } elseif ($discountType === 'amount' && $discountValue !== null && $discountValue > 0) {
+            if ($discountValue > $subtotal) {
+                throw ValidationException::withMessages(['discount_value' => 'La remise ne peut pas dépasser le montant total.']);
+            }
+        }
+
+        $discountAmount = 0.0;
+        if ($discountType === 'percent' && $discountValue !== null && $discountValue > 0) {
+            $discountAmount = round($subtotal * ($discountValue / 100), 2);
+        } elseif ($discountType === 'amount' && $discountValue !== null && $discountValue > 0) {
+            $discountAmount = round($discountValue, 2);
+        }
+        $total = round(max(0, $subtotal - $discountAmount), 2);
 
         if ($advance !== null && $advance > $total) {
-            throw ValidationException::withMessages([
-                'advance' => "L'avance ne peut pas dépasser le total ({$total} FCFA).",
-            ]);
+            $advance = $total;
         }
 
         return DB::transaction(function () use (
             $package, $client, $start, $periods, $commercialId, $actorUserId, $departmentId,
-            $autoRenew, $advance, $paymentType, $needsValidation, $paymentProof, $unitPrice
+            $autoRenew, $advance, $paymentType, $needsValidation, $paymentProof, $unitPrice, $discountType, $discountValue
         ) {
             $package->loadMissing('items');
 
@@ -99,6 +117,8 @@ class PackageService
                 $paymentType,
                 $advance !== null && $advance > 0 ? $advance : null,
                 $needsValidation,
+                $discountType,
+                $discountValue,
             );
 
             $this->logger->log(

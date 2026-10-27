@@ -68,13 +68,35 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
 
   useEffect(() => {
     if (!isCommercial || agencyId || !user?.id) return;
+    let resolved = false;
     commercialsApi
       .list({ per_page: 100 })
       .then((res) => {
         const mine = (res.data ?? []).find((c) => c.user_id === user.id);
-        if (mine?.agency_id) setOwnAgencyId(mine.agency_id);
+        if (mine?.agency_id) {
+          resolved = true;
+          setOwnAgencyId(mine.agency_id);
+        }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (resolved) return;
+        commercialsApi
+          .myStats()
+          .catch(() => null)
+          .then((stats: any) => {
+            if (!stats) return;
+            const agencyFromStats =
+              stats?.commercial?.agency_id ||
+              stats?.agency_id ||
+              stats?.commercial?.agency?.id ||
+              stats?.profile?.agency_id ||
+              stats?.profile?.agency?.id;
+            if (agencyFromStats) {
+              setOwnAgencyId(agencyFromStats);
+            }
+          });
+      });
   }, [isCommercial, agencyId, user?.id]);
 
   useEffect(() => {

@@ -13,6 +13,7 @@ use App\Models\SubscriptionPack;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\AgencyAccessService;
+use App\Services\CommercialProfileService;
 use App\Services\PackageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class PackageController extends Controller
         private readonly PackageService $packages,
         private readonly AgencyAccessService $access,
         private readonly ActivityLogger $logger,
+        private readonly CommercialProfileService $commercialProfiles,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -349,15 +351,17 @@ class PackageController extends Controller
     {
         $data = $request->validate([
             'client_id' => ['required', 'uuid', 'exists:users,id'],
-            'commercial_id' => ['nullable', 'uuid', 'exists:commercials,id'],
+            'commercial_id' => ['nullable', 'uuid', CommercialProfileService::commercialOrUserRule()],
             'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
             'start_date' => ['nullable', 'date'],
             'periods' => ['required', 'integer', 'min:1', 'max:60'],
             'auto_renew' => ['sometimes', 'boolean'],
-            'advance' => ['nullable', 'numeric', 'min:0.01'],
+            'advance' => ['nullable', 'numeric', 'min:0'],
             'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
             // Preuve de paiement (photo) : examinée par le caissier avant validation.
             'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
+            'discount_type' => ['nullable', 'required_with:discount_value', 'in:amount,percent'],
+            'discount_value' => ['nullable', 'required_with:discount_type', 'numeric', 'min:0'],
         ]);
 
         // Super-admin : avance obligatoire (preuve retirée de l'écran).
@@ -369,9 +373,13 @@ class PackageController extends Controller
 
         abort_unless($this->access->canAccessAgency($request->user(), $package->agency_id), 403, 'Agence hors de votre périmètre.');
 
+        // Le vendeur peut être désigné par son compte utilisateur : la fiche
+        // manquante est créée à la volée.
+        $commercialId = $this->commercialProfiles
+            ->resolve($data['commercial_id'] ?? null, $package->agency_id)?->id;
+
         // Un commercial vend en son nom propre.
         $isCommercial = $request->user()->role?->name === 'commercial';
-        $commercialId = $data['commercial_id'] ?? null;
         if ($isCommercial) {
             $own = $this->access->commercialIds($request->user());
             $commercialId = $commercialId && in_array($commercialId, $own, true) ? $commercialId : ($own[0] ?? null);
@@ -397,7 +405,7 @@ class PackageController extends Controller
             actorUserId: $request->user()->id,
             departmentId: $data['department_id'] ?? null,
             autoRenew: (bool) ($data['auto_renew'] ?? false),
-            advance: isset($data['advance']) ? (float) $data['advance'] : null,
+            advance: isset($data['advance']) && $data['advance'] !== null && (float) $data['advance'] > 0 ? (float) $data['advance'] : null,
             paymentType: $data['payment_type'] ?? null,
             needsValidation: $isCommercial,
             paymentProof: $proofPath !== null ? [
@@ -406,6 +414,8 @@ class PackageController extends Controller
                 'phone_number_used' => null,
                 'reference' => null,
             ] : null,
+            discountType: $data['discount_type'] ?? null,
+            discountValue: isset($data['discount_value']) ? (float) $data['discount_value'] : null,
         );
 
         return response()->json([

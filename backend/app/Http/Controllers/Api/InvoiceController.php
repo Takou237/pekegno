@@ -20,6 +20,7 @@ use App\Services\ScopeService;
 use App\Support\InvoiceValidators;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
+use App\Services\CommercialProfileService;
 use App\Services\CommissionService;
 use App\Services\ContractService;
 use App\Services\InvoiceNumberGenerator;
@@ -41,6 +42,7 @@ use OpenApi\Attributes as OA;
 class InvoiceController extends Controller
 {
     public function __construct(
+        private readonly CommercialProfileService $commercialProfiles,
         private readonly InvoiceNumberGenerator $numberGenerator,
         private readonly PointsService $pointsService,
         private readonly CommissionService $commissionService,
@@ -324,14 +326,25 @@ class InvoiceController extends Controller
             // (commerciaux, chefs d'agence / de département…) commencent en attente.
             $creatorRole = $request->user()->role?->name;
             $isCommercialSale = $creatorRole === 'commercial';
+            $needsPaymentProof = in_array($creatorRole, ['commercial', 'responsable-agence'], true);
             $needsValidation = ! InvoiceValidators::allows($creatorRole);
 
             // Une vente faite par un commercial est automatiquement rattachée à son propre
             // profil même si l'écran de saisie n'envoie pas commercial_id (vente rapide, etc.).
             // Sans cette affectation, la facture serait orpheline : invisible dans ses factures
             // récentes et exclue de ses stats (nombre de ventes, CA, commission).
+            // Le vendeur peut aussi être désigné par son compte utilisateur : la
+            // fiche manquante est créée à la volée.
+            if (! empty($data['commercial_id'])) {
+                $data['commercial_id'] = $this->commercialProfiles
+                    ->resolve($data['commercial_id'], $data['agency_id'] ?? null)?->id;
+            }
+
             $commercialId = $data['commercial_id'] ?? null;
             if ($isCommercialSale && ! $commercialId) {
+                $commercialId = $request->user()->commercialProfile?->id;
+            }
+            if ($creatorRole === 'responsable-agence' && ! $commercialId) {
                 $commercialId = $request->user()->commercialProfile?->id;
             }
 
@@ -420,7 +433,7 @@ class InvoiceController extends Controller
                     'file_path' => $path,
                     'status' => PaymentProof::STATUS_PENDING,
                 ]);
-            } elseif ($isCommercialSale) {
+            } elseif ($needsPaymentProof) {
                 throw ValidationException::withMessages([
                     'proof_file' => 'Une preuve de paiement est obligatoire pour une vente effectuée par un commercial.',
                 ]);
@@ -598,6 +611,12 @@ class InvoiceController extends Controller
         );
 
         $data = $request->validated();
+        // Le vendeur peut être désigné par son compte utilisateur (fiche créée
+        // à la volée) ; le champ reste modifiable avant tout paiement.
+        if (! empty($data['commercial_id'])) {
+            $data['commercial_id'] = $this->commercialProfiles
+                ->resolve($data['commercial_id'], $invoice->agency_id)?->id;
+        }
         $old = $invoice->only([
             'client_id', 'client_name', 'commercial_id', 'seller_user_id', 'invoice_date', 'payment_type',
             'payer_phone', 'total_amount', 'declared_advance', 'discount', 'vat_rate', 'comment',

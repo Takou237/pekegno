@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Commercial;
 use App\Models\Setting;
 use App\Models\User;
+use Closure;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Chaque compte de rôle « commercial » doit avoir une ligne dans la table
@@ -25,8 +27,7 @@ class CommercialProfileService
      * est celle fournie (création avec agence), sinon la première agence du
      * compte, sinon null (rattachable plus tard).
      *
-     * Ne fait rien pour les autres rôles (caissier, comptable, etc.) : leurs
-     * profils « employé » sont créés à la volée par l'annuaire RH.
+     * Ne fait rien pour les autres rôles (caissier, comptable, etc.)
      */
     public function ensureFor(User $user, ?string $agencyId = null): ?Commercial
     {
@@ -34,15 +35,27 @@ class CommercialProfileService
             return null;
         }
 
+        return $this->ensureForAny($user, $agencyId);
+    }
+
+    /**
+     * Crée la fiche vendeur d'un compte sans fiche, quel que soit son rôle :
+     * « commercial » le cas échéant, sinon une fiche « employé » (comme les
+     * profils créés par l'annuaire RH). Utilisée quand l'utilisateur attribue
+     * une vente à n'importe quel compte du staff.
+     */
+    public function ensureForAny(User $user, ?string $agencyId = null): Commercial
+    {
         $existing = Commercial::withTrashed()->where('user_id', $user->id)->first();
 
         if ($existing) {
             return $existing;
         }
 
-        return DB::transaction(function () use ($user, $agencyId) {
-            // Parcours double : verrou + re-vérification, pour deux créations
-            // simultanées du même compte (unique index sur user_id).
+        $kind = $user->role?->name === 'commercial' ? 'commercial' : 'employe';
+
+        return DB::transaction(function () use ($user, $agencyId, $kind) {
+            // Parcours double : verrou + re-vérification (index unique user_id).
             $locked = DB::table('commercials')
                 ->where('user_id', $user->id)
                 ->lockForUpdate()
@@ -56,17 +69,67 @@ class CommercialProfileService
                 'user_id' => $user->id,
                 'agency_id' => $agencyId
                     ?? $user->assignments()->pluck('agencies.id')->first(),
-                'kind' => 'commercial',
+                'kind' => $kind,
                 'first_name' => $user->first_name ?: ($user->username ?: 'Commercial'),
                 'last_name' => $user->last_name ?: '—',
                 'email' => $user->email,
                 'phone' => $user->phone,
-                // Commission par défaut du réseau : 20 % (réglages).
-                'commission_type' => Setting::get('default_commission_type', 'percent'),
-                'commission_value' => Setting::get('default_commission_value', 20),
+                'commission_type' => $kind === 'commercial'
+                    ? Setting::get('default_commission_type', 'percent')
+                    : 'none',
+                'commission_value' => $kind === 'commercial'
+                    ? Setting::get('default_commission_value', 20)
+                    : 0,
                 'points_balance' => 0,
                 'is_active' => $user->is_active,
             ]);
         });
+    }
+
+    /**
+     * Résout la valeur d'un champ `commercial_id` (ou équivalent) qui peut
+     * contenir un identifiant de fiche vendeur OU un identifiant de compte
+     * utilisateur (l'utilisateur peut être attribué vendeur depuis n'importe
+     * quel compte du staff). La fiche manquante est créée à la volée.
+     */
+    public function resolve(?string $value, ?string $agencyId = null): ?Commercial
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $fiche = Commercial::query()->find($value);
+        if ($fiche) {
+            return $fiche;
+        }
+
+        $user = User::query()->find($value);
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'commercial_id' => 'Le commercial sélectionné est introuvable.',
+            ]);
+        }
+
+        return $this->ensureForAny($user, $agencyId);
+    }
+
+    /**
+     * Règle de validation acceptant un id de fiche vendeur ou un id de compte
+     * utilisateur (pour les endpoints qui attribuent un vendeur).
+     */
+    public static function commercialOrUserRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) {
+            if (! is_string($value) || trim($value) === '') {
+                return;
+            }
+
+            $exists = Commercial::query()->whereKey($value)->exists()
+                || User::query()->whereKey($value)->exists();
+
+            if (! $exists) {
+                $fail('Le commercial sélectionné est introuvable.');
+            }
+        };
     }
 }

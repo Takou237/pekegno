@@ -6,6 +6,7 @@ import { invoicesApi } from '@/api/invoices.api';
 import { clientsApi } from '@/api/clients.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
+import { usersApi } from '@/api/users.api';
 import { agenciesApi } from '@/api/agencies.api';
 import { scopeApi, type AgencyOption } from '@/api/scope.api';
 import { servicesApi } from '@/api/services.api';
@@ -70,11 +71,15 @@ export default function InvoiceFormPage({
   const [searchParams] = useSearchParams();
 
   const isCommercial = currentUser?.role?.name === 'commercial';
-  // Le caissier et le super-admin valident directement leurs ventes de guichet.
-  // La direction garde son vendeur par défaut mais ses ventes restent en attente.
-  const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(
-    currentUser?.role?.name ?? ''
-  );
+  const isResponsableAgence = currentUser?.role?.name === 'responsable-agence';
+  const isCaissier = currentUser?.role?.name === 'caissier';
+  const isSuperAdmin = currentUser?.role?.name === 'super-admin';
+    // Le caissier et le super-admin valident directement leurs ventes de guichet.
+    // La direction garde son vendeur par dǸfaut mais ses ventes restent en attente.
+    const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(
+      currentUser?.role?.name ?? ''
+    );
+  const needsPaymentProof = isCommercial || isResponsableAgence;
 
   const presetAgencyId = lockedAgencyId ?? routeAgencyId ?? searchParams.get('agency_id') ?? '';
   const [agencyLocked] = useState(Boolean(presetAgencyId));
@@ -113,7 +118,7 @@ export default function InvoiceFormPage({
   const [saleAgencies, setSaleAgencies] = useState<AgencyOption[] | null>(null);
 
   useEffect(() => {
-    if (agencyLocked || isCommercial) return;
+    if (agencyLocked || isCommercial || isResponsableAgence) return;
     let active = true;
     scopeApi
       .agencies()
@@ -126,7 +131,7 @@ export default function InvoiceFormPage({
     return () => {
       active = false;
     };
-  }, [agencyLocked, isCommercial]);
+  }, [agencyLocked, isCommercial, isResponsableAgence]);
 
   const selectedAgencyOption = useMemo(() => {
     const found = saleAgencies?.find((a) => a.id === agencyId);
@@ -143,7 +148,7 @@ export default function InvoiceFormPage({
   const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo';
 
   useEffect(() => {
-    if (!isCommercial || !currentUser?.id) return;
+    if ((!isCommercial && !isResponsableAgence) || !currentUser?.id) return;
     commercialsApi
       .list({ per_page: 100 })
       .then((res) => {
@@ -156,8 +161,22 @@ export default function InvoiceFormPage({
         }
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCommercial, currentUser?.id]);
+    if (isResponsableAgence && !myCommercial) {
+      commercialsApi
+        .myStats()
+        .catch(() => null)
+        .then((stats: any) => {
+          const agencyFromStats =
+            stats?.commercial?.agency_id ||
+            stats?.agency_id ||
+            stats?.commercial?.agency?.id ||
+            stats?.profile?.agency_id;
+          if (agencyFromStats && !presetAgencyId && !agencyId) {
+            setAgencyId(agencyFromStats);
+          }
+        });
+    }
+  }, [isCommercial, isResponsableAgence, currentUser?.id]);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -371,10 +390,10 @@ export default function InvoiceFormPage({
       setErrors({ advance: t('invoices.advanceRequired') });
       return;
     }
-    if (isCommercial && !proofFile) {
-      setErrors({ proof_file: t('invoices.proofRequiredForSale') });
-      return;
-    }
+      if (needsPaymentProof && !proofFile) {
+        setErrors({ proof_file: t('invoices.proofRequiredForSale') });
+        return;
+      }
     const freeClientName = clientId.startsWith(FREE_TEXT_PREFIX) ? clientId.slice(FREE_TEXT_PREFIX.length) : '';
     setSubmitting(true);
     setErrors({});
@@ -459,7 +478,7 @@ export default function InvoiceFormPage({
               }}
               error={errors.client_id}
             />
-            {isCommercial || isSelfSellerRole ? (
+            {isCommercial || isResponsableAgence || isSelfSellerRole ? (
               <Input
                 label={t('invoices.seller')}
                 value={
@@ -493,32 +512,36 @@ export default function InvoiceFormPage({
                   }
                 }}
                 fetchOptions={async (query) => {
-                  const [coms, emps] = await Promise.all([
-                    commercialsApi.search(query.trim()).catch(() => []),
-                    employeesApi.search(query.trim()).catch(() => []),
+                  // Liste de tous les comptes du staff (clients exclus) : un
+                  // vendeur est attribuable même s'il n'a pas encore de fiche.
+                  const [usersRes, comsRes] = await Promise.all([
+                    usersApi.list({ search: query.trim() || undefined, per_page: 100 }).catch(() => ({ data: [] })),
+                    commercialsApi.list({ include_trainers: true, per_page: 100 }).catch(() => ({ data: [] })),
                   ]);
-                  const seen = new Set<string>();
-                  const results: AutocompleteOption[] = [];
-                  for (const c of [...coms, ...emps]) {
-                    if (seen.has(c.id)) continue;
-                    seen.add(c.id);
-                    if (c.is_trainer && c.user_id) {
-                      results.push({
-                        id: c.id,
-                        userId: c.user_id,
-                        isTrainer: true,
-                        label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                        subtitle: c.email ?? '',
-                      });
-                    } else {
-                      results.push({
-                        id: c.id,
-                        label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                        subtitle: c.email ?? '',
-                      });
-                    }
+                  // Fiches formateurs : la vente est attributable via le compte
+                  // utilisateur (seller_user_id), comme avant.
+                  const trainerProfileByUserId = new Map<string, string>();
+                  for (const c of comsRes.data) {
+                    if (c.is_trainer && c.user_id) trainerProfileByUserId.set(c.user_id, c.id);
                   }
-                  return results;
+                  return usersRes.data
+                    .filter((u) => u.role?.name !== 'client')
+                    .map((u) => {
+                      const trainerProfileId = trainerProfileByUserId.get(u.id);
+                      return trainerProfileId
+                        ? {
+                            id: trainerProfileId,
+                            userId: u.id,
+                            isTrainer: true,
+                            label: u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || u.email,
+                            subtitle: u.email,
+                          }
+                        : {
+                            id: u.id,
+                            label: u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || u.email,
+                            subtitle: u.role?.name ?? u.email,
+                          };
+                    });
                 }}
               />
             )}
@@ -528,13 +551,13 @@ export default function InvoiceFormPage({
                 value={lockedAgencyName}
                 disabled
               />
-            ) : isCommercial ? (
-              <Input
-                label={t('invoices.headerAgency')}
-                value={myCommercial?.agency?.name ?? ''}
-                disabled
-              />
-            ) : (
+            ) : (isCommercial || isResponsableAgence) ? (
+                <Input
+                  label={t('invoices.headerAgency')}
+                  value={myCommercial?.agency?.name ?? ''}
+                  disabled
+                />
+              ) : (
               <Autocomplete
                 label={t('invoices.headerAgency')}
                 placeholder={t('commercials.agencyPlaceholder')}
@@ -592,22 +615,22 @@ export default function InvoiceFormPage({
                 />
               )}
             </div>
-            {isCommercial && (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('invoices.paymentProof')}
-                  <span className="text-error-500"> *</span>
-                </label>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
-                  className="w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-400"
-                />
-                {errors.proof_file && <p className="mt-1 text-xs text-error-500">{errors.proof_file}</p>}
-                <p className="mt-1 text-xs text-gray-400">{t('invoices.paymentProofHint')}</p>
-              </div>
-            )}
+            {needsPaymentProof && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('invoices.paymentProof')}
+                    <span className="text-error-500"> *</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                    className="w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-400"
+                  />
+                  {errors.proof_file && <p className="mt-1 text-xs text-error-500">{errors.proof_file}</p>}
+                  <p className="mt-1 text-xs text-gray-400">{t('invoices.paymentProofHint')}</p>
+                </div>
+              )}
           </div>
         </div>
 
@@ -785,9 +808,9 @@ export default function InvoiceFormPage({
               value={advance}
               onChange={(e) => setAdvance(e.target.value)}
               error={errors.advance}
-              hint={isCommercial ? t('invoices.declaredAdvanceHint') : t('invoices.advanceHint')}
-            />
-            <div>
+              hint={needsPaymentProof ? t('invoices.declaredAdvanceHint') : t('invoices.advanceHint')}
+              />
+              <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('invoices.headerComment')}
               </label>
@@ -839,10 +862,10 @@ export default function InvoiceFormPage({
             <Button
               type="submit"
               isLoading={submitting}
-              disabled={isCommercial && !proofFile}
-              title={isCommercial && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+              disabled={needsPaymentProof && !proofFile}
+              title={needsPaymentProof && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
             >
-              {isCommercial ? t('invoices.createSubmitPending') : t('invoices.createSubmit')}
+              {needsPaymentProof ? t('invoices.createSubmitPending') : t('invoices.createSubmit')}
             </Button>
           </div>
         </div>

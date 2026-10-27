@@ -7,6 +7,7 @@ import { servicesApi } from '@/api/services.api';
 import { productsApi } from '@/api/products.api';
 import { commercialsApi } from '@/api/commercials.api';
 import { employeesApi } from '@/api/employees.api';
+import { usersApi } from '@/api/users.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/hooks/useAuth';
@@ -437,32 +438,36 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
                 }
               }}
               fetchOptions={async (query) => {
-                const [coms, emps] = await Promise.all([
-                  commercialsApi.search(query.trim()).catch(() => []),
-                  employeesApi.search(query.trim()).catch(() => []),
+                // Liste de tous les comptes du staff (clients exclus) : un
+                // vendeur est attribuable même s'il n'a pas encore de fiche.
+                const [usersRes, comsRes] = await Promise.all([
+                  usersApi.list({ search: query.trim() || undefined, per_page: 100 }).catch(() => ({ data: [] })),
+                  commercialsApi.list({ include_trainers: true, per_page: 100 }).catch(() => ({ data: [] })),
                 ]);
-                const seen = new Set<string>();
-                const results: AutocompleteOption[] = [];
-                for (const c of [...coms, ...emps]) {
-                  if (seen.has(c.id)) continue;
-                  seen.add(c.id);
-                  if (c.is_trainer && c.user_id) {
-                    results.push({
-                      id: c.id,
-                      userId: c.user_id,
-                      isTrainer: true,
-                      label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                      subtitle: c.email ?? '',
-                    });
-                  } else {
-                    results.push({
-                      id: c.id,
-                      label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '',
-                      subtitle: c.email ?? '',
-                    });
-                  }
+                // Fiches formateurs : la vente est attributable via le compte
+                // utilisateur (seller_user_id), comme avant.
+                const trainerProfileByUserId = new Map<string, string>();
+                for (const c of comsRes.data) {
+                  if (c.is_trainer && c.user_id) trainerProfileByUserId.set(c.user_id, c.id);
                 }
-                return results;
+                return usersRes.data
+                  .filter((u) => u.role?.name !== 'client')
+                  .map((u) => {
+                    const trainerProfileId = trainerProfileByUserId.get(u.id);
+                    return trainerProfileId
+                      ? {
+                          id: trainerProfileId,
+                          userId: u.id,
+                          isTrainer: true,
+                          label: u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || u.email,
+                          subtitle: u.email,
+                        }
+                      : {
+                          id: u.id,
+                          label: u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || u.email,
+                          subtitle: u.role?.name ?? u.email,
+                        };
+                  });
               }}
             />
           )}

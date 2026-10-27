@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, GripVertical, Building2, Filter, RefreshCw } from 'lucide-react';
 import { opportunitiesApi } from '@/api/opportunities.api';
+import { usersApi } from '@/api/users.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { Modal } from '@/components/ui/Modal';
 import type { Opportunity, OpportunityStage, PipelineEntry } from '@/types/opportunity';
 import { STAGE_LABELS, STAGE_COLORS, OPEN_STAGES } from '@/types/opportunity';
@@ -265,12 +267,27 @@ export default function OpportunityKanbanPage() {
             error={formErrors.agency_id}
             required
           />
-          <Input
+          <Autocomplete
             label={t('opportunities.commercialId')}
+            placeholder={t('opportunities.commercialId')}
             value={form.commercial_id}
-            onChange={(e) => setForm({ ...form, commercial_id: e.target.value })}
+            onChange={(id) => setForm({ ...form, commercial_id: id })}
             error={formErrors.commercial_id}
             required
+            fetchOptions={async (query) => {
+              // Tous les comptes du staff (clients exclus) : une opportunité
+              // peut être portée par n'importe quel utilisateur.
+              const usersRes = await usersApi.list({ search: query.trim() || undefined, per_page: 100 });
+              return usersRes.data
+                .filter((u) => u.role?.name !== 'client')
+                .map(
+                  (u): AutocompleteOption => ({
+                    id: u.id,
+                    label: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || '',
+                    subtitle: u.email ?? '',
+                  })
+                );
+            }}
           />
           <Input
             label={t('opportunities.companyId')}

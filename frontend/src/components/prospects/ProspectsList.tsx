@@ -3,7 +3,7 @@ import { Search, Plus, Pencil, Trash2, ArrowRightLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { prospectsApi } from '@/api/prospects.api';
 import { commercialsApi } from '@/api/commercials.api';
-import { employeesApi } from '@/api/employees.api';
+import { usersApi } from '@/api/users.api';
 import type { Prospect } from '@/types/prospect';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -93,25 +93,33 @@ export default function ProspectsList({ agencyId, hideCommercialField = false }:
 
   const fetchCommercialOptions = useCallback(
     async (query: string): Promise<AutocompleteOption[]> => {
-      const [commercials, employees] = await Promise.all([
-        commercialsApi.list({ agency_id: agencyId || undefined, per_page: 100 }),
-        employeesApi.list({ agency_id: agencyId || undefined, per_page: 100 }),
-      ]);
-      const all = [
-        ...commercials.data.map((c) => ({ id: c.id, kind: 'commercial' as const, name: `${c.first_name} ${c.last_name}`.trim(), email: c.email ?? '' })),
-        ...employees.data.map((e) => ({ id: e.id, kind: 'employe' as const, name: `${e.first_name} ${e.last_name}`.trim(), email: e.email ?? '' })),
-      ];
-      const q = query.trim().toLowerCase();
-      const filtered = q
-        ? all.filter((o) => o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q))
-        : all;
-      return filtered.map((o) => ({
-        id: o.id,
-        label: o.name || o.email || o.id,
-        subtitle: o.email || (o.kind === 'employe' ? t('prospects.employee') : t('prospects.commercial')),
-      }));
+      // Tous les comptes du staff (clients exclus) : un prospect peut être
+      // suivi par n'importe quel utilisateur, même sans fiche vendeur.
+      const usersRes = await usersApi.list({ search: query.trim() || undefined, per_page: 100 });
+      const options: AutocompleteOption[] = usersRes.data
+        .filter((u) => u.role?.name !== 'client')
+        .map((u) => ({
+          id: u.id,
+          label: u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || u.email,
+          subtitle: u.role?.name ?? u.email,
+        }));
+      // Valeur déjà enregistrée = ancienne fiche vendeur : on ajoute son libellé.
+      const current = form.commercial_id;
+      if (current && !options.some((o) => o.id === current)) {
+        try {
+          const fiche = await commercialsApi.get(current);
+          options.unshift({
+            id: fiche.id,
+            label: [fiche.first_name, fiche.last_name].filter(Boolean).join(' ') || fiche.email || '—',
+            subtitle: fiche.kind,
+          });
+        } catch {
+          // Identifiant introuvable : le message d'erreur du champ restera visible.
+        }
+      }
+      return options;
     },
-    [agencyId, t],
+    [form.commercial_id],
   );
 
   function openCreate() {

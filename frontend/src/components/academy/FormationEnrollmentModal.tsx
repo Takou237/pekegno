@@ -85,7 +85,9 @@ export default function FormationEnrollmentModal({
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const isCommercial = currentUser?.role?.name === 'commercial';
-  const isSellerUser = isCommercial || currentUser?.role?.name === 'caissier';
+  const isResponsableAgence = currentUser?.role?.name === 'responsable-agence';
+  const needsPaymentProof = isCommercial || isResponsableAgence;
+  const isSellerUser = needsPaymentProof || currentUser?.role?.name === 'caissier';
   const [form, setForm] = useState<FormState>(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -308,9 +310,9 @@ export default function FormationEnrollmentModal({
         return;
       }
 
-      // Un commercial doit joindre une preuve de paiement uniquement quand une
-      // inscription (donc une facture) est créée.
-      if (enrolling && isCommercial && !proofFile) {
+      // Un commercial ou un responsable d'agence doit joindre une preuve de paiement
+      // uniquement quand une inscription (donc une facture) est créée.
+      if (enrolling && needsPaymentProof && !proofFile) {
         setFormError(t('invoices.proofRequiredForSale'));
         setIsSubmitting(false);
         return;
@@ -568,7 +570,7 @@ export default function FormationEnrollmentModal({
               onChange={(e) => setForm((prev) => ({ ...prev, payment_type: e.target.value as '' | PaymentMethod }))}
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             >
-              {isCommercial && <option value="">—</option>}
+              {needsPaymentProof && <option value="">—</option>}
               <option value="cash">{t('invoices.paymentCash')}</option>
               <option value="om">{t('invoices.paymentOm')}</option>
               <option value="momo">{t('invoices.paymentMomo')}</option>
@@ -579,7 +581,7 @@ export default function FormationEnrollmentModal({
           </div>
         </div>
 
-        {isCommercial && (
+        {needsPaymentProof && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('invoices.paymentProof')} <span className="text-error-500">*</span>
@@ -616,8 +618,8 @@ export default function FormationEnrollmentModal({
           <Button
             type="submit"
             isLoading={isSubmitting}
-            disabled={isCommercial && Boolean(form.course_id) && !proofFile}
-            title={isCommercial && Boolean(form.course_id) && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+            disabled={needsPaymentProof && Boolean(form.course_id) && !proofFile}
+            title={needsPaymentProof && Boolean(form.course_id) && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
             className="flex-1"
           >
             {t('common.create')}
