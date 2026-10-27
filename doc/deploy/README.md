@@ -95,6 +95,20 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 | `22_10/seed-commission-rules-2026-10-22.sql` | 18 règles de la grille de rémunération + rôles (règles « à définir » inactives), rejouable |
 | `22_10/frontend-dist.zip` | build admin du 22/10 (`VITE_API_URL=https://pekegnogroup.com/api`, `.htaccess` inclus) |
 
+⏳ **À appliquer avec le déploiement du 26/10/2026** (voir
+`26_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `26_10/frontend-dist.zip` | build admin du 26/10 : vente inter-agences, avance obligatoire pour tous les rôles (aucune migration SQL, aucun rebuild `vendor/`) |
+
+⏳ **À appliquer avec le déploiement du 27/10/2026** (voir
+`27_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `27_10/frontend-dist.zip` | build admin du 27/10 (remplace celui du 26/10) : agence obligatoire à la création d'utilisateur + agence/département modifiables, preuve de paiement du chef d'agence (vente rapide, souscription prestation), souscription prestation inter-agences, correctifs de build `f93055b` (aucune migration SQL, aucun rebuild `vendor/` ; emails clients coupés par défaut côté backend, `CLIENT_EMAILS_ENABLED`) |
+
 🆕 **Remise à neuf (optionnel, irréversible)** : `reset-prod-fresh-2026-10-16.sql`
 vide toute la base métier (factures, clients, prospects, agences, pays,
 départements, catalogue, prestations, inscriptions, comptabilité, utilisateurs…)

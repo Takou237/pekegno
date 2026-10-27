@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Camera } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
-import { agenciesApi } from '@/api/agencies.api';
+import { scopeApi, type AgencyOption } from '@/api/scope.api';
 import { extractErrorMessage } from '@/api/errors';
 import { todayLocal } from '@/utils/date';
 import { Modal } from '@/components/ui/Modal';
@@ -12,8 +13,9 @@ import { Alert } from '@/components/ui/Alert';
 import { CommercialPicker } from './Pickers';
 import { EnrollmentLearnerField, emptyNewLearnerForm, isNewLearnerComplete, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { clientsApi } from '@/api/clients.api';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/useToast';
 import type { AgencyCategory, Prestation, PrestationOffer } from '@/types/agencyDepartment';
-import type { Agency } from '@/types/agency';
 
 /**
  * Souscription à une offre de prestation (ou édition d'une souscription) :
@@ -42,8 +44,10 @@ export function PrestationFormModal({
   departmentId?: string;
 }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const { showToast } = useToast();
   const [categories, setCategories] = useState<AgencyCategory[]>([]);
-  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [agencies, setAgencies] = useState<AgencyOption[]>([]);
   const [offers, setOffers] = useState<PrestationOffer[]>([]);
   const [form, setForm] = useState({
     name: '',
@@ -64,6 +68,23 @@ export function PrestationFormModal({
   const [newCategory, setNewCategory] = useState('');
   const [clientMode, setClientMode] = useState<LearnerMode>('existing');
   const [newClient, setNewClient] = useState<NewLearnerFormState>(emptyNewLearnerForm);
+  // Chef d'agence : la souscription part directement en soumission avec le
+  // montant encaissé et la preuve de paiement (comme vente / inscription).
+  const needsPaymentProof = !prestation && user?.role?.name === 'responsable-agence';
+  const [amountPaid, setAmountPaid] = useState('');
+  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'mobile'>('cash');
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!proofFile) {
+      setProofPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(proofFile);
+    setProofPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [proofFile]);
 
   // La prestation appartient toujours à une agence côté backend : le sélecteur
   // est toujours affiché (l'offre peut présélectionner son agence, modifiable
@@ -80,11 +101,18 @@ export function PrestationFormModal({
       .then(setCategories)
       .catch(() => {});
     if (needsAgencyChoice) {
-      agenciesApi.list({ country_id: countryId, per_page: 100 }, { silentForbidden: true }).then((r) => setAgencies(r.data)).catch(() => {});
+      // Vente inter-agences : toutes les agences (du pays de la page le cas échéant).
+      scopeApi
+        .agencies()
+        .then((rows) => setAgencies(countryId ? rows.filter((a) => a.country_id === countryId) : rows))
+        .catch(() => {});
     }
     setError(null);
     setClientMode('existing');
     setNewClient(emptyNewLearnerForm);
+    setAmountPaid('');
+    setPaymentType('cash');
+    setProofFile(null);
     setForm({
       name: prestation?.name ?? (!prestation && offer ? offer.name : ''),
       offer_id: offer?.id ?? '',
@@ -105,7 +133,7 @@ export function PrestationFormModal({
   useEffect(() => {
     if (!isOpen || !needsOfferChoice) return;
     agencyDeptApi
-      .offers({ agency_id: form.agency_id || agencyId, country_id: countryId, is_active: true, per_page: 100 })
+      .offers({ agency_id: form.agency_id || agencyId, country_id: countryId, is_active: true, per_page: 100, for_sale: true })
       .then((res) => setOffers(res.data ?? []))
       .catch(() => setOffers([]));
   }, [isOpen, needsOfferChoice, form.agency_id, agencyId, countryId]);
@@ -136,6 +164,10 @@ export function PrestationFormModal({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (needsPaymentProof && (!(Number(amountPaid) > 0) || !proofFile)) {
+      setError(t('invoices.proofRequiredForSale'));
+      return;
+    }
     setSaving(true);
     setError(null);
     // Comme l'inscription à une formation : création du client à la volée.
@@ -187,6 +219,23 @@ export function PrestationFormModal({
             agency_id: offer?.agency_id ?? form.agency_id ?? agencyId,
             department_id: (departmentId ?? offer?.department_id) || undefined,
           });
+      if (needsPaymentProof && proofFile) {
+        // La souscription est créée : un échec ici la laisse en brouillon, à
+        // soumettre depuis sa fiche (« Soumettre avec preuve »).
+        try {
+          onSaved(
+            await agencyDeptApi.submitWithProof(saved.id, {
+              amount_paid: Number(amountPaid),
+              payment_type: paymentType,
+              proof: proofFile,
+            }),
+          );
+        } catch (err) {
+          showToast(extractErrorMessage(err, t('common.error')), 'error');
+          onSaved(saved);
+        }
+        return;
+      }
       onSaved(saved);
     } catch (err) {
       setError(extractErrorMessage(err, t('common.error')));
@@ -244,7 +293,7 @@ export function PrestationFormModal({
               onChange={(e) => setForm((f) => ({ ...f, agency_id: e.target.value, offer_id: '', category_id: '', name: '' }))}
             >
               <option value="">{t('services.selectAgency')}</option>
-              {agencies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {agencies.map((a) => <option key={a.id} value={a.id}>{a.country_name ? `${a.name} (${a.country_name})` : a.name}</option>)}
             </Select>
           </div>
         )}
@@ -305,13 +354,59 @@ export function PrestationFormModal({
             <Input label={t('agencyDept.prestations.commissionValue')} type="number" min={0} disabled={!form.commission_type} value={form.commission_value} onChange={(e) => setForm({ ...form, commission_value: e.target.value })} />
           </div>
         )}
+        {needsPaymentProof && (
+          <div className="grid gap-3 rounded-xl border border-gray-100 p-3 sm:grid-cols-2 dark:border-gray-800">
+            <p className="text-xs text-gray-500 sm:col-span-2 dark:text-gray-400">{t('agencyDept.submitProof.hint')}</p>
+            <Input
+              label={t('agencyDept.submitProof.amountPaid')}
+              type="number"
+              min={0}
+              max={form.budget ? Number(form.budget) : undefined}
+              required
+              value={amountPaid}
+              onChange={(e) => setAmountPaid(e.target.value)}
+            />
+            <Select
+              label={t('agencyDept.packages.paymentType')}
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value as typeof paymentType)}
+            >
+              <option value="cash">Cash</option>
+              <option value="om">Orange Money</option>
+              <option value="momo">MTN MoMo</option>
+              <option value="mobile">Mobile</option>
+            </Select>
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('invoices.paymentProof')} <span className="text-error-500">*</span>
+              </span>
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-4 text-sm text-gray-500 hover:border-brand-500 hover:text-brand-700 dark:border-gray-700 dark:text-gray-400">
+                <Camera className="h-4 w-4" />
+                {proofFile ? proofFile.name : t('invoices.uploadProof')}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    setProofFile(e.target.files?.[0] ?? null);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {proofPreview && (
+                <img src={proofPreview} alt={t('invoices.paymentProof')} className="max-h-40 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
+              )}
+              <p className="text-xs text-gray-400">{t('agencyDept.submitProof.proofHint')}</p>
+            </div>
+          </div>
+        )}
         <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
           {t('agencyDept.description')}
           <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm font-normal dark:border-gray-700 dark:text-white" />
         </label>
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="submit" isLoading={saving} disabled={(!prestation && clientMode === 'existing' && !form.client_id) || (needsOfferChoice && !form.offer_id)}>{t('common.save')}</Button>
+          <Button type="submit" isLoading={saving} disabled={(!prestation && clientMode === 'existing' && !form.client_id) || (needsOfferChoice && !form.offer_id) || (needsPaymentProof && !proofFile)}>{t('common.save')}</Button>
         </div>
       </form>
     </Modal>

@@ -64,6 +64,8 @@ export interface UpdateUserPayload {
   phone?: string;
   role_id?: string | null;
   country_id?: string | null;
+  agency_id?: string | null;
+  department_id?: string | null;
   is_active?: boolean;
   password?: string;
   password_confirmation?: string;

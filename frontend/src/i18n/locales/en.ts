@@ -775,6 +775,7 @@ export default {
     passwordResetFailed: 'Unable to reset the password.',
     createTitle: 'Create user',
     optionalAgency: 'Agency (optional)',
+    agencyRequired: 'Agency is required.',
     directorCountry: 'Assigned country',
     selectCountry: 'Select a country',
     countryRequired: 'A country is required for a general manager.',

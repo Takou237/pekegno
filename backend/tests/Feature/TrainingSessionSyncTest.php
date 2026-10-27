@@ -96,6 +96,33 @@ class TrainingSessionSyncTest extends TestCase
         $this->assertEquals(10, $sessionsB[0]['max_capacity']);
     }
 
+    public function test_several_sessions_of_same_course_can_be_created_in_same_agency(): void
+    {
+        $this->admin();
+        $agency = $this->agencyIn('CMR');
+
+        $course = $this->postJson('/api/courses', [
+            'name' => 'Formation Word',
+            'mode' => 'in_person',
+            'agency_id' => $agency->id,
+            'price' => 45000,
+            'duration_hours' => 20,
+            'is_active' => true,
+        ])->assertStatus(201)->json();
+
+        // Création libre : même formation, même agence, mêmes dates.
+        $payload = [
+            'course_id' => $course['id'],
+            'agency_id' => $agency->id,
+            'start_at' => now()->addDays(3)->toISOString(),
+            'end_at' => now()->addDays(7)->toISOString(),
+        ];
+        $this->postJson('/api/training-sessions', $payload)->assertStatus(201);
+        $this->postJson('/api/training-sessions', $payload)->assertStatus(201);
+
+        $this->assertCount(2, $this->sessionsInAgency($agency->id));
+    }
+
     public function test_update_with_sync_propagates_changes_to_sibling_agencies(): void
     {
         $this->admin();

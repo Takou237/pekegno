@@ -31,7 +31,11 @@ class PrestationOfferController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = $this->access->scopeOffers(PrestationOffer::query(), $request->user())
+        // for_sale=1 : sélecteur « Nouvelle souscription », ouvert aux offres de
+        // toutes les agences (vente inter-agences) ; la gestion reste scopée.
+        $query = ($request->boolean('for_sale')
+            ? PrestationOffer::query()
+            : $this->access->scopeOffers(PrestationOffer::query(), $request->user()))
             ->with(self::RELATIONS)
             ->withCount('subscriptions')
             ->withAvg('subscriptions as subscriptions_rating_avg', 'rating_avg')

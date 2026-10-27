@@ -113,6 +113,10 @@ export function CreateUserModal({
     </Select>
   );
 
+  // Agence obligatoire, sauf pour les rôles globaux (super-admin, directeur général).
+  const roleName = roles.find((r) => r.id === form.role_id)?.name ?? '';
+  const agencyRequired = !fixedAgencyId && !['super-admin', 'direction-generale'].includes(roleName);
+
   const assignableRoles = roles.filter((r) =>
     isRoleAssignableToForm(r.name, currentUser?.role?.name)
   );
@@ -121,6 +125,10 @@ export function CreateUserModal({
     event.preventDefault();
     if (!form.role_id) {
       setErrors({ role_id: t('users.roleRequired') });
+      return;
+    }
+    if (agencyRequired && !form.agency_id) {
+      setErrors({ agency_id: t('users.agencyRequired') });
       return;
     }
     setErrors({});
@@ -230,8 +238,9 @@ export function CreateUserModal({
         ) : (
           <>
             <Select
-              label={t('users.optionalAgency')}
+              label={agencyRequired ? t('users.agency') : t('users.optionalAgency')}
               value={form.agency_id ?? ''}
+              required={agencyRequired}
               onChange={(e) => setForm((p) => ({ ...p, agency_id: e.target.value, department_id: '' }))}
               error={errors.agency_id}
             >

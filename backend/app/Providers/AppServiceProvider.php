@@ -10,6 +10,9 @@ use App\Observers\AgencyObserver;
 use App\Observers\CategoryObserver;
 use App\Observers\DepartmentObserver;
 use App\Observers\ServiceObserver;
+use App\Support\BlockClientEmails;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\ServiceProvider;
 
@@ -36,5 +39,8 @@ class AppServiceProvider extends ServiceProvider
         Department::observe(DepartmentObserver::class);
         Service::observe(ServiceObserver::class);
         Category::observe(CategoryObserver::class);
+
+        // Emails aux clients coupés tant que CLIENT_EMAILS_ENABLED n'est pas activé.
+        Event::listen(MessageSending::class, [BlockClientEmails::class, 'handle']);
     }
 }

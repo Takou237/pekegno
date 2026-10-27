@@ -23,7 +23,11 @@ class AgencyAccessService
         $agencyIds = $this->scope->agencyIds($user);
 
         if ($agencyIds !== null) {
-            $query->whereIn('prestations.agency_id', $agencyIds);
+            // Vente inter-agences : le vendeur garde l'accès aux souscriptions
+            // qu'il a créées sur une autre agence (fiche, soumission avec preuve).
+            $query->where(fn (Builder $q) => $q
+                ->whereIn('prestations.agency_id', $agencyIds)
+                ->orWhere('prestations.created_by', $user?->id));
         }
 
         return match ($user?->role?->name) {

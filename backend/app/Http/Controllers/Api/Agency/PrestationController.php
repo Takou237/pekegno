@@ -126,7 +126,8 @@ class PrestationController extends Controller
         // celle de l'offre, le département et la catégorie hérités si absents.
         $offer = PrestationOffer::query()->find($data['offer_id']);
         abort_unless($offer !== null, 422, 'Offre de prestation introuvable.');
-        abort_unless($this->access->canAccessAgency($request->user(), $offer->agency_id), 403, 'Agence hors de votre périmètre.');
+        // Vente inter-agences : on peut souscrire l'offre de n'importe quelle
+        // agence (comme une facture) ; le CA revient à l'agence de l'offre.
 
         $data['agency_id'] = $offer->agency_id;
         $data['department_id'] = $this->inheritDepartment($data['department_id'] ?? null, $offer);

@@ -781,6 +781,7 @@ export default {
     passwordResetFailed: 'Impossible de réinitialiser le mot de passe.',
     createTitle: 'Créer un utilisateur',
     optionalAgency: 'Agence (optionnel)',
+    agencyRequired: 'L\'agence est obligatoire.',
     directorCountry: 'Pays attribué',
     selectCountry: 'Sélectionner un pays',
     countryRequired: 'Le pays est obligatoire pour un directeur général.',

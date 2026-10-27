@@ -31,6 +31,10 @@ class UpdateUserRequest extends FormRequest
             'is_password_change_required' => ['sometimes', 'boolean'],
             'password' => ['sometimes', 'string', 'min:8', 'confirmed'],
             'country_id' => ['sometimes', 'nullable', 'uuid', 'exists:countries,id'],
+            // Rattachement (agence + département optionnel) : n'est modifié que
+            // si la clé agency_id est envoyée.
+            'agency_id' => ['sometimes', 'nullable', 'uuid', 'exists:agencies,id'],
+            'department_id' => ['sometimes', 'nullable', 'uuid', 'exists:departments,id'],
         ];
     }
 
@@ -58,6 +62,22 @@ class UpdateUserRequest extends FormRequest
                     $validator->errors()->add(
                         'role_id',
                         'Vous n\'êtes pas autorisé à attribuer ce rôle.'
+                    );
+                }
+            },
+            function (Validator $validator) {
+                $departmentId = $this->input('department_id');
+                if (! $departmentId) {
+                    return;
+                }
+
+                $deptAgencyId = \App\Models\Department::where('id', $departmentId)->value('agency_id');
+                $agencyId = $this->input('agency_id');
+
+                if ($deptAgencyId && $agencyId && $deptAgencyId !== $agencyId) {
+                    $validator->errors()->add(
+                        'department_id',
+                        'Le département sélectionné n\'appartient pas à l\'agence choisie.'
                     );
                 }
             },

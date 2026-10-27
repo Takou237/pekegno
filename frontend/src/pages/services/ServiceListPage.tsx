@@ -107,8 +107,11 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   }, [isCaissier, agencyId, user?.assignments]);
 
   const effectiveAgencyId = agencyId || ownAgencyId || undefined;
+  // Un commercial vend librement (inter-agences) : l'onglet Formations reste
+  // visible même sans agence/département de rattachement — l'API renvoie alors
+  // toutes les formations et l'agence se choisit dans la modale d'inscription.
   const effectiveShowAcademyTabs =
-    showAcademyTabs || Boolean(countryId) || ((isCommercial || isCaissier) && Boolean(effectiveAgencyId));
+    showAcademyTabs || Boolean(countryId) || isCommercial || (isCaissier && Boolean(effectiveAgencyId));
 
   // C4 : onglet Packages réservé aux rôles autorisés à vendre/souscrire.
   const showPackagesTab = canSubscribePackage(user);

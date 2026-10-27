@@ -20,7 +20,7 @@ import { SkeletonDetail } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { Autocomplete, FREE_TEXT_PREFIX, type AutocompleteOption } from '@/components/ui/Autocomplete';
+import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoicePrint, InvoicePrintPortal, PrintPortal } from '@/components/invoices/InvoicePrint';

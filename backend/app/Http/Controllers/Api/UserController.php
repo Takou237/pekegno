@@ -94,6 +94,49 @@ class UserController extends Controller
         );
     }
 
+    /**
+     * Hors direction : on ne rattache un compte qu'à une agence de son périmètre.
+     */
+    private function assertAgencyInScope(User $actor, ?string $agencyId): void
+    {
+        if (! $agencyId) {
+            return;
+        }
+        $actorAgencies = app(\App\Services\ScopeService::class)->agencyIds($actor);
+        abort_unless(
+            $actorAgencies === null || in_array($agencyId, $actorAgencies, true),
+            403,
+            "Vous n'êtes pas autorisé à rattacher cet utilisateur à cette agence (hors de votre périmètre)."
+        );
+    }
+
+    /**
+     * Remplace le rattachement simple d'un compte par l'agence (et le
+     * département) choisis. Les affectations de chef (agence ou département)
+     * ne sont pas touchées : elles se gèrent depuis les écrans d'équipe.
+     * La fiche commerciale suit l'agence, sinon le périmètre du commercial
+     * (ScopeService lit commercials.agency_id) garderait l'ancienne.
+     */
+    private function syncAssignment(User $user, ?string $agencyId, ?string $departmentId): void
+    {
+        $user->assignments()
+            ->wherePivot('is_primary', false)
+            ->wherePivot('is_department_chief', false)
+            ->detach();
+
+        if ($agencyId && ! $user->assignments()->where('agencies.id', $agencyId)->exists()) {
+            $user->assignments()->attach($agencyId, [
+                'is_primary' => false,
+                'is_department_chief' => false,
+                'department_id' => $departmentId,
+            ]);
+        }
+
+        DB::table('commercials')
+            ->where('user_id', $user->id)
+            ->update(['agency_id' => $agencyId, 'updated_at' => now()]);
+    }
+
     #[OA\Get(
         path: '/api/users/username-suggestion',
         summary: 'Proposer un nom d\'utilisateur libre à partir du prénom et du nom',
@@ -362,11 +405,31 @@ class UserController extends Controller
 
         $oldRoleId = $user->role_id;
 
+        // Rattachement : traité à part (table user_assignments), et seulement
+        // quand le formulaire envoie explicitement la clé agency_id.
+        $assignmentChanged = array_key_exists('agency_id', $validated);
+        $newAgencyId = $validated['agency_id'] ?? null;
+        $newDepartmentId = $validated['department_id'] ?? null;
+        unset($validated['agency_id'], $validated['department_id']);
+
+        if ($assignmentChanged) {
+            if ($newDepartmentId && ! $newAgencyId) {
+                $newAgencyId = Department::where('id', $newDepartmentId)->value('agency_id');
+            }
+            $this->assertAgencyInScope($request->user(), $newAgencyId);
+        }
+
         if (isset($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         }
 
-        $user->update($validated);
+        DB::transaction(function () use ($user, $validated, $assignmentChanged, $newAgencyId, $newDepartmentId) {
+            $user->update($validated);
+
+            if ($assignmentChanged) {
+                $this->syncAssignment($user, $newAgencyId, $newDepartmentId);
+            }
+        });
 
         // Promotion d'un employé existant vers le rôle commercial : son profil
         // métier est créé au passage pour éviter le dashboard vide. La relation

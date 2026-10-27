@@ -84,8 +84,10 @@ export function OfferFormModal({
     // (la fiche actuelle et son agence restent).
     setTargetCountryIds([]);
     setDeployLoaded(false);
+    // silentForbidden : sans countries.consulter, le bloc de déploiement reste
+    // vide (création dans l'agence seule) au lieu d'un toast 403 global.
     countriesApi
-      .list({ per_page: 100 })
+      .list({ per_page: 100 }, { silentForbidden: true })
       .then((r) => {
         setCountries(r.data);
         if (!offer) {

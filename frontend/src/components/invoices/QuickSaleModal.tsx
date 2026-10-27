@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
-import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
+import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
 import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
 import { EnrollmentLearnerField, emptyNewLearnerForm, isNewLearnerComplete, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
@@ -68,6 +68,9 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const isCommercial = currentUser?.role?.name === 'commercial';
+  // Comme le formulaire complet : commercial et chef d'agence joignent une
+  // preuve de paiement (le backend la refuse sinon).
+  const needsPaymentProof = isCommercial || currentUser?.role?.name === 'responsable-agence';
   // Le caissier et le super-admin valident directement leurs ventes de guichet.
   // La direction garde son vendeur par défaut mais ses ventes restent en attente.
   const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(
@@ -317,7 +320,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
       setErrors({ advance: t('invoices.advanceRequired') });
       return;
     }
-    if (isCommercial && !proofFile) {
+    if (needsPaymentProof && !proofFile) {
       setErrors({ proof_file: t('invoices.proofRequiredForSale') });
       return;
     }
@@ -648,7 +651,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
           />
         </div>
 
-        {isCommercial && (
+        {needsPaymentProof && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('invoices.paymentProof')} <span className="text-error-500">*</span>
@@ -721,8 +724,8 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
             <Button
               type="submit"
               isLoading={submitting}
-              disabled={isCommercial && !proofFile}
-              title={isCommercial && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+              disabled={needsPaymentProof && !proofFile}
+              title={needsPaymentProof && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
             >
               {t('invoices.createSubmit')}
             </Button>

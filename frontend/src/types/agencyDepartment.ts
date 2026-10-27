@@ -117,6 +117,9 @@ export interface SubscribePayload {
   payment_type?: 'cash' | 'om' | 'momo' | 'mobile';
   /** Preuve de paiement (photo) : envoyée en multipart, examinée par le caissier. */
   proof_file?: File;
+  /** Remise appliquée à la souscription (montant fixe ou pourcentage). */
+  discount_type?: 'amount' | 'percent';
+  discount_value?: number;
 }
 
 export interface PersonRef {

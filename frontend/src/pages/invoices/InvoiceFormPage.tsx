@@ -72,8 +72,6 @@ export default function InvoiceFormPage({
 
   const isCommercial = currentUser?.role?.name === 'commercial';
   const isResponsableAgence = currentUser?.role?.name === 'responsable-agence';
-  const isCaissier = currentUser?.role?.name === 'caissier';
-  const isSuperAdmin = currentUser?.role?.name === 'super-admin';
     // Le caissier et le super-admin valident directement leurs ventes de guichet.
     // La direction garde son vendeur par dǸfaut mais ses ventes restent en attente.
     const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(

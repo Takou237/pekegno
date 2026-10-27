@@ -273,7 +273,6 @@ export default function OpportunityKanbanPage() {
             value={form.commercial_id}
             onChange={(id) => setForm({ ...form, commercial_id: id })}
             error={formErrors.commercial_id}
-            required
             fetchOptions={async (query) => {
               // Tous les comptes du staff (clients exclus) : une opportunité
               // peut être portée par n'importe quel utilisateur.

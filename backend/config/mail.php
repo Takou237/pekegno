@@ -115,4 +115,8 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    // Emails destinés aux clients (rôle « client ») : coupés tant que ce
+    // drapeau n'est pas activé (cf. App\Support\BlockClientEmails).
+    'client_emails_enabled' => (bool) env('CLIENT_EMAILS_ENABLED', false),
+
 ];

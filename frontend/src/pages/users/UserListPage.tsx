@@ -66,8 +66,12 @@ export default function UserListPage() {
     phone: '',
     role_id: '',
     country_id: '',
+    agency_id: '',
+    department_id: '',
     is_active: true,
   });
+  // Rattachement initial : n'est renvoyé à l'API que s'il a changé.
+  const [editInitialAssignment, setEditInitialAssignment] = useState({ agency_id: '', department_id: '' });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [editSubmitting, setEditSubmitting] = useState(false);
 
@@ -258,6 +262,10 @@ export default function UserListPage() {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [agencies, countryId],
   );
+  // Agence obligatoire à la création, sauf pour les rôles globaux (le
+  // directeur général est rattaché à un pays, pas à une agence).
+  const createRoleName = roles.find((r) => r.id === createForm.role_id)?.name ?? '';
+  const createAgencyRequired = !['super-admin', 'direction-generale'].includes(createRoleName);
   const createDepartmentOptions = useMemo(
     () =>
       (agencies.find((a) => a.id === createForm.agency_id)?.departments ?? [])
@@ -266,8 +274,26 @@ export default function UserListPage() {
     [agencies, createForm.agency_id],
   );
 
+  const editDepartmentOptions = useMemo(
+    () =>
+      (agencies.find((a) => a.id === editForm.agency_id)?.departments ?? [])
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [agencies, editForm.agency_id],
+  );
+
   function openEdit(user: UserListItem) {
+    // Rattachement simple en priorité (les affectations de chef se gèrent
+    // depuis les écrans d'équipe), sinon la première affectation.
+    const assignment =
+      user.assignments?.find((a) => !a.pivot.is_primary && !a.pivot.is_department_chief) ??
+      user.assignments?.[0];
+    const initialAssignment = {
+      agency_id: assignment?.id ?? '',
+      department_id: assignment?.pivot.department_id ?? '',
+    };
     setEditUser(user);
+    setEditInitialAssignment(initialAssignment);
     setEditForm({
       first_name: user.first_name ?? '',
       last_name: user.last_name ?? '',
@@ -275,6 +301,7 @@ export default function UserListPage() {
       phone: user.phone ?? '',
       role_id: user.role_id ?? '',
       country_id: user.country_id ?? '',
+      ...initialAssignment,
       is_active: user.is_active,
     });
     setEditErrors({});
@@ -293,7 +320,16 @@ export default function UserListPage() {
     setEditSubmitting(true);
     setEditErrors({});
     try {
-      await usersApi.update(editUser.id, editForm);
+      const { agency_id, department_id, ...rest } = editForm;
+      const assignmentChanged =
+        agency_id !== editInitialAssignment.agency_id ||
+        department_id !== editInitialAssignment.department_id;
+      await usersApi.update(
+        editUser.id,
+        assignmentChanged
+          ? { ...rest, agency_id: agency_id || null, department_id: department_id || null }
+          : rest,
+      );
       showToast(t('users.updated'), 'success');
       setEditUser(null);
       fetchUsers(fetchParams);
@@ -470,6 +506,10 @@ export default function UserListPage() {
     }
     if (isDirectorRoleId(createForm.role_id) && !createForm.country_id) {
       setCreateErrors({ country_id: t('users.countryRequired') });
+      return;
+    }
+    if (createAgencyRequired && !createForm.agency_id) {
+      setCreateErrors({ agency_id: t('users.agencyRequired') });
       return;
     }
     setCreateErrors({});
@@ -853,6 +893,35 @@ export default function UserListPage() {
               ))}
             </Select>
           )}
+          <Select
+            label={t('users.optionalAgency')}
+            value={editForm.agency_id}
+            onChange={(e) => setEditForm((p) => ({ ...p, agency_id: e.target.value, department_id: '' }))}
+            error={editErrors.agency_id}
+          >
+            <option value="">{t('users.noAgencyOption')}</option>
+            {createAgencyOptions.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            label={t('users.optionalDepartment')}
+            value={editForm.department_id}
+            onChange={(e) => setEditForm((p) => ({ ...p, department_id: e.target.value }))}
+            disabled={!editForm.agency_id}
+            error={editErrors.department_id}
+          >
+            <option value="">
+              {editForm.agency_id ? t('users.noDepartmentOption') : t('users.selectAgencyFirst')}
+            </option>
+            {editDepartmentOptions.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </Select>
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setEditUser(null)} className="flex-1">
               {t('common.cancel')}
@@ -1056,8 +1125,9 @@ export default function UserListPage() {
           )}
 
           <Select
-            label={t('users.optionalAgency')}
+            label={createAgencyRequired ? t('users.agency') : t('users.optionalAgency')}
             value={createForm.agency_id ?? ''}
+            required={createAgencyRequired}
             onChange={(e) =>
               setCreateForm((p) => ({ ...p, agency_id: e.target.value, department_id: '' }))
             }

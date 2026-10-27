@@ -71,6 +71,8 @@ export const agencyDeptApi = {
     append('auto_renew', payload.auto_renew === undefined ? undefined : payload.auto_renew ? '1' : '0');
     append('advance', payload.advance);
     append('payment_type', payload.payment_type);
+    append('discount_type', payload.discount_type);
+    append('discount_value', payload.discount_value);
     if (payload.proof_file) formData.append('proof_file', payload.proof_file);
     return post<{ contract: { id: string; number: string }; prestation: Prestation; invoice: { id: string; number: string } }>(
       `/packages/${id}/subscribe`,

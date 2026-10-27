@@ -56,3 +56,27 @@ export function CommercialPicker({ value, onChange, label, error, placeholder, d
     />
   );
 }
+
+/** Sélection d'un employé (membre d'équipe, assigné d'une action). */
+export function EmployeePicker({
+  label,
+  value,
+  onChange,
+  error,
+  agencyId,
+}: {
+  label?: string;
+  value: string;
+  onChange: (id: string) => void;
+  error?: string;
+  agencyId?: string;
+}) {
+  const { t } = useTranslation();
+  const fetchOptions = async (q: string): Promise<AutocompleteOption[]> => {
+    const res = await usersApi.list({ search: q, agency_id: agencyId, per_page: 10 });
+    return res.data
+      .filter((u) => u.role?.name !== 'client')
+      .map((u) => ({ id: u.id, label: u.name || [u.first_name, u.last_name].filter(Boolean).join(' '), subtitle: u.role?.name ?? u.email }));
+  };
+  return <Autocomplete label={label ?? t('agencyDept.employee')} value={value} onChange={onChange} fetchOptions={fetchOptions} error={error} />;
+}

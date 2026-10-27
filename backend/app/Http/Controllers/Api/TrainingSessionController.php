@@ -114,11 +114,9 @@ class TrainingSessionController extends Controller
 
         $course = Course::find($data['course_id']);
 
-        if ($course && $this->syncService->isSynced($course, $data['agency_id'])) {
-            return response()->json([
-                'message' => 'Cette session existe déjà dans cette agence (formation synchronisée).',
-            ], 409);
-        }
+        // Création libre : une formation peut avoir plusieurs sessions dans la
+        // même agence (y compris aux mêmes dates), seule la validation des
+        // champs (StoreTrainingSessionRequest) s'applique.
 
         $session = $this->syncService->sourceSessionForCourse($course, $data, $data['agency_id'], $data['session_id'] ?? null);
 
