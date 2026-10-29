@@ -82,6 +82,9 @@ export default function InvoiceListPage({
 
   const status = searchParams.get('status') ?? '';
   const agencyId = fixedAgencyId ?? (searchParams.get('agency_id') ?? '');
+  // Dans une agence : « Mes ventes » liste aussi les ventes faites pour une
+  // autre agence (un chef d'agence vend partout, comme un commercial).
+  const mine = Boolean(fixedAgencyId) && searchParams.get('mine') === '1';
   const clientId = searchParams.get('client_id') ?? '';
   const commercialId = searchParams.get('commercial_id') ?? '';
   const from = searchParams.get('from') ?? '';
@@ -104,7 +107,8 @@ export default function InvoiceListPage({
       const response = await invoicesApi.list({
         search: search || undefined,
         status: (status as InvoiceStatus) || undefined,
-        agency_id: agencyId || undefined,
+        agency_id: mine ? undefined : agencyId || undefined,
+        mine: mine || undefined,
         country_id: countryId,
         client_id: clientId || undefined,
         commercial_id: commercialId || undefined,
@@ -124,7 +128,7 @@ export default function InvoiceListPage({
     } finally {
       setIsLoading(false);
     }
-  }, [search, status, agencyId, countryId, clientId, commercialId, from, to, enrollmentOnly, contractDepartmentId, page, t]);
+  }, [search, status, agencyId, mine, countryId, clientId, commercialId, from, to, enrollmentOnly, contractDepartmentId, page, t]);
 
   useEffect(() => {
     fetchInvoices();
@@ -167,6 +171,13 @@ export default function InvoiceListPage({
     navigate(`${listBase}/${invoiceId}?print=1`, { state: origin });
   }
 
+  const modeTabClass = (active: boolean) =>
+    `rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+      active
+        ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300'
+        : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+    }`;
+
   async function handleExport() {
     setIsExporting(true);
     try {
@@ -200,6 +211,17 @@ export default function InvoiceListPage({
           </Button>
         </div>
       </div>
+
+      {fixedAgencyId && (
+        <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+          <button type="button" className={modeTabClass(!mine)} onClick={() => setFilter('mine', '')}>
+            {t('invoices.viewAgency')}
+          </button>
+          <button type="button" className={modeTabClass(mine)} onClick={() => setFilter('mine', '1')}>
+            {t('invoices.viewMine')}
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">

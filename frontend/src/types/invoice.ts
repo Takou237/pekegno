@@ -121,6 +121,8 @@ export interface InvoiceListParams {
   status?: InvoiceStatus | `${InvoiceStatus},${InvoiceStatus}`;
   validation_status?: InvoiceValidationStatus | `${InvoiceValidationStatus},${InvoiceValidationStatus}`;
   agency_id?: string;
+  /** Uniquement les ventes de l'utilisateur connecté, toutes agences. */
+  mine?: boolean;
   country_id?: string;
   client_id?: string;
   commercial_id?: string;

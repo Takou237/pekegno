@@ -1331,6 +1331,7 @@ export default {
     linkedUserHint: 'Le commercial lié à un compte peut se connecter à la plateforme.',
     commission: 'Commission',
     commissionNone: 'Aucune',
+    commissionByRules: 'Règles de commission',
     commissionPercent: 'Pourcentage (%)',
     commissionTypeFixed: 'Montant fixe ({{currency}})',
     commissionValue: 'Valeur de la commission',
@@ -1421,6 +1422,8 @@ export default {
   },
 
   invoices: {
+    viewAgency: "Factures de l'agence",
+    viewMine: 'Mes ventes',
     title: 'Factures',
     subtitle: 'Gestion des ventes et encaissements.',
     newInvoice: 'Nouvelle facture',

@@ -36,6 +36,7 @@ export interface UserListParams {
   role_id?: string;
   agency_id?: string;
   department_id?: string;
+  country_id?: string;
   per_page?: number;
   page?: number;
   sort?: string;

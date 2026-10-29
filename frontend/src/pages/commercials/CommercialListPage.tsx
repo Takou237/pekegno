@@ -148,6 +148,9 @@ export default function CommercialListPage({ fixedAgencyId, overrideApi, pageTit
   }
 
   function commissionLabel(commercial: Commercial): string {
+    if (commercial.commission_by_rules) {
+      return t('commercials.commissionByRules');
+    }
     if (commercial.commission_type === 'percent') {
       return `${commercial.commission_value ?? 0}%`;
     }

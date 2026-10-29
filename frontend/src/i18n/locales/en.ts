@@ -1321,6 +1321,7 @@ export default {
     linkedUserHint: 'A salesperson linked to an account can sign in to the platform.',
     commission: 'Commission',
     commissionNone: 'None',
+    commissionByRules: 'Commission rules',
     commissionPercent: 'Percentage (%)',
     commissionTypeFixed: 'Fixed amount ({{currency}})',
     commissionValue: 'Commission value',
@@ -1411,6 +1412,8 @@ export default {
   },
 
   invoices: {
+    viewAgency: 'Agency invoices',
+    viewMine: 'My sales',
     title: 'Invoices',
     subtitle: 'Manage sales and payments.',
     newInvoice: 'New invoice',

@@ -49,6 +49,8 @@ export interface Commercial {
   phone: string | null;
   commission_type: 'none' | 'percent' | 'fixed';
   commission_value: string | null;
+  /** true si une règle de commission active du rôle remplace le taux de la fiche. */
+  commission_by_rules?: boolean;
   points_balance: number;
   is_active: boolean;
   full_name?: string;

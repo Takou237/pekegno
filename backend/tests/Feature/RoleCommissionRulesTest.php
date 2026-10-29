@@ -366,4 +366,19 @@ class RoleCommissionRulesTest extends TestCase
             ->assertOk()
             ->assertJsonStructure(['data' => ['created', 'updated', 'rows']]);
     }
+
+    public function test_commercial_list_flags_rates_replaced_by_role_rules(): void
+    {
+        $seller = $this->commercialUser();
+        Sanctum::actingAs($this->admin);
+
+        $flag = fn () => collect($this->getJson('/api/commercials?per_page=100')->assertOk()->json('data'))
+            ->firstWhere('user_id', $seller->id)['commission_by_rules'];
+
+        $this->assertFalse($flag(), 'Sans règle de rôle, le taux de la fiche s\'applique.');
+
+        $this->rule(['name' => 'Commerciaux 1 %', 'basis' => 'sale', 'percent_value' => 1], ['commercial']);
+
+        $this->assertTrue($flag(), 'Une règle active du rôle remplace le taux par défaut.');
+    }
 }

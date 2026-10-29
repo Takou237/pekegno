@@ -148,6 +148,8 @@ export default function UserListPage() {
         role_id: filters.role_id || undefined,
         agency_id: filters.agency_id || undefined,
         department_id: filters.department_id || undefined,
+        // Vue d'un pays : uniquement les comptes de ses agences.
+        country_id: countryId || undefined,
         page: filters.page,
         per_page: 15,
       });
@@ -158,7 +160,7 @@ export default function UserListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [countryId]);
 
   const fetchParams = useMemo(() => ({
     search: search || undefined,
@@ -170,7 +172,7 @@ export default function UserListPage() {
 
   useEffect(() => {
     fetchUsers(fetchParams);
-  }, [fetchParams]);
+  }, [fetchParams, fetchUsers]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -285,9 +287,13 @@ export default function UserListPage() {
   function openEdit(user: UserListItem) {
     // Rattachement simple en priorité (les affectations de chef se gèrent
     // depuis les écrans d'équipe), sinon la première affectation.
+    // Vue d'un pays : on privilégie les affectations dans ses agences.
+    const inScope = (user.assignments ?? []).filter(
+      (a) => !countryId || createAgencyOptions.some((o) => o.id === a.id),
+    );
+    const candidates = inScope.length > 0 ? inScope : user.assignments ?? [];
     const assignment =
-      user.assignments?.find((a) => !a.pivot.is_primary && !a.pivot.is_department_chief) ??
-      user.assignments?.[0];
+      candidates.find((a) => !a.pivot.is_primary && !a.pivot.is_department_chief) ?? candidates[0];
     const initialAssignment = {
       agency_id: assignment?.id ?? '',
       department_id: assignment?.pivot.department_id ?? '',
@@ -363,7 +369,7 @@ export default function UserListPage() {
           setAssignedUsers(data.assigned_users ?? []);
 
           const assignedIds = new Set((data.assigned_users ?? []).map((u: any) => u.id));
-          return client.get('/users', { params: { per_page: 100 } }).then((usersRes) => {
+          return client.get('/users', { params: { per_page: 100, country_id: countryId || undefined } }).then((usersRes) => {
             const available: UserListItem[] = (usersRes.data.data ?? usersRes.data).filter(
               (u: UserListItem) =>
                 !assignedIds.has(u.id) &&
@@ -431,7 +437,7 @@ export default function UserListPage() {
       try {
         const [agencyRes, usersRes] = await Promise.all([
           client.get(`/agencies/${selectedAgencyId}`),
-          client.get('/users', { params: { per_page: 100 } }),
+          client.get('/users', { params: { per_page: 100, country_id: countryId || undefined } }),
         ]);
         const data = agencyRes.data.data ?? agencyRes.data;
         setAssignedUsers(data.assigned_users ?? []);
@@ -633,7 +639,7 @@ export default function UserListPage() {
               onChange={(e) => handleAgencyChange(e.target.value)}
             >
               <option value="">{t('common.selectAllAgencies')}</option>
-              {agencies.map((a) => (
+              {createAgencyOptions.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
                 </option>
@@ -905,6 +911,15 @@ export default function UserListPage() {
                 {a.name}
               </option>
             ))}
+            {/* Agence actuelle hors du pays affiché : on la garde visible
+                plutôt que d'afficher « Aucune agence » à tort. */}
+            {editForm.agency_id && !createAgencyOptions.some((a) => a.id === editForm.agency_id) && (
+              <option value={editForm.agency_id}>
+                {agencies.find((a) => a.id === editForm.agency_id)?.name ??
+                  editUser?.assignments?.find((a) => a.id === editForm.agency_id)?.name ??
+                  editForm.agency_id}
+              </option>
+            )}
           </Select>
           <Select
             label={t('users.optionalDepartment')}

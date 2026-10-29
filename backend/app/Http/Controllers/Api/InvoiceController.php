@@ -83,15 +83,30 @@ class InvoiceController extends Controller
         }
 
         // Chefs d'agence / de département, directeur général rattaché à un pays :
-        // uniquement les factures de leur périmètre (agences de leur espace).
+        // uniquement les factures de leur périmètre (agences de leur espace),
+        // plus leurs propres ventes : comme un commercial, ils peuvent vendre
+        // pour une autre agence et doivent pouvoir suivre / encaisser ces factures.
         if (in_array($user->role?->name, ['responsable-agence', 'responsable-departement', 'direction-generale'], true)) {
             $agencyIds = app(ScopeService::class)->agencyIds($user);
             if ($agencyIds !== null) {
-                return $query->whereIn('agency_id', $agencyIds);
+                return $query->where(function ($q) use ($agencyIds, $user) {
+                    $q->whereIn('invoices.agency_id', $agencyIds)
+                        ->orWhere(fn ($q) => $this->whereOwnSale($q, $user));
+                });
             }
         }
 
         return $query;
+    }
+
+    /** Ventes de l'utilisateur : vendeur, créateur ou commercial rattaché, toutes agences. */
+    private function whereOwnSale($query, User $user)
+    {
+        $profileId = $user->commercialProfile?->id;
+
+        return $query->where('invoices.seller_user_id', $user->id)
+            ->orWhere('invoices.created_by', $user->id)
+            ->when($profileId, fn ($q) => $q->orWhere('invoices.commercial_id', $profileId));
     }
 
     private function ensureInvoiceInScope(Invoice $invoice, ?User $user): void
@@ -112,6 +127,7 @@ class InvoiceController extends Controller
             new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut', schema: new OA\Schema(type: 'string', enum: ['unpaid', 'partial', 'paid'])),
             new OA\Parameter(name: 'validation_status', in: 'query', description: 'Filtrer par statut de validation (séparable par virgule)', schema: new OA\Schema(type: 'string', enum: ['pending', 'validated', 'rejected'])),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'mine', in: 'query', description: 'Uniquement les ventes de l\'utilisateur connecté, toutes agences', schema: new OA\Schema(type: 'boolean')),
             new OA\Parameter(name: 'country_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'client_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'commercial_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
@@ -164,6 +180,8 @@ class InvoiceController extends Controller
                 $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
                 $q->whereIn('validation_status', $statuses);
             })
+            // « Mes ventes » : les factures du vendeur connecté, quelle que soit l'agence.
+            ->when($request->boolean('mine'), fn ($q) => $q->where(fn ($q) => $this->whereOwnSale($q, $request->user())))
             ->when($request->agency_id, fn ($q, $id) => $q->where('agency_id', $id))
             ->when($request->country_id, fn ($q, $id) => $q->whereHas('agency', fn ($a) => $a->where('country_id', $id)))
             ->when($request->client_id, fn ($q, $id) => $q->where('client_id', $id))

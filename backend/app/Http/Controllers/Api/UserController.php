@@ -8,7 +8,9 @@ use App\Http\Requests\Api\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Mail\AdminPasswordResetMail;
 use App\Mail\UserWelcomeMail;
+use App\Models\Commercial;
 use App\Models\Department;
+use App\Models\Trainer;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\CommercialProfileService;
@@ -135,6 +137,32 @@ class UserController extends Controller
         DB::table('commercials')
             ->where('user_id', $user->id)
             ->update(['agency_id' => $agencyId, 'updated_at' => now()]);
+        DB::table('trainers')
+            ->where('user_id', $user->id)
+            ->update(['agency_id' => $agencyId, 'updated_at' => now()]);
+    }
+
+    /**
+     * Les fiches commercial / employé / formateur gardent une copie de
+     * l'identité du compte (listes Employés, Commerciaux, Formateurs des pays
+     * et agences) : on la réaligne après chaque modification.
+     */
+    private function syncProfiles(User $user): void
+    {
+        // Nom et prénom sont obligatoires sur les fiches : on ne les écrase
+        // pas par un vide.
+        $fields = array_filter([
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+        ], fn ($v) => filled($v)) + [
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'is_active' => $user->is_active,
+            'updated_at' => now(),
+        ];
+
+        DB::table('commercials')->where('user_id', $user->id)->update($fields);
+        DB::table('trainers')->where('user_id', $user->id)->update($fields);
     }
 
     #[OA\Get(
@@ -221,6 +249,18 @@ class UserController extends Controller
             })
             ->when($request->department_id, function ($q, $departmentId) {
                 $q->whereHas('assignments', fn ($q) => $q->where('department_id', $departmentId));
+            })
+            // Vue d'un pays : comptes rattachés à une de ses agences, plus la
+            // direction générale de ce pays (rattachée au pays, pas à une agence).
+            ->when($request->country_id, function ($q, $countryId) {
+                $agencyIds = \App\Models\Agency::idsForCountry($countryId);
+                $q->where(function ($q) use ($agencyIds, $countryId) {
+                    $q->whereHas('assignments', fn ($q) => $q->whereIn('agency_id', $agencyIds))
+                        ->orWhere(function ($q) use ($countryId) {
+                            $q->where('country_id', $countryId)
+                                ->whereHas('role', fn ($rq) => $rq->where('name', 'direction-generale'));
+                        });
+                });
             })
             ->when($user?->role?->name === 'responsable-agence', function ($q) use ($user) {
                 // Toutes les agences d'affectation (cohérent avec ScopeService
@@ -429,6 +469,8 @@ class UserController extends Controller
             if ($assignmentChanged) {
                 $this->syncAssignment($user, $newAgencyId, $newDepartmentId);
             }
+
+            $this->syncProfiles($user);
         });
 
         // Promotion d'un employé existant vers le rôle commercial : son profil
@@ -570,8 +612,19 @@ class UserController extends Controller
             }
         }
 
-        $user->tokens()->delete();
-        $user->delete();
+        DB::transaction(function () use ($user) {
+            // Sans cela, la clé étrangère (nullOnDelete) détache seulement les
+            // fiches commercial / employé / formateur : elles restaient actives
+            // dans les listes des pays et agences. On les archive (soft delete)
+            // car factures et commissions y font encore référence.
+            Commercial::where('user_id', $user->id)->update(['is_active' => false]);
+            Commercial::where('user_id', $user->id)->delete();
+            Trainer::where('user_id', $user->id)->update(['is_active' => false]);
+            Trainer::where('user_id', $user->id)->delete();
+
+            $user->tokens()->delete();
+            $user->delete();
+        });
 
         $this->logger->log(
             action: 'deleted',

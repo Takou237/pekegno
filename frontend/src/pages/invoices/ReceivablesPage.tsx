@@ -26,6 +26,9 @@ const { countryId } = useParams<{ countryId?: string }>();
   const [totalReceivable, setTotalReceivable] = useState(0);
   const [search, setSearch] = useState('');
   const [agencyId, setAgencyId] = useState(fixedAgencyId ?? '');
+  // Dans une agence : « Mes ventes » inclut les créances de ses ventes faites
+  // pour une autre agence.
+  const [mine, setMine] = useState(false);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -38,7 +41,8 @@ const { countryId } = useParams<{ countryId?: string }>();
         status: 'unpaid,partial',
         search: search || undefined,
 country_id: countryId || undefined,
-        agency_id: agencyId || undefined,
+        agency_id: mine ? undefined : agencyId || undefined,
+        mine: mine || undefined,
         page,
         per_page: 15,
       });
@@ -50,11 +54,23 @@ country_id: countryId || undefined,
     } finally {
       setIsLoading(false);
     }
-}, [search, countryId, agencyId, page, t]);
+}, [search, countryId, agencyId, mine, page, t]);
 
   useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
+
+  const modeTabClass = (active: boolean) =>
+    `rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+      active
+        ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300'
+        : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+    }`;
+
+  function selectMine(next: boolean) {
+    setMine(next);
+    setPage(1);
+  }
 
   function balance(inv: Invoice): number {
     return Number(inv.total_amount) - Number(inv.amount_paid);
@@ -87,6 +103,17 @@ country_id: countryId || undefined,
           </div>
         )}
       </div>
+
+      {fixedAgencyId && (
+        <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+          <button type="button" className={modeTabClass(!mine)} onClick={() => selectMine(false)}>
+            {t('invoices.viewAgency')}
+          </button>
+          <button type="button" className={modeTabClass(mine)} onClick={() => selectMine(true)}>
+            {t('invoices.viewMine')}
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">

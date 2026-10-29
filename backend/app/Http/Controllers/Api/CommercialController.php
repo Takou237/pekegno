@@ -10,6 +10,7 @@ use App\Models\Commercial;
 use App\Models\CommercialPoint;
 use App\Models\CommissionEntry;
 use App\Models\CommissionPayment;
+use App\Models\CommissionRule;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\Setting;
@@ -110,8 +111,34 @@ class CommercialController extends Controller
         }
 
         $paginator = $commercialsQuery->orderBy('last_name')->paginate($perPage, ['*'], 'page', $page);
+        $this->flagRuleCommissions($paginator->getCollection());
 
         return response()->json($this->paginatorPayload($paginator));
+    }
+
+    /**
+     * Dès qu'une règle de commission active est attribuée au rôle du compte,
+     * elle remplace le taux de la fiche (cf. RoleCommissionService) : la liste
+     * l'indique au lieu d'afficher un taux par défaut qui ne s'applique plus.
+     */
+    private function flagRuleCommissions($commercials): void
+    {
+        $roleIds = DB::table('commission_rule_role')
+            ->join('commission_rules', 'commission_rules.rule_group_id', '=', 'commission_rule_role.rule_group_id')
+            ->whereIn('commission_rules.id', CommissionRule::query()
+                ->active()
+                ->where(fn ($q) => $q->whereNull('ends_on')->orWhere('ends_on', '>=', now()->toDateString()))
+                ->select('id'))
+            ->distinct()
+            ->pluck('commission_rule_role.role_id')
+            ->all();
+
+        $userRoles = User::whereIn('id', $commercials->pluck('user_id')->filter())->pluck('role_id', 'id');
+
+        $commercials->each(fn (Commercial $commercial) => $commercial->setAttribute(
+            'commission_by_rules',
+            $commercial->user_id !== null && in_array($userRoles[$commercial->user_id] ?? null, $roleIds, true),
+        ));
     }
 
     /**

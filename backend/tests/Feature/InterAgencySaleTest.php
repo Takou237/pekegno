@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -59,6 +60,14 @@ class InterAgencySaleTest extends TestCase
         Sanctum::actingAs($this->chief);
     }
 
+    /** Preuve de paiement obligatoire pour une vente d'un chef d'agence (PNG 1×1, sans GD). */
+    private function proof(): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent('preuve.png', base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+        ));
+    }
+
     public function test_chief_can_open_another_agency_for_a_sale(): void
     {
         $this->getJson('/api/agencies/'.$this->yaounde->id)->assertOk();
@@ -100,6 +109,7 @@ class InterAgencySaleTest extends TestCase
             'items' => [
                 ['product_id' => $this->yaoundeProduct->id, 'unit_price' => 7500, 'quantity' => 1],
             ],
+            'proof_file' => $this->proof(),
         ])->assertCreated();
 
         $invoice = Invoice::latest('created_at')->firstOrFail();
@@ -123,16 +133,38 @@ class InterAgencySaleTest extends TestCase
             'items' => [
                 ['product_id' => $this->yaoundeProduct->id, 'unit_price' => 7500, 'quantity' => 1],
             ],
+            'proof_file' => $this->proof(),
         ])->assertCreated()->json('id');
 
-        // … mais les listes de gestion restent limitées à son périmètre.
-        $invoices = collect($this->getJson('/api/invoices?per_page=100')->assertOk()->json('data'));
-        $this->assertFalse(
+        // … et retrouve cette vente dans ses factures / créances (comme un
+        // commercial) pour la modifier ou l'encaisser…
+        $invoices = collect($this->getJson('/api/invoices?per_page=100')->assertOk()->json('invoices.data'));
+        $this->assertTrue(
             $invoices->pluck('id')->contains($invoiceId),
-            'La facture d\'une agence hors périmètre ne doit pas apparaître dans la liste de gestion.'
+            'Le chef doit voir ses propres ventes faites pour une autre agence.'
         );
-        $this->getJson('/api/invoices/'.$invoiceId)->assertNotFound();
+        $this->getJson('/api/invoices/'.$invoiceId)->assertOk();
 
+        // … mais pas les ventes des autres vendeurs de cette agence.
+        $foreign = Invoice::create([
+            'number' => 'TST-FOREIGN',
+            'agency_id' => $this->yaounde->id,
+            'seller_user_id' => User::factory()->create()->id,
+            'invoice_date' => now(),
+            'client_name' => 'Client Yaounde',
+            'total_amount' => 10000,
+            'amount_paid' => 0,
+            'status' => 'unpaid',
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+        ]);
+        $invoices = collect($this->getJson('/api/invoices?per_page=100')->assertOk()->json('invoices.data'));
+        $this->assertFalse(
+            $invoices->pluck('id')->contains($foreign->id),
+            'La facture d\'un autre vendeur hors périmètre ne doit pas apparaître.'
+        );
+        $this->getJson('/api/invoices/'.$foreign->id)->assertNotFound();
+
+        // Les autres listes de gestion restent limitées à son périmètre.
         $products = collect($this->getJson('/api/products?per_page=100')->assertOk()->json('data'));
         $this->assertFalse(
             $products->pluck('id')->contains($this->yaoundeProduct->id),
@@ -148,5 +180,42 @@ class InterAgencySaleTest extends TestCase
         // Le sélecteur de vente, lui, doit rester complet (inter-agences).
         $saleAgencies = collect($this->getJson('/api/scope/agencies')->assertOk()->json('data'));
         $this->assertTrue($saleAgencies->pluck('id')->contains($this->yaounde->id));
+    }
+
+    public function test_my_sales_tab_lists_own_sales_across_agencies_only(): void
+    {
+        $client = User::factory()->create(['role_id' => Role::where('name', 'client')->value('id')]);
+        $ownForeignId = $this->postJson('/api/invoices', [
+            'agency_id' => $this->yaounde->id,
+            'client_id' => $client->id,
+            'payment_type' => 'cash',
+            'advance' => 7500,
+            'items' => [
+                ['product_id' => $this->yaoundeProduct->id, 'unit_price' => 7500, 'quantity' => 1],
+            ],
+            'proof_file' => $this->proof(),
+        ])->assertCreated()->json('id');
+
+        // Vente d'un autre vendeur dans l'agence du chef : visible dans l'onglet
+        // agence, pas dans « Mes ventes ».
+        $colleague = Invoice::create([
+            'number' => 'TST-DOUALA',
+            'agency_id' => $this->douala->id,
+            'seller_user_id' => User::factory()->create()->id,
+            'invoice_date' => now(),
+            'client_name' => 'Client Douala',
+            'total_amount' => 10000,
+            'amount_paid' => 0,
+            'status' => 'unpaid',
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+        ]);
+
+        $agencyTab = collect($this->getJson('/api/invoices?per_page=100&agency_id='.$this->douala->id)->assertOk()->json('invoices.data'))->pluck('id');
+        $this->assertTrue($agencyTab->contains($colleague->id));
+        $this->assertFalse($agencyTab->contains($ownForeignId), 'L\'onglet agence reste filtré sur l\'agence.');
+
+        $mineTab = collect($this->getJson('/api/invoices?per_page=100&mine=1')->assertOk()->json('invoices.data'))->pluck('id');
+        $this->assertTrue($mineTab->contains($ownForeignId), 'Mes ventes inclut la vente faite pour une autre agence.');
+        $this->assertFalse($mineTab->contains($colleague->id), 'Mes ventes exclut les ventes des collègues.');
     }
 }
