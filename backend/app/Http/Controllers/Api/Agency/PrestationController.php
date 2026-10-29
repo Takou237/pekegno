@@ -199,7 +199,7 @@ class PrestationController extends Controller
 
         $data = $request->validate([
             'amount_paid' => ['nullable', 'numeric', 'min:0'],
-            'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
+            'payment_type' => ['nullable', 'in:cash,om,momo,mobile,wave'],
             'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
             'proof' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
             'discount_type' => ['nullable', 'required_with:discount_value', 'in:amount,percent'],

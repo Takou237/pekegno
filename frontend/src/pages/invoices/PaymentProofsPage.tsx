@@ -136,6 +136,7 @@ export default function PaymentProofsPage() {
   function methodLabel(method: string): string {
     if (method === 'om') return t('invoices.paymentOm');
     if (method === 'momo') return t('invoices.paymentMomo');
+    if (method === 'wave') return t('invoices.paymentWave');
     if (method === 'mobile') return t('invoices.paymentMobile');
     if (method === 'cash') return t('invoices.paymentCash');
     return method;

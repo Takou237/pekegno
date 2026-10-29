@@ -284,6 +284,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/commercials/search', [CommercialController::class, 'search'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/ranking', [CommercialController::class, 'ranking'])->middleware('permission:commercials.consulter');
+    Route::get('/commercials/report/options', [CommercialReportController::class, 'options'])->middleware('permission:commercials.reporting');
     Route::get('/commercials/report', [CommercialReportController::class, 'report'])->middleware('permission:commercials.reporting');
     Route::get('/commercials/report/detail', [CommercialReportController::class, 'detail'])->middleware('permission:commercials.reporting');
     Route::get('/sales-tracking', [SalesTrackingController::class, 'index'])->middleware('permission:commercials.reporting');
@@ -296,7 +297,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::put('/commercials/{commercial}', [CommercialController::class, 'update'])->middleware('permission:commercials.modifier');
     Route::delete('/commercials/{commercial}', [CommercialController::class, 'destroy'])->middleware('permission:commercials.supprimer');
 
-    Route::get('/employees/search', [CommercialController::class, 'search'])->middleware('permission:employes.consulter');
+    Route::get('/employees/search', [CommercialController::class, 'search'])->middleware('permission:employes.consulter')->defaults('intent', 'autocomplete');
+    Route::get('/commercials/search', [CommercialController::class, 'search'])->middleware('permission:commercials.consulter')->defaults('intent', 'autocomplete');
     Route::get('/employees/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:employes.consulter');
     Route::get('/employees/ranking', [CommercialController::class, 'ranking'])->middleware('permission:employes.consulter');
     Route::get('/employees/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:employes.consulter');

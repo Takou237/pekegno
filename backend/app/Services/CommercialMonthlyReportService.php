@@ -55,7 +55,12 @@ class CommercialMonthlyReportService
 
         $invoices = Invoice::query()
             ->with(['items', 'client:id,first_name,last_name,email'])
-            ->where('commercial_id', $commercial->id)
+            ->where(function ($query) use ($commercial) {
+                $query->where('commercial_id', $commercial->id);
+                if ($commercial->user_id) {
+                    $query->orWhere('seller_user_id', $commercial->user_id);
+                }
+            })
             ->whereNull('cancelled_at')
             ->validated()
             ->whereBetween('invoice_date', [$from, $to])

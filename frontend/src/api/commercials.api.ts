@@ -35,7 +35,7 @@ export const commercialsApi = {
   },
 
   async search(q: string): Promise<Commercial[]> {
-    const { data } = await client.get<Commercial[]>('/commercials/search', { params: { q } });
+    const { data } = await client.get<Commercial[]>('/commercials/search', { params: { q, intent: 'autocomplete' } });
     return data;
   },
 

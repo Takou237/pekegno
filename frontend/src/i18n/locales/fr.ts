@@ -1471,6 +1471,7 @@ export default {
     paymentOm: 'Orange Money',
     paymentMomo: 'MTN Mobile Money',
     paymentMobile: 'Mobile',
+    paymentWave: 'Wave',
     paymentProofsTitle: 'Preuves de paiement',
     paymentProofsHint: 'Une preuve de paiement doit être examinée et acceptée avant la validation de la facture.',
     paymentProof: 'Preuve de paiement',

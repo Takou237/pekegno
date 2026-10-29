@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Printer, RefreshCw, BarChart3 } from 'lucide-react';
 import { reportsApi, type CommercialMonthlyResponse } from '@/api/reports.api';
-import { commercialsApi } from '@/api/commercials.api';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, formatNumber } from '@/utils/number';
 import { presetPeriod } from '@/utils/period';
@@ -34,17 +33,12 @@ export default function CommercialMonthlyReportPage() {
   const [error, setError] = useState('');
 
   const fetchOptions = useCallback(async (query: string): Promise<AutocompleteOption[]> => {
-    const results = await commercialsApi.search(query);
-    // Uniquement les commerciaux : la recherche renvoie aussi les formateurs
-    // vendeurs (is_trainer), qui n'ont pas de profil commercial — le rapport
-    // échouerait en 404 pour eux (« Aucun profil commercial trouvé »).
-    return results
-      .filter((c) => !c.is_trainer)
-      .map((c) => ({
-        id: c.id,
-        label: [c.first_name, c.last_name].filter(Boolean).join(' '),
-        subtitle: c.agency?.name ?? '',
-      }));
+    const results = await reportsApi.commercialOptions(query);
+    return results.map((user) => ({
+      id: user.user_id,
+      label: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || user.user_id,
+      subtitle: [user.role, user.agency?.name].filter(Boolean).join(' · '),
+    }));
   }, []);
 
   const load = useCallback(() => {

@@ -43,13 +43,38 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
   }, []);
 
   const fetchCommercialOptions = useCallback(async (query: string): Promise<AutocompleteOption[]> => {
-    const results = await (isEmployee ? employeesApi.search(query) : commercialsApi.search(query));
-    return results.map((c) => ({
-      id: c.id,
-      label: [c.first_name, c.last_name].filter(Boolean).join(' '),
-      subtitle: c.agency?.name ?? '',
-    }));
-  }, [isEmployee]);
+    // Toujours retourner tous les utilisateurs (commerciaux, employés, formateurs)
+    // indépendamment du mode commercial / employé.
+    const [commercialsRes, employeesRes] = await Promise.all([
+      commercialsApi.search(query),
+      employeesApi.search(query),
+    ]);
+    const results = [...commercialsRes, ...employeesRes] as Array<{
+      id: string;
+      user_id?: string | null;
+      first_name?: string | null;
+      last_name?: string | null;
+      email?: string | null;
+      kind?: string;
+      is_trainer?: boolean;
+      agency?: { name: string } | null;
+    }>;
+    const seen = new Set<string>();
+    const options: AutocompleteOption[] = [];
+    for (const c of results) {
+      const id = c.user_id ?? c.id;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const isTrainer = c.is_trainer === true || c.kind === 'formateur';
+      options.push({
+        id,
+        label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || c.id,
+        subtitle: c.agency?.name ?? (isTrainer ? t('academy.trainer') : ''),
+        isTrainer,
+      });
+    }
+    return options;
+  }, [t]);
 
   const params = useMemo(
     () => ({

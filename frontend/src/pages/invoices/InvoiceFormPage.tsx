@@ -143,7 +143,7 @@ export default function InvoiceFormPage({
 
   // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
   // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
-  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo';
+  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo' || paymentType === 'wave';
 
   useEffect(() => {
     if ((!isCommercial && !isResponsableAgence) || !currentUser?.id) return;
@@ -601,6 +601,7 @@ export default function InvoiceFormPage({
                 <option value="cash">{t('invoices.paymentCash')}</option>
                 <option value="om">{t('invoices.paymentOm')}</option>
                 <option value="momo">{t('invoices.paymentMomo')}</option>
+                <option value="wave">{t('invoices.paymentWave')}</option>
               </Select>
               {requiresPayerPhone && (
                 <Input

@@ -797,6 +797,7 @@ export default function FormationEnrollmentPage() {
                 <option value="cash">{t('invoices.paymentCash')}</option>
                 <option value="om">{t('invoices.paymentOm')}</option>
                 <option value="momo">{t('invoices.paymentMomo')}</option>
+                <option value="wave">{t('invoices.paymentWave')}</option>
               </select>
               {fieldErrors.payment_type && (
                 <p className="mt-1 text-xs text-red-500">{fieldErrors.payment_type}</p>

@@ -49,7 +49,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
   const [start, setStart] = useState(todayLocal());
   const [periods, setPeriods] = useState('1');
   const [advance, setAdvance] = useState('');
-  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo'>('cash');
+  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'wave'>('cash');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [autoRenew, setAutoRenew] = useState(false);
@@ -234,6 +234,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
             <option value="cash">Cash</option>
             <option value="om">Orange Money</option>
             <option value="momo">MTN MoMo</option>
+            <option value="wave">Wave</option>
           </Select>
         </div>
 

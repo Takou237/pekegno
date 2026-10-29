@@ -912,20 +912,42 @@ class CommercialController extends Controller
     public function search(Request $request): JsonResponse
     {
         $q = trim((string) $request->query('q'));
+        $intent = $request->input('intent', 'default');
 
-        $commercials = $this->scopeByRole(Commercial::query(), $request->user())
-            ->kind($request->input('kind', $this->defaultKind($request)))
-            ->when($request->agency_id, fn ($query, $agencyId) => $query->where('agency_id', $agencyId))
-            ->where(fn ($query) => $query->where('first_name', 'like', "%{$q}%")
-                ->orWhere('last_name', 'like', "%{$q}%")
-                ->orWhere('email', 'like', "%{$q}%"))
-            ->limit(10)
-            ->get(['id', 'user_id', 'first_name', 'last_name', 'email', 'agency_id'])
-            ->map(fn (Commercial $commercial) => $commercial->toArray());
+        // L'autocomplete du rapport mensuel ne filtre pas par rôle : il doit
+        // proposer TOUS les utilisateurs (commerciaux, employés, formateurs),
+        // quel que soit le compte connecté. Pour les autres appels (par exemple
+        // la recherche d'employés classique), le filtrage par rôle est conservé.
+        if ($intent === 'autocomplete') {
+            $commercials = Commercial::query()
+                ->kind($request->input('kind', $this->defaultKind($request)))
+                ->when($request->agency_id, fn ($query, $agencyId) => $query->where('agency_id', $agencyId))
+                ->where(fn ($query) => $query->where('first_name', 'like', "%{$q}%")
+                    ->orWhere('last_name', 'like', "%{$q}%")
+                    ->orWhere('email', 'like', "%{$q}%"))
+                ->limit(10)
+                ->get(['id', 'user_id', 'first_name', 'last_name', 'email', 'agency_id'])
+                ->map(fn (Commercial $commercial) => $commercial->toArray());
+        } else {
+            $commercials = $this->scopeByRole(Commercial::query(), $request->user())
+                ->kind($request->input('kind', $this->defaultKind($request)))
+                ->when($request->agency_id, fn ($query, $agencyId) => $query->where('agency_id', $agencyId))
+                ->where(fn ($query) => $query->where('first_name', 'like', "%{$q}%")
+                    ->orWhere('last_name', 'like', "%{$q}%")
+                    ->orWhere('email', 'like', "%{$q}%"))
+                ->limit(10)
+                ->get(['id', 'user_id', 'first_name', 'last_name', 'email', 'agency_id'])
+                ->map(fn (Commercial $commercial) => $commercial->toArray());
+        }
 
         // Les formateurs de l'agence (avec compte utilisateur) figurent aussi dans
         // l'autocomplete « vendeur » : ce sont des employés qui peuvent vendre.
         $formateurRoleId = DB::table('roles')->where('name', 'formateur')->value('id');
+
+        // Pour l'autocomplete du rapport mensuel, on ne filtre pas le périmètre
+        // d'agence des formateurs : il doit pouvoir les sélectionner depuis n'importe
+        // quelle agence, même si le compte connecté n'y est pas rattaché.
+        $trainerAgencyScope = ($intent === 'autocomplete') ? null : $this->trainerAgencyScope($request);
 
         $trainersQuery = Trainer::query()
             ->whereNotNull('user_id')
@@ -935,10 +957,8 @@ class CommercialController extends Controller
                 fn ($query) => $query->whereHas('user', fn ($uq) => $uq->where('role_id', $formateurRoleId))
             );
 
-        $agencyScope = $this->trainerAgencyScope($request);
-
-        if ($agencyScope !== null) {
-            $trainersQuery->whereIn('agency_id', $agencyScope);
+        if ($trainerAgencyScope !== null) {
+            $trainersQuery->whereIn('agency_id', $trainerAgencyScope);
         }
 
         $trainers = $trainersQuery

@@ -1459,6 +1459,7 @@ export default {
     paymentOm: 'Orange Money',
     paymentMomo: 'MTN Mobile Money',
     paymentMobile: 'Mobile',
+    paymentWave: 'Wave',
     paymentProofsTitle: 'Payment proofs',
     paymentProofsHint: 'A payment proof must be reviewed and accepted before the invoice can be validated.',
     paymentProof: 'Payment proof',

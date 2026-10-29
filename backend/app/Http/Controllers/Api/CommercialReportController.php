@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Commercial;
+use App\Models\User;
 use App\Services\CommercialMonthlyReportService;
 use App\Services\CommercialReportService;
 use App\Support\Period;
@@ -19,6 +20,53 @@ class CommercialReportController extends Controller
         private readonly CommercialReportService $reportService,
         private readonly CommercialMonthlyReportService $monthlyService,
     ) {}
+
+    /**
+     * Options de vendeurs du rapport mensuel : tous les comptes staff, même
+     * ceux qui n'ont pas encore de fiche commercial/employé.
+     */
+    public function options(Request $request): JsonResponse
+    {
+        $allowedAgencyIds = $this->allowedAgencyIds($request);
+
+        $users = User::query()
+            ->with(['role:id,name', 'commercialProfile.agency:id,name', 'assignments:id,name'])
+            ->whereHas('role', fn ($query) => $query->where('name', '!=', 'client'))
+            ->when($allowedAgencyIds !== null, function ($query) use ($allowedAgencyIds) {
+                $query->where(function ($scope) use ($allowedAgencyIds) {
+                    $scope->whereHas('assignments', fn ($agency) => $agency->whereIn('agencies.id', $allowedAgencyIds))
+                        ->orWhereHas('commercialProfile', fn ($profile) => $profile->whereIn('agency_id', $allowedAgencyIds));
+                });
+            })
+            ->when($request->filled('q'), function ($query) use ($request) {
+                $search = trim((string) $request->query('q'));
+                $query->where(fn ($matches) => $matches
+                    ->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('username', 'like', "%{$search}%"));
+            })
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get()
+            ->map(function (User $user) {
+                $agency = $user->commercialProfile?->agency ?? $user->assignments->first();
+
+                return [
+                    'id' => $user->id,
+                    'user_id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'kind' => $user->role?->name === 'commercial' ? 'commercial' : 'employe',
+                    'role' => $user->role?->name,
+                    'agency' => $agency ? ['name' => $agency->name] : null,
+                ];
+            })
+            ->values();
+
+        return response()->json($users);
+    }
 
     #[OA\Get(
         path: '/api/commercials/report',
@@ -89,7 +137,24 @@ class CommercialReportController extends Controller
             if (! $commercialId) {
                 return response()->json(['message' => 'Le commercial est requis.'], 422);
             }
-            $commercial = Commercial::with('agency:id,name')->find($commercialId);
+            $commercial = Commercial::with('agency:id,name')->where('user_id', $commercialId)->first()
+                ?? Commercial::with('agency:id,name')->find($commercialId);
+
+            if (! $commercial) {
+                $selectedUser = User::with(['role', 'assignments'])->find($commercialId);
+                if ($selectedUser && $selectedUser->role?->name !== 'client') {
+                    $agency = $selectedUser->assignments->first();
+                    $commercial = new Commercial([
+                        'user_id' => $selectedUser->id,
+                        'agency_id' => $agency?->id,
+                        'first_name' => $selectedUser->first_name,
+                        'last_name' => $selectedUser->last_name,
+                        'email' => $selectedUser->email,
+                    ]);
+                    $commercial->id = $selectedUser->id;
+                    $commercial->setRelation('agency', $agency);
+                }
+            }
         }
 
         if (! $commercial) {

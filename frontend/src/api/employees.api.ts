@@ -32,7 +32,7 @@ export const employeesApi = {
   },
 
   async search(q: string): Promise<Commercial[]> {
-    const { data } = await client.get<Commercial[]>('/employees/search', { params: { q } });
+    const { data } = await client.get<Commercial[]>('/employees/search', { params: { q, intent: 'autocomplete' } });
     return data;
   },
 

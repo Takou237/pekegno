@@ -354,6 +354,15 @@ export default function FormationEnrollmentModal({
       // au profil de l'utilisateur connecté.
       const sellerUserId = isSellerUser && currentUser?.id ? currentUser.id : form.seller_user_id || undefined;
 
+      // Le champ learner_user_id est OBLIGATOIRE côté backend. Si la valeur n'est
+      // pas définie (ex. l'autocomplete n'a pas rempli le champs), on bloque la
+      // soumission avec un message clair au lieu d'envoyer des données vides.
+      if (!learnerUserId) {
+        setFormError(t('academy.learnerRequired'));
+        setIsSubmitting(false);
+        return;
+      }
+
       const payload: FormationEnrollmentPayload = {
         course_id: form.course_id,
         learner_user_id: learnerUserId,
@@ -574,6 +583,7 @@ export default function FormationEnrollmentModal({
               <option value="cash">{t('invoices.paymentCash')}</option>
               <option value="om">{t('invoices.paymentOm')}</option>
               <option value="momo">{t('invoices.paymentMomo')}</option>
+              <option value="wave">{t('invoices.paymentWave')}</option>
             </select>
             {fieldErrors.payment_type && (
               <p className="mt-1 text-xs text-red-500">{fieldErrors.payment_type}</p>

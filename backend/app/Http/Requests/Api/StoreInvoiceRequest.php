@@ -20,8 +20,8 @@ class StoreInvoiceRequest extends FormRequest
             'commercial_id' => ['nullable', 'uuid', \App\Services\CommercialProfileService::commercialOrUserRule()],
             'seller_user_id' => ['nullable', 'uuid', 'exists:users,id'],
             'invoice_date' => ['nullable', 'date'],
-            'payment_type' => ['nullable', 'in:cash,om,momo,mobile'],
-            'payer_phone' => ['nullable', 'required_if:payment_type,om,momo', 'string', 'max:50'],
+            'payment_type' => ['nullable', 'in:cash,om,momo,mobile,wave'],
+            'payer_phone' => ['nullable', 'required_if:payment_type,om,momo,wave', 'string', 'max:50'],
             'comment' => ['nullable', 'string', 'max:1000'],
             'advance' => ['nullable', 'numeric', 'min:0.01'],
             'discount' => ['nullable', 'numeric', 'min:0'],
@@ -46,7 +46,7 @@ class StoreInvoiceRequest extends FormRequest
             'items.*.label.required_without' => 'Chaque ligne doit avoir un libellé ou un service.',
             'items.*.quantity.min' => 'La quantité doit être d\'au moins 1.',
             'items.*.pass_tier.in' => 'Le pass doit être classique, premium ou vip.',
-            'payer_phone.required_if' => 'Le numéro ayant payé est obligatoire pour un règlement Orange Money ou MoMo.',
+            'payer_phone.required_if' => 'Le numéro ayant payé est obligatoire pour un règlement Orange Money, MoMo ou Wave.',
             'advance.min' => "L'avance doit être supérieure à 0 FCFA.",
         ];
     }

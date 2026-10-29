@@ -72,7 +72,7 @@ export function PrestationFormModal({
   // montant encaissé et la preuve de paiement (comme vente / inscription).
   const needsPaymentProof = !prestation && user?.role?.name === 'responsable-agence';
   const [amountPaid, setAmountPaid] = useState('');
-  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'mobile'>('cash');
+  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'mobile' | 'wave'>('cash');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
 
@@ -375,6 +375,7 @@ export function PrestationFormModal({
               <option value="om">Orange Money</option>
               <option value="momo">MTN MoMo</option>
               <option value="mobile">Mobile</option>
+              <option value="wave">Wave</option>
             </Select>
             <div className="flex flex-col gap-2 sm:col-span-2">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">

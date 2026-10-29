@@ -114,7 +114,7 @@ export interface SubscribePayload {
   periods: number;
   auto_renew?: boolean;
   advance?: number;
-  payment_type?: 'cash' | 'om' | 'momo' | 'mobile';
+  payment_type?: 'cash' | 'om' | 'momo' | 'mobile' | 'wave';
   /** Preuve de paiement (photo) : envoyée en multipart, examinée par le caissier. */
   proof_file?: File;
   /** Remise appliquée à la souscription (montant fixe ou pourcentage). */

@@ -4,7 +4,7 @@ import type { CommissionPayment } from './commercial';
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
 export type InvoiceValidationStatus = 'pending' | 'validated' | 'rejected';
 export type InvoiceSource = 'in_person' | 'commercial_online' | 'client_self';
-export type PaymentMethod = 'cash' | 'om' | 'momo' | 'mobile';
+export type PaymentMethod = 'cash' | 'om' | 'momo' | 'mobile' | 'wave';
 
 export interface AgencySnapshot {
   name: string;

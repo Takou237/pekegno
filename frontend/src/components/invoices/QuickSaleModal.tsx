@@ -98,7 +98,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
 
   // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
   // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
-  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo';
+  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo' || paymentType === 'wave';
 
   // Les formations se vendent par une inscription (module Academy), pas par
   // une vente de guichet : la liste propose les services ET les produits du
@@ -605,6 +605,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
               <option value="cash">{t('invoices.paymentCash')}</option>
               <option value="om">{t('invoices.paymentOm')}</option>
               <option value="momo">{t('invoices.paymentMomo')}</option>
+              <option value="wave">{t('invoices.paymentWave')}</option>
             </Select>
           </div>
           {requiresPayerPhone && (

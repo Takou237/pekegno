@@ -9,6 +9,7 @@ const METHOD_LABELS: Record<PaymentMethod, string> = {
   om: 'Orange Money',
   momo: 'MTN Mobile Money',
   mobile: 'Mobile Money',
+  wave: 'Wave',
 };
 
 /**

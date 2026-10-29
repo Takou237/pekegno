@@ -44,6 +44,17 @@ export interface CommercialReportResponse {
   ranking: CommercialReportRankingEntry[];
 }
 
+export interface CommercialReportOption {
+  id: string;
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  kind: string;
+  role: string | null;
+  agency: { name: string } | null;
+}
+
 export interface ReportDateParams {
   from?: string;
   to?: string;
@@ -210,6 +221,11 @@ export interface SalesTrackingParams {
 }
 
 export const reportsApi = {
+  async commercialOptions(q = ''): Promise<CommercialReportOption[]> {
+    const { data } = await client.get<CommercialReportOption[]>('/commercials/report/options', { params: { q } });
+    return data;
+  },
+
   async commercialReport(params: CommercialReportParams = {}): Promise<CommercialReportResponse> {
     const { data } = await client.get<CommercialReportResponse>('/commercials/report', { params });
     return data;

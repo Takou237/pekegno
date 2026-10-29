@@ -75,7 +75,7 @@ class FormationEnrollmentController extends Controller
             'training_session_id' => 'nullable|exists:training_sessions,id',
             'amount_paid' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
-            'payment_type' => 'nullable|string|in:cash,om,momo,mobile',
+            'payment_type' => 'nullable|string|in:cash,om,momo,mobile,wave',
             'discount_type' => 'nullable|required_with:discount_value|in:amount,percent',
             'discount_value' => 'nullable|required_with:discount_type|numeric|min:0',
             'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],

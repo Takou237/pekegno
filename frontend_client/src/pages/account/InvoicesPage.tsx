@@ -189,6 +189,7 @@ export default function InvoicesPage() {
             <Select label={t('checkout.paymentMethod')} value={method} onChange={(e) => setMethod(e.target.value)}>
               <option value="orange_money">Orange Money</option>
               <option value="mtn_momo">MTN MoMo</option>
+              <option value="wave">Wave</option>
             </Select>
 
             <Input label={t('checkout.phoneNumber')} type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />

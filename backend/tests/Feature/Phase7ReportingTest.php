@@ -139,6 +139,38 @@ class Phase7ReportingTest extends TestCase
         $this->assertEquals(10000, $countryLevel['kpis']['revenue']);
     }
 
+    public function test_monthly_report_options_include_all_staff_accounts_without_a_limit(): void
+    {
+        $this->actingAsAdmin();
+
+        $commercialRoleId = Role::where('name', 'commercial')->value('id');
+        for ($i = 0; $i < 12; $i++) {
+            $user = User::factory()->create(['role_id' => $commercialRoleId]);
+            Commercial::factory()->create(['user_id' => $user->id]);
+        }
+
+        $cashier = User::factory()->create([
+            'role_id' => Role::where('name', 'caissier')->value('id'),
+            'username' => 'monthly-cashier',
+        ]);
+
+        $options = $this->getJson('/api/commercials/report/options')->assertOk()->json();
+
+        $this->assertCount(14, $options, 'Les 12 commerciaux liés, le caissier sans profil et le super-admin doivent être proposés.');
+        $cashierOption = collect($options)->firstWhere('user_id', $cashier->id);
+        $this->assertNotNull($cashierOption);
+        $this->assertSame($cashier->id, $cashierOption['id']);
+
+        $this->getJson('/api/commercials/report/options?q=monthly-cashier')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.user_id', $cashier->id);
+
+        $this->getJson('/api/commercials/report/detail?commercial_id='.$cashier->id)
+            ->assertOk()
+            ->assertJsonPath('commercial.id', $cashier->id);
+    }
+
     public function test_report_aggregates_sales_payments_and_commissions(): void
     {
         $this->actingAsAdmin();
