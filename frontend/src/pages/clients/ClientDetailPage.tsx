@@ -22,10 +22,9 @@ import { useAgencyDept } from '@/hooks/useAgencyDept';
 import { ClientAgencyTab } from '@/components/agencyDept/ClientAgencyTab';
 
 export default function ClientDetailPage() {
-  const { id, countryId } = useParams<{ id: string; countryId?: string }>();
+  const { id } = useParams<{ id: string }>();
   const { t } = useTranslation();
 
-  const backToClients = countryId ? `/countries/${countryId}/clients` : '/clients';
 
   const [client, setClient] = useState<ClientListItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -110,7 +109,8 @@ export default function ClientDetailPage() {
     return (
       <div className="flex flex-col gap-4">
         <Link
-          to={backToClients}
+          to=".."
+          relative="path"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -125,7 +125,8 @@ export default function ClientDetailPage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          to={backToClients}
+          to=".."
+          relative="path"
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />

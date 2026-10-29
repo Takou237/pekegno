@@ -29,6 +29,15 @@ class CommercialReportController extends Controller
     {
         $allowedAgencyIds = $this->allowedAgencyIds($request);
 
+        // Rapport ouvert depuis l'espace d'une agence : vendeurs de cette agence
+        // uniquement (toujours dans le périmètre autorisé).
+        if ($request->filled('agency_id')) {
+            $agencyId = (string) $request->query('agency_id');
+            $allowedAgencyIds = $allowedAgencyIds === null || in_array($agencyId, $allowedAgencyIds, true)
+                ? [$agencyId]
+                : [];
+        }
+
         $users = User::query()
             ->with(['role:id,name', 'commercialProfile.agency:id,name', 'assignments:id,name'])
             ->whereHas('role', fn ($query) => $query->where('name', '!=', 'client'))

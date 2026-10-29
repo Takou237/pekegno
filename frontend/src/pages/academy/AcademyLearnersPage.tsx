@@ -180,7 +180,9 @@ export default function AcademyLearnersPage() {
     setEnrollmentSessions([]);
     let active = true;
     academyApi
-      .sessions({ agency_id: agencyId, course_id: enrollmentForm.course_id, per_page: 100 })
+      // Pas de filtre agency_id : les sessions d'une formation globale peuvent
+      // appartenir à une autre agence.
+      .sessions({ course_id: enrollmentForm.course_id, per_page: 100 })
       .then((res) => {
         if (active) {
           setEnrollmentSessions(

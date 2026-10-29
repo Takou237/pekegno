@@ -387,6 +387,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType, roleNam
       return [
         { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
         { to: 'prospects', label: t('nav.prospects'), icon: Users, end: false },
+        { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
         { to: 'learners', label: t('nav.learners'), icon: UserCheck, end: false },
         { to: 'products', label: t('nav.services'), icon: Package, end: false },
         { to: 'courses', label: t('nav.courses'), icon: BookOpen, end: false },
@@ -433,6 +434,7 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType, roleNam
     case 'store':
       return [
         { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+        { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
         { to: 'catalog', label: t('nav.catalog'), icon: Tags, end: false },
         { to: 'stocks', label: t('nav.stocks'), icon: Warehouse, end: false },
         { to: 'suppliers', label: t('nav.suppliers'), icon: UserCheck, end: false },

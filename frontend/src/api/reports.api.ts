@@ -221,8 +221,10 @@ export interface SalesTrackingParams {
 }
 
 export const reportsApi = {
-  async commercialOptions(q = ''): Promise<CommercialReportOption[]> {
-    const { data } = await client.get<CommercialReportOption[]>('/commercials/report/options', { params: { q } });
+  async commercialOptions(q = '', agencyId?: string): Promise<CommercialReportOption[]> {
+    const { data } = await client.get<CommercialReportOption[]>('/commercials/report/options', {
+      params: { q, agency_id: agencyId },
+    });
     return data;
   },
 

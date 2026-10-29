@@ -114,7 +114,9 @@ export function DepartmentLayout() {
           </div>
 
           {!isLoading && !loadError && department && subItems.length > 0 && (
-            <SubNav items={subItems} linkClass={navLinkClass} />
+            <div className="hidden lg:block">
+              <SubNav items={subItems} linkClass={navLinkClass} />
+            </div>
           )}
         </div>
 
@@ -127,11 +129,14 @@ export function DepartmentLayout() {
         </div>
       </main>
 
+      {/* En responsive, le menu de l'espace passe dans le tiroir (☰) à la
+          place du menu principal ; la barre d'onglets en ligne est masquée. */}
       <MobileNav
         isOpen={mobileOpen}
         onClose={closeMobileNav}
         contextTitle={department?.name}
         contextItems={subItems}
+        contextOnly
       />
     </div>
   );

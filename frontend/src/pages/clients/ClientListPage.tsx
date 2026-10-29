@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Search, Pencil, Eye, Trash2, UserPlus, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { clientsApi } from '@/api/clients.api';
@@ -56,7 +56,6 @@ export default function ClientListPage() {
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const { countryId } = useParams<{ countryId?: string }>();
 
   const [clients, setClients] = useState<ClientListItem[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -305,11 +304,7 @@ export default function ClientListPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                countryId
-                                  ? `/countries/${countryId}/clients/${c.id}`
-                                  : `/clients/${c.id}`,
-                              )
+                              navigate(c.id)
                             }
                             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
                             title={t('clients.detail')}

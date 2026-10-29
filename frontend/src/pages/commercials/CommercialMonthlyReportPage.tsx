@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Printer, RefreshCw, BarChart3 } from 'lucide-react';
 import { reportsApi, type CommercialMonthlyResponse } from '@/api/reports.api';
@@ -22,6 +23,8 @@ export default function CommercialMonthlyReportPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isCommercial = user?.role?.name === 'commercial';
+  // Ouvert depuis l'espace d'une agence : vendeurs limités à cette agence.
+  const { agencyId } = useParams<{ agencyId?: string }>();
 
   const initialPeriod = useMemo(() => presetPeriod('thisMonth'), []);
   const [from, setFrom] = useState(initialPeriod.from);
@@ -33,13 +36,13 @@ export default function CommercialMonthlyReportPage() {
   const [error, setError] = useState('');
 
   const fetchOptions = useCallback(async (query: string): Promise<AutocompleteOption[]> => {
-    const results = await reportsApi.commercialOptions(query);
+    const results = await reportsApi.commercialOptions(query, agencyId);
     return results.map((user) => ({
       id: user.user_id,
       label: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || user.user_id,
       subtitle: [user.role, user.agency?.name].filter(Boolean).join(' · '),
     }));
-  }, []);
+  }, [agencyId]);
 
   const load = useCallback(() => {
     if (!isCommercial && !commercialFilter) {

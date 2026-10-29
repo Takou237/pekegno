@@ -193,7 +193,9 @@ export default function CourseDetailPage() {
     try {
       const [courseData, sessionsData, modulesData, learnersData, observationsData] = await Promise.all([
         academyApi.getCourse(courseId),
-        academyApi.sessions({ course_id: courseId, agency_id: agencyId, per_page: 100 }),
+        // Pas de filtre agency_id : une formation globale peut avoir ses sessions
+        // dans une autre agence (même logique que la modale d'inscription).
+        academyApi.sessions({ course_id: courseId, per_page: 100 }),
         academyApi.modules(courseId),
         academyApi.courseLearners(courseId),
         academyApi.learnerObservations({ course_id: courseId, per_page: 50 }),
@@ -438,7 +440,7 @@ export default function CourseDetailPage() {
       };
       const saved = await academyApi.createFormationEnrollment(payload);
       setLearners((prev) => [saved, ...prev]);
-      const sessionsData = await academyApi.sessions({ course_id: courseId, agency_id: agencyId, per_page: 100 });
+      const sessionsData = await academyApi.sessions({ course_id: courseId, per_page: 100 });
       setSessions(sessionsData.data);
       setSessionLearnersMap((prev) => {
         const next = { ...prev };

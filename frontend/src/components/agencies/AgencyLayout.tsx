@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   DollarSign,
   ArrowLeft,
+  Contact,
 } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -42,6 +43,7 @@ function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType: A
     { to: '', label: t('nav.overview'), icon: LayoutDashboard, end: true },
     { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
     { to: 'services', label: t('nav.services'), icon: Package, end: false },
+    { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
     { to: 'academy', label: t('nav.statAca'), icon: GraduationCap, end: false },
     ...(agencyType === 'academy' || agencyType === 'mixed'
       ? [
@@ -50,6 +52,7 @@ function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType: A
         ]
       : []),
     { to: 'commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
+    { to: 'monthly-report', label: t('nav.monthlyReport'), icon: BarChart3, end: false },
     { to: 'employees', label: t('nav.employees'), icon: UserCheck, end: false },
     { to: 'invoices', label: t('nav.invoices'), icon: FileText, end: false },
     ...(canValidateInvoices(roleName)
@@ -159,7 +162,9 @@ export function AgencyLayout() {
           </div>
 
           {!isLoading && !loadError && agency && (
-            <SubNav items={subItems} linkClass={subLinkClass} />
+            <div className="hidden lg:block">
+              <SubNav items={subItems} linkClass={subLinkClass} />
+            </div>
           )}
         </div>
 
@@ -172,11 +177,14 @@ export function AgencyLayout() {
         </div>
       </main>
 
+      {/* En responsive, le menu de l'espace passe dans le tiroir (☰) à la
+          place du menu principal ; la barre d'onglets en ligne est masquée. */}
       <MobileNav
         isOpen={mobileOpen}
         onClose={closeMobileNav}
         contextTitle={agency?.name}
         contextItems={subItems}
+        contextOnly
       />
     </div>
   );
