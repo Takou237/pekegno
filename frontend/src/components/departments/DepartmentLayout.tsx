@@ -1,6 +1,6 @@
 import { ArrowLeft } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation, useNavigate, useParams, useResolvedPath } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AxiosError } from 'axios';
 import { departmentsApi } from '@/api/departments.api';
@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
+import { rememberSpaceNav } from '@/components/layout/spaceNavMemory';
 import { DepartmentSwitcher } from '@/components/departments/DepartmentSwitcher';
 import { getDepartmentItems, navLinkClass } from '@/components/layout/navItems';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,6 +58,14 @@ export function DepartmentLayout() {
     () => (department?.type ? getDepartmentItems(t, department.type, user?.role?.name) : []),
     [department?.type, user?.role?.name, t],
   );
+  const basePath = useResolvedPath('').pathname;
+
+  // Le tiroir mobile des pages Profil / Paramètres reprend ce menu.
+  useEffect(() => {
+    if (user?.id && department && subItems.length > 0) {
+      rememberSpaceNav(user.id, basePath, department.name, subItems);
+    }
+  }, [user?.id, department, subItems, basePath]);
 
   const space = homeSpace(user);
   // Chef de département : uniquement son département ; chef d'agence : les

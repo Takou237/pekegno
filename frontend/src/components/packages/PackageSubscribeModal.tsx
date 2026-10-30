@@ -196,9 +196,9 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
 
         {/* C2 : commercial forcé sur lui-même (affiché par son nom) ; caissier choisit. */}
         {isCommercial ? (
-          <Input label={t('agencyDept.commercial')} value={commercialName || commercialId} disabled readOnly />
+          <Input label={t('invoices.seller')} value={commercialName || commercialId} disabled readOnly />
         ) : (
-          <CommercialPicker value={commercialId} onChange={setCommercialId} />
+          <CommercialPicker label={t('invoices.seller')} value={commercialId} onChange={setCommercialId} />
         )}
 
         <div className="grid gap-3 sm:grid-cols-2">

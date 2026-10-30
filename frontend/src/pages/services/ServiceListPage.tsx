@@ -178,7 +178,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [enrollCourse, setEnrollCourse] = useState<Course | null>(null);
 
-  const canSubscribe = canSubscribePackage(user) && !agencyId;
+  const canSubscribe = canSubscribePackage(user);
 
   // Clic sur une prestation du catalogue : le caissier / commercial souscrit
   // directement un client (formulaire) au lieu d'ouvrir la page département.

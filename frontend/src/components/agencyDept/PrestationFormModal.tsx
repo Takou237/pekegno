@@ -329,7 +329,7 @@ export function PrestationFormModal({
               />
             </div>
           )}
-          <CommercialPicker value={form.commercial_id} onChange={(id) => setForm({ ...form, commercial_id: id })} />
+          <CommercialPicker label={t('invoices.seller')} value={form.commercial_id} onChange={(id) => setForm({ ...form, commercial_id: id })} />
           <Input label={t('agencyDept.startDate')} type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
           <Input label={t('agencyDept.endDate')} type="date" required value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
           <Input

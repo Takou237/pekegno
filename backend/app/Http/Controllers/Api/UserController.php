@@ -244,6 +244,10 @@ class UserController extends Controller
                 $q->whereHas('role', fn ($rq) => $rq->where('name', $roleName));
             })
             ->when($request->role_id, fn ($q, $roleId) => $q->where('role_id', $roleId))
+            // Rôles à écarter (ex. super-admin dans le sélecteur de vendeur).
+            ->when($request->exclude_role, function ($q, $roles) {
+                $q->whereHas('role', fn ($rq) => $rq->whereNotIn('name', explode(',', (string) $roles)));
+            })
             ->when($request->agency_id, function ($q, $agencyId) {
                 $q->whereHas('assignments', fn ($q) => $q->where('agency_id', $agencyId));
             })

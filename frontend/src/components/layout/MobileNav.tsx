@@ -188,21 +188,21 @@ export function MobileNav({ isOpen, onClose, contextTitle, contextItems = [], co
                 </NavLink>
               ))}
             </nav>
-            <nav className="border-t border-gray-100 pt-4 dark:border-gray-800">
-              {roleName === 'commercial' ? (
-                <NavLink to="/profile/settings" end={false} className={navLinkClass}>
-                  <Settings className="h-5 w-5" />
-                  {t('nav.settings')}
-                </NavLink>
-              ) : (
-                <NavLink to="/profile" end={false} className={navLinkClass}>
-                  <UserRound className="h-5 w-5" />
-                  {t('nav.myProfile')}
-                </NavLink>
-              )}
-            </nav>
           </>
         )}
+        <nav className="border-t border-gray-100 pt-4 dark:border-gray-800">
+          {roleName === 'commercial' ? (
+            <NavLink to="/profile/settings" end={false} className={navLinkClass}>
+              <Settings className="h-5 w-5" />
+              {t('nav.settings')}
+            </NavLink>
+          ) : (
+            <NavLink to="/profile" end={false} className={navLinkClass}>
+              <UserRound className="h-5 w-5" />
+              {t('nav.myProfile')}
+            </NavLink>
+          )}
+        </nav>
       </div>
     </div>
   );

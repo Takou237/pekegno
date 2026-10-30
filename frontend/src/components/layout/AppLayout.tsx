@@ -5,6 +5,7 @@ import { homeSpace, isGroupLevelPath } from '@/utils/userScope';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { ContextBar } from './ContextBar';
+import { getSpaceNav } from './spaceNavMemory';
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -19,6 +20,10 @@ export function AppLayout() {
     return <Navigate to={space.path} replace />;
   }
 
+  // Profil / Paramètres ouverts depuis un espace agence ou département : le
+  // tiroir mobile garde le menu de cet espace au lieu du menu principal.
+  const spaceNav = pathname.startsWith('/profile') ? getSpaceNav(user?.id) : null;
+
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-950">
       <Sidebar />
@@ -29,7 +34,13 @@ export function AppLayout() {
         </main>
       </div>
 
-      <MobileNav isOpen={mobileOpen} onClose={closeMobileNav} />
+      <MobileNav
+        isOpen={mobileOpen}
+        onClose={closeMobileNav}
+        contextTitle={spaceNav?.title}
+        contextItems={spaceNav?.items}
+        contextOnly={Boolean(spaceNav)}
+      />
     </div>
   );
 }

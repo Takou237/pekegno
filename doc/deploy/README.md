@@ -115,7 +115,14 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 | Script | Contenu |
 |---|---|
 | `29_10/frontend-dist.zip` | build admin du 29/10 : « Mes ventes » des chefs, libellé règles de commission, fiches employé/formateur synchronisées, utilisateurs par pays (aucune migration SQL) — **remplacé par `29_10(2)`** |
-| `29_10(2)/frontend-dist.zip` | build admin du 29/10 (2) : paiement Wave, rapports vendeurs, menus responsive agence/département, Clients + Rapport mensuel dans l'agence, sessions des formations globales (aucune migration SQL, aucune permission, aucun rebuild `vendor/` ; 1 nouvelle route → vider le cache de routes) |
+| `29_10(2)/frontend-dist.zip` | build admin du 29/10 (2) : paiement Wave, rapports vendeurs, menus responsive agence/département, Clients + Rapport mensuel dans l'agence, sessions des formations globales (aucune migration SQL, aucune permission, aucun rebuild `vendor/` ; 1 nouvelle route → vider le cache de routes) — **remplacé par `30_10`** |
+
+⏳ **À appliquer avec le déploiement du 30/10/2026** (voir
+`30_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `30_10/frontend-dist.zip` | build admin du 30/10 : souscription package inter-agences (fin de « Agence hors de votre périmètre »), bouton « Souscrire un client » sur les Produits d'une agence, champ « Vendeur » (tous les utilisateurs sauf super-admin) dans souscriptions et inscriptions, menus responsive pays + Profil/Paramètres (aucune migration SQL, aucune permission, aucun rebuild `vendor/` ; 2 contrôleurs PHP modifiés → vider l'OPcache) |
 
 🆕 **Remise à neuf (optionnel, irréversible)** : `reset-prod-fresh-2026-10-16.sql`
 vide toute la base métier (factures, clients, prospects, agences, pays,

@@ -371,7 +371,9 @@ class PackageController extends Controller
             ]);
         }
 
-        abort_unless($this->access->canAccessAgency($request->user(), $package->agency_id), 403, 'Agence hors de votre périmètre.');
+        // Vente inter-agences (comme une prestation ou une facture) : le catalogue
+        // de packages est visible par tous, on peut souscrire le package de
+        // n'importe quelle agence ; le CA revient à l'agence du package.
 
         // Le vendeur peut être désigné par son compte utilisateur : la fiche
         // manquante est créée à la volée.

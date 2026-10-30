@@ -34,6 +34,8 @@ export interface UserListParams {
   is_active?: boolean;
   role?: string;
   role_id?: string;
+  /** Noms de rôles à exclure, séparés par des virgules. */
+  exclude_role?: string;
   agency_id?: string;
   department_id?: string;
   country_id?: string;

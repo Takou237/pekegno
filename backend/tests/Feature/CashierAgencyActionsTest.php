@@ -209,4 +209,23 @@ class CashierAgencyActionsTest extends TestCase
             'periods' => 1,
         ])->assertStatus(422)->assertJsonValidationErrors('proof_file');
     }
+
+    public function test_caissier_subscribes_package_of_another_agency(): void
+    {
+        Sanctum::actingAs($this->userWithRole('super-admin'));
+        $package = $this->createPackage();
+        $client = $this->userWithRole('client');
+
+        // Vente inter-agences : le caissier d'une autre agence peut souscrire.
+        Sanctum::actingAs($this->userWithRole('caissier', Agency::factory()->create()));
+        $response = $this->postJson("/api/packages/{$package->id}/subscribe", [
+            'client_id' => $client->id,
+            'periods' => 1,
+            'advance' => 50000,
+            'payment_type' => 'cash',
+        ])->assertStatus(201)->json();
+
+        // Le CA reste à l'agence du package.
+        $this->assertSame($this->agency->id, $response['invoice']['agency_id']);
+    }
 }

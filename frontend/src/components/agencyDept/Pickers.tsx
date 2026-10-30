@@ -10,19 +10,22 @@ interface CommercialPickerProps {
   error?: string;
   placeholder?: string;
   disabled?: boolean;
+  /** Libellé de `value` s'il n'est pas dans la première page de résultats. */
+  selectedOption?: AutocompleteOption | null;
 }
 
 /**
  * Sélecteur de commercial/vendeur pour la souscription d'un package.
  * Affiche TOUS les utilisateurs de la plateforme (pas uniquement les profils
- * commerciaux), comme demandé.
+ * commerciaux), sauf le super-admin.
  */
-export function CommercialPicker({ value, onChange, label, error, placeholder, disabled }: CommercialPickerProps) {
+export function CommercialPicker({ value, onChange, label, error, placeholder, disabled, selectedOption }: CommercialPickerProps) {
   const { t } = useTranslation();
 
   const fetchOptions = useCallback(async (query: string): Promise<AutocompleteOption[]> => {
     const response = await usersApi.list({
       search: query.trim() || undefined,
+      exclude_role: 'super-admin',
       per_page: 20,
     });
 
@@ -53,6 +56,7 @@ export function CommercialPicker({ value, onChange, label, error, placeholder, d
       fetchOptions={fetchOptions}
       error={error}
       disabled={disabled}
+      selectedOption={selectedOption}
     />
   );
 }

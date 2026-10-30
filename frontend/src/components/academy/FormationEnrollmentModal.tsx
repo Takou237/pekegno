@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type Course, type TrainingSession } from '@/api/academy.api';
-import { commercialsApi } from '@/api/commercials.api';
-import { employeesApi } from '@/api/employees.api';
 import { clientsApi } from '@/api/clients.api';
 import { EnrollmentLearnerField, emptyNewLearnerForm, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
@@ -14,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { Input } from '@/components/ui/Input';
-import { Autocomplete } from '@/components/ui/Autocomplete';
+import { CommercialPicker } from '@/components/agencyDept/Pickers';
 import { currentLocale } from '@/i18n';
 import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
 import type {
@@ -27,7 +25,6 @@ import { currencyLabel } from '@/utils/number';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import { useOrgContext } from '@/context/OrgContext';
 
-const SELLER_TRAINER_PREFIX = 'trainer:';
 
 interface FormationEnrollmentModalProps {
   isOpen: boolean;
@@ -89,6 +86,15 @@ export default function FormationEnrollmentModal({
   const needsPaymentProof = isCommercial || isResponsableAgence;
   const isSellerUser = needsPaymentProof || currentUser?.role?.name === 'caissier';
   const [form, setForm] = useState<FormState>(emptyForm);
+  // Un commercial, un caissier ou un responsable d'agence est le vendeur par
+  // défaut ; il peut choisir un autre utilisateur dans la liste.
+  const sellerValue = form.seller_user_id || (isSellerUser ? currentUser?.id ?? '' : '');
+  const currentSellerOption = currentUser
+    ? {
+        id: currentUser.id,
+        label: [currentUser.first_name, currentUser.last_name].filter(Boolean).join(' ').trim() || currentUser.name || currentUser.username,
+      }
+    : null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -223,66 +229,6 @@ export default function FormationEnrollmentModal({
     [],
   );
 
-  const sellerOptions = useCallback(
-    async (query: string) => {
-      if (!agencyId) return [];
-      type SellerEntry = {
-        user_id: string;
-        name: string;
-        email: string;
-        kind: 'commercial' | 'employe' | 'trainer';
-      };
-      const [commercials, employees, trainers] = await Promise.all([
-        commercialsApi.list({ agency_id: agencyId, per_page: 100 }),
-        employeesApi.list({ agency_id: agencyId, per_page: 100 }),
-        academyApi.trainers({ agency_id: agencyId, per_page: 100 }),
-      ]);
-      const entries: SellerEntry[] = [
-        ...commercials.data.map((c) => ({ user_id: c.user_id, name: `${c.first_name} ${c.last_name}`.trim(), email: c.email ?? '', kind: 'commercial' as const })),
-        ...employees.data.map((e) => ({ user_id: e.user_id, name: `${e.first_name} ${e.last_name}`.trim(), email: e.email ?? '', kind: 'employe' as const })),
-        ...trainers.data
-          .filter((tr) => tr.user_id)
-          .map((tr) => ({
-            user_id: tr.user_id as string,
-            name: [tr.first_name, tr.last_name].filter(Boolean).join(' ').trim(),
-            email: tr.email ?? '',
-            kind: 'trainer' as const,
-          })),
-        ...trainers.data
-          .filter((tr) => !tr.user_id && tr.id)
-          .map((tr) => ({
-            user_id: SELLER_TRAINER_PREFIX + tr.id,
-            name: [tr.first_name, tr.last_name].filter(Boolean).join(' ').trim(),
-            email: tr.email ?? '',
-            kind: 'trainer' as const,
-          })),
-      ].filter((o): o is SellerEntry => Boolean(o.user_id));
-
-      const all = Array.from(
-        new Map(entries.map((entry) => [entry.user_id, entry])).values(),
-      );
-
-      const q = query.trim().toLowerCase();
-      const filtered = q
-        ? all.filter((o) => o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q))
-        : all;
-      return filtered.map((o) => {
-        const kindLabel =
-          o.kind === 'trainer'
-            ? t('academy.trainer')
-            : o.kind === 'employe'
-              ? t('academy.employee')
-              : t('academy.commercial');
-        return {
-          id: o.user_id,
-          label: o.name || o.email || o.user_id,
-          subtitle: [o.email, kindLabel].filter(Boolean).join(' · '),
-        };
-      });
-    },
-    [agencyId, t],
-  );
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!agencyId) return;
@@ -349,10 +295,8 @@ export default function FormationEnrollmentModal({
         return;
       }
 
-      // Un commercial ou un caissier qui s'inscrit est toujours le vendeur :
-      // le champ est pré-rempli et verrouillé, le backend rattachera la facture
-      // au profil de l'utilisateur connecté.
-      const sellerUserId = isSellerUser && currentUser?.id ? currentUser.id : form.seller_user_id || undefined;
+      // Vendeur choisi dans la liste ; à défaut, le backend retient l'utilisateur connecté.
+      const sellerUserId = sellerValue || undefined;
 
       // Le champ learner_user_id est OBLIGATOIRE côté backend. Si la valeur n'est
       // pas définie (ex. l'autocomplete n'a pas rempli le champs), on bloque la
@@ -534,30 +478,16 @@ export default function FormationEnrollmentModal({
           allowCreate
         />
 
-        {isSellerUser ? (
-          <Input
-            label={t('academy.seller')}
-            value={currentUser?.name || ''}
-            disabled
-          />
-        ) : (
-          <Autocomplete
-            label={t('academy.seller')}
-            placeholder={t('academy.searchSellerPlaceholder')}
-            value={form.seller_trainer_id
-              ? SELLER_TRAINER_PREFIX + form.seller_trainer_id
-              : form.seller_user_id}
-            onChange={(id) =>
-              setForm((prev) =>
-                id.startsWith(SELLER_TRAINER_PREFIX)
-                  ? { ...prev, seller_trainer_id: id.slice(SELLER_TRAINER_PREFIX.length), seller_user_id: '' }
-                  : { ...prev, seller_user_id: id, seller_trainer_id: '' },
-              )
-            }
-            fetchOptions={sellerOptions}
-            error={fieldErrors.seller_user_id}
-          />
-        )}
+        {/* Vendeur : tous les utilisateurs (sauf super-admin). Un commercial,
+            un caissier ou un responsable d'agence est présélectionné. */}
+        <CommercialPicker
+          label={t('academy.seller')}
+          placeholder={t('academy.searchSellerPlaceholder')}
+          value={sellerValue}
+          selectedOption={sellerValue && sellerValue === currentUser?.id ? currentSellerOption : null}
+          onChange={(id) => setForm((prev) => ({ ...prev, seller_user_id: id, seller_trainer_id: '' }))}
+          error={fieldErrors.seller_user_id}
+        />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input

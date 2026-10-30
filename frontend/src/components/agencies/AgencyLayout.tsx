@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, Outlet, useNavigate, useParams, useResolvedPath } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AxiosError } from 'axios';
 import {
@@ -25,6 +25,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
+import { rememberSpaceNav } from '@/components/layout/spaceNavMemory';
 import { AgencySwitcher } from '@/components/agencies/AgencySwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
@@ -112,6 +113,13 @@ export function AgencyLayout() {
   }
 
   const subItems = getAgencyItems(t, agency?.type, user?.role?.name);
+  const basePath = useResolvedPath('').pathname;
+
+  // Le tiroir mobile des pages Profil / Paramètres reprend ce menu.
+  useEffect(() => {
+    if (user?.id && agency) rememberSpaceNav(user.id, basePath, agency.name, subItems);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, agency, basePath, t]);
   const space = homeSpace(user);
   // Chef d'agence : uniquement son agence ; chef de département : pas d'accès
   // au niveau agence ; directeur général : les agences de son pays.

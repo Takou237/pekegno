@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, Outlet, useNavigate, useParams, useResolvedPath } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AxiosError } from 'axios';
 import {
@@ -25,6 +25,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
+import { rememberSpaceNav } from '@/components/layout/spaceNavMemory';
 import { useAuth } from '@/hooks/useAuth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
 import { homeSpace } from '@/utils/userScope';
@@ -95,6 +96,13 @@ export function CountryLayout() {
 
   const subItems = getSubItems(t, user?.role?.name);
   const space = homeSpace(user);
+  const basePath = useResolvedPath('').pathname;
+
+  // Le tiroir mobile des pages Profil / Paramètres reprend ce menu.
+  useEffect(() => {
+    if (user?.id && country) rememberSpaceNav(user.id, basePath, country.name, subItems);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, country, basePath, t]);
 
   const backButton = (
     <Link
@@ -140,7 +148,9 @@ export function CountryLayout() {
             )}
           </div>
 
-          <SubNav items={subItems} linkClass={subLinkClass} />
+          <div className="hidden lg:block">
+            <SubNav items={subItems} linkClass={subLinkClass} />
+          </div>
         </div>
 
         <div className="min-w-0 flex-1">
@@ -152,11 +162,14 @@ export function CountryLayout() {
         </div>
       </main>
 
+      {/* En responsive, le menu de l'espace passe dans le tiroir (☰) à la
+          place du menu principal ; la barre d'onglets en ligne est masquée. */}
       <MobileNav
         isOpen={mobileOpen}
         onClose={closeMobileNav}
         contextTitle={country?.name}
         contextItems={subItems}
+        contextOnly
       />
     </div>
   );
