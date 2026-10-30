@@ -39,7 +39,7 @@ interface MenuItem {
   end: boolean;
 }
 
-function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType: Agency['type'] | undefined, roleName?: string): MenuItem[] {
+export function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agencyType: Agency['type'] | undefined, roleName?: string): MenuItem[] {
   return [
     { to: '', label: t('nav.overview'), icon: LayoutDashboard, end: true },
     { to: 'departments', label: t('nav.departments'), icon: FolderTree, end: false },
@@ -117,9 +117,10 @@ export function AgencyLayout() {
 
   // Le tiroir mobile des pages Profil / Paramètres reprend ce menu.
   useEffect(() => {
-    if (user?.id && agency) rememberSpaceNav(user.id, basePath, agency.name, subItems);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, agency, basePath, t]);
+    if (user?.id && agency) {
+      rememberSpaceNav({ userId: user.id, kind: 'agency', basePath, title: agency.name, agencyType: agency.type });
+    }
+  }, [user?.id, agency, basePath]);
   const space = homeSpace(user);
   // Chef d'agence : uniquement son agence ; chef de département : pas d'accès
   // au niveau agence ; directeur général : les agences de son pays.

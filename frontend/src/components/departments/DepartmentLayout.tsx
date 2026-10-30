@@ -62,10 +62,16 @@ export function DepartmentLayout() {
 
   // Le tiroir mobile des pages Profil / Paramètres reprend ce menu.
   useEffect(() => {
-    if (user?.id && department && subItems.length > 0) {
-      rememberSpaceNav(user.id, basePath, department.name, subItems);
+    if (user?.id && department?.type) {
+      rememberSpaceNav({
+        userId: user.id,
+        kind: 'department',
+        basePath,
+        title: department.name,
+        departmentType: department.type,
+      });
     }
-  }, [user?.id, department, subItems, basePath]);
+  }, [user?.id, department, basePath]);
 
   const space = homeSpace(user);
   // Chef de département : uniquement son département ; chef d'agence : les

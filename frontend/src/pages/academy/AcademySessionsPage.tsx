@@ -18,9 +18,10 @@ import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Autocomplete, type AutocompleteOption } from '@/components/ui/Autocomplete';
 import { TrainerPicker, parseTrainerRef } from '@/components/academy/TrainerPicker';
-import { Checkbox } from '@/components/ui/Checkbox';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
+import { useAuth } from '@/hooks/useAuth';
+import { canDeleteSessions, canEditSessions } from '@/utils/academyPermissions';
 import type { Department } from '@/types/department';
 import { currencyLabel } from '@/utils/number';
 
@@ -73,7 +74,6 @@ interface FormState {
   end_at: string;
   max_capacity: string;
   status: SessionStatus;
-  sync_across_agencies: boolean;
 }
 
 const emptyForm: FormState = {
@@ -83,11 +83,11 @@ const emptyForm: FormState = {
   end_at: '',
   max_capacity: '',
   status: 'planned',
-  sync_across_agencies: false,
 };
 
 export default function AcademySessionsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
   const { departmentId } = useParams<{ departmentId?: string }>();
@@ -106,7 +106,6 @@ export default function AcademySessionsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [syncedWarning, setSyncedWarning] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<TrainingSession | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -188,20 +187,10 @@ export default function AcademySessionsPage() {
     setForm(emptyForm);
     setFormError(null);
     setFieldErrors({});
-    setSyncedWarning(null);
     setFormOpen(true);
   }
 
   function openEdit(session: TrainingSession) {
-    const sync = academyApi.courseDeployments(session.course?.id ?? '').then((ids) => {
-      const isSynced = ids.includes(session.agency?.id ?? '');
-      const warning = isSynced
-        ? t('academy.syncWarning')
-        : t('academy.syncNotConfigured');
-      setSyncedWarning(warning);
-      return ids;
-    });
-
     setEditing(session);
     setForm({
       course_id: session.course?.id ?? '',
@@ -214,16 +203,10 @@ export default function AcademySessionsPage() {
       end_at: toDatetimeLocal(session.end_at),
       max_capacity: session.max_capacity != null ? String(session.max_capacity) : '',
       status: session.status,
-      sync_across_agencies: false,
     });
     setFormError(null);
     setFieldErrors({});
-    setSyncedWarning(null);
     setFormOpen(true);
-
-    if (sync) {
-      Promise.all([sync]).catch(() => undefined);
-    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -243,7 +226,6 @@ export default function AcademySessionsPage() {
       end_at: form.end_at || null,
       max_capacity: form.max_capacity ? Number(form.max_capacity) : null,
       status: form.status,
-      ...(form.sync_across_agencies ? { sync_across_agencies: true } : {}),
     };
 
     try {
@@ -443,22 +425,26 @@ export default function AcademySessionsPage() {
                         >
                           <ClipboardList className="h-4 w-4" />
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(session)}
-                          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
-                          title={t('common.edit')}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(session)}
-                          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                          title={t('common.delete')}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {canEditSessions(user) && (
+                          <button
+                            type="button"
+                            onClick={() => openEdit(session)}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
+                            title={t('common.edit')}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canDeleteSessions(user) && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(session)}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                            title={t('common.delete')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -480,13 +466,6 @@ export default function AcademySessionsPage() {
           </div>
         )}
       </div>
-
-      {syncedWarning && (
-        <Alert variant="info">
-          <span className="font-medium">{t('academy.syncWarningTitle')}</span>{' '}
-          <span className="text-sm text-gray-600 dark:text-gray-300">{syncedWarning}</span>
-        </Alert>
-      )}
 
       <Modal
         isOpen={formOpen}
@@ -558,17 +537,6 @@ export default function AcademySessionsPage() {
                 ))}
               </select>
             </div>
-          </div>
-
-          <div className="flex flex-col gap-2 pt-2">
-            <Checkbox
-              label={t('academy.syncAcrossAgencies')}
-              checked={form.sync_across_agencies}
-              onChange={(e) => setForm((prev) => ({ ...prev, sync_across_agencies: e.target.checked }))}
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {t('academy.syncAcrossAgenciesHint')}
-            </p>
           </div>
 
           <div className="mt-2 flex justify-end gap-3">

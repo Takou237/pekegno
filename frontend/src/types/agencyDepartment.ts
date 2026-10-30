@@ -61,7 +61,7 @@ export interface AgencyPackage {
   id: string;
   code: string | null;
   agency_id: string;
-  agency?: { id: string; name: string } | null;
+  agency?: { id: string; name: string; city?: string | null } | null;
   department_id: string | null;
   category_id: string | null;
   category?: AgencyCategory | null;
@@ -305,7 +305,7 @@ export interface RatingSummary {
 export interface PrestationOffer {
   id: string;
   agency_id: string;
-  agency?: { id: string; name: string } | null;
+  agency?: { id: string; name: string; city?: string | null } | null;
   department_id: string | null;
   department?: { id: string; name: string } | null;
   category_id: string | null;

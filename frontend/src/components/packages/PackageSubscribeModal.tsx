@@ -38,8 +38,10 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
     const isCommercial = user?.role?.name === 'commercial';
     const isCaissier = user?.role?.name === 'caissier';
     const isSuperAdmin = user?.role?.name === 'super-admin';
-    const isResponsableAgence = user?.role?.name === 'responsable-agence';
-    const needsPaymentProof = isCommercial || isResponsableAgence;
+    // Commercial et chefs d'agence / de département : la souscription part en
+    // validation, la preuve de paiement est obligatoire.
+    const isChief = ['responsable-agence', 'responsable-departement'].includes(user?.role?.name ?? '');
+    const needsPaymentProof = isCommercial || isChief;
 
   const [clientId, setClientId] = useState('');
   const [clientMode, setClientMode] = useState<LearnerMode>('existing');

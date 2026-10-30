@@ -156,7 +156,7 @@ export interface Course {
   duration_hours: number | null;
   duration_type: 'limited' | 'unlimited';
   duration_months: number | null;
-  agency?: { id: string; name: string; code: string } | null;
+  agency?: { id: string; name: string; code: string; city?: string | null } | null;
   agency_id?: string | null;
   availability: 'agency' | 'global';
   is_active: boolean;
@@ -221,6 +221,8 @@ export interface CourseListParams {
   mode?: Course['mode'];
   categories?: string[];
   promotion?: 'active' | 'none';
+  /** Catalogue de vente : formations de toutes les agences. */
+  for_sale?: boolean;
 }
 
 export interface Trainer {
@@ -337,7 +339,6 @@ export interface SessionPayload {
   max_capacity?: number | null;
   price?: number | null;
   status?: SessionStatus;
-  sync_across_agencies?: boolean;
 }
 
 export interface TrainerSessionItem {

@@ -57,7 +57,12 @@ export function PackageCard({
         <h3 className="text-lg font-bold uppercase text-gray-900 dark:text-white">{pkg.name}</h3>
         {pkg.code && <p className="mt-0.5 text-xs uppercase tracking-widest text-gray-400">{pkg.code}</p>}
         {pkg.tagline && <p className="mt-1 text-sm font-medium uppercase text-gray-500 dark:text-gray-400">{pkg.tagline}</p>}
-        {showAgency && pkg.agency?.name && <p className="mt-1 text-xs text-gray-400">{pkg.agency.name}</p>}
+        {showAgency && pkg.agency?.name && (
+          <p className="mt-1 text-xs text-gray-400">
+            {pkg.agency.name}
+            {pkg.agency.city ? ` · ${pkg.agency.city}` : ''}
+          </p>
+        )}
         {hasPromo && <span className="mt-2 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">{t('agencyDept.packages.promoActive')}</span>}
       </div>
 

@@ -78,12 +78,17 @@ export default function FormationEnrollmentModal({
   // agence, l'utilisateur peut la changer — la liste des formations suit le
   // choix, jamais l'agence de la page en dur.
   const [pickedAgencyId, setPickedAgencyId] = useState(agencyProp ?? '');
+  // Ouverte depuis une formation précise (agence connue) : agence et
+  // formation sont affichées en texte fixe, sans possibilité de les changer.
+  const isPreset = Boolean(presetCourseId) && Boolean(agencyProp);
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const isCommercial = currentUser?.role?.name === 'commercial';
-  const isResponsableAgence = currentUser?.role?.name === 'responsable-agence';
-  const needsPaymentProof = isCommercial || isResponsableAgence;
+  // Commercial et chefs d'agence / de département : l'inscription part en
+  // validation, la preuve de paiement est obligatoire.
+  const isChief = ['responsable-agence', 'responsable-departement'].includes(currentUser?.role?.name ?? '');
+  const needsPaymentProof = isCommercial || isChief;
   const isSellerUser = needsPaymentProof || currentUser?.role?.name === 'caissier';
   const [form, setForm] = useState<FormState>(emptyForm);
   // Un commercial, un caissier ou un responsable d'agence est le vendeur par
@@ -345,6 +350,7 @@ export default function FormationEnrollmentModal({
         <AgencyScopeSelect
           required
           allAgencies
+          readOnly={isPreset}
           value={pickedAgencyId}
           onChange={(id) => {
             setPickedAgencyId(id);
@@ -358,20 +364,26 @@ export default function FormationEnrollmentModal({
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t('nav.courses')}
           </label>
-          <select
-            value={form.course_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, course_id: e.target.value, training_session_id: '' }))}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          >
-            <option value="">{pickedAgencyId ? t('academy.searchCoursePlaceholder') : t('services.selectAgencyPlaceholder')}</option>
-            {courses.map((course) => (
-              <option key={course.id} value={course.id}>
-                {courseOptionLabel(course, t)}
-                {/* Depuis un pays, une même formation existe dans plusieurs agences. */}
-                {!agencyProp && course.agency?.name ? ` — ${course.agency.name}` : ''}
-              </option>
-            ))}
-          </select>
+          {isPreset ? (
+            <p className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+              {selectedCourse(form.course_id) ? courseOptionLabel(selectedCourse(form.course_id)!, t) : '…'}
+            </p>
+          ) : (
+            <select
+              value={form.course_id}
+              onChange={(e) => setForm((prev) => ({ ...prev, course_id: e.target.value, training_session_id: '' }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="">{pickedAgencyId ? t('academy.searchCoursePlaceholder') : t('services.selectAgencyPlaceholder')}</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {courseOptionLabel(course, t)}
+                  {/* Depuis un pays, une même formation existe dans plusieurs agences. */}
+                  {!agencyProp && course.agency?.name ? ` — ${course.agency.name}` : ''}
+                </option>
+              ))}
+            </select>
+          )}
           {fieldErrors.course_id && (
             <p className="mt-1 text-sm text-error-500">{fieldErrors.course_id}</p>
           )}

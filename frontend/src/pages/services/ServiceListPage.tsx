@@ -12,10 +12,11 @@ import { canSubscribePackage, canCreatePrestation, canEditPrestation } from '@/u
 import { useTranslation } from 'react-i18next';
 import { servicesApi } from '@/api/services.api';
 import { categoriesApi } from '@/api/categories.api';
-import { agenciesApi } from '@/api/agencies.api';
+import { scopeApi, type AgencyOption } from '@/api/scope.api';
 import { extractErrorMessage } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrgContext } from '@/context/OrgContext';
 import { useToast } from '@/hooks/useToast';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
@@ -35,16 +36,14 @@ import {
   canDeleteService,
   canEditService,
   canManageCatalogTrash,
-  canViewAgencies,
 } from '@/utils/catalogPermissions';
 import { canExportData } from '@/utils/exportPermissions';
 import { canEnrollLearners } from '@/utils/academyPermissions';
 import { currentLocale } from '@/i18n';
-import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
 import { commercialsApi } from '@/api/commercials.api';
 import type { Service } from '@/types/service';
 import type { Category } from '@/types/category';
-import type { Agency, PaginationMeta } from '@/types/agency';
+import type { PaginationMeta } from '@/types/agency';
 import type { Promotion } from '@/types/promotion';
 import { currencyLabel } from '@/utils/number';
 
@@ -107,6 +106,15 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   }, [isCaissier, agencyId, user?.assignments]);
 
   const effectiveAgencyId = agencyId || ownAgencyId || undefined;
+  // Pages Produits (catalogue, pays, agence, département) : toutes les listes
+  // couvrent toutes les agences de tous les pays, avec un filtre par agence.
+  // L'agence de la page / de rattachement (effectiveAgencyId) ne sert que de
+  // défaut aux ventes, inscriptions et créations.
+  const { countries: scopeCountries } = useOrgContext();
+  const scopeAgencyIds = useMemo(
+    () => new Set(scopeCountries.flatMap((c) => c.agencies.map((a) => a.id))),
+    [scopeCountries],
+  );
   // Un commercial vend librement (inter-agences) : l'onglet Formations reste
   // visible même sans agence/département de rattachement — l'API renvoie alors
   // toutes les formations et l'agence se choisit dans la modale d'inscription.
@@ -126,7 +134,9 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
 
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [agencies, setAgencies] = useState<Agency[]>([]);
+  // Filtre agence ouvert à tous les rôles : toutes les agences (tous pays),
+  // limitées au pays de la page le cas échéant.
+  const [agencies, setAgencies] = useState<AgencyOption[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -134,7 +144,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category_id') ?? '');
-  const [agencyFilter, setAgencyFilter] = useState(agencyId ?? '');
+  const [agencyFilter, setAgencyFilter] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'created_at'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
@@ -169,7 +179,6 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [subscribeFormOpen, setSubscribeFormOpen] = useState(false);
   const [packageSearch, setPackageSearch] = useState('');
   const [packageCategory, setPackageCategory] = useState('');
-  const [packageAgency, setPackageAgency] = useState('');
 
   // Formations Academy (cours réels) affichées dans l'onglet « Formations » :
   // les Pages Produits (pays, agence, catalogue staff) montrent ainsi les
@@ -182,12 +191,18 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
 
   // Clic sur une prestation du catalogue : le caissier / commercial souscrit
   // directement un client (formulaire) au lieu d'ouvrir la page département.
+  function canOpenOfferDepartment(offer: PrestationOffer) {
+    const role = user?.role?.name;
+    return role === 'super-admin' || role === 'direction-generale' || scopeAgencyIds.has(offer.agency_id);
+  }
+
   function handleOfferOpen(offer: PrestationOffer) {
     if ((isCommercial || isCaissier) && canCreatePrestation(user)) {
       setOfferSubscribeTarget(offer);
       return;
     }
-    if (offer.department_id) {
+    // Hors vente : la page du département n'est ouverte que dans le périmètre.
+    if (offer.department_id && canOpenOfferDepartment(offer)) {
       navigate(`/departments/${offer.department_id}/prestations/${offer.id}/subscriptions`);
     }
   }
@@ -197,10 +212,10 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     setPackagesError(null);
     try {
       // is_public concerne le portail client (PC1) : le catalogue staff affiche tous
-      // les packages actifs du périmètre (agence de l'utilisateur quand elle est connue).
+      // les packages actifs de toutes les agences (agence précisée sur chaque carte).
       const rows = await agencyDeptApi.packages({
         is_active: true,
-        agency_id: effectiveAgencyId || packageAgency || undefined,
+        agency_id: agencyFilter || undefined,
       });
       setPackages(rows);
     } catch (error) {
@@ -214,15 +229,16 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     try {
       setOffers(
         await agencyDeptApi.offers({
-          agency_id: effectiveAgencyId || packageAgency || undefined,
-          country_id: countryId,
+          agency_id: agencyFilter || undefined,
           per_page: 100,
+          // Offres de toutes les agences (vente inter-agences).
+          for_sale: 1,
         }),
       );
     } catch {
       setOffers({ data: [], current_page: 1, last_page: 1, per_page: 100, total: 0 });
     }
-  }, [effectiveAgencyId, countryId, packageAgency]);
+  }, [agencyFilter]);
 
   useEffect(() => {
     if (tab !== 'packages' && tab !== 'prestations') return;
@@ -233,9 +249,9 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     setCoursesLoading(true);
     try {
       const res = await academyApi.courses({
-        agency_id: effectiveAgencyId,
-        country_id: countryId,
-        per_page: 50,
+        agency_id: agencyFilter || undefined,
+        for_sale: true,
+        per_page: 100,
       });
       setCourses(res.data ?? []);
     } catch {
@@ -243,7 +259,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     } finally {
       setCoursesLoading(false);
     }
-  }, [effectiveAgencyId, countryId]);
+  }, [agencyFilter]);
 
   useEffect(() => {
     if (tab !== 'formations' || !effectiveShowAcademyTabs) return;
@@ -302,10 +318,11 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
 
   useEffect(() => {
     fetchCategories();
-    if (canViewAgencies(user)) {
-      agenciesApi.list({ per_page: 100 }).then((r) => setAgencies(r.data)).catch(() => {});
-    }
-  }, [fetchCategories, user]);
+    scopeApi
+      .agencies()
+      .then(setAgencies)
+      .catch(() => {});
+  }, [fetchCategories]);
 
   async function handleExport() {
     setIsExporting(true);
@@ -370,14 +387,6 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     if (offers) for (const o of offers.data) if (o.category?.name) names.add(o.category.name);
     return [...names].sort((a, b) => a.localeCompare(b));
   }, [packages, offers]);
-  const packageAgencies = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of packages) if (p.agency) map.set(p.agency.id, p.agency.name);
-    if (offers) for (const o of offers.data) if (o.agency) map.set(o.agency.id, o.agency.name);
-    return [...map.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [packages, offers]);
 
   const filteredCatalogPackages = packages.filter((p) => {
     if (
@@ -390,7 +399,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     )
       return false;
     if (packageCategory && p.category?.name !== packageCategory) return false;
-    if (packageAgency && p.agency_id !== packageAgency) return false;
+    if (agencyFilter && p.agency_id !== agencyFilter) return false;
     return true;
   });
   const filteredCatalogOffers =
@@ -407,7 +416,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             )
               return false;
             if (packageCategory && o.category?.name !== packageCategory) return false;
-            if (packageAgency && o.agency_id !== packageAgency) return false;
+            if (agencyFilter && o.agency_id !== agencyFilter) return false;
             return true;
           }),
         }
@@ -563,53 +572,38 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
           />
         </div>
-        {/* Sans agence imposée : choisir l'agence EN PREMIER — la liste des
-            packages/offres se recharge alors pour cette agence. */}
-        {!effectiveAgencyId && (
+        <div className="flex flex-col gap-3 sm:flex-row">
           <div className="sm:w-64">
-            <AgencyScopeSelect
+            <Select
               label={t('services.agency')}
-              value={packageAgency}
-              onChange={setPackageAgency}
-            />
+              value={agencyFilter}
+              onChange={(e) => setAgencyFilter(e.target.value)}
+            >
+              <option value="">{t('services.allAgencies')}</option>
+              {agencies.map((agency) => (
+                <option key={agency.id} value={agency.id}>
+                  {agency.country_name ? `${agency.name} — ${agency.country_name}` : agency.name}
+                </option>
+              ))}
+            </Select>
           </div>
-        )}
-        {(packageCategories.length > 0 || (effectiveAgencyId && packageAgencies.length > 0)) && (
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {packageCategories.length > 0 && (
-              <div className="sm:w-48">
-                <Select
-                  label={t('services.category')}
-                  value={packageCategory}
-                  onChange={(e) => setPackageCategory(e.target.value)}
-                >
-                  <option value="">{t('services.allCategories')}</option>
-                  {packageCategories.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            )}
-            {!effectiveAgencyId && packageAgency && packageAgencies.length > 0 && (
-              <div className="sm:w-48">
-                <Select
-                  label={t('services.agency')}
-                  value={packageAgency}
-                  onChange={(e) => setPackageAgency(e.target.value)}
-                >
-                  <option value="">{t('services.allAgencies')}</option>
-                  {packageAgencies.map((agency) => (
-                    <option key={agency.id} value={agency.id}>
-                      {agency.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            )}
-          </div>
-        )}
+          {packageCategories.length > 0 && (
+            <div className="sm:w-48">
+              <Select
+                label={t('services.category')}
+                value={packageCategory}
+                onChange={(e) => setPackageCategory(e.target.value)}
+              >
+                <option value="">{t('services.allCategories')}</option>
+                {packageCategories.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+        </div>
         {isPackagesTab ? (
           packagesLoading ? (
             <SkeletonCards />
@@ -630,7 +624,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
                       pkg={pkg}
                       canManage={false}
                       canSubscribe={canSubscribe && pkg.is_active}
-                      showAgency={!effectiveAgencyId}
+                      showAgency
                       onSubscribe={() => setSubscribeTarget(pkg)}
                     />
                   ))}
@@ -661,7 +655,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
                   <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                     <tr>
                       <th className="px-4 py-3 font-medium">{t('agencyDept.offers.offer')}</th>
-                      {!effectiveAgencyId && <th className="px-4 py-3 font-medium">{t('agencyDept.agency')}</th>}
+                      <th className="px-4 py-3 font-medium">{t('agencyDept.agency')}</th>
                       <th className="px-4 py-3 font-medium">{t('agencyDept.offers.subscriptions')}</th>
                       <th className="px-4 py-3 font-medium">{t('agencyDept.rating')}</th>
                       <th className="px-4 py-3 font-medium">{t('common.status')}</th>
@@ -671,7 +665,9 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
                     {filteredCatalogOffers.data.map((o) => {
                       const count = o.subscriptions_count ?? 0;
                       const avg = o.subscriptions_rating_avg ? Number(o.subscriptions_rating_avg) : null;
-                      const clickable = Boolean(o.department_id) || ((isCommercial || isCaissier) && canCreatePrestation(user));
+                      const clickable =
+                        (Boolean(o.department_id) && canOpenOfferDepartment(o)) ||
+                        ((isCommercial || isCaissier) && canCreatePrestation(user));
                       return (
                         <tr
                           key={o.id}
@@ -682,7 +678,10 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
                             <span className="font-medium text-gray-900 dark:text-white">{o.name}</span>
                             <p className="text-xs text-gray-400">{o.category ? `${o.category.name} · ` : ''}{o.description ?? ''}</p>
                           </td>
-                          {!effectiveAgencyId && <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{o.agency?.name ?? '—'}</td>}
+                          <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                            <span className="block">{o.agency?.name ?? '—'}</span>
+                            {o.agency?.city && <span className="text-xs text-gray-400">{o.agency.city}</span>}
+                          </td>
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{count}</td>
                           <td className="px-4 py-3">
                             {avg ? (
@@ -912,22 +911,20 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             ))}
           </Select>
         </div>
-        {!agencyId && canViewAgencies(user) && (
-          <div className="sm:w-48">
-            <Select
-              label={t('services.agency')}
-              value={agencyFilter}
-              onChange={(e) => setAgencyFilter(e.target.value)}
-            >
-              <option value="">{t('services.allAgencies')}</option>
-              {agencies.map((agency) => (
-                <option key={agency.id} value={agency.id}>
-                  {agency.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        )}
+        <div className="sm:w-56">
+          <Select
+            label={t('services.agency')}
+            value={agencyFilter}
+            onChange={(e) => setAgencyFilter(e.target.value)}
+          >
+            <option value="">{t('services.allAgencies')}</option>
+            {agencies.map((agency) => (
+              <option key={agency.id} value={agency.id}>
+                {agency.country_name ? `${agency.name} — ${agency.country_name}` : agency.name}
+              </option>
+            ))}
+          </Select>
+        </div>
         <div className="sm:w-40">
           <Select
             label={t('common.sortBy')}
@@ -998,9 +995,17 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
                       </span>
                     </div>
                     <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
-                      <span className="inline-flex items-center gap-1.5 truncate text-sm text-gray-500 dark:text-gray-400">
-                        <Building2 className="h-4 w-4 shrink-0 text-gray-400" />
-                        <span className="truncate">{course.agency?.name ?? '—'}</span>
+                      <span className="flex min-w-0 flex-col text-sm text-gray-500 dark:text-gray-400">
+                        <span className="inline-flex items-center gap-1.5 truncate">
+                          <Building2 className="h-4 w-4 shrink-0 text-gray-400" />
+                          <span className="truncate">{course.agency?.name ?? '—'}</span>
+                        </span>
+                        {course.agency?.city && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400">
+                            <MapPin className="h-3 w-3" />
+                            {course.agency.city}
+                          </span>
+                        )}
                       </span>
                       {canEnrollLearners(user) && (
                         <Button size="sm" variant="outline" onClick={() => setEnrollCourse(course)} title={t('academy.newEnrollment')}>
@@ -1268,7 +1273,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
         <FormationEnrollmentModal
           isOpen={Boolean(enrollCourse)}
           onClose={() => setEnrollCourse(null)}
-          agencyId={effectiveAgencyId}
+          agencyId={enrollCourse.agency_id ?? effectiveAgencyId}
           countryId={countryId}
           presetCourseId={enrollCourse.id}
           onSaved={() => {

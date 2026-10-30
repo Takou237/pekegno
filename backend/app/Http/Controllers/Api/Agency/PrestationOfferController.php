@@ -23,7 +23,7 @@ class PrestationOfferController extends Controller
 {
     private const RELATIONS = [
         'category:id,name,color',
-        'agency:id,name',
+        'agency:id,name,city',
         'department:id,name',
     ];
 

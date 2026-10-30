@@ -77,9 +77,13 @@ export default function ClientListPage() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const canManage = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
-    currentUser?.role?.name ?? ''
-  );
+  // Actions visibles pour tous les rôles : « Voir » pour tous, les autres
+  // selon les droits réels du rôle (sinon l'API répondrait 403).
+  const can = (permission: string) =>
+    currentUser?.role?.name === 'super-admin' || Boolean(currentUser?.permissions?.includes(permission));
+  const canCreate = can('clients.creer');
+  const canEdit = can('clients.modifier');
+  const canDelete = can('clients.supprimer');
 
   const fetchParams = useMemo(
     () => ({ search: search || undefined, page }),
@@ -231,7 +235,7 @@ export default function ClientListPage() {
               {t('clients.export')}
             </Button>
           )}
-          {canManage && (
+          {canCreate && (
             <Button onClick={openCreate}>
               <UserPlus className="h-4 w-4" />
               {t('clients.createClient')}
@@ -299,18 +303,18 @@ export default function ClientListPage() {
                       )}
                     </td>
                     <td className="px-5 py-3">
-                      {canManage && (
-                        <div className="flex justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              navigate(c.id)
-                            }
-                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                            title={t('clients.detail')}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(c.id)
+                          }
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                          title={t('clients.detail')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        {canEdit && (
                           <button
                             type="button"
                             onClick={() => openEdit(c)}
@@ -319,6 +323,8 @@ export default function ClientListPage() {
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
+                        )}
+                        {canDelete && (
                           <button
                             type="button"
                             onClick={() => setDeleteTarget(c)}
@@ -327,8 +333,8 @@ export default function ClientListPage() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

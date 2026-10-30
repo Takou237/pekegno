@@ -52,6 +52,8 @@ import { formatCurrency, currencyLabel } from '@/utils/number';
 import { courseBasePrice, resolveEnrollmentDiscount } from '@/utils/enrollmentDiscount';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import { currentLocale } from '@/i18n';
+import { useAuth } from '@/hooks/useAuth';
+import { canDeleteSessions } from '@/utils/academyPermissions';
 import type { Department } from '@/types/department';
 
 interface DepartmentLayoutContext {
@@ -131,6 +133,7 @@ const emptyEnrollForm: EnrollmentFormState = {
 
 export default function CourseDetailPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const { courseId, departmentId } = useParams<{ courseId: string; departmentId: string }>();
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
@@ -697,14 +700,16 @@ export default function CourseDetailPage() {
                               {t('nav.presences')}
                             </Button>
                           </Link>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteSession(session)}
-                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
-                            title={t('common.delete')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {canDeleteSessions(user) && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteSession(session)}
+                              className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                              title={t('common.delete')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                       {sessionLearnersLoading === session.id ? (

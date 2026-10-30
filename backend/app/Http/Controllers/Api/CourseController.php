@@ -29,7 +29,9 @@ class CourseController extends Controller
         // Choix explicite d'une agence (vente/inscription inter-pays) : on fait
         // confiance à ce filtre et on ne borne plus au périmètre de l'utilisateur,
         // sinon un commercial ne verrait aucune formation de l'agence choisie.
-        if ($request->filled('agency_id')) {
+        // for_sale=1 : catalogue de vente (Pages Produits), ouvert à toutes les
+        // agences comme les produits et les prestations.
+        if ($request->filled('agency_id') || $request->boolean('for_sale')) {
             return $query;
         }
 

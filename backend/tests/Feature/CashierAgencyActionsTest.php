@@ -20,6 +20,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
+use App\Mail\PendingInvoiceMail;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -227,5 +230,39 @@ class CashierAgencyActionsTest extends TestCase
 
         // Le CA reste à l'agence du package.
         $this->assertSame($this->agency->id, $response['invoice']['agency_id']);
+    }
+
+    /** Chefs d'agence / de département : souscription avec preuve → facture en validation. */
+    public function test_chiefs_subscribe_package_with_proof_pending_validation(): void
+    {
+        Mail::fake();
+        Storage::fake('public');
+        Sanctum::actingAs($this->userWithRole('super-admin'));
+        $package = $this->createPackage();
+        $client = $this->userWithRole('client');
+        $this->userWithRole('caissier', $this->agency)->update(['email' => 'caisse@chef.test', 'is_active' => true]);
+
+        foreach (['responsable-agence', 'responsable-departement'] as $role) {
+            Sanctum::actingAs($this->userWithRole($role));
+
+            $this->postJson("/api/packages/{$package->id}/subscribe", [
+                'client_id' => $client->id,
+                'periods' => 1,
+            ])->assertStatus(422)->assertJsonValidationErrors('proof_file');
+
+            $response = $this->post("/api/packages/{$package->id}/subscribe", [
+                'client_id' => $client->id,
+                'periods' => 1,
+                'advance' => 30000,
+                'payment_type' => 'om',
+                'proof_file' => UploadedFile::fake()->createWithContent('preuve.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')),
+            ])->assertStatus(201)->json();
+
+            $this->assertSame(Invoice::VALIDATION_PENDING, $response['invoice']['validation_status'], $role);
+            $this->assertSame(0.0, (float) $response['invoice']['amount_paid'], 'encaissement à la validation de la preuve');
+            $this->assertDatabaseHas('payment_proofs', ['invoice_id' => $response['invoice']['id'], 'status' => 'pending']);
+        }
+
+        Mail::assertSent(PendingInvoiceMail::class, fn ($mail) => $mail->hasTo('caisse@chef.test'));
     }
 }

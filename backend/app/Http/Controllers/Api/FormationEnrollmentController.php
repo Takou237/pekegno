@@ -17,6 +17,7 @@ use App\Services\PaymentService;
 use App\Services\PendingInvoiceNotifier;
 use App\Services\SaleAgencyResolver;
 use App\Services\SellerProfileService;
+use App\Support\InvoiceValidators;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -168,7 +169,7 @@ class FormationEnrollmentController extends Controller
             $amountPaid = $invoice
                 ? min((float) ($validated['amount_paid'] ?? 0), (float) $invoice->total_amount)
                 : 0.0;
-            $needsValidation = $request->user()->role?->name === 'commercial';
+            $needsValidation = InvoiceValidators::sellerNeedsValidation($request->user()->role?->name);
 
             if (! $invoiceProvided && $invoice && ! $needsValidation && $amountPaid > 0) {
                 $this->paymentService->applyPayment(
@@ -466,10 +467,10 @@ class FormationEnrollmentController extends Controller
             $comment .= ' — Remise : '.number_format($discountAmount, 0, ',', ' ');
         }
 
-        // Un commercial ne peut pas encaisser : le montant saisi comme « payé » devient
+        // Un commercial ou un chef d'agence / de département n'encaisse pas : le montant saisi comme « payé » devient
         // une avance déclarée, appliquée à la validation par le caissier, et la facture
         // part en attente de validation au lieu d'entrer directement en comptabilité.
-        $needsValidation = $request->user()->role?->name === 'commercial';
+        $needsValidation = InvoiceValidators::sellerNeedsValidation($request->user()->role?->name);
 
         $invoice = Invoice::create([
             'number' => $this->invoiceNumber->next(),

@@ -26,6 +26,7 @@ export function AgencyScopeSelect({
   required = false,
   error,
   allAgencies = false,
+  readOnly = false,
 }: {
   value: string;
   onChange: (agencyId: string) => void;
@@ -34,6 +35,8 @@ export function AgencyScopeSelect({
   required?: boolean;
   error?: string;
   allAgencies?: boolean;
+  /** Agence imposée : affichée en texte fixe, sans liste déroulante. */
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const { countries } = useOrgContext();
@@ -71,6 +74,18 @@ export function AgencyScopeSelect({
       c.agencies.map((a) => ({ id: a.id, name: a.name, countryName: c.name })),
     );
   }, [allAgencies, all, countries]);
+
+  if (readOnly) {
+    const current = agencies.find((a) => a.id === value);
+    return (
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label ?? t('services.selectAgency')}</span>
+        <p className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+          {current ? (current.countryName ? `${current.name} — ${current.countryName}` : current.name) : '…'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <Select

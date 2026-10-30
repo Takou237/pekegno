@@ -1,28 +1,45 @@
-import type { NavItem } from './navItems';
+import type { Agency } from '@/types/agency';
+import type { DepartmentType } from '@/types/department';
 
 /**
- * Dernier menu d'espace (agence / département) affiché dans le tiroir mobile.
- * Les pages Profil / Paramètres sont rendues hors de ces layouts : on y
- * réutilise ce menu pour que le tiroir ne change pas complètement.
+ * Dernier espace (pays / agence / département) affiché avant d'ouvrir les
+ * pages Profil / Paramètres, rendues hors de ces layouts : le tiroir mobile y
+ * reprend le menu de cet espace.
+ *
+ * Conservé en sessionStorage (et non en mémoire) pour survivre à une
+ * actualisation de la page. Les icônes ne se sérialisent pas : on garde le
+ * type d'espace et le menu est reconstruit par AppLayout.
  */
-interface SpaceNav {
-  userId: string;
-  title?: string;
-  items: NavItem[];
+export type SpaceNavRef =
+  | { userId: string; kind: 'country'; basePath: string; title?: string }
+  | { userId: string; kind: 'agency'; basePath: string; title?: string; agencyType?: Agency['type'] }
+  | { userId: string; kind: 'department'; basePath: string; title?: string; departmentType: DepartmentType };
+
+const STORAGE_KEY = 'pekegno.spaceNav';
+
+export function rememberSpaceNav(ref: SpaceNavRef) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...ref, basePath: ref.basePath.replace(/\/$/, '') }));
+  } catch {
+    // Stockage indisponible (navigation privée…) : menu principal par défaut.
+  }
 }
 
-let lastSpaceNav: SpaceNav | null = null;
-
-/** Mémorise le menu d'un espace ; `basePath` rend les liens relatifs absolus. */
-export function rememberSpaceNav(userId: string, basePath: string, title: string | undefined, items: NavItem[]) {
-  const base = basePath.replace(/\/$/, '');
-  lastSpaceNav = {
-    userId,
-    title,
-    items: items.map((item) => ({ ...item, to: item.to ? `${base}/${item.to}` : base })),
-  };
+export function forgetSpaceNav() {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Rien à oublier.
+  }
 }
 
-export function getSpaceNav(userId: string | undefined): SpaceNav | null {
-  return lastSpaceNav && lastSpaceNav.userId === userId ? lastSpaceNav : null;
+export function getSpaceNav(userId: string | undefined): SpaceNavRef | null {
+  if (!userId) return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const ref = raw ? (JSON.parse(raw) as SpaceNavRef) : null;
+    return ref && ref.userId === userId ? ref : null;
+  } catch {
+    return null;
+  }
 }

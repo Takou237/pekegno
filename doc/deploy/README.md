@@ -122,7 +122,15 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 
 | Script | Contenu |
 |---|---|
-| `30_10/frontend-dist.zip` | build admin du 30/10 : souscription package inter-agences (fin de « Agence hors de votre périmètre »), bouton « Souscrire un client » sur les Produits d'une agence, champ « Vendeur » (tous les utilisateurs sauf super-admin) dans souscriptions et inscriptions, menus responsive pays + Profil/Paramètres (aucune migration SQL, aucune permission, aucun rebuild `vendor/` ; 2 contrôleurs PHP modifiés → vider l'OPcache) |
+| `30_10/frontend-dist.zip` | build admin du 30/10 : souscription package inter-agences (fin de « Agence hors de votre périmètre »), bouton « Souscrire un client » sur les Produits d'une agence, champ « Vendeur » (tous les utilisateurs sauf super-admin) dans souscriptions et inscriptions, menus responsive pays + Profil/Paramètres (aucune migration SQL, aucune permission, aucun rebuild `vendor/` ; 2 contrôleurs PHP modifiés → vider l'OPcache) — **remplacé par `30_10(2)`** |
+
+⏳ **À appliquer avec le déploiement du 30/10/2026 (2)** (voir
+`30_10(2)/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `30_10(2)/migration-2026-10-30.sql` | 3 migrations : suppression de `training_sessions_synced` (sessions par agence, plus de synchro), `clients.modifier` + `clients.supprimer` → commercial / caissier / comptable / community-manager, `sessions.supprimer` → responsable-departement + lignes `migrations` (aucune nouvelle permission) — importer **après** le `git pull` |
+| `30_10(2)/frontend-dist.zip` | build admin du 30/10 (2) : sessions par agence, Pages Produits sur tout le réseau + filtre agence, droits clients, menu ☰ persistant après actualisation, ventes des chefs en validation avec preuve (aucun rebuild `vendor/`, aucune nouvelle route ; vider l'OPcache) |
 
 🆕 **Remise à neuf (optionnel, irréversible)** : `reset-prod-fresh-2026-10-16.sql`
 vide toute la base métier (factures, clients, prospects, agences, pays,

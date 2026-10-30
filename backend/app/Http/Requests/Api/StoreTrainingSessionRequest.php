@@ -26,7 +26,6 @@ class StoreTrainingSessionRequest extends FormRequest
             'max_capacity' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'status' => ['sometimes', 'string', Rule::in(['planned', 'ongoing', 'completed', 'cancelled'])],
-            'sync_across_agencies' => ['sometimes', 'boolean'],
         ];
     }
 

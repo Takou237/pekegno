@@ -514,4 +514,30 @@ class EnrollmentValidationWorkflowTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('amount_paid');
     }
+
+    /** Chefs d'agence / de département : inscription avec preuve → facture en validation. */
+    public function test_chief_enrollment_with_proof_creates_pending_invoice(): void
+    {
+        Storage::fake('public');
+        $course = $this->createCourse();
+
+        foreach (['responsable-agence', 'responsable-departement'] as $role) {
+            $this->userWithRole($role);
+            $client = $this->createClient();
+
+            $enrollment = $this->post('/api/formation-enrollments', [
+                'course_id' => $course->id,
+                'learner_user_id' => $client->id,
+                'amount_paid' => 10000,
+                'payment_type' => 'momo',
+                'proof_file' => UploadedFile::fake()->createWithContent('preuve.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')),
+            ])->assertCreated()->json();
+
+            $invoice = Invoice::findOrFail($enrollment['invoice_id']);
+            $this->assertSame(Invoice::VALIDATION_PENDING, $invoice->validation_status, $role);
+            $this->assertSame(0.0, (float) $invoice->amount_paid, 'encaissement à la validation de la preuve');
+            $this->assertSame(10000.0, (float) $invoice->declared_advance);
+            $this->assertSame(PaymentProof::STATUS_PENDING, PaymentProof::where('invoice_id', $invoice->id)->value('status'));
+        }
+    }
 }

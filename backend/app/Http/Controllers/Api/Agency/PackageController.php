@@ -7,6 +7,7 @@ use App\Models\Agency;
 use App\Models\AgencyCategory;
 use App\Models\ClientTeamRole;
 use App\Models\Department;
+use App\Models\Invoice;
 use App\Models\Promotion;
 use App\Models\Service;
 use App\Models\SubscriptionPack;
@@ -15,6 +16,8 @@ use App\Services\ActivityLogger;
 use App\Services\AgencyAccessService;
 use App\Services\CommercialProfileService;
 use App\Services\PackageService;
+use App\Services\PendingInvoiceNotifier;
+use App\Support\InvoiceValidators;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,13 +28,14 @@ use Illuminate\Validation\ValidationException;
 /** Packages Agency : catalogue (items, recommandations, promotions) et souscription. */
 class PackageController extends Controller
 {
-    private const RELATIONS = ['category', 'items.service:id,name', 'recommendations.teamRole:id,name', 'promotions', 'agency:id,name'];
+    private const RELATIONS = ['category', 'items.service:id,name', 'recommendations.teamRole:id,name', 'promotions', 'agency:id,name,city'];
 
     public function __construct(
         private readonly PackageService $packages,
         private readonly AgencyAccessService $access,
         private readonly ActivityLogger $logger,
         private readonly CommercialProfileService $commercialProfiles,
+        private readonly PendingInvoiceNotifier $pendingNotifier,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -387,14 +391,16 @@ class PackageController extends Controller
             $commercialId = $commercialId && in_array($commercialId, $own, true) ? $commercialId : ($own[0] ?? null);
         }
 
-        // La facture d'un commercial naît « pending » : encaissement différé jusqu'à
-        // l'acceptation de la preuve par le caissier (identique aux ventes, §P1-P5).
+        // La facture d'un commercial ou d'un chef d'agence / de département naît
+        // « pending » : encaissement différé jusqu'à l'acceptation de la preuve par
+        // le caissier (identique aux ventes, §P1-P5).
+        $needsValidation = InvoiceValidators::sellerNeedsValidation($request->user()->role?->name);
         $proofPath = null;
         if ($request->hasFile('proof_file')) {
             $proofPath = $request->file('proof_file')->store('payment-proofs', 'public');
-        } elseif ($isCommercial) {
+        } elseif ($needsValidation) {
             throw ValidationException::withMessages([
-                'proof_file' => 'Une preuve de paiement est obligatoire pour une souscription effectuée par un commercial.',
+                'proof_file' => 'Une preuve de paiement est obligatoire pour cette souscription.',
             ]);
         }
 
@@ -409,7 +415,7 @@ class PackageController extends Controller
             autoRenew: (bool) ($data['auto_renew'] ?? false),
             advance: isset($data['advance']) && $data['advance'] !== null && (float) $data['advance'] > 0 ? (float) $data['advance'] : null,
             paymentType: $data['payment_type'] ?? null,
-            needsValidation: $isCommercial,
+            needsValidation: $needsValidation,
             paymentProof: $proofPath !== null ? [
                 'file_path' => $proofPath,
                 'payment_method' => $data['payment_type'] ?? 'cash',
@@ -419,6 +425,11 @@ class PackageController extends Controller
             discountType: $data['discount_type'] ?? null,
             discountValue: isset($data['discount_value']) ? (float) $data['discount_value'] : null,
         );
+
+        // Facture en attente : les validateurs sont prévenus (hors transaction).
+        if ($result['invoice']->validation_status === Invoice::VALIDATION_PENDING) {
+            $this->pendingNotifier->notify($result['invoice']);
+        }
 
         return response()->json([
             'contract' => $result['contract']->load('client:id,first_name,last_name,email', 'pack:id,name'),

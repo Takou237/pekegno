@@ -98,7 +98,7 @@ class RoleSeeder extends Seeder
                 $p('accounting-categories', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('bilans', ['consulter', 'exporter']),
                 $p('courses', ['consulter', 'creer', 'modifier']),
-                $p('sessions', ['consulter', 'creer', 'modifier']),
+                $p('sessions', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('enrollments', ['consulter', 'creer', 'modifier']),
                 $p('orders', ['consulter', 'creer', 'modifier']),
                 $p('reports', ['consulter', 'exporter']),
@@ -122,7 +122,7 @@ class RoleSeeder extends Seeder
             ),
             'commercial' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
-                $p('clients', ['consulter', 'creer', 'modifier']),
+                $p('clients', ['consulter', 'creer', 'modifier', 'supprimer']),
                 // clients.modifier : le commercial peut corriger les informations des
                 // apprenants qu'il a créés (fiche d'apprenant éditable).
                 // reporting : le commercial consulte son propre « Rapport commercial mensuel ».
@@ -159,7 +159,7 @@ class RoleSeeder extends Seeder
                 // il peut créer des clients (nouveau apprenant dans le formulaire
                 // d'inscription), créer/modifier des inscriptions et vendre (factures).
                 // countries.consulter sert au sélecteur de pays du formulaire apprenant.
-                $p('clients', ['consulter', 'creer']),
+                $p('clients', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('countries', ['consulter']),
                 $p('services', ['consulter']),
                 $p('products', ['consulter']),
@@ -192,7 +192,7 @@ class RoleSeeder extends Seeder
                 $p('prestation-actions', ['consulter', 'modifier']),
             ),
             'comptable' => array_merge(
-                $p('clients', ['consulter', 'exporter']),
+                $p('clients', ['consulter', 'modifier', 'supprimer', 'exporter']),
                 $p('commercials', ['consulter', 'exporter', 'reporting']),
                 $p('employes', ['consulter', 'exporter']),
                 $p('services', ['consulter']),
@@ -233,7 +233,7 @@ class RoleSeeder extends Seeder
             ),
             'community-manager' => array_merge(
                 // Agency : ne voit que les prestations dont il est membre de l'équipe.
-                $p('clients', ['consulter']),
+                $p('clients', ['consulter', 'modifier', 'supprimer']),
                 $p('packages', ['consulter']),
                 $p('prestations', ['consulter']),
                 $p('prestation-actions', ['consulter', 'modifier']),

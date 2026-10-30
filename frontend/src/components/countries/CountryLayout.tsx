@@ -31,7 +31,7 @@ import { canValidateInvoices } from '@/utils/invoicePermissions';
 import { homeSpace } from '@/utils/userScope';
 import type { CountryStat } from '@/types/stats';
 
-function getSubItems(t: ReturnType<typeof useTranslation>['t'], roleName?: string) {
+export function getCountryItems(t: ReturnType<typeof useTranslation>['t'], roleName?: string) {
   return [
     { to: '', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
     { to: 'clients', label: t('nav.clients'), icon: Contact, end: false },
@@ -94,15 +94,14 @@ export function CountryLayout() {
     }`;
   }
 
-  const subItems = getSubItems(t, user?.role?.name);
+  const subItems = getCountryItems(t, user?.role?.name);
   const space = homeSpace(user);
   const basePath = useResolvedPath('').pathname;
 
   // Le tiroir mobile des pages Profil / Paramètres reprend ce menu.
   useEffect(() => {
-    if (user?.id && country) rememberSpaceNav(user.id, basePath, country.name, subItems);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, country, basePath, t]);
+    if (user?.id && country) rememberSpaceNav({ userId: user.id, kind: 'country', basePath, title: country.name });
+  }, [user?.id, country, basePath]);
 
   const backButton = (
     <Link

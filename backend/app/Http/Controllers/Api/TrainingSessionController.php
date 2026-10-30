@@ -11,10 +11,8 @@ use App\Models\Attendance;
 use App\Models\Course;
 use App\Models\FormationEnrollment;
 use App\Models\TrainingSession;
-use App\Models\TrainingSessionSynced;
 use App\Services\ScopeService;
 use App\Services\TrainerAssignmentService;
-use App\Services\TrainingSessionSyncService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +24,6 @@ class TrainingSessionController extends Controller
 {
     public function __construct(
         private readonly ScopeService $scopeService,
-        private readonly TrainingSessionSyncService $syncService,
         private readonly TrainerAssignmentService $trainerService,
     ) {
     }
@@ -106,36 +103,17 @@ class TrainingSessionController extends Controller
         $data['module_id'] = null;
         $this->resolveTrainer($data);
 
-        // L'agence de la session vient de la requête, sinon elle hérite de celle du cours.
-        // Un cours global (sans agence) peut avoir des sessions sans agence.
-        if (empty($data['agency_id'])) {
-            $data['agency_id'] = Course::find($data['course_id'])?->agency_id;
+        // Une session appartient à une seule agence : celle de sa formation.
+        // Seul un cours global (sans agence) prend l'agence de la requête.
+        $courseAgencyId = Course::find($data['course_id'])?->agency_id;
+        if ($courseAgencyId) {
+            $data['agency_id'] = $courseAgencyId;
         }
-
-        $course = Course::find($data['course_id']);
 
         // Création libre : une formation peut avoir plusieurs sessions dans la
         // même agence (y compris aux mêmes dates), seule la validation des
         // champs (StoreTrainingSessionRequest) s'applique.
-
-        $session = $this->syncService->sourceSessionForCourse($course, $data, $data['agency_id'], $data['session_id'] ?? null);
-
-        if ($session) {
-            $data['session_id'] = $session->id;
-        }
-
-        $created = DB::transaction(function () use ($data) {
-            return TrainingSession::create($data);
-        });
-
-        if ($course && isset($data['sync_across_agencies']) && (bool) $data['sync_across_agencies'] === true) {
-            $this->syncService->syncForCourse(
-                $course,
-                $data,
-                $request->user()?->id,
-                true,
-            );
-        }
+        $created = TrainingSession::create($data);
 
         return (new TrainingSessionResource($created->load(['course', 'trainer', 'agency'])))
             ->response()
@@ -205,18 +183,10 @@ class TrainingSessionController extends Controller
         $data['module_id'] = null;
         $this->resolveTrainer($data);
 
-        $course = $trainingSession->course;
-
-        if ($course && isset($data['sync_across_agencies']) && (bool) $data['sync_across_agencies'] === true) {
-            // On passe la session en cours de modification : le service répercute
-            // ses nouvelles valeurs dans les autres agences (création ou mise à jour).
-            $this->syncService->syncForCourse(
-                $course,
-                $data,
-                $request->user()?->id,
-                true,
-                $trainingSession,
-            );
+        // L'agence reste celle de la formation (cours global : agence libre).
+        $courseAgencyId = Course::find($data['course_id'] ?? $trainingSession->course_id)?->agency_id;
+        if ($courseAgencyId) {
+            $data['agency_id'] = $courseAgencyId;
         }
 
         $trainingSession->forceFill(['module_id' => null]);
