@@ -228,7 +228,7 @@ export default function ClientListPage() {
             {t('clients.subtitle')}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {canExportData(currentUser) && (
             <Button variant="outline" onClick={handleExport} isLoading={isExporting}>
               <Download className="h-4 w-4" />

@@ -130,7 +130,7 @@ export default function CommissionRulesPage() {
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('commissions.rulesTitle')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('commissions.rulesSubtitle')}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
           <Button onClick={openCreate}><Plus className="h-4 w-4" />{t('commissions.newRule')}</Button>
         </div>

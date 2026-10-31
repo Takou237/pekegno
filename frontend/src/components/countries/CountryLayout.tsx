@@ -25,7 +25,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
-import { rememberSpaceNav } from '@/components/layout/spaceNavMemory';
+import { forgetSpaceNav, rememberSpaceNav } from '@/components/layout/spaceNavMemory';
 import { useAuth } from '@/hooks/useAuth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
 import { homeSpace } from '@/utils/userScope';
@@ -98,10 +98,20 @@ export function CountryLayout() {
   const space = homeSpace(user);
   const basePath = useResolvedPath('').pathname;
 
-  // Le tiroir mobile des pages Profil / Paramètres reprend ce menu.
+  // Entrée dans l'espace (ou changement d'espace) : l'ancien menu mémorisé
+  // est oublié tout de suite, sinon un Profil ouvert avant la fin du
+  // chargement afficherait le menu de l'espace précédent.
   useEffect(() => {
-    if (user?.id && country) rememberSpaceNav({ userId: user.id, kind: 'country', basePath, title: country.name });
-  }, [user?.id, country, basePath]);
+    forgetSpaceNav();
+  }, [basePath]);
+
+  // Le menu des pages Profil / Paramètres reprend celui de ce pays, une fois
+  // le pays de l'URL chargé (jamais les données d'un pays précédent).
+  useEffect(() => {
+    if (user?.id && country && country.id === countryId) {
+      rememberSpaceNav({ userId: user.id, kind: 'country', basePath, title: country.name });
+    }
+  }, [user?.id, country, countryId, basePath]);
 
   const backButton = (
     <Link

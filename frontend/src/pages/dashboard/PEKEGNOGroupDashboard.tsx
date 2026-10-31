@@ -76,7 +76,7 @@ function StatCard({
 }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
           {icon}
         </div>

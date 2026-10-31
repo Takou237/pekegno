@@ -25,6 +25,7 @@ class StoreTrainingSessionRequest extends FormRequest
             'end_at' => ['sometimes', 'nullable', 'date', 'after:start_at'],
             'max_capacity' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'duration_type' => ['sometimes', 'string', Rule::in(['limited', 'unlimited'])],
             'status' => ['sometimes', 'string', Rule::in(['planned', 'ongoing', 'completed', 'cancelled'])],
         ];
     }

@@ -3,11 +3,17 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UserRound, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { getUserMainItems, navLinkClass, INVOICES_ROLES } from '@/components/layout/navItems';
+import { getUserMainItems, navLinkClass, INVOICES_ROLES, type NavItem } from '@/components/layout/navItems';
 import { invoicesApi } from '@/api/invoices.api';
 import { BrandLogo } from '@/components/common/BrandLogo';
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Menu d'un espace (Profil ouvert depuis un pays / une agence / un département) : remplace le menu principal. */
+  contextTitle?: string;
+  contextItems?: NavItem[];
+}
+
+export function Sidebar({ contextTitle, contextItems }: SidebarProps = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const location = useLocation();
@@ -23,7 +29,7 @@ export function Sidebar() {
     return () => { cancelled = true; };
   }, [roleName]);
 
-  const mainItems = getUserMainItems(t, user, unpaidBadge).map((item) =>
+  const mainItems = contextItems ?? getUserMainItems(t, user, unpaidBadge).map((item) =>
     // Garde-fou : jamais de pastille rouge sur le menu Factures en connexion
     // commercial (ni caissier), même si un badge était passé par erreur.
     roleName === 'commercial' || roleName === 'caissier' ? { ...item, badge: undefined } : item,
@@ -34,10 +40,15 @@ export function Sidebar() {
       <div className="mb-8 px-2">
         <BrandLogo className="h-9" />
       </div>
+      {contextItems && contextTitle && (
+        <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          {contextTitle}
+        </p>
+      )}
       <nav className="flex flex-1 flex-col gap-1">
         {mainItems.map(({ to, label, icon: Icon, end, badge, isPathActive }) => (
           <NavLink
-            key={to}
+            key={to || '/'}
             to={to}
             end={end}
             className={({ isActive }) =>

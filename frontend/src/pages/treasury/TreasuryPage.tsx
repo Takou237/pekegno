@@ -123,7 +123,7 @@ export default function TreasuryPage() {
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('treasury.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('treasury.subtitle')}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={() => { loadAccounts(); loadTransactions(); }}>
             <RefreshCw className="h-4 w-4" />
           </Button>

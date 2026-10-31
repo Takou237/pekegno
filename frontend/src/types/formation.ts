@@ -322,6 +322,7 @@ export interface TrainingSession {
   max_capacity: number | null;
   price: number | null;
   effective_price?: number | null;
+  duration_type?: 'limited' | 'unlimited';
   status: SessionStatus;
   enrollments_count?: number;
   created_at: string;
@@ -338,6 +339,7 @@ export interface SessionPayload {
   end_at?: string | null;
   max_capacity?: number | null;
   price?: number | null;
+  duration_type?: 'limited' | 'unlimited';
   status?: SessionStatus;
 }
 

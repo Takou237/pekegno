@@ -662,7 +662,7 @@ export default function UserListPage() {
             ))}
           </Select>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {canCreateUsers && (
             <Button onClick={() => setCreateOpen(true)}>
               <UserPlus className="h-4 w-4" />

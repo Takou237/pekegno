@@ -10,6 +10,7 @@ export interface ScopeAgency {
   id: string;
   name: string;
   code: string;
+  type?: 'agency' | 'academy' | 'mixed' | null;
   country_id: string;
   city_id: string | null;
   departments: ScopeDepartment[];

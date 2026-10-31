@@ -130,7 +130,15 @@ mutualisé o2switch, sans avoir à redécouvrir les pièges rencontrés.
 | Script | Contenu |
 |---|---|
 | `30_10(2)/migration-2026-10-30.sql` | 3 migrations : suppression de `training_sessions_synced` (sessions par agence, plus de synchro), `clients.modifier` + `clients.supprimer` → commercial / caissier / comptable / community-manager, `sessions.supprimer` → responsable-departement + lignes `migrations` (aucune nouvelle permission) — importer **après** le `git pull` |
-| `30_10(2)/frontend-dist.zip` | build admin du 30/10 (2) : sessions par agence, Pages Produits sur tout le réseau + filtre agence, droits clients, menu ☰ persistant après actualisation, ventes des chefs en validation avec preuve (aucun rebuild `vendor/`, aucune nouvelle route ; vider l'OPcache) |
+| `30_10(2)/frontend-dist.zip` | build admin du 30/10 (2) : sessions par agence, Pages Produits sur tout le réseau + filtre agence, droits clients, menu ☰ persistant après actualisation, ventes des chefs en validation avec preuve (aucun rebuild `vendor/`, aucune nouvelle route ; vider l'OPcache) — **remplacé par `31_10`** |
+
+⏳ **À appliquer avec le déploiement du 31/10/2026** (voir
+`31_10/README.md`) — déplacer dans le tableau ci-dessus une fois fait :
+
+| Script | Contenu |
+|---|---|
+| `31_10/migration-2026-10-31.sql` | 1 migration : `training_sessions.duration_type` (Limitée / Illimitée, défaut `unlimited` ; sessions avec date de fin → `limited`) + ligne `migrations` — importer **juste après** le `git pull`, **après** `30_10(2)/migration-2026-10-30.sql` |
+| `31_10/frontend-dist.zip` | build admin du 31/10 : type de durée des sessions (création, fiche formation, modification ; « Fin » masquée si Illimitée), heure + encadré de détail de la session choisie dans les inscriptions (aucun rebuild `vendor/`, aucune nouvelle route ; vider l'OPcache) |
 
 🆕 **Remise à neuf (optionnel, irréversible)** : `reset-prod-fresh-2026-10-16.sql`
 vide toute la base métier (factures, clients, prospects, agences, pays,

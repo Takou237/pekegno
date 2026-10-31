@@ -230,7 +230,7 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
           {totals && (
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
                     <Receipt className="h-5 w-5" />
                   </div>
@@ -245,7 +245,7 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
                 </div>
               </div>
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400">
                     <TrendingUp className="h-5 w-5" />
                   </div>
@@ -260,7 +260,7 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
                 </div>
               </div>
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
                     <Wallet className="h-5 w-5" />
                   </div>
@@ -275,7 +275,7 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
                 </div>
               </div>
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
                     <HandCoins className="h-5 w-5" />
                   </div>
@@ -290,7 +290,7 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
                 </div>
               </div>
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400">
                     <HandCoins className="h-5 w-5" />
                   </div>
@@ -305,7 +305,7 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
                 </div>
               </div>
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
                     <Award className="h-5 w-5" />
                   </div>
@@ -320,7 +320,7 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
                 </div>
               </div>
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
                     <Users className="h-5 w-5" />
                   </div>
@@ -335,7 +335,7 @@ export default function CommercialReportPage({ fixedAgencyId, mode = 'commercial
                 </div>
               </div>
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400">
                     <UserCheck className="h-5 w-5" />
                   </div>

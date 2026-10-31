@@ -56,7 +56,7 @@ export default function ClientTeamPage() {
         )}
       </div>
 
-      <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+      <div className="scrollbar-none flex gap-1 overflow-x-auto border-b border-gray-100 dark:border-gray-800">
         {(['assignments', 'directory'] as const).map((id) => (
           <button
             key={id}

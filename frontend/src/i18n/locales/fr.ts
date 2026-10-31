@@ -2599,6 +2599,7 @@ export default {
     metricsTitle: 'Métriques',
     enrollmentsTotal: 'Inscriptions totales',
     enrolled: 'Inscrits',
+    seatsLeft: 'places restantes',
     completionRate: 'Taux de complétion',
     attendanceRate: 'Taux de présence',
     hoursTaught: 'Heures enseignées',

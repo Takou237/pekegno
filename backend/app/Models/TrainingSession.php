@@ -22,6 +22,7 @@ class TrainingSession extends Model
         'end_at',
         'max_capacity',
         'price',
+        'duration_type',
         'status',
     ];
 
@@ -31,6 +32,7 @@ class TrainingSession extends Model
      */
     protected $attributes = [
         'status' => 'planned',
+        'duration_type' => 'unlimited',
     ];
 
     protected function casts(): array

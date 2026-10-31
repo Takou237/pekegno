@@ -523,11 +523,11 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             )}
           </div>
         </div>
-        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+        <div className="scrollbar-none flex gap-1 overflow-x-auto border-b border-gray-100 dark:border-gray-800">
           <button
             type="button"
             onClick={() => setTab('services')}
-            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+            className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
           >
             {t('nav.services')}
           </button>
@@ -535,7 +535,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             <button
               type="button"
               onClick={() => setTab('formations')}
-              className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+              className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
             >
               {t('nav.academy')}
             </button>
@@ -543,7 +543,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
           <button
             type="button"
             onClick={() => setTab('packages')}
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               isPackagesTab
                 ? 'border-brand-500 text-brand-600 dark:text-brand-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
@@ -554,7 +554,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
           <button
             type="button"
             onClick={() => setTab('prestations')}
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               !isPackagesTab
                 ? 'border-brand-500 text-brand-600 dark:text-brand-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
@@ -836,11 +836,11 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
       </div>
 
       {(effectiveShowAcademyTabs || showPackagesTab) && (
-        <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+        <div className="scrollbar-none flex gap-1 overflow-x-auto border-b border-gray-100 dark:border-gray-800">
           <button
             type="button"
             onClick={() => setTab('services')}
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               tab === 'services'
                 ? 'border-brand-500 text-brand-600 dark:text-brand-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
@@ -852,7 +852,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
             <button
               type="button"
               onClick={() => setTab('formations')}
-              className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 tab === 'formations'
                   ? 'border-brand-500 text-brand-600 dark:text-brand-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
@@ -866,14 +866,14 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
               <button
                 type="button"
                 onClick={() => setTab('packages')}
-                className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+                className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
               >
                 {t('nav.packages')}
               </button>
               <button
                 type="button"
                 onClick={() => setTab('prestations')}
-                className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+                className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
               >
                 {t('nav.prestations')}
               </button>
@@ -1311,13 +1311,13 @@ function CatalogTabs({ tab, onChange }: { tab: CatalogTab; onChange: (tab: Catal
   ];
 
   return (
-    <div className="flex gap-1 border-b border-gray-100 dark:border-gray-800">
+    <div className="scrollbar-none flex gap-1 overflow-x-auto border-b border-gray-100 dark:border-gray-800">
       {tabs.map((item) => (
         <button
           key={item.id}
           type="button"
           onClick={() => onChange(item.id)}
-          className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+          className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
             tab === item.id
               ? 'border-brand-500 text-brand-600 dark:text-brand-400'
               : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'

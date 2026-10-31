@@ -85,6 +85,7 @@ class ScopeController extends Controller
                 'id' => $a->id,
                 'name' => $a->name,
                 'code' => $a->code,
+                'type' => $a->type,
                 'country_id' => $a->country_id,
                 'city_id' => $a->city_id,
                 'departments' => $a->departments->map(fn (Department $d) => [

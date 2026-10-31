@@ -24,6 +24,7 @@ import type { PaymentMethod } from '@/types/invoice';
 import { currencyLabel } from '@/utils/number';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import { useOrgContext } from '@/context/OrgContext';
+import SessionInfoCard from '@/components/academy/SessionInfoCard';
 
 
 interface FormationEnrollmentModalProps {
@@ -424,7 +425,7 @@ export default function FormationEnrollmentModal({
               <option value="">{t('academy.selectSession')}</option>
               {enrollSessions.map((session) => (
                 <option key={session.id} value={session.id}>
-                  {`${t('academy.session')} — ${new Date(session.start_at).toLocaleDateString(currentLocale())}${session.max_capacity != null ? ` (${session.enrollments_count ?? 0}/${session.max_capacity})` : ''}`}
+                  {`${t('academy.session')} — ${new Date(session.start_at).toLocaleString(currentLocale(), { dateStyle: 'short', timeStyle: 'short' })}${session.max_capacity != null ? ` (${session.enrollments_count ?? 0}/${session.max_capacity})` : ''}`}
                 </option>
               ))}
             </select>
@@ -439,6 +440,7 @@ export default function FormationEnrollmentModal({
             {fieldErrors.training_session_id && (
               <p className="mt-1 text-xs text-red-500">{fieldErrors.training_session_id}</p>
             )}
+            <SessionInfoCard session={enrollSessions.find((s) => s.id === form.training_session_id)} />
           </div>
         )}
 

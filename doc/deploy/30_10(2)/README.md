@@ -24,6 +24,7 @@ déploiement** (§3, étape 0).
 | 5 | **Table Clients** : boutons d'action pour tous les rôles selon leurs droits ; commercial, caissier, comptable et community-manager peuvent **modifier et supprimer** un client | Frontend + Base |
 | 6 | **Responsive Profil / Paramètres** : le menu ☰ garde le menu du pays / de l'agence / du département **même après actualisation** de la page | Frontend |
 | 7 | **Ventes des chefs d'agence / de département** (souscription package, inscription formation) : preuve de paiement **obligatoire**, facture **en attente de validation**, avance encaissée seulement à l'acceptation de la preuve par le caissier / la direction. Email « facture en attente » aux caissiers désormais envoyé aussi pour les **packages** | Backend + Frontend |
+| 8 | **Responsive (revue complète)** : Profil / Paramètres ouverts sur **grand écran / tablette paysage** gardent aussi le menu de l'espace (barre latérale) ; un chef / directeur qui ouvre le Profil directement (nouvel onglet, après connexion) retrouve le menu de **son** espace ; plus de menu d'un **autre** espace si on ouvre le Profil avant la fin du chargement ; plus de défilement horizontal sur mobile : onglets des Pages Produits (défilables), cartes de stats des tableaux de bord, Profil (2FA, suppression du compte), boutons d'en-tête des listes (retour à la ligne). `GET /scope/context` renvoie aussi le type d'agence | Backend + Frontend |
 
 | Partie | Action |
 |---|---|
@@ -48,6 +49,10 @@ Validé avant livraison :
   (`schema.sql` → rôles/permissions → lots 13/10 et 22/10) : zéro erreur,
   `INSERT 0 0` et `NOTICE … does not exist, skipping` au rejeu ; droits obtenus conformes ;
 - `tsc -b` + build OK, `php -l` OK sur les fichiers PHP modifiés ;
+- responsive testé dans un vrai navigateur (Playwright/Chromium) : 98 routes × 4 largeurs
+  (320, 375, 768, 1024 px) → aucun débordement horizontal, aucune erreur JS, menu ☰ présent ;
+  Profil depuis pays / agence / département avant et après actualisation (mobile + grand écran),
+  liens du menu reconstruit, chefs / directeur sur Profil ouvert directement ;
 - tests backend (image Docker PHP 8.3, SQLite mémoire) : nouveaux tests OK
   (`TrainingSessionAgencyTest` ×5, ventes des chefs en validation ×2) ;
   **aucun nouvel échec** — les échecs restants sont connus (cf. `CLAUDE.md`) :
@@ -114,6 +119,9 @@ rejouable). Les droits accordés peuvent rester (sans effet sur l'ancien code).
 - [ ] **Nouvelle inscription** depuis la carte d'une formation d'une autre agence → Agence et Formation affichées en texte fixe (sans chevron), agence = celle de la formation ; inscription créée.
 - [ ] **Clients** connecté en caissier / commercial / comptable → boutons Voir, Modifier, Supprimer présents et fonctionnels.
 - [ ] **Téléphone** : depuis un pays (ou une agence) → Profil → **actualiser** → le menu ☰ reste celui du pays (de l'agence).
+- [ ] **Téléphone (320–375 px)** : Pages Produits (onglets qui défilent, pas de défilement horizontal de la page), tableau de bord d'une agence (cartes de stats), Mon profil (sections 2FA et suppression du compte), liste des agences.
+- [ ] **Tablette paysage / ordinateur** : depuis une agence → Profil → **actualiser** → la barre latérale affiche le menu de l'agence.
+- [ ] **Chef d'agence** connecté → ouvrir directement `/profile` → le menu (☰ ou barre latérale) est celui de son agence.
 - [ ] **Chef d'agence** → souscrire un package **sans preuve** → refus « preuve obligatoire » ; **avec preuve** → facture « en attente de validation », montant payé 0, email reçu par le caissier ; le caissier accepte la preuve → avance encaissée.
 - [ ] **Chef de département** → nouvelle inscription formation avec preuve → facture « en attente de validation » visible dans « Validation » du caissier.
 - [ ] **Recette du lot `30_10/`** s'il n'était pas encore passé.

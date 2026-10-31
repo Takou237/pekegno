@@ -134,7 +134,7 @@ export default function AgencyOverviewPage() {
           <Link
             key={to}
             to={to}
-            className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4 rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+            className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-4 rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
           >
             <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${bg} ${color}`}>
               <Icon className="h-5 w-5" />
@@ -149,7 +149,7 @@ export default function AgencyOverviewPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
               <TrendingUp className="h-5 w-5" />
             </span>
@@ -162,7 +162,7 @@ export default function AgencyOverviewPage() {
           </div>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400">
               <Wallet className="h-5 w-5" />
             </span>
@@ -175,7 +175,7 @@ export default function AgencyOverviewPage() {
           </div>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
               <Clock className="h-5 w-5" />
             </span>
@@ -188,7 +188,7 @@ export default function AgencyOverviewPage() {
           </div>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400">
               <Trophy className="h-5 w-5" />
             </span>

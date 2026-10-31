@@ -2587,6 +2587,7 @@ export default {
     metricsTitle: 'Metrics',
     enrollmentsTotal: 'Total enrollments',
     enrolled: 'Enrolled',
+    seatsLeft: 'seats left',
     completionRate: 'Completion rate',
     attendanceRate: 'Attendance rate',
     hoursTaught: 'Hours taught',

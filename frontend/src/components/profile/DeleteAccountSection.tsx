@@ -43,17 +43,20 @@ export function DeleteAccountSection() {
 
   return (
     <div className="rounded-lg border border-error-200 bg-error-50/40 p-4 dark:border-error-500/30 dark:bg-error-500/5">
-      <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-error-500" />
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-error-700 dark:text-error-400">
-            {t('profile.dangerZone')}
-          </p>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-            {t('profile.deleteAccountDesc')}
-          </p>
+      {/* Mobile : le bouton passe sous le texte, en pleine largeur. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-error-500" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-error-700 dark:text-error-400">
+              {t('profile.dangerZone')}
+            </p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              {t('profile.deleteAccountDesc')}
+            </p>
+          </div>
         </div>
-        <div className="w-48 shrink-0">
+        <div className="w-full sm:w-48 sm:shrink-0">
           <Button
             variant="outline"
             className="!border-error-300 !text-error-600 hover:!bg-error-50"

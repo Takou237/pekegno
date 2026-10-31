@@ -138,7 +138,7 @@ export default function DepartmentListPage({ agencyId }: DepartmentListPageProps
             {t('departments.subtitle')}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {canManageDepartmentTrash(user) && (
             <Link to={agencyId ? `/agencies/${agencyId}/departments/trash` : '/departments/trash'}>
               <Button variant="outline">

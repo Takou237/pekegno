@@ -113,7 +113,7 @@ export default function CategoryListPage() {
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('categories.subtitle')}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {canManageCatalogTrash(user) && (
             <Link to={countryId ? `/countries/${countryId}/catalog/categories/trash` : '/catalog/categories/trash'}>
               <Button variant="outline">

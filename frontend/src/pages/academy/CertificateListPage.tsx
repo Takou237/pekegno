@@ -150,7 +150,7 @@ export default function CertificateListPage() {
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('certificates.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('certificates.subtitle')}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
           <Button onClick={() => setIssueOpen(true)}>
             <Plus className="h-4 w-4" />

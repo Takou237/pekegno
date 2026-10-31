@@ -17,6 +17,7 @@ import { courseOptionLabel } from '@/utils/courseMode';
 import { Pagination } from '@/components/ui/Pagination';
 import { currentLocale } from '@/i18n';
 import { currencyLabel } from '@/utils/number';
+import SessionInfoCard from '@/components/academy/SessionInfoCard';
 
 interface DepartmentLayoutContext {
   department?: { id: string; agency_id?: string; type?: string } | null;
@@ -553,7 +554,7 @@ export default function AcademyLearnersPage() {
                 <option value="">{t('academy.selectSession')}</option>
                 {enrollmentSessions.map((session) => (
                   <option key={session.id} value={session.id}>
-                    {`${t('academy.session')} — ${new Date(session.start_at).toLocaleDateString(currentLocale())}${session.max_capacity != null ? ` (${session.enrollments_count ?? 0}/${session.max_capacity})` : ''}`}
+                    {`${t('academy.session')} — ${new Date(session.start_at).toLocaleString(currentLocale(), { dateStyle: 'short', timeStyle: 'short' })}${session.max_capacity != null ? ` (${session.enrollments_count ?? 0}/${session.max_capacity})` : ''}`}
                   </option>
                 ))}
               </select>
@@ -565,6 +566,7 @@ export default function AcademyLearnersPage() {
               {enrollmentFieldErrors.training_session_id && (
                 <p className="mt-1 text-xs text-red-500">{enrollmentFieldErrors.training_session_id}</p>
               )}
+              <SessionInfoCard session={enrollmentSessions.find((s) => s.id === enrollmentForm.training_session_id)} />
             </div>
           )}
 

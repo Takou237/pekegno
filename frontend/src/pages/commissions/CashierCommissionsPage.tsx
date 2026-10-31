@@ -174,7 +174,7 @@ export default function CashierCommissionsPage() {
               ))}
             </Select>
             <Input label={t('cashierCommissions.note')} value={note} onChange={(e) => setNote(e.target.value)} />
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button type="button" variant="outline" onClick={() => setTarget(null)} disabled={isPaying} className="flex-1">{t('common.cancel')}</Button>
               <Button type="submit" isLoading={isPaying} className="flex-1">{t('cashierCommissions.pay')}</Button>
             </div>

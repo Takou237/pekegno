@@ -39,7 +39,7 @@ function StatCard({
 }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
           {icon}
         </div>
@@ -183,7 +183,7 @@ export default function CountryDashboardPage() {
           to={`/countries/${countryId}/agencies`}
           className="rounded-2xl border border-gray-100 bg-white p-5 transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900"
         >
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
               <Building2 className="h-5 w-5" />
             </div>
@@ -196,7 +196,7 @@ export default function CountryDashboardPage() {
           </div>
         </Link>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
               <FolderTree className="h-5 w-5" />
             </div>
@@ -209,7 +209,7 @@ export default function CountryDashboardPage() {
           </div>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
               <Users className="h-5 w-5" />
             </div>

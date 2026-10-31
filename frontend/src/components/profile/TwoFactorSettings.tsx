@@ -165,47 +165,51 @@ export function TwoFactorSettings() {
 
   return (
     <div id="security" className="flex flex-col gap-4">
-      <div className="flex items-center gap-3 rounded-lg border border-gray-100 p-4 dark:border-gray-800">
-        {user.two_factor_enabled ? (
-          <ShieldCheck className="h-8 w-8 text-success-500" />
-        ) : (
-          <ShieldAlert className="h-8 w-8 text-warning-500" />
-        )}
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-            {t('profile.twoFactorStatus')}{' '}
-            {user.two_factor_enabled ? (
-              <span className="text-success-600">{t('profile.twoFactorEnabled')}</span>
-            ) : (
-              <span className="text-warning-600">{t('profile.twoFactorNotEnabled')}</span>
-            )}
-            {user.two_factor_enabled && (
-              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                {isEmailChannel ? (
-                  <>
-                    <Mail className="h-3 w-3" /> {t('profile.twoFactorChannelEmail')}
-                  </>
-                ) : (
-                  <>
-                    <Smartphone className="h-3 w-3" /> {t('profile.twoFactorChannelTotp')}
-                  </>
-                )}
-              </span>
-            )}
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {isEmailChannel
-              ? t('profile.twoFactorDescEmail')
-              : t('profile.twoFactorDesc')}
-          </p>
-        </div>
-        <div className="w-48 shrink-0">
+      {/* Mobile : le bouton passe sous le texte, en pleine largeur ; pas de
+          colonne vide réservée quand la 2FA n'est pas activée. */}
+      <div className="flex flex-col gap-3 rounded-lg border border-gray-100 p-4 sm:flex-row sm:items-center dark:border-gray-800">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {user.two_factor_enabled ? (
+            <ShieldCheck className="h-8 w-8 shrink-0 text-success-500" />
+          ) : (
+            <ShieldAlert className="h-8 w-8 shrink-0 text-warning-500" />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+              {t('profile.twoFactorStatus')}{' '}
+              {user.two_factor_enabled ? (
+                <span className="text-success-600">{t('profile.twoFactorEnabled')}</span>
+              ) : (
+                <span className="text-warning-600">{t('profile.twoFactorNotEnabled')}</span>
+              )}
+              {user.two_factor_enabled && (
+                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                  {isEmailChannel ? (
+                    <>
+                      <Mail className="h-3 w-3" /> {t('profile.twoFactorChannelEmail')}
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone className="h-3 w-3" /> {t('profile.twoFactorChannelTotp')}
+                    </>
+                  )}
+                </span>
+              )}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {isEmailChannel
+                ? t('profile.twoFactorDescEmail')
+                : t('profile.twoFactorDesc')}
+            </p>
+          </div>
+        </div>
+        {user.two_factor_enabled && (
+          <div className="w-full sm:w-48 sm:shrink-0">
             <Button variant="outline" onClick={handleOpenDisableModal} fullWidth>
               {t('profile.twoFactorDisable')}
             </Button>
-          ) : null}
-        </div>
+          </div>
+        )}
       </div>
 
       {!user.two_factor_enabled && !setupChannel && (

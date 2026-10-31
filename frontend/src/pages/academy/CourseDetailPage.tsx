@@ -55,6 +55,7 @@ import { currentLocale } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { canDeleteSessions } from '@/utils/academyPermissions';
 import type { Department } from '@/types/department';
+import SessionInfoCard from '@/components/academy/SessionInfoCard';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -96,6 +97,8 @@ function formatDate(value: string | null): string {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -104,6 +107,7 @@ interface SessionFormState {
   start_at: string;
   end_at: string;
   max_capacity: string;
+  duration_type: 'limited' | 'unlimited';
   status: SessionStatus;
 }
 
@@ -156,6 +160,7 @@ export default function CourseDetailPage() {
     start_at: '',
     end_at: '',
     max_capacity: '',
+    duration_type: 'unlimited',
     status: 'planned',
   });
   const [sessionSubmitting, setSessionSubmitting] = useState(false);
@@ -361,6 +366,7 @@ export default function CourseDetailPage() {
       start_at: '',
       end_at: '',
       max_capacity: '',
+      duration_type: 'unlimited',
       status: 'planned',
     });
     setSessionError(null);
@@ -380,8 +386,9 @@ export default function CourseDetailPage() {
         agency_id: agencyId,
         trainer_id: sessionForm.trainer_id || null,
         start_at: sessionForm.start_at,
-        end_at: sessionForm.end_at || null,
+        end_at: sessionForm.duration_type === 'limited' ? sessionForm.end_at || null : null,
         max_capacity: sessionForm.max_capacity ? Number(sessionForm.max_capacity) : null,
+        duration_type: sessionForm.duration_type,
         status: sessionForm.status,
       });
       setSessions((prev) => [saved, ...prev]);
@@ -667,7 +674,8 @@ export default function CourseDetailPage() {
                       <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
                         <span className="inline-flex items-center gap-1">
                           <CalendarDays className="h-3.5 w-3.5" />
-                          {formatDate(session.start_at)} → {formatDate(session.end_at)}
+                          {formatDate(session.start_at)}
+                          {session.end_at ? ` → ${formatDate(session.end_at)}` : ` · ${t('academy.unlimited')}`}
                         </span>
                         <span className="inline-flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
@@ -893,7 +901,22 @@ export default function CourseDetailPage() {
             fetchOptions={trainerOptions}
             error={sessionFieldErrors.trainer_id}
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.durationType')}
+            </label>
+            <select
+              value={sessionForm.duration_type}
+              onChange={(e) =>
+                setSessionForm((prev) => ({ ...prev, duration_type: e.target.value as 'limited' | 'unlimited' }))
+              }
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="limited">{t('academy.limited')}</option>
+              <option value="unlimited">{t('academy.unlimited')}</option>
+            </select>
+          </div>
+          <div className={sessionForm.duration_type === 'limited' ? 'grid grid-cols-2 gap-4' : ''}>
             <Input
               label={`${t('academy.startAt')} *`}
               type="datetime-local"
@@ -902,13 +925,15 @@ export default function CourseDetailPage() {
               onChange={(e) => setSessionForm((prev) => ({ ...prev, start_at: e.target.value }))}
               error={sessionFieldErrors.start_at}
             />
-            <Input
-              label={t('academy.endAt')}
-              type="datetime-local"
-              value={sessionForm.end_at}
-              onChange={(e) => setSessionForm((prev) => ({ ...prev, end_at: e.target.value }))}
-              error={sessionFieldErrors.end_at}
-            />
+            {sessionForm.duration_type === 'limited' && (
+              <Input
+                label={t('academy.endAt')}
+                type="datetime-local"
+                value={sessionForm.end_at}
+                onChange={(e) => setSessionForm((prev) => ({ ...prev, end_at: e.target.value }))}
+                error={sessionFieldErrors.end_at}
+              />
+            )}
           </div>
           <Input
             label={t('academy.maxCapacity')}
@@ -1033,6 +1058,7 @@ export default function CourseDetailPage() {
             {enrollFieldErrors.training_session_id && (
               <p className="mt-1 text-xs text-red-500">{enrollFieldErrors.training_session_id}</p>
             )}
+            <SessionInfoCard session={enrollableSessions.find((s) => s.id === enrollForm.training_session_id)} />
           </div>
           <EnrollmentLearnerField
             mode={learnerMode}

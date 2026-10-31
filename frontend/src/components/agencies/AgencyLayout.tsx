@@ -25,7 +25,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
-import { rememberSpaceNav } from '@/components/layout/spaceNavMemory';
+import { forgetSpaceNav, rememberSpaceNav } from '@/components/layout/spaceNavMemory';
 import { AgencySwitcher } from '@/components/agencies/AgencySwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
@@ -115,12 +115,20 @@ export function AgencyLayout() {
   const subItems = getAgencyItems(t, agency?.type, user?.role?.name);
   const basePath = useResolvedPath('').pathname;
 
-  // Le tiroir mobile des pages Profil / Paramètres reprend ce menu.
+  // Entrée dans l'espace (ou changement d'espace) : l'ancien menu mémorisé
+  // est oublié tout de suite, sinon un Profil ouvert avant la fin du
+  // chargement afficherait le menu de l'espace précédent.
   useEffect(() => {
-    if (user?.id && agency) {
+    forgetSpaceNav();
+  }, [basePath]);
+
+  // Le menu des pages Profil / Paramètres reprend celui de cette agence, une
+  // fois l'agence de l'URL chargée (jamais les données d'une agence précédente).
+  useEffect(() => {
+    if (user?.id && agency && agency.id === agencyId) {
       rememberSpaceNav({ userId: user.id, kind: 'agency', basePath, title: agency.name, agencyType: agency.type });
     }
-  }, [user?.id, agency, basePath]);
+  }, [user?.id, agency, agencyId, basePath]);
   const space = homeSpace(user);
   // Chef d'agence : uniquement son agence ; chef de département : pas d'accès
   // au niveau agence ; directeur général : les agences de son pays.

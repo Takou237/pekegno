@@ -110,6 +110,15 @@ class TrainingSessionController extends Controller
             $data['agency_id'] = $courseAgencyId;
         }
 
+        // Type de durée : déduit de la date de fin si non fourni ;
+        // une session illimitée n'a pas de date de fin.
+        if (! array_key_exists('duration_type', $data)) {
+            $data['duration_type'] = ! empty($data['end_at']) ? 'limited' : 'unlimited';
+        }
+        if ($data['duration_type'] === 'unlimited') {
+            $data['end_at'] = null;
+        }
+
         // Création libre : une formation peut avoir plusieurs sessions dans la
         // même agence (y compris aux mêmes dates), seule la validation des
         // champs (StoreTrainingSessionRequest) s'applique.
@@ -187,6 +196,10 @@ class TrainingSessionController extends Controller
         $courseAgencyId = Course::find($data['course_id'] ?? $trainingSession->course_id)?->agency_id;
         if ($courseAgencyId) {
             $data['agency_id'] = $courseAgencyId;
+        }
+
+        if (($data['duration_type'] ?? null) === 'unlimited') {
+            $data['end_at'] = null;
         }
 
         $trainingSession->forceFill(['module_id' => null]);

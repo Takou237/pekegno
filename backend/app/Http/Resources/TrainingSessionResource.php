@@ -36,6 +36,7 @@ class TrainingSessionResource extends JsonResource
             'max_capacity' => $this->max_capacity,
             'price' => $this->price !== null ? (float) $this->price : null,
             'effective_price' => $this->effective_price,
+            'duration_type' => $this->duration_type,
             'status' => $this->status,
             'enrollments_count' => $this->enrollments_count ?? null,
             'created_at' => $this->created_at?->toISOString(),

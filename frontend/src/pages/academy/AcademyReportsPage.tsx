@@ -427,7 +427,7 @@ export default function AcademyReportsPage() {
             {cards.map((card) => (
               <div
                 key={card.label}
-                className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4 rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900"
+                className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-4 rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900"
               >
                 <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${card.color} text-white`}>
                   <card.icon className="h-6 w-6" />

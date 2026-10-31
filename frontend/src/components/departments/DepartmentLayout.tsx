@@ -9,7 +9,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ContextBar } from '@/components/layout/ContextBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { SubNav } from '@/components/layout/SubNav';
-import { rememberSpaceNav } from '@/components/layout/spaceNavMemory';
+import { forgetSpaceNav, rememberSpaceNav } from '@/components/layout/spaceNavMemory';
 import { DepartmentSwitcher } from '@/components/departments/DepartmentSwitcher';
 import { getDepartmentItems, navLinkClass } from '@/components/layout/navItems';
 import { useAuth } from '@/hooks/useAuth';
@@ -60,9 +60,17 @@ export function DepartmentLayout() {
   );
   const basePath = useResolvedPath('').pathname;
 
-  // Le tiroir mobile des pages Profil / Paramètres reprend ce menu.
+  // Entrée dans l'espace (ou changement d'espace) : l'ancien menu mémorisé
+  // est oublié tout de suite, sinon un Profil ouvert avant la fin du
+  // chargement afficherait le menu de l'espace précédent.
   useEffect(() => {
-    if (user?.id && department?.type) {
+    forgetSpaceNav();
+  }, [basePath]);
+
+  // Le menu des pages Profil / Paramètres reprend celui de ce département, une
+  // fois le département de l'URL chargé (jamais celui d'un département précédent).
+  useEffect(() => {
+    if (user?.id && department?.type && department.id === departmentId) {
       rememberSpaceNav({
         userId: user.id,
         kind: 'department',
@@ -71,7 +79,7 @@ export function DepartmentLayout() {
         departmentType: department.type,
       });
     }
-  }, [user?.id, department, basePath]);
+  }, [user?.id, department, departmentId, basePath]);
 
   const space = homeSpace(user);
   // Chef de département : uniquement son département ; chef d'agence : les

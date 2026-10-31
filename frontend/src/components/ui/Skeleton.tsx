@@ -50,7 +50,7 @@ export function SkeletonCards({ count = 6, className }: { count?: number } & Ske
           key={index}
           className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
         >
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
             <SkeletonCircle className="h-12 w-12" />
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-32" />

@@ -73,6 +73,7 @@ interface FormState {
   start_at: string;
   end_at: string;
   max_capacity: string;
+  duration_type: 'limited' | 'unlimited';
   status: SessionStatus;
 }
 
@@ -82,6 +83,7 @@ const emptyForm: FormState = {
   start_at: '',
   end_at: '',
   max_capacity: '',
+  duration_type: 'unlimited',
   status: 'planned',
 };
 
@@ -202,6 +204,7 @@ export default function AcademySessionsPage() {
       start_at: toDatetimeLocal(session.start_at),
       end_at: toDatetimeLocal(session.end_at),
       max_capacity: session.max_capacity != null ? String(session.max_capacity) : '',
+      duration_type: session.duration_type ?? (session.end_at ? 'limited' : 'unlimited'),
       status: session.status,
     });
     setFormError(null);
@@ -223,8 +226,9 @@ export default function AcademySessionsPage() {
       trainer_id: trainer.trainer_id,
       agency_id: agencyId,
       start_at: form.start_at,
-      end_at: form.end_at || null,
+      end_at: form.duration_type === 'limited' ? form.end_at || null : null,
       max_capacity: form.max_capacity ? Number(form.max_capacity) : null,
+      duration_type: form.duration_type,
       status: form.status,
     };
 
@@ -494,7 +498,23 @@ export default function AcademySessionsPage() {
             selectedOption={trainerSelectedOption}
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.durationType')}
+            </label>
+            <select
+              value={form.duration_type}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, duration_type: e.target.value as 'limited' | 'unlimited' }))
+              }
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="limited">{t('academy.limited')}</option>
+              <option value="unlimited">{t('academy.unlimited')}</option>
+            </select>
+          </div>
+
+          <div className={form.duration_type === 'limited' ? 'grid grid-cols-2 gap-4' : ''}>
             <Input
               label={t('academy.startAt')}
               type="datetime-local"
@@ -503,13 +523,15 @@ export default function AcademySessionsPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, start_at: e.target.value }))}
               error={fieldErrors.start_at}
             />
-            <Input
-              label={t('academy.endAt')}
-              type="datetime-local"
-              value={form.end_at}
-              onChange={(e) => setForm((prev) => ({ ...prev, end_at: e.target.value }))}
-              error={fieldErrors.end_at}
-            />
+            {form.duration_type === 'limited' && (
+              <Input
+                label={t('academy.endAt')}
+                type="datetime-local"
+                value={form.end_at}
+                onChange={(e) => setForm((prev) => ({ ...prev, end_at: e.target.value }))}
+                error={fieldErrors.end_at}
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
