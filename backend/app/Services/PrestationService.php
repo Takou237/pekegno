@@ -105,8 +105,9 @@ class PrestationService
         $paymentType = $options['payment_type'] ?? 'cash';
         $discountType = $options['discount_type'] ?? null;
         $discountValue = isset($options['discount_value']) ? (float) $options['discount_value'] : null;
+        $clientWasCreated = (bool) ($options['client_was_created'] ?? false);
 
-        return DB::transaction(function () use ($prestation, $amountPaid, $paymentType, $proof, $actor, $discountType, $discountValue) {
+        return DB::transaction(function () use ($prestation, $amountPaid, $paymentType, $proof, $actor, $discountType, $discountValue, $clientWasCreated) {
             $prestation = $this->transition($prestation, Prestation::STATUS_PENDING_VALIDATION);
 
             // Contrat + facture créés dès la soumission (si pas déjà liés) : la
@@ -124,6 +125,7 @@ class PrestationService
                 true,
                 $discountType,
                 $discountValue,
+                $clientWasCreated,
             );
 
             $path = $proof->store('payment-proofs', 'public');

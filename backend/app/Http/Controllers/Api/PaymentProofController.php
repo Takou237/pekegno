@@ -11,6 +11,7 @@ use App\Models\PaymentProof;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\ContractService;
+use App\Services\InvoiceClientCleanupService;
 use App\Services\InvoiceRejectionNotifier;
 use App\Services\PaymentService;
 use App\Services\ScopeService;
@@ -36,6 +37,7 @@ class PaymentProofController extends Controller
         private readonly PaymentService $paymentService,
         private readonly InvoiceRejectionNotifier $rejections,
         private readonly ContractService $contracts,
+        private readonly InvoiceClientCleanupService $clientCleanup,
     ) {}
 
     #[OA\Get(
@@ -526,6 +528,11 @@ class PaymentProofController extends Controller
         // abandonnée : le contrat en attente est résilié pour permettre au client
         // de souscrire de nouveau au package.
         $this->contracts->cancelPendingForInvoice($invoice, "Facture {$invoice->number} rejetée");
+
+        // Inscription / souscription abandonnée : on annule l'inscription liée et
+        // on supprime le client créé pour l'occasion s'il n'a aucune autre activité.
+        $this->clientCleanup->cancelLinkedEnrollment($invoice);
+        $this->clientCleanup->deleteClientIfCreatedForInvoice($invoice);
     }
 
     private function sendStatusNotification(Invoice $invoice): void

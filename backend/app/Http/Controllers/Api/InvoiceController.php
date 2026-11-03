@@ -26,6 +26,7 @@ use App\Services\CommissionService;
 use App\Services\ContractService;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\InvoiceRejectionNotifier;
+use App\Services\InvoiceClientCleanupService;
 use App\Services\PaymentService;
 use App\Services\PendingInvoiceNotifier;
 use App\Services\SaleAgencyResolver;
@@ -55,6 +56,7 @@ class InvoiceController extends Controller
         private readonly SaleAgencyResolver $agencyResolver,
         private readonly InvoiceRejectionNotifier $rejections,
         private readonly ContractService $contracts,
+        private readonly InvoiceClientCleanupService $clientCleanup,
     ) {}
 
     private function scopeByRole($query, ?User $user)
@@ -356,7 +358,8 @@ class InvoiceController extends Controller
             // (commerciaux, chefs d'agence / de département…) commencent en attente.
             $creatorRole = $request->user()->role?->name;
             $isCommercialSale = $request->user()->actsAsCommercial();
-            $needsPaymentProof = $isCommercialSale || $creatorRole === 'responsable-agence';
+            $needsPaymentProof = $isCommercialSale
+                || in_array($creatorRole, ['responsable-agence', 'responsable-departement'], true);
             $needsValidation = ! InvoiceValidators::allows($creatorRole);
 
             // Une vente faite par un commercial est automatiquement rattachée à son propre
@@ -466,7 +469,7 @@ class InvoiceController extends Controller
                 ]);
             } elseif ($needsPaymentProof) {
                 throw ValidationException::withMessages([
-                    'proof_file' => 'Une preuve de paiement est obligatoire pour une vente effectuée par un commercial.',
+                    'proof_file' => 'Une preuve de paiement est obligatoire pour une vente effectuée par un vendeur soumis à validation.',
                 ]);
             }
 
@@ -1020,6 +1023,11 @@ class InvoiceController extends Controller
         // pour permettre au client de souscrire de nouveau au package.
         $this->contracts->cancelPendingForInvoice($invoice, "Facture {$invoice->number} rejetée");
 
+        // Inscription / souscription abandonnée : on annule l'inscription liée et
+        // on supprime le client créé pour l'occasion s'il n'a aucune autre activité.
+        $this->clientCleanup->cancelLinkedEnrollment($invoice);
+        $this->clientCleanup->deleteClientIfCreatedForInvoice($invoice);
+
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
     }
 
@@ -1059,6 +1067,11 @@ class InvoiceController extends Controller
         // souscription : on résilie le contrat encore en attente et sa prestation
         // pour que le client puisse souscrire de nouveau au même package.
         $this->contracts->cancelPendingForInvoice($invoice, "Facture {$invoice->number} annulée");
+
+        // Inscription / souscription abandonnée : on annule l'inscription liée et
+        // on supprime le client créé pour l'occasion s'il n'a aucune autre activité.
+        $this->clientCleanup->cancelLinkedEnrollment($invoice);
+        $this->clientCleanup->deleteClientIfCreatedForInvoice($invoice);
 
         return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency']));
     }

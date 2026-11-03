@@ -366,6 +366,7 @@ class PackageController extends Controller
             'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
             'discount_type' => ['nullable', 'required_with:discount_value', 'in:amount,percent'],
             'discount_value' => ['nullable', 'required_with:discount_type', 'numeric', 'min:0'],
+            'client_was_created' => ['sometimes', 'boolean'],
         ]);
 
         // Super-admin : avance obligatoire (preuve retirée de l'écran).
@@ -424,6 +425,7 @@ class PackageController extends Controller
             ] : null,
             discountType: $data['discount_type'] ?? null,
             discountValue: isset($data['discount_value']) ? (float) $data['discount_value'] : null,
+            clientWasCreated: (bool) ($data['client_was_created'] ?? false),
         );
 
         // Facture en attente : les validateurs sont prévenus (hors transaction).

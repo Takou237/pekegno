@@ -8,13 +8,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, HasUuids, Notifiable;
+    use HasApiTokens, HasFactory, HasUuids, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'username',
@@ -184,6 +186,24 @@ class User extends Authenticatable
             ->max();
 
         return 'CL-'.str_pad((string) (($last ?: 0) + 1), 5, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Suppression logique d'un client : l'email et l'identifiant de connexion
+     * sont libérés (suffixés) pour permettre une nouvelle inscription avec les
+     * mêmes coordonnées, sans casser les contraintes d'unicité.
+     */
+    public function softDeleteClient(): void
+    {
+        $suffix = '.deleted.'.Str::lower((string) Str::ulid());
+
+        $this->forceFill([
+            'email' => $suffix.'@deleted.pekegno.local',
+            'username' => $suffix,
+        ])->save();
+
+        $this->tokens()->delete();
+        $this->delete();
     }
 
     public function hasPermission(string $permission): bool

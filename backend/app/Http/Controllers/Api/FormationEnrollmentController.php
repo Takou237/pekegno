@@ -80,6 +80,7 @@ class FormationEnrollmentController extends Controller
             'discount_type' => 'nullable|required_with:discount_value|in:amount,percent',
             'discount_value' => 'nullable|required_with:discount_type|numeric|min:0',
             'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
+            'client_was_created' => 'sometimes|boolean',
         ]);
 
         if (! User::whereKey($validated['learner_user_id'])->whereHas('role', fn ($q) => $q->where('name', 'client'))->exists()) {
@@ -484,6 +485,7 @@ class FormationEnrollmentController extends Controller
             'client_id' => $validated['learner_user_id'],
             'created_by' => $request->user()->id,
             'client_name' => $learner ? trim("{$learner->first_name} {$learner->last_name}") : null,
+            'client_was_created' => $request->boolean('client_was_created'),
             'commercial_id' => $commercialId,
             'seller_user_id' => $sellerUserId,
             'invoice_date' => now(),

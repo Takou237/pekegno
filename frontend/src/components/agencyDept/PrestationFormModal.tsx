@@ -68,9 +68,11 @@ export function PrestationFormModal({
   const [newCategory, setNewCategory] = useState('');
   const [clientMode, setClientMode] = useState<LearnerMode>('existing');
   const [newClient, setNewClient] = useState<NewLearnerFormState>(emptyNewLearnerForm);
-  // Chef d'agence : la souscription part directement en soumission avec le
-  // montant encaissé et la preuve de paiement (comme vente / inscription).
-  const needsPaymentProof = !prestation && user?.role?.name === 'responsable-agence';
+  // Chefs d'agence / de département : la souscription part directement en
+  // soumission avec le montant encaissé et la preuve de paiement (comme
+  // vente / inscription).
+  const isChief = ['responsable-agence', 'responsable-departement'].includes(user?.role?.name ?? '');
+  const needsPaymentProof = !prestation && isChief;
   const [amountPaid, setAmountPaid] = useState('');
   const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'mobile' | 'wave'>('cash');
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -172,6 +174,7 @@ export function PrestationFormModal({
     setError(null);
     // Comme l'inscription à une formation : création du client à la volée.
     let resolvedClientId = form.client_id;
+    let clientWasCreated = false;
     if (!prestation && clientMode === 'new') {
       if (!isNewLearnerComplete(newClient)) {
         setError(t('academy.newLearnerRequired'));
@@ -192,6 +195,7 @@ export function PrestationFormModal({
           registered_agency_id: offer?.agency_id ?? form.agency_id ?? agencyId ?? undefined,
         });
         resolvedClientId = created.id;
+        clientWasCreated = true;
       } catch (err) {
         setError(extractErrorMessage(err, t('common.error')));
         setSaving(false);
@@ -228,6 +232,7 @@ export function PrestationFormModal({
               amount_paid: Number(amountPaid),
               payment_type: paymentType,
               proof: proofFile,
+              client_was_created: clientWasCreated,
             }),
           );
         } catch (err) {

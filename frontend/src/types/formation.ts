@@ -62,6 +62,8 @@ export interface FormationEnrollmentPayload {
   notes?: string;
   discount_type?: EnrollmentDiscountType;
   discount_value?: number;
+  /** Le client vient d'être créé pour cette inscription (nettoyage si la facture est rejetée). */
+  client_was_created?: boolean;
 }
 
 export interface LearnerObservation {

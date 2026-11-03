@@ -120,6 +120,8 @@ export interface SubscribePayload {
   /** Remise appliquée à la souscription (montant fixe ou pourcentage). */
   discount_type?: 'amount' | 'percent';
   discount_value?: number;
+  /** Le client vient d'être créé pour cette souscription (nettoyage si la facture est rejetée). */
+  client_was_created?: boolean;
 }
 
 export interface PersonRef {

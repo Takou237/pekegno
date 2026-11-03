@@ -272,6 +272,7 @@ export default function FormationEnrollmentModal({
       }
 
       let learnerUserId = form.learner_user_id;
+      let clientWasCreated = false;
       if (creatingLearner) {
         if (!newLearner.first_name || !newLearner.last_name) {
           setFormError(t('academy.newLearnerRequired'));
@@ -292,6 +293,7 @@ export default function FormationEnrollmentModal({
           commercial_user_id: currentUser?.id ?? undefined,
         });
         learnerUserId = created.id;
+        clientWasCreated = true;
       }
 
       // Aucune formation choisie : on s'arrête à la création du client.
@@ -326,6 +328,7 @@ export default function FormationEnrollmentModal({
         ...(form.discount_type && form.discount_value
           ? { discount_type: form.discount_type, discount_value: Number(form.discount_value) }
           : {}),
+        ...(clientWasCreated ? { client_was_created: true } : {}),
       };
 
       const saved = proofFile

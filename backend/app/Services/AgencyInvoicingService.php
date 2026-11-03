@@ -29,6 +29,7 @@ class AgencyInvoicingService
         bool $needsValidation = false,
         ?string $discountType = null,
         ?float $discountValue = null,
+        bool $clientWasCreated = false,
     ): Invoice {
         $budget = (float) $prestation->budget;
         $passThrough = min($budget, $prestation->pass_through_budget);
@@ -69,6 +70,7 @@ class AgencyInvoicingService
             $declaredAdvance,
             $needsValidation,
             $discountAmount,
+            $clientWasCreated,
         );
     }
 
@@ -84,6 +86,7 @@ class AgencyInvoicingService
         bool $needsValidation = false,
         ?string $discountType = null,
         ?float $discountValue = null,
+        bool $clientWasCreated = false,
     ): Invoice {
         $lines = [[
             'package_id' => $package->id,
@@ -106,6 +109,7 @@ class AgencyInvoicingService
             $declaredAdvance,
             $needsValidation,
             $discountAmount,
+            $clientWasCreated,
         );
     }
 
@@ -155,6 +159,7 @@ class AgencyInvoicingService
         ?float $declaredAdvance = null,
         bool $needsValidation = false,
         float $discountAmount = 0.0,
+        bool $clientWasCreated = false,
     ): Invoice {
         $client = User::find($contract->client_id);
         $subtotal = round(collect($lines)->sum(fn ($l) => (float) $l['unit_price'] * (int) ($l['quantity'] ?? 1)), 2);
@@ -171,6 +176,7 @@ class AgencyInvoicingService
             'client_id' => $contract->client_id,
             'contract_id' => $contract->id,
             'client_name' => $client ? trim($client->first_name.' '.$client->last_name) : null,
+            'client_was_created' => $clientWasCreated,
             'commercial_id' => $commercialId,
             'seller_user_id' => $sellerUserId ?? $actorUserId,
             'created_by' => $actorUserId,

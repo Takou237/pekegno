@@ -31,6 +31,7 @@ class Invoice extends Model
         'client_id',
         'contract_id',
         'client_name',
+        'client_was_created',
         'commercial_id',
         'seller_user_id',
         'created_by',
@@ -61,6 +62,7 @@ class Invoice extends Model
         return [
             'invoice_date' => 'datetime',
             'cancelled_at' => 'datetime',
+            'client_was_created' => 'boolean',
             'validated_at' => 'datetime',
             'total_amount' => 'decimal:2',
             'amount_paid' => 'decimal:2',

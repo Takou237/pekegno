@@ -73,6 +73,7 @@ export const agencyDeptApi = {
     append('payment_type', payload.payment_type);
     append('discount_type', payload.discount_type);
     append('discount_value', payload.discount_value);
+    append('client_was_created', payload.client_was_created ? '1' : undefined);
     if (payload.proof_file) formData.append('proof_file', payload.proof_file);
     return post<{ contract: { id: string; number: string }; prestation: Prestation; invoice: { id: string; number: string } }>(
       `/packages/${id}/subscribe`,
@@ -99,7 +100,7 @@ export const agencyDeptApi = {
     post<Prestation>(`/prestations/${id}/${action}`, reason ? { reason } : {}),
   submitWithProof: (
     id: string,
-    payload: { amount_paid?: number; payment_type?: string; treasury_account_id?: string; proof?: File },
+    payload: { amount_paid?: number; payment_type?: string; treasury_account_id?: string; proof?: File; client_was_created?: boolean },
   ) => {
     // Multipart : la preuve de paiement est une photo jointe à la soumission.
     const formData = new FormData();
@@ -110,6 +111,7 @@ export const agencyDeptApi = {
     append('amount_paid', payload.amount_paid);
     append('payment_type', payload.payment_type);
     append('treasury_account_id', payload.treasury_account_id);
+    append('client_was_created', payload.client_was_created ? '1' : undefined);
     if (payload.proof) formData.append('proof', payload.proof);
     return post<Prestation>(`/prestations/${id}/submit`, formData);
   },

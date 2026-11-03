@@ -204,6 +204,7 @@ class PrestationController extends Controller
             'proof' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
             'discount_type' => ['nullable', 'required_with:discount_value', 'in:amount,percent'],
             'discount_value' => ['nullable', 'required_with:discount_type', 'numeric', 'min:0'],
+            'client_was_created' => ['sometimes', 'boolean'],
         ]);
 
         // Une preuve photo est exigée dès qu'un montant est déclaré (encaissement réel).

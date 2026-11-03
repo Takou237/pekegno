@@ -419,6 +419,7 @@ export default function CourseDetailPage() {
     setEnrollSubmitting(true);
     try {
       let learnerUserId = enrollForm.learner_user_id;
+      let clientWasCreated = false;
       if (learnerMode === 'new') {
         if (!newLearner.first_name || !newLearner.last_name) {
           setEnrollError(t('academy.newLearnerRequired'));
@@ -434,6 +435,7 @@ export default function CourseDetailPage() {
           registered_agency_id: agencyId,
         });
         learnerUserId = created.id;
+        clientWasCreated = true;
       }
       const payload: FormationEnrollmentPayload = {
         course_id: courseId,
@@ -447,6 +449,7 @@ export default function CourseDetailPage() {
           ? { discount_type: enrollForm.discount_type, discount_value: Number(enrollForm.discount_value) }
           : {}),
         notes: enrollForm.notes || undefined,
+        ...(clientWasCreated ? { client_was_created: true } : {}),
       };
       const saved = await academyApi.createFormationEnrollment(payload);
       setLearners((prev) => [saved, ...prev]);

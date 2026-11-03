@@ -11,6 +11,7 @@ use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -44,9 +45,9 @@ class ManagerSalesTest extends TestCase
         return User::factory()->create(['role_id' => Role::where('name', $role)->value('id')] + $extra);
     }
 
-    private function sell(Agency $agency): \Illuminate\Testing\TestResponse
+    private function sell(Agency $agency, array $extra = []): \Illuminate\Testing\TestResponse
     {
-        return $this->postJson('/api/invoices', [
+        return $this->postJson('/api/invoices', $extra + [
             'agency_id' => $agency->id,
             'client_id' => $this->user('client')->id,
             'payment_type' => 'cash',
@@ -89,9 +90,15 @@ class ManagerSalesTest extends TestCase
         \DB::table('department_chiefs')->insert(['id' => (string) Str::uuid(), 'user_id' => $chief->id, 'department_id' => $department->id]);
         Sanctum::actingAs($chief);
 
-        $id = $this->sell($this->otherAgency)->assertCreated()->json('id');
+        // Comme le commercial et le chef d'agence, le chef de département joint
+        // sa preuve de paiement : sa vente part en attente de validation.
+        $id = $this->sell($this->otherAgency, [
+            'proof_file' => UploadedFile::fake()->createWithContent('preuve.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')),
+        ])->assertCreated()->json('id');
 
-        $this->assertSame($this->otherAgency->id, Invoice::findOrFail($id)->agency_id);
+        $invoice = Invoice::findOrFail($id);
+        $this->assertSame($this->otherAgency->id, $invoice->agency_id);
+        $this->assertSame(Invoice::VALIDATION_PENDING, $invoice->validation_status);
     }
 
     public function test_director_sells_in_own_country_and_sale_is_validated_directly(): void

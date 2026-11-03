@@ -53,6 +53,7 @@ class PackageService
         ?array $paymentProof = null,
         ?string $discountType = null,
         ?float $discountValue = null,
+        bool $clientWasCreated = false,
     ): array {
         if (! $package->is_active) {
             throw ValidationException::withMessages(['package' => 'Ce package est inactif.']);
@@ -98,7 +99,8 @@ class PackageService
 
         return DB::transaction(function () use (
             $package, $client, $start, $periods, $commercialId, $actorUserId, $departmentId,
-            $autoRenew, $advance, $paymentType, $needsValidation, $paymentProof, $unitPrice, $discountType, $discountValue
+            $autoRenew, $advance, $paymentType, $needsValidation, $paymentProof, $unitPrice, $discountType, $discountValue,
+            $clientWasCreated
         ) {
             $package->loadMissing('items');
 
@@ -119,6 +121,7 @@ class PackageService
                 $needsValidation,
                 $discountType,
                 $discountValue,
+                $clientWasCreated,
             );
 
             $this->logger->log(

@@ -255,6 +255,7 @@ export default function AcademyLearnersPage() {
     setIsSubmittingEnrollment(true);
     try {
       let learnerUserId = enrollmentForm.learner_user_id;
+      let clientWasCreated = false;
       if (learnerMode === 'new') {
         if (!newLearner.first_name || !newLearner.last_name) {
           setEnrollmentError(t('academy.newLearnerRequired'));
@@ -269,6 +270,7 @@ export default function AcademyLearnersPage() {
           registered_agency_id: agencyId,
         });
         learnerUserId = created.id;
+        clientWasCreated = true;
       }
       await academyApi.createFormationEnrollment({
         course_id: enrollmentForm.course_id,
@@ -276,6 +278,7 @@ export default function AcademyLearnersPage() {
         training_session_id: enrollmentForm.training_session_id || undefined,
         ...(enrollmentForm.amount_paid ? { amount_paid: Number(enrollmentForm.amount_paid) } : {}),
         notes: enrollmentForm.notes || undefined,
+        ...(clientWasCreated ? { client_was_created: true } : {}),
       });
       showToast(t('academy.enrollmentCreated'), 'success');
       setEnrollmentOpen(false);

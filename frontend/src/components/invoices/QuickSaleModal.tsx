@@ -69,9 +69,10 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const isCommercial = actsAsCommercial(currentUser?.role?.name);
-  // Comme le formulaire complet : commercial et chef d'agence joignent une
-  // preuve de paiement (le backend la refuse sinon).
-  const needsPaymentProof = isCommercial || currentUser?.role?.name === 'responsable-agence';
+  // Comme le formulaire complet : commercial et chefs d'agence / de
+  // département joignent une preuve de paiement (le backend la refuse sinon).
+  const isChief = ['responsable-agence', 'responsable-departement'].includes(currentUser?.role?.name ?? '');
+  const needsPaymentProof = isCommercial || isChief;
   // Le caissier et le super-admin valident directement leurs ventes de guichet.
   // La direction garde son vendeur par défaut mais ses ventes restent en attente.
   const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(

@@ -38,6 +38,10 @@ export default function QuickSalePage() {
   }, [selectedAgency?.id, pickedAgencyId]);
   const agencyId = pickedAgencyId ?? undefined;
   const isCommercial = actsAsCommercial(currentUser?.role?.name);
+  // Comme le formulaire complet : la vente des vendeurs soumis à validation
+  // (commerciaux, chefs d'agence/departement) exige une preuve de paiement.
+  const isChief = ['responsable-agence', 'responsable-departement'].includes(currentUser?.role?.name ?? '');
+  const sellsWithProof = isCommercial || isChief;
 
   // Retour contextuel : on revient à l'écran d'origine (tableau de bord
   // caissier, liste filtrée…) plutôt qu'à une liste de factures sans rapport.
@@ -159,7 +163,7 @@ export default function QuickSalePage() {
       setErrors({ advance: t('invoices.advanceRequired') });
       return;
     }
-    if (isCommercial && !proofFile) {
+    if (sellsWithProof && !proofFile) {
       setErrors({ proof_file: t('invoices.proofRequiredForSale') });
       return;
     }
@@ -421,7 +425,7 @@ export default function QuickSalePage() {
               )}
             </div>
           </div>
-          {isCommercial && (
+          {sellsWithProof && (
             <div className="mt-4">
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('invoices.paymentProof')} <span className="text-error-500">*</span>
@@ -437,7 +441,7 @@ export default function QuickSalePage() {
               <p className="mt-1 text-xs text-gray-400">{t('invoices.paymentProofHint')}</p>
             </div>
           )}
-          {isCommercial && (
+          {sellsWithProof && (
             <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">
               {t('invoices.quickPendingNote')}
             </p>
@@ -503,10 +507,10 @@ export default function QuickSalePage() {
             <Button
               type="submit"
               isLoading={submitting}
-              disabled={isCommercial && !proofFile}
-              title={isCommercial && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+              disabled={sellsWithProof && !proofFile}
+              title={sellsWithProof && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
             >
-              {isCommercial ? t('invoices.quickSubmitPending') : t('invoices.quickSubmit')}
+              {sellsWithProof ? t('invoices.quickSubmitPending') : t('invoices.quickSubmit')}
             </Button>
           </div>
         </div>

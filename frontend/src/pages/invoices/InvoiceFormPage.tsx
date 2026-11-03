@@ -73,12 +73,15 @@ export default function InvoiceFormPage({
 
   const isCommercial = actsAsCommercial(currentUser?.role?.name);
   const isResponsableAgence = currentUser?.role?.name === 'responsable-agence';
-    // Le caissier et le super-admin valident directement leurs ventes de guichet.
+  // Le caissier et le super-admin valident directement leurs ventes de guichet.
     // La direction garde son vendeur par dǸfaut mais ses ventes restent en attente.
     const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(
       currentUser?.role?.name ?? ''
     );
-  const needsPaymentProof = isCommercial || isResponsableAgence;
+  // Comme le backend : le formulaire complet exige une preuve des vendeurs
+  // soumis à validation (commerciaux, chefs d'agence, chefs de département).
+  const isChief = ['responsable-agence', 'responsable-departement'].includes(currentUser?.role?.name ?? '');
+  const needsPaymentProof = isCommercial || isChief;
 
   const presetAgencyId = lockedAgencyId ?? routeAgencyId ?? searchParams.get('agency_id') ?? '';
   const [agencyLocked] = useState(Boolean(presetAgencyId));

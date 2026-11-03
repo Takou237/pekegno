@@ -92,7 +92,12 @@ export default function FormationEnrollmentPage() {
   const currency = useAgencyCurrency(agencyId);
   const { user: currentUser } = useAuth();
   const isCommercial = actsAsCommercial(currentUser?.role?.name);
-  const isSellerUser = isCommercial || currentUser?.role?.name === 'caissier';
+  // Comme le formulaire d'inscription en modale et le backend : les vendeurs
+  // soumis à validation (commerciaux, chefs d'agence / de département)
+  // joignent une preuve de paiement.
+  const isChief = ['responsable-agence', 'responsable-departement'].includes(currentUser?.role?.name ?? '');
+  const needsPaymentProof = isCommercial || isChief;
+  const isSellerUser = needsPaymentProof || currentUser?.role?.name === 'caissier';
 
   const [enrollments, setEnrollments] = useState<FormationEnrollment[]>([]);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
@@ -338,9 +343,10 @@ export default function FormationEnrollmentPage() {
     setIsSubmitting(true);
 
     try {
-      // Un commercial doit toujours joindre une preuve de paiement avant la
-      // création de l'inscription (comme pour une vente). Non requis en édition.
-      if (!editing && isCommercial && !proofFile) {
+      // Un vendeur soumis à validation (commercial, chef d'agence / de
+      // département) doit joindre une preuve avant la création de l'inscription.
+      // Non requis en édition.
+      if (!editing && needsPaymentProof && !proofFile) {
         setFormError(t('invoices.proofRequiredForSale'));
         setIsSubmitting(false);
         return;
@@ -354,6 +360,7 @@ export default function FormationEnrollmentPage() {
       }
 
       let learnerUserId = form.learner_user_id;
+      let clientWasCreated = false;
       if (learnerMode === 'new') {
         if (!newLearner.first_name || !newLearner.last_name) {
           setFormError(t('academy.newLearnerRequired'));
@@ -374,6 +381,7 @@ export default function FormationEnrollmentPage() {
           commercial_user_id: currentUser?.id ?? undefined,
         });
         learnerUserId = created.id;
+        clientWasCreated = true;
       }
 
       // Un commercial ou un caissier qui s'inscrit est toujours le vendeur :
@@ -393,6 +401,7 @@ export default function FormationEnrollmentPage() {
         ...(!editing && form.discount_type && form.discount_value
           ? { discount_type: form.discount_type, discount_value: Number(form.discount_value) }
           : {}),
+        ...(clientWasCreated ? { client_was_created: true } : {}),
       };
 
       if (editing) {
@@ -796,7 +805,7 @@ export default function FormationEnrollmentPage() {
                 onChange={(e) => setForm((prev) => ({ ...prev, payment_type: e.target.value as '' | PaymentMethod }))}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               >
-                {isCommercial && <option value="">—</option>}
+                {needsPaymentProof && <option value="">—</option>}
                 <option value="cash">{t('invoices.paymentCash')}</option>
                 <option value="om">{t('invoices.paymentOm')}</option>
                 <option value="momo">{t('invoices.paymentMomo')}</option>
@@ -809,7 +818,7 @@ export default function FormationEnrollmentPage() {
           </div>
         )}
 
-        {!editing && isCommercial && (
+        {!editing && needsPaymentProof && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('invoices.paymentProof')} <span className="text-error-500">*</span>
@@ -846,8 +855,8 @@ export default function FormationEnrollmentPage() {
             <Button
               type="submit"
               isLoading={isSubmitting}
-              disabled={!editing && isCommercial && !proofFile}
-              title={!editing && isCommercial && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+              disabled={!editing && needsPaymentProof && !proofFile}
+              title={!editing && needsPaymentProof && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
               className="flex-1"
             >
               {editing ? t('common.save') : t('common.create')}

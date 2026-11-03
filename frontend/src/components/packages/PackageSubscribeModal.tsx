@@ -128,6 +128,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
     try {
       // Comme l'inscription à une formation : création du client à la volée.
       let resolvedClientId = clientId;
+      let clientWasCreated = false;
       if (clientMode === 'new') {
         if (!isNewLearnerComplete(newClient)) {
           setError(t('academy.newLearnerRequired'));
@@ -147,6 +148,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
           commercial_user_id: user?.id ?? undefined,
         });
         resolvedClientId = created.id;
+        clientWasCreated = true;
       }
       const res = await agencyDeptApi.subscribe(pkg.id, {
         client_id: resolvedClientId,
@@ -160,6 +162,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
         proof_file: proofFile ?? undefined,
         discount_type: discountType || undefined,
         discount_value: discountType && discountValue ? Number(discountValue) : undefined,
+        client_was_created: clientWasCreated || undefined,
       });
       showToast(t('agencyDept.packages.subscribed', { contract: res.contract.number }), 'success');
       onDone?.(res.prestation.id);
