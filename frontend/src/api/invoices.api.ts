@@ -24,6 +24,7 @@ export interface ProofListParams {
   invoice_id?: string;
   agency_id?: string;
   country_id?: string;
+  department_id?: string;
   page?: number;
   per_page?: number;
 }

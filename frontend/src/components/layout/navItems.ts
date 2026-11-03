@@ -75,11 +75,9 @@ function myProfileItem(t: TranslateFn): NavItem {
 
 export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement', 'comptable']);
 
-// « Factures » ne doit pas rester actif sur la page des validations (/invoices/pending),
-// sinon il serait surligné en même temps que « Validations ».
+// « Factures » ne doit pas rester actif sur la page des validations (/invoices/payment-proofs),
+// sinon il serait surligné en même temps que « Paiements à valider ».
 const isInvoiceActive = (pathname: string): boolean =>
-  pathname !== '/invoices/pending' &&
-  !pathname.startsWith('/invoices/pending/') &&
   pathname !== '/invoices/payment-proofs' &&
   !pathname.startsWith('/invoices/payment-proofs/');
 
@@ -136,7 +134,6 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/contracts', label: t('nav.contracts'), icon: FileText, end: false },
       ...(canValidateInvoices(roleName)
         ? [
-            { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
             paymentProofsItem(t),
           ]
         : []),
@@ -196,7 +193,6 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       trackingItem(t),
       { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
       invoiceItem(t),
-      { to: '/invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false },
       { to: '/invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false },
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       // Comptabilité de son agence : mêmes actions que l'admin (le backend
@@ -396,7 +392,9 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType, roleNam
         { to: 'trainers', label: t('nav.trainers'), icon: UserCheck, end: false },
         { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
         ...(canValidateInvoices(roleName)
-          ? [{ to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false }]
+          ? [
+              { to: 'invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false },
+            ]
           : []),
         { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
         { to: 'certificates', label: t('nav.certificates'), icon: FileText, end: false },
@@ -422,7 +420,9 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType, roleNam
         { to: 'renewals', label: t('nav.renewals'), icon: CalendarCheck, end: false },
         { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
         ...(canValidateInvoices(roleName)
-          ? [{ to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false }]
+          ? [
+              { to: 'invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false },
+            ]
           : []),
         { to: 'receivables', label: t('nav.receivables'), icon: BarChart3, end: false },
         { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },
@@ -442,7 +442,9 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType, roleNam
         { to: 'orders', label: t('nav.orders'), icon: ClipboardList, end: false },
         { to: 'sales', label: t('nav.invoices'), icon: Receipt, end: false },
         ...(canValidateInvoices(roleName)
-          ? [{ to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false }]
+          ? [
+              { to: 'invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false },
+            ]
           : []),
         { to: 'deliveries', label: t('nav.deliveries'), icon: Truck, end: false },
         { to: 'returns', label: t('nav.returns'), icon: Undo2, end: false },
@@ -465,7 +467,9 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType, roleNam
         { to: 'deliveries', label: t('nav.deliveries'), icon: Truck, end: false },
         { to: 'payments', label: t('nav.invoices'), icon: Receipt, end: false },
         ...(canValidateInvoices(roleName)
-          ? [{ to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false }]
+          ? [
+              { to: 'invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false },
+            ]
           : []),
         { to: 'reports', label: t('nav.reports'), icon: BarChart3, end: false },
         { to: 'settings', label: t('nav.settings'), icon: Settings, end: false },

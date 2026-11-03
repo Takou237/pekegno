@@ -77,15 +77,14 @@ const AgencyCommercialReportPage = lazyWithRetry(
   () => import('@/pages/commercials/AgencyCommercialReportPage')
 );
 const InvoiceListPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceListPage'));
-const PendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/PendingInvoicesPage'));
-const PaymentProofsPage = lazyWithRetry(() => import('@/pages/invoices/PaymentProofsPage'));
-const CountryPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/CountryPendingInvoicesPage'));
-const DepartmentPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/DepartmentPendingInvoicesPage'));
+const ValidationsPage = lazyWithRetry(() => import('@/pages/invoices/ValidationsPage'));
+const CountryPaymentProofsPage = lazyWithRetry(() => import('@/pages/invoices/CountryPaymentProofsPage'));
+const AgencyPaymentProofsPage = lazyWithRetry(() => import('@/pages/invoices/AgencyPaymentProofsPage'));
+const DepartmentPaymentProofsPage = lazyWithRetry(() => import('@/pages/invoices/DepartmentPaymentProofsPage'));
 const InvoiceFormPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceFormPage'));
 const QuickSalePage = lazyWithRetry(() => import('@/pages/invoices/QuickSalePage'));
 const InvoiceDetailPage = lazyWithRetry(() => import('@/pages/invoices/InvoiceDetailPage'));
 const AgencyInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/AgencyInvoicesPage'));
-const AgencyPendingInvoicesPage = lazyWithRetry(() => import('@/pages/invoices/AgencyPendingInvoicesPage'));
 const AgencyInvoiceDetailPage = lazyWithRetry(() => import('@/pages/invoices/AgencyInvoiceDetailPage'));
 const AgencyReceivablesPage = lazyWithRetry(() => import('@/pages/invoices/AgencyReceivablesPage'));
 const AccountingPage = lazyWithRetry(() => import('@/pages/accounting/AccountingPage'));
@@ -198,7 +197,8 @@ const agencyChildren: RouteObject[] = [
   { path: 'employees/:id', element: page(<AgencyEmployeeDetailPage />, detail) },
   { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
   { path: 'invoices', element: page(<AgencyInvoicesPage />, table) },
-  { path: 'invoices/pending', element: page(<AgencyPendingInvoicesPage />, table) },
+  { path: 'invoices/pending', element: <Navigate to="../payment-proofs?tab=invoices" replace /> },
+  { path: 'invoices/payment-proofs', element: page(<AgencyPaymentProofsPage />, table) },
   { path: 'invoices/receivables', element: page(<AgencyReceivablesPage />, table) },
   { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
   { path: 'invoices/:invoiceId', element: page(<AgencyInvoiceDetailPage />, detail) },
@@ -291,8 +291,8 @@ export const router = createBrowserRouter([
           { path: '/reports/customers', element: page(<CustomersReportPage />, table) },
           { path: '/reports/comparison', element: page(<ComparisonReportPage />, table) },
           { path: '/invoices', element: page(<InvoiceListPage />, table) },
-          { path: '/invoices/pending', element: page(<PendingInvoicesPage />, table) },
-          { path: '/invoices/payment-proofs', element: page(<PaymentProofsPage />, table) },
+          { path: '/invoices/pending', element: <Navigate to="/invoices/payment-proofs?tab=invoices" replace /> },
+          { path: '/invoices/payment-proofs', element: page(<ValidationsPage />, table) },
           { path: '/invoices/receivables', element: page(<ReceivablesPage />, table) },
           { path: '/invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: '/invoices/quick', element: page(<QuickSalePage />, form) },
@@ -325,7 +325,8 @@ export const router = createBrowserRouter([
           { path: 'accounting', element: page(<AccountingPage />, table) },
           { path: 'bilans', element: page(<DailyBilanPage />, table) },
           { path: 'invoices', element: page(<InvoiceListPage />, table) },
-          { path: 'invoices/pending', element: page(<CountryPendingInvoicesPage />, table) },
+          { path: 'invoices/pending', element: <Navigate to="../payment-proofs?tab=invoices" replace /> },
+          { path: 'invoices/payment-proofs', element: page(<CountryPaymentProofsPage />, table) },
           { path: 'invoices/new', element: page(<InvoiceFormPage />, form) },
           { path: 'invoices/:id', element: page(<InvoiceDetailPage />, detail) },
           { path: 'receivables', element: page(<ReceivablesPage />, table) },
@@ -367,7 +368,8 @@ export const router = createBrowserRouter([
           // Détail d'une facture : on reste dans le département (la route
           // /agencies/... redirige vers le pays et fait perdre le contexte).
           { path: 'invoices/:invoiceId', element: page(<InvoiceDetailPage />, detail) },
-          { path: 'invoices/pending', element: page(<DepartmentPendingInvoicesPage />, table) },
+          { path: 'invoices/pending', element: <Navigate to="../payment-proofs?tab=invoices" replace /> },
+          { path: 'invoices/payment-proofs', element: page(<DepartmentPaymentProofsPage />, table) },
           {
             path: 'receivables',
             element: page(<ByDepartmentType pages={{ agency: <AgencyDeptReceivablesPage /> }} fallback={<AcademyReceivablesPage />} />, table),

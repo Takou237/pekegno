@@ -26,7 +26,21 @@ import { canValidateInvoices } from '@/utils/invoicePermissions';
  * acceptées ou rejetées. Accepter une preuve encaisse automatiquement le
  * montant et génère un reçu, affiché ici immédiatement.
  */
-export default function PaymentProofsPage() {
+export default function PaymentProofsPage({
+  fixedCountryId,
+  fixedAgencyId,
+  fixedDepartmentId,
+  embedded = false,
+}: {
+  /** Vue pays : périmètre du pays. */
+  fixedCountryId?: string;
+  /** Vue agence : preuves de cette agence. */
+  fixedAgencyId?: string;
+  /** Vue département : preuves des contrats du département. */
+  fixedDepartmentId?: string;
+  /** Rendu dans une page à onglets : masque l'en-tête. */
+  embedded?: boolean;
+} = {}) {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user } = useAuth();
@@ -53,7 +67,14 @@ export default function PaymentProofsPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const res = await invoicesApi.listProofs({ status: 'pending', page, per_page: 15 });
+      const res = await invoicesApi.listProofs({
+        status: 'pending',
+        page,
+        per_page: 15,
+        country_id: fixedCountryId || undefined,
+        agency_id: fixedAgencyId || undefined,
+        department_id: fixedDepartmentId || undefined,
+      });
       setProofs(res.data);
       setMeta(res.meta);
     } catch (error) {
@@ -61,7 +82,7 @@ export default function PaymentProofsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, t]);
+  }, [page, t, fixedCountryId, fixedAgencyId, fixedDepartmentId]);
 
   useEffect(() => {
     fetchProofs();
@@ -144,10 +165,12 @@ export default function PaymentProofsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('invoices.paymentProofsTitlePage')}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('invoices.paymentProofsSubtitle')}</p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('invoices.paymentProofsTitlePage')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('invoices.paymentProofsSubtitle')}</p>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (

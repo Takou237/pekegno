@@ -18,6 +18,7 @@ const LIST_FILTERS = [
   'from',
   'to',
   'page',
+  'tab',
 ] as const;
 
 export interface NavOrigin {

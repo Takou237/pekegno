@@ -148,7 +148,7 @@ export default function CashierDashboardPage() {
           value={String(pendingTotal)}
           icon={<ClipboardCheck className="h-5 w-5" />}
           tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
-          to="/invoices/pending"
+          to="/invoices/payment-proofs?tab=invoices"
         />
       </div>
 
@@ -218,7 +218,7 @@ export default function CashierDashboardPage() {
               {t('dashboard.cashier.pendingTitle')}
             </h2>
             <Link
-              to="/invoices/pending"
+              to="/invoices/payment-proofs?tab=invoices"
               className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
             >
               {t('dashboard.cashier.viewPending')}
@@ -232,7 +232,7 @@ export default function CashierDashboardPage() {
               {pending.map((inv) => (
                 <Link
                   key={inv.id}
-                  to="/invoices/pending"
+                  to="/invoices/payment-proofs?tab=invoices"
                   className="flex items-center gap-3 rounded-xl border border-gray-100 p-3 transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:hover:border-brand-500/40"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">

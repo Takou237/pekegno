@@ -483,7 +483,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                       {pendingInvoices.map((inv) => (
                         <li key={inv.id}>
                           <Link
-                            to="/invoices/pending"
+                            to="/invoices/payment-proofs?tab=invoices"
                             onClick={() => setNotifOpen(false)}
                             className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/60"
                           >
@@ -505,7 +505,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                     </ul>
                   )}
                   <Link
-                    to="/invoices/pending"
+                    to="/invoices/payment-proofs?tab=invoices"
                     onClick={() => setNotifOpen(false)}
                     className="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-medium text-brand-600 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
                   >

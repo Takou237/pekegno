@@ -14,10 +14,10 @@ import {
   UserCheck,
   BarChart3,
   GraduationCap,
-  ClipboardCheck,
   DollarSign,
   ArrowLeft,
   Contact,
+  Receipt,
 } from 'lucide-react';
 import { agenciesApi } from '@/api/agencies.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -57,7 +57,9 @@ export function getAgencyItems(t: ReturnType<typeof useTranslation>['t'], agency
     { to: 'employees', label: t('nav.employees'), icon: UserCheck, end: false },
     { to: 'invoices', label: t('nav.invoices'), icon: FileText, end: false },
     ...(canValidateInvoices(roleName)
-      ? [{ to: 'invoices/pending', label: t('nav.pendingInvoices'), icon: ClipboardCheck, end: false }]
+      ? [
+          { to: 'invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false },
+        ]
       : []),
     { to: 'invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
     { to: 'accounting', label: t('nav.accounting'), icon: Calculator, end: false },

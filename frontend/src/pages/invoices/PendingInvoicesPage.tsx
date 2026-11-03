@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Check, XCircle, FileText, ArrowLeft, ImageIcon, ExternalLink } from 'lucide-react';
+import { Check, XCircle, FileText, ArrowLeft, ImageIcon, ExternalLink, Receipt } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoicesApi } from '@/api/invoices.api';
 import { agenciesApi } from '@/api/agencies.api';
@@ -47,12 +47,15 @@ export default function PendingInvoicesPage({
   fixedAgencyId,
   fixedCountryId,
   departmentId,
+  embedded = false,
 }: {
   fixedAgencyId?: string;
   /** Vue pays : périmètre du pays + filtre agences restreint au pays. */
   fixedCountryId?: string;
   /** Vue département : factures des contrats du département (+ agence fixée). */
   departmentId?: string;
+  /** Rendu dans une page à onglets : masque l'en-tête et le bandeau. */
+  embedded?: boolean;
 }) {
   const { t } = useTranslation();
   const { showToast } = useToast();
@@ -66,6 +69,7 @@ export default function PendingInvoicesPage({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [page, setPage] = useState(1);
+  const [pendingProofsCount, setPendingProofsCount] = useState(0);
 
   const [rejectTarget, setRejectTarget] = useState<Invoice | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -93,22 +97,36 @@ export default function PendingInvoicesPage({
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await invoicesApi.list({
-        validation_status: 'pending',
-        agency_id: agencyId || undefined,
-        country_id: !agencyId ? fixedCountryId || undefined : undefined,
-        contract_department_id: departmentId || undefined,
-        page,
-        per_page: 15,
-      });
+      const [response, proofs] = await Promise.all([
+        invoicesApi.list({
+          validation_status: 'pending',
+          agency_id: agencyId || undefined,
+          country_id: !agencyId ? fixedCountryId || undefined : undefined,
+          contract_department_id: departmentId || undefined,
+          page,
+          per_page: 15,
+        }),
+        canValidateInvoice
+          ? invoicesApi
+              .listProofs({
+                status: 'pending',
+                per_page: 1,
+                agency_id: agencyId || undefined,
+                country_id: !agencyId ? fixedCountryId || undefined : undefined,
+                department_id: departmentId || undefined,
+              })
+              .catch(() => null)
+          : Promise.resolve(null),
+      ]);
       setInvoices(response.invoices.data);
       setMeta(response.invoices.meta);
+      setPendingProofsCount(proofs?.meta?.total ?? 0);
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('invoices.loadFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, [agencyId, fixedCountryId, departmentId, page, t]);
+  }, [agencyId, fixedCountryId, departmentId, page, t, canValidateInvoice]);
 
   useEffect(() => {
     fetchInvoices();
@@ -223,21 +241,39 @@ export default function PendingInvoicesPage({
         : '';
   const backPath = `${scopeBase}/invoices` || '/invoices';
   // Liste de validations d'origine : y revenir après avoir ouvert une facture.
-  const pendingListPath = `${scopeBase}/invoices/pending` || '/invoices/pending';
+  const pendingListPath = `${scopeBase}/invoices/payment-proofs` || '/invoices/payment-proofs';
+  const paymentProofsPath = `${scopeBase}/invoices/payment-proofs`;
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Link
-          to={backPath}
-          className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t('invoices.title')}
-        </Link>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('invoices.pendingTitle')}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('invoices.pendingSubtitle')}</p>
-      </div>
+      {!embedded && (
+        <>
+          <div>
+            <Link
+              to={backPath}
+              className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {t('invoices.title')}
+            </Link>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('invoices.pendingTitle')}</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('invoices.pendingSubtitle')}</p>
+          </div>
+
+          {pendingProofsCount > 0 && (
+            <Link
+              to={paymentProofsPath}
+              className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Receipt className="h-4 w-4" />
+                {t('invoices.pendingProofsBanner', { count: pendingProofsCount })}
+              </span>
+              <span className="font-medium">{t('invoices.pendingProofsSeeQueue')} →</span>
+            </Link>
+          )}
+        </>
+      )}
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-3">

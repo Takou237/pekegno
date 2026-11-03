@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Mail\InvoiceStatusMail;
 use App\Models\Agency;
+use App\Models\Contract;
 use App\Models\Invoice;
 use App\Models\PaymentProof;
 use App\Models\User;
@@ -47,6 +48,7 @@ class PaymentProofController extends Controller
             new OA\Parameter(name: 'status', in: 'query', schema: new OA\Schema(type: 'string', enum: ['pending', 'accepted', 'rejected'])),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'country_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'department_id', in: 'query', description: 'Preuves des factures liées à un contrat du département', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
         ],
         responses: [
@@ -80,6 +82,10 @@ class PaymentProofController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('agency_id'), fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->where('agency_id', $request->input('agency_id'))))
             ->when($request->filled('country_id'), fn ($q) => $q->whereHas('invoice.agency', fn ($inner) => $inner->where('country_id', $request->input('country_id'))))
+            ->when($request->filled('department_id'), fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->whereIn(
+                'contract_id',
+                Contract::query()->where('department_id', $request->input('department_id'))->select('id')
+            )))
             ->when($isCashier, fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds)))
             ->when(! $isCashier && $agencyIds !== null, fn ($q) => $q->where(function ($q) use ($agencyIds, $pendingCountryIds) {
                 $q->whereHas('invoice', fn ($inner) => $inner->whereIn('agency_id', $agencyIds))
