@@ -159,6 +159,18 @@ class User extends Authenticatable
         return $this->hasMany(ActivityLog::class);
     }
 
+    /**
+     * Rôles qui vendent avec les fonctionnalités du commercial (périmètre limité
+     * à leurs propres ventes, preuve de paiement, rapport, prospects…).
+     * Le community-manager cumule ces fonctionnalités avec le suivi de ses prestations.
+     */
+    public const COMMERCIAL_ROLES = ['commercial', 'community-manager'];
+
+    public function actsAsCommercial(): bool
+    {
+        return in_array($this->role?->name, self::COMMERCIAL_ROLES, true);
+    }
+
     public function getIsClientAttribute(): bool
     {
         return $this->role?->name === 'client';

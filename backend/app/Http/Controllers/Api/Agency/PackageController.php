@@ -385,7 +385,7 @@ class PackageController extends Controller
             ->resolve($data['commercial_id'] ?? null, $package->agency_id)?->id;
 
         // Un commercial vend en son nom propre.
-        $isCommercial = $request->user()->role?->name === 'commercial';
+        $isCommercial = $request->user()->actsAsCommercial();
         if ($isCommercial) {
             $own = $this->access->commercialIds($request->user());
             $commercialId = $commercialId && in_array($commercialId, $own, true) ? $commercialId : ($own[0] ?? null);

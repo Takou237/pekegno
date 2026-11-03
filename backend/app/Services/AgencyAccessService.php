@@ -32,8 +32,11 @@ class AgencyAccessService
 
         return match ($user?->role?->name) {
             'commercial' => $query->whereIn('prestations.commercial_id', $this->commercialIds($user)),
+            // Community-manager : ses propres ventes (comme un commercial) et les
+            // prestations dont il est équipier ou sur lesquelles il a une action.
             'community-manager' => $query->where(function (Builder $q) use ($user) {
-                $q->whereHas('teamMembers', fn (Builder $m) => $m->where('user_id', $user->id))
+                $q->whereIn('prestations.commercial_id', $this->commercialIds($user))
+                    ->orWhereHas('teamMembers', fn (Builder $m) => $m->where('user_id', $user->id))
                     ->orWhereHas('actions', fn (Builder $a) => $a->where('assigned_to', $user->id));
             }),
             default => $query,

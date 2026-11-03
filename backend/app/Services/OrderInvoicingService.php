@@ -108,7 +108,7 @@ class OrderInvoicingService
             // même si son profil métier manque (commercial_id null). Décider sur
             // commercial_id seul validait directement la facture d'un commercial sans
             // profil — elle échappait à l'examen du caissier.
-            $actorIsCommercial = User::find($actorUserId)?->role?->name === 'commercial';
+            $actorIsCommercial = (bool) User::find($actorUserId)?->actsAsCommercial();
 
             $needsValidation = $order->commercial_id !== null
                 || in_array($order->channel, ['commercial_online', 'client_self'], true)

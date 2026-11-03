@@ -7,6 +7,7 @@ import { commercialsApi } from '@/api/commercials.api';
 import { AccountSettingsSections } from '@/components/profile/AccountSettingsSections';
 import CommercialDetailPage from '@/pages/commercials/CommercialDetailPage';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 export default function ProfilePage() {
   const { t } = useTranslation();
@@ -14,7 +15,7 @@ export default function ProfilePage() {
   const [ownCommercialId, setOwnCommercialId] = useState<string | null>(null);
   const [ownCommercialError, setOwnCommercialError] = useState(false);
 
-  const isCommercial = user?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(user?.role?.name);
 
   // Fiche du commercial connecté : id résolu via l'endpoint « moi ».
   useEffect(() => {

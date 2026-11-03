@@ -16,6 +16,7 @@ import { CommercialPicker } from '@/components/agencyDept/Pickers';
 import { EnrollmentLearnerField, emptyNewLearnerForm, isNewLearnerComplete, type LearnerMode, type NewLearnerFormState } from '@/components/academy/EnrollmentLearnerField';
 import { clientsApi } from '@/api/clients.api';
 import type { AgencyPackage } from '@/types/agencyDepartment';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 interface PackageSubscribeModalProps {
   pkg: AgencyPackage;
@@ -35,7 +36,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
     const { user } = useAuth();
     const { showToast } = useToast();
 
-    const isCommercial = user?.role?.name === 'commercial';
+    const isCommercial = actsAsCommercial(user?.role?.name);
     const isCaissier = user?.role?.name === 'caissier';
     const isSuperAdmin = user?.role?.name === 'super-admin';
     // Commercial et chefs d'agence / de département : la souscription part en

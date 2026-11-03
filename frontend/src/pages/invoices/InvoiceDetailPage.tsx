@@ -31,6 +31,7 @@ import type { Invoice, PaymentMethod, PaymentProof } from '@/types/invoice';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import type { ServiceSearchItem } from '@/types/service';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 interface EditInvoiceLine {
   key: string;
@@ -153,7 +154,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       invoice.created_by === currentUser.id
   );
 
-  const isCommercial = currentUser?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(currentUser?.role?.name);
   const editCurrency = useAgencyCurrency(invoice?.agency_id);
   const editTotals = useMemo(() => {
     const subtotal = editLines.reduce(

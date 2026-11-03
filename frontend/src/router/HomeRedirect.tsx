@@ -6,15 +6,15 @@ import { departmentsApi } from '@/api/departments.api';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import PEKEGNOGroupDashboard from '@/pages/dashboard/PEKEGNOGroupDashboard';
 import { getUserMainItems, isCustomRole } from '@/components/layout/navItems';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 /**
  * Redirige la racine / vers la vue adaptée au rôle connecté :
  * - responsable-agence → son agence (point d'entrée = l'agence)
  * - responsable-departement → son département (point d'entrée = le département)
  * - caissier → tableau de bord caisse (Caisse du jour)
- * - commercial → tableau de bord commercial
+ * - commercial, community-manager → tableau de bord commercial
  * - formateur → tableau de bord formateur
- * - community-manager → suivi de ses prestations et actions
  * - autres → tableau de bord global
  */
 export function HomeRedirect() {
@@ -47,16 +47,12 @@ export function HomeRedirect() {
     return <Navigate to="/caissier/dashboard" replace />;
   }
 
-  if (role === 'commercial') {
+  if (actsAsCommercial(role)) {
     return <Navigate to="/commercial/dashboard" replace />;
   }
 
   if (role === 'formateur') {
     return <Navigate to="/formateur" replace />;
-  }
-
-  if (role === 'community-manager') {
-    return <Navigate to="/team/tracking" replace />;
   }
 
   // Rôle personnalisé sans accès au tableau de bord : on l'envoie sur la

@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getUserMainItems, navLinkClass, INVOICES_ROLES, type NavItem } from '@/components/layout/navItems';
 import { invoicesApi } from '@/api/invoices.api';
 import { BrandLogo } from '@/components/common/BrandLogo';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 interface SidebarProps {
   /** Menu d'un espace (Profil ouvert depuis un pays / une agence / un département) : remplace le menu principal. */
@@ -32,7 +33,7 @@ export function Sidebar({ contextTitle, contextItems }: SidebarProps = {}) {
   const mainItems = contextItems ?? getUserMainItems(t, user, unpaidBadge).map((item) =>
     // Garde-fou : jamais de pastille rouge sur le menu Factures en connexion
     // commercial (ni caissier), même si un badge était passé par erreur.
-    roleName === 'commercial' || roleName === 'caissier' ? { ...item, badge: undefined } : item,
+    actsAsCommercial(roleName) || roleName === 'caissier' ? { ...item, badge: undefined } : item,
   );
 
   return (
@@ -69,7 +70,7 @@ export function Sidebar({ contextTitle, contextItems }: SidebarProps = {}) {
         ))}
       </nav>
       <nav className="border-t border-gray-100 pt-4 dark:border-gray-800">
-        {roleName === 'commercial' ? (
+        {actsAsCommercial(roleName) ? (
           // Commercial : « Mon profil » est désormais un menu ; le bas de la
           // barre latérale regroupe les paramètres du compte.
           <NavLink to="/profile/settings" end={false} className={navLinkClass}>

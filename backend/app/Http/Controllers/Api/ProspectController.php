@@ -50,7 +50,7 @@ class ProspectController extends Controller
             return $query->whereIn('agency_id', $agencyIds);
         }
 
-        if ($user->role?->name === 'commercial' && $user->commercialProfile) {
+        if ($user->actsAsCommercial() && $user->commercialProfile) {
             return $query->where('commercial_id', $user->commercialProfile->id);
         }
 
@@ -117,7 +117,7 @@ class ProspectController extends Controller
         $prospect = DB::transaction(function () use ($data, $actor, $request) {
             // Un commercial crée toujours ses propres prospects.
             $commercialId = $data['commercial_id'] ?? null;
-            if ($actor->role?->name === 'commercial' && $actor->commercialProfile) {
+            if ($actor->actsAsCommercial() && $actor->commercialProfile) {
                 $commercialId = $actor->commercialProfile->id;
             }
 

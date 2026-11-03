@@ -14,7 +14,7 @@ class CategoryPolicy
     {
         return in_array($user->role?->name, [
             'super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement',
-            'commercial', 'caissier', 'comptable', 'formateur', 'client',
+            'commercial', 'community-manager', 'caissier', 'comptable', 'formateur', 'client',
         ]);
     }
 
@@ -22,7 +22,7 @@ class CategoryPolicy
     {
         return in_array($user->role?->name, [
             'super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement',
-            'commercial', 'caissier', 'comptable', 'formateur', 'client',
+            'commercial', 'community-manager', 'caissier', 'comptable', 'formateur', 'client',
         ]);
     }
 

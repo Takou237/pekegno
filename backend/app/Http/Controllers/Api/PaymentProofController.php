@@ -253,7 +253,7 @@ class PaymentProofController extends Controller
      */
     private function ensureCanSubmitFor(Invoice $invoice, ?User $user): void
     {
-        if (! $user || $user->role?->name !== 'commercial') {
+        if (! $user || ! $user->actsAsCommercial()) {
             return;
         }
 

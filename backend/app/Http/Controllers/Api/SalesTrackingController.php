@@ -78,13 +78,13 @@ class SalesTrackingController extends Controller
         // Cas du commercial sans profil Commercial (compte promu, kind=employe
         // non créé) : l'ancien `where commercial_id = 0000…` garantissait 0 ligne.
         // On retombe alors sur ses ventes de guichet (seller_user_id = user id).
-        if ($user?->role?->name === 'commercial') {
+        if ($user?->actsAsCommercial()) {
+            // Ses ventes = rattachées à sa fiche OU dont il est le vendeur (ventes
+            // saisies avant la création de sa fiche vendeur).
             $profileId = $user->commercialProfile?->id;
-            if ($profileId) {
-                $invoiceBase->where('commercial_id', $profileId);
-            } else {
-                $invoiceBase->where('seller_user_id', $user->id);
-            }
+            $invoiceBase->where(fn ($q) => $q
+                ->where('seller_user_id', $user->id)
+                ->when($profileId, fn ($qq) => $qq->orWhere('commercial_id', $profileId)));
         } elseif ($request->filled('commercial_id')) {
             $invoiceBase->where('commercial_id', $request->input('commercial_id'));
         }

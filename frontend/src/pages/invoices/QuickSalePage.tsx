@@ -19,6 +19,7 @@ import { AgencyScopeSelect } from '@/components/common/AgencyScopeSelect';
 import { useOrgContext } from '@/context/OrgContext';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem, SeminarTier } from '@/types/service';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 export default function QuickSalePage() {
   const { t } = useTranslation();
@@ -36,7 +37,7 @@ export default function QuickSalePage() {
     if (!pickedAgencyId && selectedAgency?.id) setPickedAgencyId(selectedAgency.id);
   }, [selectedAgency?.id, pickedAgencyId]);
   const agencyId = pickedAgencyId ?? undefined;
-  const isCommercial = currentUser?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(currentUser?.role?.name);
 
   // Retour contextuel : on revient à l'écran d'origine (tableau de bord
   // caissier, liste filtrée…) plutôt qu'à une liste de factures sans rapport.

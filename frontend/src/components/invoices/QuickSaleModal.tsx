@@ -24,6 +24,7 @@ import type { PaymentMethod } from '@/types/invoice';
 import type { SeminarTier, Service } from '@/types/service';
 import type { Commercial } from '@/types/commercial';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 interface InvoiceLineDraft {
   key: string;
@@ -67,7 +68,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
-  const isCommercial = currentUser?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(currentUser?.role?.name);
   // Comme le formulaire complet : commercial et chef d'agence joignent une
   // preuve de paiement (le backend la refuse sinon).
   const needsPaymentProof = isCommercial || currentUser?.role?.name === 'responsable-agence';

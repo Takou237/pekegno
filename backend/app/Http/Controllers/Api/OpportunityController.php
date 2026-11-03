@@ -40,7 +40,7 @@ class OpportunityController extends Controller
             return $query->whereIn('agency_id', $agencyIds);
         }
 
-        if ($user->role?->name === 'commercial' && $user->commercialProfile) {
+        if ($user->actsAsCommercial() && $user->commercialProfile) {
             return $query->where('commercial_id', $user->commercialProfile->id);
         }
 

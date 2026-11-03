@@ -13,8 +13,18 @@ import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Commercial, CommercialStats } from '@/types/commercial';
 import type { Invoice } from '@/types/invoice';
+import CommunityManagerDashboardPage from '@/pages/team/CommunityManagerDashboardPage';
 
+/** Community-manager : tableau de bord dédié (ventes + prestations + actions). */
 export default function CommercialSelfDashboardPage() {
+  const { user } = useAuth();
+  if (user?.role?.name === 'community-manager') {
+    return <CommunityManagerDashboardPage />;
+  }
+  return <CommercialSelfDashboard />;
+}
+
+function CommercialSelfDashboard() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user } = useAuth();

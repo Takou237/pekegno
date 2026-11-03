@@ -1279,6 +1279,9 @@ export default {
   commercial: {
     selfTitle: 'Mon tableau de bord',
     selfNoProfile: 'Aucun profil commercial lié à votre compte.',
+    cmSubtitle: 'Vos ventes, vos prestations et vos actions à faire.',
+    cmUpcomingActions: 'Mes prochaines actions',
+    cmViewTracking: 'Voir mon suivi',
     selfNoAgency: 'Aucune agence',
     selfNewSale: 'Vente rapide',
     selfNewInvoice: 'Nouvelle facture',
@@ -2249,6 +2252,7 @@ export default {
         collectionRate: "Taux d'encaissement",
         balanceDue: 'Reste à recouvrer',
         recovered: 'Recouvrements (ventes antérieures)',
+        collected: 'Total encaissé sur la période (ventes + recouvrements)',
       },
       sections: {
         byActivity: '1. Synthèse par activité',

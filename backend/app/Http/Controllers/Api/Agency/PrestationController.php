@@ -142,7 +142,7 @@ class PrestationController extends Controller
         }
 
         // Un commercial ne peut créer une prestation qu'à son nom.
-        if ($request->user()->role?->name === 'commercial') {
+        if ($request->user()->actsAsCommercial()) {
             $own = $this->access->commercialIds($request->user());
             if (empty($data['commercial_id']) || ! in_array($data['commercial_id'], $own, true)) {
                 $data['commercial_id'] = $own[0] ?? null;

@@ -25,6 +25,7 @@ import { currencyLabel } from '@/utils/number';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import { useOrgContext } from '@/context/OrgContext';
 import SessionInfoCard from '@/components/academy/SessionInfoCard';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 
 interface FormationEnrollmentModalProps {
@@ -85,7 +86,7 @@ export default function FormationEnrollmentModal({
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
-  const isCommercial = currentUser?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(currentUser?.role?.name);
   // Commercial et chefs d'agence / de département : l'inscription part en
   // validation, la preuve de paiement est obligatoire.
   const isChief = ['responsable-agence', 'responsable-departement'].includes(currentUser?.role?.name ?? '');

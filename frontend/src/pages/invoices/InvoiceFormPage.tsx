@@ -28,6 +28,7 @@ import type { ServiceSearchItem } from '@/types/service';
 import type { Commercial } from '@/types/commercial';
 import { todayLocal } from '@/utils/date';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 /** Type de ligne : il filtre la recherche du catalogue (champ à côté). */
 type LineKind = 'product' | 'course' | 'package' | 'service';
@@ -70,7 +71,7 @@ export default function InvoiceFormPage({
   const { agencyId: routeAgencyId } = useParams<{ agencyId?: string }>();
   const [searchParams] = useSearchParams();
 
-  const isCommercial = currentUser?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(currentUser?.role?.name);
   const isResponsableAgence = currentUser?.role?.name === 'responsable-agence';
     // Le caissier et le super-admin valident directement leurs ventes de guichet.
     // La direction garde son vendeur par dǸfaut mais ses ventes restent en attente.

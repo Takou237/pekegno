@@ -63,13 +63,11 @@ class InvoiceController extends Controller
             return $query->whereRaw('1 = 0');
         }
 
-        // Un commercial n'accède qu'à ses propres factures (liste et totaux).
-        if ($user->role?->name === 'commercial') {
-            if (! $user->commercialProfile) {
-                return $query->whereRaw('1 = 0');
-            }
-
-            return $query->where('commercial_id', $user->commercialProfile->id);
+        // Un commercial (ou community-manager) n'accède qu'à ses propres factures
+        // (liste et totaux) : rattachées à sa fiche, ou dont il est vendeur / créateur
+        // (ventes saisies avant la création de sa fiche vendeur).
+        if ($user->actsAsCommercial()) {
+            return $query->where(fn ($q) => $this->whereOwnSale($q, $user));
         }
 
         // Un caissier ne voit que les factures rattachées à ses agences affectées.
@@ -357,8 +355,8 @@ class InvoiceController extends Controller
             // valident directement leurs ventes. Toutes les autres factures
             // (commerciaux, chefs d'agence / de département…) commencent en attente.
             $creatorRole = $request->user()->role?->name;
-            $isCommercialSale = $creatorRole === 'commercial';
-            $needsPaymentProof = in_array($creatorRole, ['commercial', 'responsable-agence'], true);
+            $isCommercialSale = $request->user()->actsAsCommercial();
+            $needsPaymentProof = $isCommercialSale || $creatorRole === 'responsable-agence';
             $needsValidation = ! InvoiceValidators::allows($creatorRole);
 
             // Une vente faite par un commercial est automatiquement rattachée à son propre
@@ -374,7 +372,8 @@ class InvoiceController extends Controller
 
             $commercialId = $data['commercial_id'] ?? null;
             if ($isCommercialSale && ! $commercialId) {
-                $commercialId = $request->user()->commercialProfile?->id;
+                $commercialId = $this->commercialProfiles
+                    ->ensureFor($request->user(), $data['agency_id'] ?? null)?->id;
             }
             if ($creatorRole === 'responsable-agence' && ! $commercialId) {
                 $commercialId = $request->user()->commercialProfile?->id;
@@ -932,7 +931,7 @@ class InvoiceController extends Controller
             $seller = $invoice->seller;
             $sellerRole = $seller?->role?->name;
 
-            if ($sellerRole === 'commercial' || $invoice->commercial_id !== null) {
+            if (in_array($sellerRole, User::COMMERCIAL_ROLES, true) || $invoice->commercial_id !== null) {
                 abort(422, 'Une facture créée par un commercial doit être justifiée par une preuve de paiement avant validation.');
             }
         }
@@ -1044,7 +1043,7 @@ class InvoiceController extends Controller
         // Un commercial ne peut annuler que ses propres factures non encore validées
         // (en attente ou rejetées). Une fois validée (définitive), seule la direction /
         // un responsable peut l'annuler.
-        if ($request->user()->role?->name === 'commercial') {
+        if ($request->user()->actsAsCommercial()) {
             $ownProfile = $request->user()->commercialProfile;
             abort_if(! $ownProfile || $invoice->commercial_id !== $ownProfile->id, 403, 'Vous ne pouvez annuler que vos propres factures.');
             abort_if(in_array($invoice->validation_status, [Invoice::VALIDATION_VALIDATED], true), 422, 'Une facture validée ne peut plus être supprimée par son commercial.');

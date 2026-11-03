@@ -46,6 +46,7 @@ import type { Category } from '@/types/category';
 import type { PaginationMeta } from '@/types/agency';
 import type { Promotion } from '@/types/promotion';
 import { currencyLabel } from '@/utils/number';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 interface ServiceListPageProps {
   agencyId?: string;
@@ -61,7 +62,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
   const [tab, setTab] = useState<'services' | 'formations' | 'packages' | 'prestations' | 'agency'>('services');
   const navigate = useNavigate();
 
-  const isCommercial = user?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(user?.role?.name);
   const isCaissier = user?.role?.name === 'caissier';
   const [ownAgencyId, setOwnAgencyId] = useState('');
 

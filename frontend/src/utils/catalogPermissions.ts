@@ -7,6 +7,7 @@ const ALL_EMPLOYEES = [
   'responsable-agence',
   'responsable-departement',
   'commercial',
+  'community-manager',
   'caissier',
   'comptable',
   'formateur',

@@ -231,14 +231,20 @@ class RoleSeeder extends Seeder
                 $p('modules', ['consulter']),
                 $p('vendeurs', ['consulter']),
             ),
-            'community-manager' => array_merge(
-                // Agency : ne voit que les prestations dont il est membre de l'équipe.
-                $p('clients', ['consulter', 'modifier', 'supprimer']),
-                $p('packages', ['consulter']),
-                $p('prestations', ['consulter']),
-                $p('prestation-actions', ['consulter', 'modifier']),
-                $p('equipe-client', ['consulter']),
-            ),
+        ];
+
+        // Community-manager : toutes les fonctionnalités du commercial (ventes,
+        // prospects, rapport…) + l'exécution des prestations dont il est équipier.
+        $assignments['community-manager'] = array_values(array_unique(array_merge(
+            $assignments['commercial'],
+            $p('clients', ['consulter', 'modifier', 'supprimer']),
+            $p('packages', ['consulter']),
+            $p('prestations', ['consulter']),
+            $p('prestation-actions', ['consulter', 'modifier']),
+            $p('equipe-client', ['consulter']),
+        )));
+
+        $assignments += [
             'client' => array_merge(
                 $p('services', ['consulter']),
                 $p('products', ['consulter']),

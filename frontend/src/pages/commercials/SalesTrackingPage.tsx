@@ -29,13 +29,14 @@ import { PeriodPresets } from '@/components/ui/PeriodPresets';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import type { Agency } from '@/types/agency';
 import logoUrl from '@/assets/pekegno-logo.png';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 const TYPE_LABEL: Record<SalesTrackingType, string> = { academy: 'typeAcademy', agency: 'typeAgency' };
 
 export default function SalesTrackingPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isCommercial = user?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(user?.role?.name);
 
   const initialPeriod = useMemo(() => presetPeriod('thisMonth'), []);
   const [from, setFrom] = useState(initialPeriod.from);

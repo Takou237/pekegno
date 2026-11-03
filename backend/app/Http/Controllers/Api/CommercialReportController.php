@@ -139,7 +139,7 @@ class CommercialReportController extends Controller
 
         // Un commercial consulte toujours son propre rapport ; les autres rôles
         // habilités (direction, comptable, responsable) choisissent le commercial.
-        if ($user->role?->name === 'commercial') {
+        if ($user->actsAsCommercial()) {
             $commercial = $user->commercialProfile;
         } else {
             $commercialId = $request->input('commercial_id');

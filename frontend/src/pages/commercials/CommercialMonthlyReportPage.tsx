@@ -16,13 +16,14 @@ import {
   CommercialMonthlyReportSheet,
   CommercialMonthlyReportPrintPortal,
 } from '@/components/reports/CommercialMonthlyReportSheet';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 type Scope = 'academy' | 'agency';
 
 export default function CommercialMonthlyReportPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isCommercial = user?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(user?.role?.name);
   // Ouvert depuis l'espace d'une agence : vendeurs limités à cette agence.
   const { agencyId } = useParams<{ agencyId?: string }>();
 
@@ -121,15 +122,20 @@ export default function CommercialMonthlyReportPage() {
         <SkeletonTable rows={8} />
       ) : data ? (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:hidden">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 print:hidden">
             {[
               { label: t('reports.monthly.kpi.received'), value: formatCurrency(data.totals.received) },
               { label: t('reports.monthly.kpi.billed'), value: formatCurrency(data.totals.billed) },
               { label: t('reports.monthly.kpi.collectionRate'), value: `${formatNumber(data.totals.collection_rate)} %` },
               { label: t('reports.monthly.kpi.balanceDue'), value: formatCurrency(data.totals.balance_due) },
-              ...((data.totals.recovered ?? 0) > 0
-                ? [{ label: t('reports.monthly.kpi.recovered'), value: formatCurrency(data.totals.recovered ?? 0) }]
-                : []),
+              // Toujours affiché (même à 0), suivi du total encaissé sur la période.
+              { label: t('reports.monthly.kpi.recovered'), value: formatCurrency(data.totals.recovered ?? 0) },
+              // Tout l'argent entré sur la période : encaissé sur les ventes de la
+              // période + recouvrements sur les ventes antérieures.
+              {
+                label: t('reports.monthly.kpi.collected'),
+                value: formatCurrency(data.totals.collected ?? data.totals.received + (data.totals.recovered ?? 0)),
+              },
             ].map((k) => (
               <div key={k.label} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
                 <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{k.label}</p>

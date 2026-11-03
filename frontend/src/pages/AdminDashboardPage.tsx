@@ -37,6 +37,7 @@ function roleBadge(roleName: string | null | undefined, t: (key: string, opts?: 
 
 import { formatCurrency, formatNumber } from '@/utils/number';
 import { paymentMethodLabel } from '@/utils/paymentMethods';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 function StatCard({
   label,
@@ -1103,7 +1104,7 @@ export default function DashboardPage() {
   if (roleName === 'caissier') {
     return <CashierDashboard />;
   }
-  if (roleName === 'commercial') {
+  if (actsAsCommercial(roleName)) {
     return <CommercialDashboard />;
   }
   return <UserDashboard />;

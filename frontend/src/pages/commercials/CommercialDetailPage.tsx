@@ -28,6 +28,7 @@ import {
 import type { Commercial, CommercialStats } from '@/types/commercial';
 import type { CommercialApiLike } from '@/pages/commercials/CommercialListPage';
 import type { Prospect } from '@/types/prospect';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 interface ProspectForm {
   first_name: string;
@@ -91,7 +92,7 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
   const canManage = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
     currentUser?.role?.name ?? ''
   );
-  const canManageProspects = canManage || currentUser?.role?.name === 'commercial';
+  const canManageProspects = canManage || actsAsCommercial(currentUser?.role?.name);
   const canAdjustPoints = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );

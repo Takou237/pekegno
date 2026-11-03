@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getUserMainItems, navLinkClass, INVOICES_ROLES, type NavItem } from '@/components/layout/navItems';
 import { invoicesApi } from '@/api/invoices.api';
 import { BrandLogo } from '@/components/common/BrandLogo';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 interface MobileNavProps {
   /** Ouverture pilotée par le layout (bouton ☰ du header). */
@@ -35,7 +36,7 @@ export function MobileNav({ isOpen, onClose, contextTitle, contextItems = [], co
   const mainItems = getUserMainItems(t, user, unpaidBadge).map((item) =>
     // Garde-fou : jamais de pastille rouge sur le menu Factures en connexion
     // commercial (ni caissier), même si un badge était passé par erreur.
-    roleName === 'commercial' || roleName === 'caissier' ? { ...item, badge: undefined } : item,
+    actsAsCommercial(roleName) || roleName === 'caissier' ? { ...item, badge: undefined } : item,
   );
   const fullName =
     [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username || '—';
@@ -191,7 +192,7 @@ export function MobileNav({ isOpen, onClose, contextTitle, contextItems = [], co
           </>
         )}
         <nav className="border-t border-gray-100 pt-4 dark:border-gray-800">
-          {roleName === 'commercial' ? (
+          {actsAsCommercial(roleName) ? (
             <NavLink to="/profile/settings" end={false} className={navLinkClass}>
               <Settings className="h-5 w-5" />
               {t('nav.settings')}

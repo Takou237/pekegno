@@ -15,12 +15,12 @@ export function canManagePackages(user: User | null): boolean {
 
 /** C4 : souscription d'un client à un package — commercial et caissier (min), managers ok. */
 export function canSubscribePackage(user: User | null): boolean {
-  return [...MANAGERS, 'commercial', 'caissier'].includes(role(user));
+  return [...MANAGERS, 'commercial', 'community-manager', 'caissier'].includes(role(user));
 }
 
 /** K1/K2 : le caissier crée et valide directement les prestations de son périmètre. */
 export function canCreatePrestation(user: User | null): boolean {
-  return [...MANAGERS, 'commercial', 'caissier'].includes(role(user));
+  return [...MANAGERS, 'commercial', 'community-manager', 'caissier'].includes(role(user));
 }
 
 /**
@@ -28,7 +28,7 @@ export function canCreatePrestation(user: User | null): boolean {
  * miroir de la permission backend `prestations.creer` (route submit).
  */
 export function canSubmitPrestation(user: User | null): boolean {
-  return [...MANAGERS, 'commercial', 'caissier'].includes(role(user));
+  return [...MANAGERS, 'commercial', 'community-manager', 'caissier'].includes(role(user));
 }
 
 export function canEditPrestation(user: User | null): boolean {

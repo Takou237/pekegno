@@ -16,7 +16,7 @@ final class InvoiceValidators
      * partent en validation avec preuve de paiement : l'avance n'est encaissée
      * qu'à l'acceptation de la preuve par un validateur.
      */
-    public const SELLERS_PENDING_VALIDATION = ['commercial', 'responsable-agence', 'responsable-departement'];
+    public const SELLERS_PENDING_VALIDATION = ['commercial', 'community-manager', 'responsable-agence', 'responsable-departement'];
 
     public static function allows(?string $roleName): bool
     {

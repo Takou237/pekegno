@@ -39,6 +39,7 @@ import type { DepartmentType } from '@/types/department';
 import type { User } from '@/types/auth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
 import { homeSpace, isGroupLevelPath } from '@/utils/userScope';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 export const ADMIN_ROLES = ['super-admin', 'direction-generale'];
 
@@ -228,16 +229,23 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     ];
   }
 
-  if (roleName === 'commercial') {
+  // Le community-manager a le même menu que le commercial (« Mon suivi » inclus),
+  // sans Prospects, Commissions, Rapport mensuel ni Suivi des ventes.
+  if (actsAsCommercial(roleName)) {
+    const isCommunityManager = roleName === 'community-manager';
     return [
       ...baseItems,
       trackingItem(t),
-      { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
+      ...(isCommunityManager ? [] : [{ to: '/prospects', label: t('nav.prospects'), icon: Target, end: false }]),
       // Commercial : menu Factures SANS pastille rouge (pas de badge impayés).
       invoiceItem(t),
-      { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
-      monthlyReportItem(t),
-      salesTrackingItem(t),
+      ...(isCommunityManager
+        ? []
+        : [
+            { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
+            monthlyReportItem(t),
+            salesTrackingItem(t),
+          ]),
       catalogItem(t),
       myProfileItem(t),
     ];
@@ -252,12 +260,6 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/formateur/apprenants', label: t('nav.learners'), icon: UserCheck, end: false },
       { to: '/formateur/sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
       { to: '/formateur/planning', label: t('nav.planning'), icon: CalendarCheck, end: false },
-    ];
-  }
-
-  if (roleName === 'community-manager') {
-    return [
-      trackingItem(t),
     ];
   }
 

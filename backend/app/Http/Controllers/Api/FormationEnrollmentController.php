@@ -418,6 +418,12 @@ class FormationEnrollmentController extends Controller
 
         $commercialId = null;
 
+        // Vendeur commercial / community-manager sans fiche vendeur : on la crée
+        // pour que l'inscription remonte dans ses factures, stats et rapport.
+        if (! empty($sellerUserId) && ($sellerUser = User::find($sellerUserId))?->actsAsCommercial()) {
+            app(\App\Services\CommercialProfileService::class)->ensureFor($sellerUser);
+        }
+
         if (! empty($sellerUserId)) {
             $commercial = Commercial::where('user_id', $sellerUserId)
                 ->where('is_active', true)

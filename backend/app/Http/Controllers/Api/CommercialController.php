@@ -63,7 +63,7 @@ class CommercialController extends Controller
             return $query->whereIn('agency_id', $agencyIds);
         }
 
-        if ($user->role?->name === 'commercial' && $user->commercialProfile) {
+        if ($user->actsAsCommercial() && $user->commercialProfile) {
             return $query->whereKey($user->commercialProfile->id);
         }
 
@@ -740,7 +740,10 @@ class CommercialController extends Controller
     )]
     public function meStats(Request $request): JsonResponse
     {
-        $commercial = $request->user()?->commercialProfile;
+        $commercial = $request->user()?->commercialProfile
+            // Commercial / community-manager sans fiche (compte créé avant
+            // l'auto-création) : on la crée au lieu de répondre 404.
+            ?? ($request->user() ? app(\App\Services\CommercialProfileService::class)->ensureFor($request->user()) : null);
 
         if (! $commercial) {
             return response()->json([

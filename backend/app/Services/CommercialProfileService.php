@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Commercial;
+use App\Models\Invoice;
 use App\Models\Setting;
 use App\Models\User;
 use Closure;
@@ -31,11 +32,23 @@ class CommercialProfileService
      */
     public function ensureFor(User $user, ?string $agencyId = null): ?Commercial
     {
-        if ($user->role?->name !== 'commercial') {
+        if (! $user->actsAsCommercial()) {
             return null;
         }
 
-        return $this->ensureForAny($user, $agencyId);
+        $isNew = ! Commercial::withTrashed()->where('user_id', $user->id)->exists();
+        $profile = $this->ensureForAny($user, $agencyId);
+
+        // Fiche créée après coup : ses ventes déjà saisies (vendeur = ce compte,
+        // sans fiche rattachée) lui reviennent — factures, CA, stats, rapport.
+        if ($isNew) {
+            Invoice::query()
+                ->where('seller_user_id', $user->id)
+                ->whereNull('commercial_id')
+                ->update(['commercial_id' => $profile->id]);
+        }
+
+        return $profile;
     }
 
     /**

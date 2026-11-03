@@ -30,6 +30,7 @@ import type { PaymentMethod } from '@/types/invoice';
 import { currencyLabel } from '@/utils/number';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import SessionInfoCard from '@/components/academy/SessionInfoCard';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -90,7 +91,7 @@ export default function FormationEnrollmentPage() {
   const { agencyId } = useOutletContext<DepartmentLayoutContext>();
   const currency = useAgencyCurrency(agencyId);
   const { user: currentUser } = useAuth();
-  const isCommercial = currentUser?.role?.name === 'commercial';
+  const isCommercial = actsAsCommercial(currentUser?.role?.name);
   const isSellerUser = isCommercial || currentUser?.role?.name === 'caissier';
 
   const [enrollments, setEnrollments] = useState<FormationEnrollment[]>([]);

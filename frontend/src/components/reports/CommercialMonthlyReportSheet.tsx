@@ -87,15 +87,17 @@ function TabSection({ tab }: { tab: CommercialMonthlyTab }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
           { label: t('reports.monthly.kpi.received'), value: formatCurrency(totals.received) },
           { label: t('reports.monthly.kpi.billed'), value: formatCurrency(totals.billed) },
           { label: t('reports.monthly.kpi.collectionRate'), value: `${formatNumber(totals.collection_rate)} %` },
           { label: t('reports.monthly.kpi.balanceDue'), value: formatCurrency(totals.balance_due) },
-          ...((totals.recovered ?? 0) > 0
-            ? [{ label: t('reports.monthly.kpi.recovered'), value: formatCurrency(totals.recovered ?? 0) }]
-            : []),
+          { label: t('reports.monthly.kpi.recovered'), value: formatCurrency(totals.recovered ?? 0) },
+          {
+            label: t('reports.monthly.kpi.collected'),
+            value: formatCurrency(totals.collected ?? totals.received + (totals.recovered ?? 0)),
+          },
         ].map((k) => (
           <div key={k.label} className="rounded-lg border border-gray-300 px-3 py-2">
             <p className="text-[11px] uppercase tracking-wide text-gray-500">{k.label}</p>

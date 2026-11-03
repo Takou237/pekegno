@@ -1269,6 +1269,9 @@ export default {
   commercial: {
     selfTitle: 'My dashboard',
     selfNoProfile: 'No sales profile linked to your account.',
+    cmSubtitle: 'Your sales, your services and your to-do actions.',
+    cmUpcomingActions: 'My upcoming actions',
+    cmViewTracking: 'View my tracking',
     selfNoAgency: 'No agency',
     selfNewSale: 'Quick sale',
     selfNewInvoice: 'New invoice',
@@ -2237,6 +2240,7 @@ export default {
         collectionRate: 'Collection rate',
         balanceDue: 'Outstanding balance',
         recovered: 'Collections (earlier sales)',
+        collected: 'Total collected in period (sales + collections)',
       },
       sections: {
         byActivity: '1. Activity summary',
