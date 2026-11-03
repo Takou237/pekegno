@@ -108,6 +108,8 @@ export interface Invoice {
   payment_proofs?: PaymentProof[];
   payment_proofs_count?: number;
   commission_payments?: CommissionPayment[];
+  /** Date du dernier versement (présent avec sort=last_activity). */
+  last_payment_at?: string | null;
 }
 
 export interface InvoiceTotals {
@@ -135,6 +137,8 @@ export interface InvoiceListParams {
   contract_id?: string;
   course_id?: string;
   session_id?: string;
+  /** last_activity : dernière activité (vente ou dernier versement) d'abord. */
+  sort?: 'last_activity';
   per_page?: number;
   page?: number;
 }

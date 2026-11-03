@@ -1369,6 +1369,8 @@ export default {
     servicesSoldEmpty: 'No service sold yet.',
     invoicesLinked: 'Linked invoices',
     invoicesLinkedEmpty: 'No linked invoice.',
+    invoicesLinkedHint: 'The 10 most recent by last activity (sale or payment). All: "View invoices".',
+    lastPaymentCol: 'Last payment',
     commissionsHistory: 'Commissions paid',
     noCommissions: 'No commission recorded.',
     commissionFixed: 'Fixed',

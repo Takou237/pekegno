@@ -104,7 +104,7 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
       setCommercial(c);
       setStats(s);
       try {
-        const res = await invoicesApi.list({ commercial_id: id, per_page: 10 });
+        const res = await invoicesApi.list({ commercial_id: id, per_page: 10, sort: 'last_activity' });
         setInvoices(res.invoices.data);
       } catch {
         setInvoices([]);
@@ -552,6 +552,7 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
           <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
             {t('commercials.invoicesLinked')}
           </h2>
+          <p className="mt-0.5 text-xs text-gray-400">{t('commercials.invoicesLinkedHint')}</p>
         </div>
         {invoicesLoading ? (
           <p className="p-6 text-sm text-gray-500 dark:text-gray-400">…</p>
@@ -566,6 +567,7 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
                 <tr>
                   <th className="px-5 py-3 font-medium">{t('invoices.colNumber')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colDate')}</th>
+                  <th className="px-5 py-3 font-medium">{t('commercials.lastPaymentCol')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colClient')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colStatus')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('invoices.colTotal')}</th>
@@ -580,6 +582,9 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {formatRelativeDate(inv.invoice_date)}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
+                      {inv.last_payment_at ? formatRelativeDate(inv.last_payment_at) : '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {inv.client_label ?? '—'}

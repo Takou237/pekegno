@@ -14,6 +14,7 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
@@ -125,5 +126,29 @@ class RecoveryPaymentsTest extends TestCase
         $this->assertEquals(400000, $october['totals']['billed']);
         $this->assertEquals(100000, $october['totals']['received']);
         $this->assertEquals(0, $october['totals']['recovered']);
+    }
+
+    public function test_linked_invoices_sorted_by_last_activity_put_recent_recovery_first(): void
+    {
+        $agency = Agency::factory()->create();
+        $commercial = Commercial::factory()->create(['agency_id' => $agency->id]);
+        $cashier = User::factory()->create(['role_id' => Role::where('name', 'caissier')->value('id')]);
+
+        $old = $this->makeInvoice($commercial, $agency, '2026-10-22 14:41:23');
+        $recent = $this->makeInvoice($commercial, $agency, '2026-10-30 10:00:00');
+        $this->pay($old, 100000, '2026-10-22 14:41:23', $cashier->id);
+        $this->pay($recent, 50000, '2026-10-30 10:00:00', $cashier->id);
+        $this->pay($old, 100000, '2026-11-02 09:31:12', $cashier->id);
+
+        Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]));
+
+        // Tri par défaut inchangé : date de facture.
+        $default = $this->getJson("/api/invoices?commercial_id={$commercial->id}")->assertOk()->json('invoices.data');
+        $this->assertSame([$recent->number, $old->number], array_column($default, 'number'));
+
+        // Dernière activité : le recouvrement du 02/11 fait remonter la facture du 22/10.
+        $sorted = $this->getJson("/api/invoices?commercial_id={$commercial->id}&sort=last_activity")->assertOk()->json('invoices.data');
+        $this->assertSame([$old->number, $recent->number], array_column($sorted, 'number'));
+        $this->assertStringStartsWith('2026-11-02', (string) $sorted[0]['last_payment_at']);
     }
 }

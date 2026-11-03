@@ -1379,6 +1379,8 @@ export default {
     servicesSoldEmpty: 'Aucun service vendu pour le moment.',
     invoicesLinked: 'Factures liées',
     invoicesLinkedEmpty: 'Aucune facture liée.',
+    invoicesLinkedHint: 'Les 10 plus récentes par dernière activité (vente ou versement). Toutes : « Voir les factures ».',
+    lastPaymentCol: 'Dernier versement',
     commissionsHistory: 'Commissions versées',
     noCommissions: 'Aucune commission enregistrée.',
     commissionFixed: 'Fixe',

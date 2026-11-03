@@ -9,6 +9,7 @@ use App\Http\Requests\Api\UpdateInvoiceRequest;
 use App\Mail\InvoiceStatusMail;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Models\InvoicePayment;
 use App\Models\SubscriptionPack;
 use App\Models\Course;
 use App\Models\PaymentProof;
@@ -206,6 +207,19 @@ class InvoiceController extends Controller
         $paginator = $base
             ->with(['client:id,first_name,last_name,email,client_number,phone', 'commercial:id,first_name,last_name,email,phone', 'agency:id,name,code,city,address,phone,email'])
             ->withCount(['paymentProofs' => fn ($q) => $q->where('status', PaymentProof::STATUS_PENDING)])
+            // sort=last_activity : dernière activité (vente ou dernier versement)
+            // d'abord — un reste à payer réglé aujourd'hui sur une facture du mois
+            // dernier remonte en tête (fiche commercial, « Factures liées »).
+            ->when($request->input('sort') === 'last_activity', fn ($q) => $q
+                ->addSelect([
+                    'last_payment_at' => InvoicePayment::query()
+                        ->selectRaw('max(paid_at)')
+                        ->whereColumn('invoice_payments.invoice_id', 'invoices.id'),
+                ])
+                ->orderByRaw(
+                    'case when (select max(p.paid_at) from invoice_payments p where p.invoice_id = invoices.id) > invoices.invoice_date '
+                    .'then (select max(p.paid_at) from invoice_payments p where p.invoice_id = invoices.id) else invoices.invoice_date end desc'
+                ))
             ->orderByDesc('invoice_date')
             ->paginate($perPage);
 

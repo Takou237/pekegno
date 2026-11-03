@@ -31,6 +31,7 @@ Analyse du dump prod du 03/11 :
 | 1 | **Rapport commercial mensuel** (Commerciaux → Rapport mensuel) : nouveau bloc **« Recouvrements sur ventes antérieures »** dans chaque volet (Académie / Agency) — versements encaissés dans la période sur des factures du commercial émises **avant** la période (date, facture, date facture, client, activité, montant) — et KPI **« Recouvrements (ventes antérieures) »** quand il y en a. Le facturé, l'encaissé et le taux d'encaissement des ventes de la période ne changent pas | Backend + Frontend |
 | 2 | **Comptabilité** : chaque versement a désormais son écriture « Facture … — versement », même s'il a le même montant qu'un versement précédent de la facture (`AccountingService::recordIncomeFromPayment`) | Backend |
 | 3 | **Rattrapage** des 2 écritures manquantes (`PK-20261022-014` : 100 000 ; `PK-20261031-001` : 30 000, toutes deux du 02/11) | Base (données) |
+| 4 | **Validations unifiées** (commit collègue `aa7f48c`, déjà sur `master`) : page « Validations » avec onglets « Factures en attente » / « Preuves de paiement », bandeau des preuves en attente, filtre `department_id` sur `/api/payment-proofs` | Backend + Frontend |
 
 | Partie | Action |
 |---|---|
@@ -47,7 +48,7 @@ Analyse du dump prod du 03/11 :
 | Fichier | Usage | Quand |
 |---|---|---|
 | `repair-accounting-2026-11-03.sql` | Crée les écritures comptables manquantes des versements de même montant (générique : rattrape aussi un cas apparu après le dump) | Importer **après** le `git pull` (étape 3) |
-| `frontend-dist.zip` | Build admin du 03/11 (remplace `31_10/frontend-dist.zip`) | Extraire sur `/plateforme.pekegnogroup.com` |
+| `frontend-dist.zip` | Build admin du 03/11, inclut le commit `aa7f48c` (remplace `31_10/frontend-dist.zip`) | Extraire sur `/plateforme.pekegnogroup.com` |
 | `README.md` | Ce fichier | — |
 
 Validé avant livraison :
@@ -67,7 +68,7 @@ Validé avant livraison :
 1. **Sauvegarde** : phpPgAdmin → base `sc1fopa5058_pekegno` → Exporter (structure + données).
 2. **Backend** : cPanel → Git Version Control → `repositories/pekegno` → Manage →
    **Update from Remote**. Vérifier que le dernier commit affiché est celui de l'étape 0
-   (postérieur à `cd1bcad`).
+   (postérieur à `aa7f48c`, le commit « unifie les validations » du collègue).
 3. **Base** : phpPgAdmin → base → onglet **Importer** → `03_11/repair-accounting-2026-11-03.sql`.
    Attendu : `BEGIN`, `LOCK TABLE`, `INSERT 0 2` (ou plus si d'autres cas sont apparus depuis le
    03/11), `COMMIT` ; au rejeu : `INSERT 0 0`.
@@ -97,7 +98,7 @@ Diagnostic :
 - Un nouveau 2e versement de même montant sans écriture comptable → OPcache non vidé (étape 4) ;
   rejouer ensuite le script SQL pour le rattraper.
 
-Retour arrière : repointer le dépôt sur `cd1bcad`, vider caches + OPcache, réuploader
+Retour arrière : repointer le dépôt sur `aa7f48c` (garde les validations unifiées) ou `cd1bcad`, vider caches + OPcache, réuploader
 `31_10/frontend-dist.zip`. Les écritures créées par le script sont justes (elles correspondent à
 de vrais versements) et peuvent rester.
 
@@ -113,4 +114,5 @@ de vrais versements) et peuvent rester.
       « Facture PK-20261031-001 — versement » ×2.
 - [ ] Encaisser sur une facture de test **deux versements du même montant** → deux écritures
       comptables (puis annuler la facture de test).
+- [ ] **Validations** (caissier et admin) : onglets « Factures en attente » / « Preuves de paiement », bandeau des preuves en attente.
 - [ ] **Recette du lot `31_10/`** s'il n'était pas encore passé.
