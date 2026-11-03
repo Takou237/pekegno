@@ -13,6 +13,7 @@ type Scope = 'academy' | 'agency';
 function TabSection({ tab }: { tab: CommercialMonthlyTab }) {
   const { t } = useTranslation();
   const { totals, by_activity, by_city, by_week, annexe } = tab;
+  const recoveries = tab.recoveries ?? [];
   const hasData = totals.lines > 0;
 
   const topActivity = by_activity[0];
@@ -92,6 +93,9 @@ function TabSection({ tab }: { tab: CommercialMonthlyTab }) {
           { label: t('reports.monthly.kpi.billed'), value: formatCurrency(totals.billed) },
           { label: t('reports.monthly.kpi.collectionRate'), value: `${formatNumber(totals.collection_rate)} %` },
           { label: t('reports.monthly.kpi.balanceDue'), value: formatCurrency(totals.balance_due) },
+          ...((totals.recovered ?? 0) > 0
+            ? [{ label: t('reports.monthly.kpi.recovered'), value: formatCurrency(totals.recovered ?? 0) }]
+            : []),
         ].map((k) => (
           <div key={k.label} className="rounded-lg border border-gray-300 px-3 py-2">
             <p className="text-[11px] uppercase tracking-wide text-gray-500">{k.label}</p>
@@ -136,6 +140,43 @@ function TabSection({ tab }: { tab: CommercialMonthlyTab }) {
           </table>
         )}
       </section>
+
+      {recoveries.length > 0 && (
+        <section>
+          <h3 className="mb-1 text-sm font-bold text-gray-900">
+            {t('reports.monthly.sections.recoveries')} — {formatCurrency(totals.recovered ?? 0)}
+          </h3>
+          <p className="mb-2 text-[11px] text-gray-500">{t('reports.monthly.columns.recoveriesHint')}</p>
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className={th}>{t('reports.monthly.columns.date')}</th>
+                <th className={th}>{t('reports.monthly.columns.invoice')}</th>
+                <th className={th}>{t('reports.monthly.columns.invoiceDate')}</th>
+                <th className={th}>{t('reports.monthly.columns.client')}</th>
+                <th className={th}>{t('reports.monthly.columns.activity')}</th>
+                <th className={`${th} text-right`}>{t('reports.monthly.columns.amount')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recoveries.map((r, i) => (
+                <tr key={`${r.invoice_number}-${r.date}-${i}`}>
+                  <td className={td}>{new Date(`${r.date}T12:00:00`).toLocaleDateString(currentLocale())}</td>
+                  <td className={td}>{r.invoice_number}</td>
+                  <td className={td}>{new Date(`${r.invoice_date}T12:00:00`).toLocaleDateString(currentLocale())}</td>
+                  <td className={td}>{r.client}</td>
+                  <td className={td}>{r.activity}</td>
+                  <td className={tdRight}>{formatCurrency(r.amount)}</td>
+                </tr>
+              ))}
+              <tr className="bg-gray-50 font-semibold">
+                <td className={td} colSpan={5}>{t('reports.monthly.total')}</td>
+                <td className={tdRight}>{formatCurrency(totals.recovered ?? 0)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <section>
         <h3 className="mb-2 text-sm font-bold text-gray-900">{t('reports.monthly.sections.byCity')}</h3>

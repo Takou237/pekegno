@@ -2246,6 +2246,7 @@ export default {
         billed: 'Valeur ventes facturées',
         collectionRate: "Taux d'encaissement",
         balanceDue: 'Reste à recouvrer',
+        recovered: 'Recouvrements (ventes antérieures)',
       },
       sections: {
         byActivity: '1. Synthèse par activité',
@@ -2256,6 +2257,7 @@ export default {
         watchpoints: 'Points de vigilance',
         actionPlan: "Plan d'action",
         annex: 'Annexe des ventes',
+        recoveries: 'Recouvrements sur ventes antérieures',
       },
       columns: {
         activity: 'Activité',
@@ -2271,6 +2273,10 @@ export default {
         client: 'Client',
         total: 'Total',
         paid: 'Payé',
+        invoice: 'Facture',
+        invoiceDate: 'Date facture',
+        amount: 'Montant',
+        recoveriesHint: 'Versements encaissés sur la période pour des factures émises avant la période (non compris dans le facturé ni le taux ci-dessus).',
       },
       analysis: {
         intro: "Sur la période, {{lines}} vente(s) ont été réalisées pour un montant facturé de {{billed}}, dont {{received}} encaissés (taux de {{rate}} %). Le reste à recouvrer s'élève à {{balance}}.",

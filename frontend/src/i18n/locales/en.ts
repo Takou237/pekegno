@@ -2234,6 +2234,7 @@ export default {
         billed: 'Invoiced sales value',
         collectionRate: 'Collection rate',
         balanceDue: 'Outstanding balance',
+        recovered: 'Collections (earlier sales)',
       },
       sections: {
         byActivity: '1. Activity summary',
@@ -2244,6 +2245,7 @@ export default {
         watchpoints: 'Watch points',
         actionPlan: 'Action plan',
         annex: 'Sales annex',
+        recoveries: 'Collections on earlier sales',
       },
       columns: {
         activity: 'Activity',
@@ -2259,6 +2261,10 @@ export default {
         client: 'Client',
         total: 'Total',
         paid: 'Paid',
+        invoice: 'Invoice',
+        invoiceDate: 'Invoice date',
+        amount: 'Amount',
+        recoveriesHint: 'Payments collected during the period on invoices issued before it (not included in the invoiced amount or rate above).',
       },
       analysis: {
         intro: 'Over the period, {{lines}} sale(s) were made for an invoiced amount of {{billed}}, of which {{received}} collected (rate of {{rate}}%). The outstanding balance is {{balance}}.',

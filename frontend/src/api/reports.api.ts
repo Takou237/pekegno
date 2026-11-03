@@ -106,6 +106,20 @@ export interface CommercialMonthlyTotals {
   received: number;
   balance_due: number;
   collection_rate: number;
+  /** Versements de la période sur des factures émises avant la période. */
+  recovered?: number;
+  /** Encaissé sur les ventes de la période + recouvrements (totaux globaux uniquement). */
+  collected?: number;
+}
+
+export interface CommercialMonthlyRecoveryRow {
+  date: string;
+  invoice_number: string;
+  invoice_date: string;
+  client: string;
+  activity: string;
+  payment_method: string | null;
+  amount: number;
 }
 
 export interface CommercialMonthlyActivityRow {
@@ -150,6 +164,7 @@ export interface CommercialMonthlyTab {
   by_city: CommercialMonthlyCityRow[];
   by_week: CommercialMonthlyWeekRow[];
   annexe: CommercialMonthlyAnnexeRow[];
+  recoveries?: CommercialMonthlyRecoveryRow[];
 }
 
 export interface CommercialMonthlyResponse {

@@ -127,6 +127,9 @@ export default function CommercialMonthlyReportPage() {
               { label: t('reports.monthly.kpi.billed'), value: formatCurrency(data.totals.billed) },
               { label: t('reports.monthly.kpi.collectionRate'), value: `${formatNumber(data.totals.collection_rate)} %` },
               { label: t('reports.monthly.kpi.balanceDue'), value: formatCurrency(data.totals.balance_due) },
+              ...((data.totals.recovered ?? 0) > 0
+                ? [{ label: t('reports.monthly.kpi.recovered'), value: formatCurrency(data.totals.recovered ?? 0) }]
+                : []),
             ].map((k) => (
               <div key={k.label} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
                 <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{k.label}</p>

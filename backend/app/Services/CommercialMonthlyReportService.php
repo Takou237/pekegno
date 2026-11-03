@@ -67,7 +67,7 @@ class CommercialMonthlyReportService
             ->get(['id', 'client_id', 'client_name', 'agency_id', 'invoice_date', 'total_amount', 'amount_paid']);
 
         if ($invoices->isEmpty()) {
-            return $this->emptyReport($commercialData, $period);
+            return $this->withRecoveries($this->emptyReport($commercialData, $period), $commercial, $from, $to, $businessTz);
         }
 
         $ids = $invoices->pluck('id');
@@ -225,7 +225,7 @@ class CommercialMonthlyReportService
             ? round($totals['received'] / $totals['billed'] * 100, 1)
             : 0.0;
 
-        return [
+        return $this->withRecoveries([
             'commercial' => $commercialData,
             'period' => $period,
             'totals' => $totals,
@@ -233,7 +233,83 @@ class CommercialMonthlyReportService
                 'academy' => $this->serializeTab($tabs['academy']),
                 'agency' => $this->serializeTab($tabs['agency']),
             ],
-        ];
+        ], $commercial, $from, $to, $businessTz);
+    }
+
+    /**
+     * Recouvrements : versements encaissés dans la période sur des factures du
+     * commercial émises AVANT la période. Sans ce bloc, un reste à payer réglé
+     * le mois suivant n'apparaissait dans aucun rapport (la facture n'est pas
+     * de la période, et le versement n'est pas de la période de la facture).
+     *
+     * Ces montants restent hors du facturé / encaissé de la période (le taux
+     * de recouvrement des ventes du mois n'est pas faussé) ; ils sont exposés
+     * dans `tabs.*.recoveries`, `tabs.*.totals.recovered`, `totals.recovered`
+     * et `totals.collected` (= encaissé sur les ventes + recouvrements).
+     *
+     * @param  array<string, mixed>  $report
+     * @return array<string, mixed>
+     */
+    private function withRecoveries(array $report, Commercial $commercial, Carbon $from, Carbon $to, string $businessTz): array
+    {
+        $payments = InvoicePayment::query()
+            ->with(['invoice' => fn ($q) => $q->with(['items', 'client:id,first_name,last_name,email'])])
+            ->whereBetween('paid_at', [$from, $to])
+            ->whereHas('invoice', function ($query) use ($commercial, $from) {
+                $query->where(function ($q) use ($commercial) {
+                    $q->where('commercial_id', $commercial->id);
+                    if ($commercial->user_id) {
+                        $q->orWhere('seller_user_id', $commercial->user_id);
+                    }
+                })
+                    ->whereNull('cancelled_at')
+                    ->validated()
+                    ->where('invoice_date', '<', $from);
+            })
+            ->orderBy('paid_at')
+            ->get();
+
+        $recovered = ['academy' => 0.0, 'agency' => 0.0];
+        $rows = ['academy' => [], 'agency' => []];
+
+        foreach ($payments as $payment) {
+            $invoice = $payment->invoice;
+            $amount = (float) $payment->amount;
+            $items = $invoice->items->isNotEmpty()
+                ? $invoice->items
+                : $this->pseudoItem($invoice, (float) $invoice->total_amount);
+            $linesTotal = (float) $items->sum('line_total');
+            $itemsCount = $items->count();
+
+            foreach ($items as $item) {
+                $tabKey = ($item->package_id || $item->prestation_id) ? 'agency' : 'academy';
+                $share = $linesTotal > 0
+                    ? $amount * ((float) $item->line_total / $linesTotal)
+                    : ($itemsCount > 0 ? $amount / $itemsCount : $amount);
+
+                $recovered[$tabKey] += $share;
+                $rows[$tabKey][] = [
+                    'date' => Carbon::parse($payment->paid_at)->setTimezone($businessTz)->toDateString(),
+                    'invoice_number' => $invoice->number,
+                    'invoice_date' => Carbon::parse($invoice->invoice_date)->setTimezone($businessTz)->toDateString(),
+                    'client' => $invoice->client_label ?? '—',
+                    'activity' => ($item->label !== null && trim((string) $item->label) !== '') ? trim((string) $item->label) : '—',
+                    'payment_method' => $payment->payment_method,
+                    'amount' => round($share, 2),
+                ];
+            }
+        }
+
+        foreach (['academy', 'agency'] as $key) {
+            $report['tabs'][$key]['totals']['recovered'] = round($recovered[$key], 2);
+            $report['tabs'][$key]['recoveries'] = $rows[$key];
+        }
+
+        $totalRecovered = round($recovered['academy'] + $recovered['agency'], 2);
+        $report['totals']['recovered'] = $totalRecovered;
+        $report['totals']['collected'] = round((float) $report['totals']['received'] + $totalRecovered, 2);
+
+        return $report;
     }
 
     /**

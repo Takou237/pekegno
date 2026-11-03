@@ -21,10 +21,21 @@ class AccountingService
             return null;
         }
 
-        if (AccountingTransaction::where('invoice_id', $invoice->id)
+        // Anti-doublon (ré-exécution du backfill) : on ne crée l'écriture que s'il
+        // y a moins d'écritures de ce montant que de versements de ce montant sur
+        // la facture. L'ancien test « une écriture de ce montant existe déjà »
+        // ignorait le 2e versement d'un montant identique (ex. 100 000 + 100 000).
+        $existing = AccountingTransaction::where('invoice_id', $invoice->id)
+            ->where('type', 'income')
             ->where('reference', $invoice->number)
             ->where('amount', (float) $payment->amount)
-            ->exists()) {
+            ->count();
+
+        $paymentsOfSameAmount = InvoicePayment::where('invoice_id', $invoice->id)
+            ->where('amount', (float) $payment->amount)
+            ->count();
+
+        if ($existing >= max(1, $paymentsOfSameAmount)) {
             return null;
         }
 
