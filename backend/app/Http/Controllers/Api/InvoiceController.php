@@ -24,6 +24,7 @@ use App\Services\ActivityLogger;
 use App\Services\CommercialProfileService;
 use App\Services\CommissionService;
 use App\Services\ContractService;
+use App\Services\FormationEnrollmentActivator;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\InvoiceRejectionNotifier;
 use App\Services\InvoiceClientCleanupService;
@@ -57,6 +58,7 @@ class InvoiceController extends Controller
         private readonly InvoiceRejectionNotifier $rejections,
         private readonly ContractService $contracts,
         private readonly InvoiceClientCleanupService $clientCleanup,
+        private readonly FormationEnrollmentActivator $enrollmentActivator,
     ) {}
 
     private function scopeByRole($query, ?User $user)
@@ -437,17 +439,22 @@ class InvoiceController extends Controller
             }
 
             // Ligne formation : le client est inscrit à la formation (module Academy),
-            // l'inscription est rattachée à cette facture.
+            // l'inscription est rattachée à cette facture. Facture en attente de
+            // validation : l'inscription reste en attente jusqu'à la validation.
             if ($invoice->client_id) {
                 foreach ($items->pluck('course_id')->filter()->unique() as $courseId) {
-                    FormationEnrollment::create([
+                    $enrollment = FormationEnrollment::create([
                         'course_id' => $courseId,
                         'learner_user_id' => $invoice->client_id,
                         'invoice_id' => $invoice->id,
                         'seller_user_id' => $invoice->seller_user_id,
                         'enrolled_at' => now(),
-                        'status' => 'enrolled',
+                        'status' => $this->enrollmentActivator->initialStatusFor($invoice),
                     ]);
+
+                    if ($enrollment->status === FormationEnrollment::STATUS_ENROLLED) {
+                        $this->enrollmentActivator->assignToAvailableSessions($enrollment);
+                    }
                 }
             }
 
@@ -945,6 +952,9 @@ class InvoiceController extends Controller
             'validated_at' => now(),
             'rejection_reason' => null,
         ]);
+
+        // Facture validée : les inscriptions en attente deviennent effectives.
+        $this->enrollmentActivator->activateForInvoice($invoice);
 
         // L'avance annoncée par le commercial à la création n'a pas été encaissée
         // (il ne peut pas manier de caisse) : elle est appliquée maintenant, au

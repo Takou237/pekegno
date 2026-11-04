@@ -18,6 +18,7 @@ class FormationEnrollment extends Model
         'course_id',
         'learner_user_id',
         'invoice_id',
+        'requested_session_id',
         'seller_user_id',
         'seller_trainer_id',
         'enrolled_at',
@@ -26,6 +27,18 @@ class FormationEnrollment extends Model
         'discount_type',
         'discount_value',
     ];
+
+    /** Facture en attente de validation : pas encore inscrit, aucune place en session. */
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_ENROLLED = 'enrolled';
+
+    public const STATUS_COMPLETED = 'completed';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    /** Statuts d'un apprenant réellement inscrit (comptés dans les effectifs). */
+    public const ACTIVE_STATUSES = [self::STATUS_ENROLLED, self::STATUS_COMPLETED];
 
     public const DISCOUNT_TYPE_AMOUNT = 'amount';
 
@@ -37,6 +50,12 @@ class FormationEnrollment extends Model
             'enrolled_at' => 'datetime',
             'discount_value' => 'decimal:2',
         ];
+    }
+
+    /** Inscriptions effectives : ni en attente de validation, ni annulées. */
+    public function scopeActive($query)
+    {
+        return $query->whereIn('status', self::ACTIVE_STATUSES);
     }
 
     public function course(): BelongsTo

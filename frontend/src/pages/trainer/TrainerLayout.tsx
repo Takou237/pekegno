@@ -34,24 +34,12 @@ export function TrainerLayout() {
         if (!active) return;
         setData(stats);
 
-        // Apprenants : ceux des formations assurées par le formateur
-        // (modules assignés + sessions), via l'endpoint existant.
-        const courseIds = new Set<string>();
-        stats.assigned_modules.forEach((m) => m.course?.id && courseIds.add(m.course.id));
-        [...stats.recent_sessions, ...stats.upcoming_sessions].forEach(
-          (s) => s.course?.id && courseIds.add(s.course.id),
-        );
-
-        const results = await Promise.all(
-          [...courseIds].slice(0, 8).map((courseId) =>
-            academyApi.learners({ course_id: courseId, per_page: 100 }).catch(() => null),
-          ),
-        );
+        // Apprenants : ceux inscrits aux sessions du formateur (quelle que soit
+        // l'agence), et non tous les inscrits des formations concernées.
+        const res = await academyApi.learners({ as_trainer: true, per_page: 100 }).catch(() => null);
 
         if (!active) return;
-        const merged = new Map<string, Learner>();
-        results.forEach((res) => res?.data.forEach((learner) => merged.set(learner.id, learner)));
-        setLearners([...merged.values()]);
+        setLearners(res?.data ?? []);
       })
       .catch((error) => {
         if (active) setLoadError(extractErrorMessage(error, t('academy.loadFailed')));
@@ -70,7 +58,7 @@ export function TrainerLayout() {
     data?.assigned_modules.forEach((m) => {
       if (m.course) map.set(m.course.id, m.course);
     });
-    [...(data?.recent_sessions ?? []), ...(data?.upcoming_sessions ?? [])].forEach((s) => {
+    (data?.all_sessions ?? [...(data?.recent_sessions ?? []), ...(data?.upcoming_sessions ?? [])]).forEach((s) => {
       if (s.course) map.set(s.course.id, s.course);
     });
     return [...map.values()];

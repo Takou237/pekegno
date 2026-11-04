@@ -1,12 +1,13 @@
 import { GraduationCap, UserCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import type { TrainerContextValue } from './TrainerLayout';
 
 export default function TrainerLearnersPage() {
   const { t } = useTranslation();
   const { data, learners } = useOutletContext<TrainerContextValue>();
+  const navigate = useNavigate();
 
   return (
     <div className="flex flex-col gap-6">
@@ -37,8 +38,13 @@ export default function TrainerLearnersPage() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {learners.map((row) => (
-                  <tr key={row.id}>
-                    <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
+                  <tr
+                    key={row.id}
+                    // Fiche apprenant (route relative : apprenants/:learnerId).
+                    onClick={() => navigate(row.learner.id)}
+                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                  >
+                    <td className="py-2.5 pr-4 font-medium text-brand-600 hover:underline dark:text-brand-400">
                       {[row.learner.first_name, row.learner.last_name].filter(Boolean).join(' ') ||
                         row.learner.email ||
                         '—'}

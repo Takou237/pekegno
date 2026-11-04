@@ -351,6 +351,13 @@ export function getUserMainItems(t: TranslateFn, user: User | null | undefined, 
     ? getPermissionItems(t, user?.permissions ?? [])
     : getMainItems(t, roleName, agencyAssignment?.id, unpaidBadge, deptChiefAssignment?.pivot?.department_id ?? undefined);
 
+  // Commercial / community manager lié à un profil formateur : son espace
+  // formateur est regroupé sous une seule entrée « Mes formations » (onglets).
+  // Les autres rôles (admin, direction…) gèrent l'Académie depuis leurs menus.
+  if (user?.has_trainer_profile && actsAsCommercial(roleName)) {
+    items.push({ to: '/mes-formations', label: t('nav.myTrainings'), icon: GraduationCap, end: false });
+  }
+
   const space = homeSpace(user);
   if (!space) return items;
 

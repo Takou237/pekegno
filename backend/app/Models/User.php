@@ -136,6 +136,12 @@ class User extends Authenticatable
         return $this->hasOne(Commercial::class, 'user_id');
     }
 
+    /** Profil formateur lié au compte (« Compte lié » sur la fiche formateur). */
+    public function trainerProfile(): HasOne
+    {
+        return $this->hasOne(Trainer::class, 'user_id');
+    }
+
     public function invoicesSold(): HasMany
     {
         return $this->hasMany(Invoice::class, 'seller_user_id');

@@ -11,6 +11,7 @@ use App\Models\PaymentProof;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\ContractService;
+use App\Services\FormationEnrollmentActivator;
 use App\Services\InvoiceClientCleanupService;
 use App\Services\InvoiceRejectionNotifier;
 use App\Services\PaymentService;
@@ -38,6 +39,7 @@ class PaymentProofController extends Controller
         private readonly InvoiceRejectionNotifier $rejections,
         private readonly ContractService $contracts,
         private readonly InvoiceClientCleanupService $clientCleanup,
+        private readonly FormationEnrollmentActivator $enrollmentActivator,
     ) {}
 
     #[OA\Get(
@@ -432,6 +434,9 @@ class PaymentProofController extends Controller
             'validated_at' => now(),
             'rejection_reason' => null,
         ]);
+
+        // Facture validée : les inscriptions en attente deviennent effectives.
+        $this->enrollmentActivator->activateForInvoice($invoice);
 
         // L'avance annoncée par le commercial à la création n'a pas été encaissée
         // (il ne peut pas manier de caisse) : elle est appliquée maintenant, au

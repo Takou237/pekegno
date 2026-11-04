@@ -23,7 +23,7 @@ export default function TrainerSessionsPage() {
       <TrainerSessionsTable
         title={t('academy.selfSessions')}
         icon={CalendarDays}
-        sessions={data.recent_sessions}
+        sessions={data.all_sessions ?? data.recent_sessions}
         emptyLabel={t('academy.noSessions')}
       />
     </div>

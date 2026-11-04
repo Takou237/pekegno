@@ -1,4 +1,5 @@
-import type { LucideIcon } from 'lucide-react';
+import { ClipboardCheck, type LucideIcon } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/Badge';
 import type { TrainerSessionItem } from '@/api/academy.api';
@@ -56,6 +57,10 @@ export function TrainerSessionsTable({
   emptyLabel: string;
 }) {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
+  // Même tableau dans l'espace formateur et dans « Mes formations » : la feuille
+  // de présence s'ouvre dans l'espace courant.
+  const basePath = pathname.startsWith('/mes-formations') ? '/mes-formations' : '/formateur';
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
@@ -73,7 +78,8 @@ export function TrainerSessionsTable({
                 <th className="pb-2 pr-4 font-medium">{t('nav.courses')}</th>
                 <th className="pb-2 pr-4 font-medium">{t('academy.sessionDate')}</th>
                 <th className="pb-2 pr-4 font-medium">{t('academy.enrollmentsCount')}</th>
-                <th className="pb-2 font-medium">{t('common.status')}</th>
+                <th className="pb-2 pr-4 font-medium">{t('common.status')}</th>
+                <th className="pb-2 font-medium">{t('academy.attendanceSheet')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -91,8 +97,17 @@ export function TrainerSessionsTable({
                   <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                     {session.enrollments_count}
                   </td>
-                  <td className="py-2.5">
+                  <td className="py-2.5 pr-4">
                     <SessionStatusBadge status={session.status} />
+                  </td>
+                  <td className="py-2.5">
+                    <Link
+                      to={`${basePath}/sessions/${session.id}/attendances`}
+                      className="inline-flex items-center gap-1.5 text-brand-600 hover:underline dark:text-brand-400"
+                    >
+                      <ClipboardCheck className="h-4 w-4" />
+                      {t('academy.attendanceSheet')}
+                    </Link>
                   </td>
                 </tr>
               ))}

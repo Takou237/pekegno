@@ -38,12 +38,19 @@ interface DepartmentLayoutContext {
   agencyId?: string;
 }
 
-type EnrollmentStatus = 'enrolled' | 'completed' | 'cancelled';
+type EnrollmentStatus = 'pending' | 'enrolled' | 'completed' | 'cancelled';
 
-const STATUSES: EnrollmentStatus[] = ['enrolled', 'completed', 'cancelled'];
+const STATUSES: EnrollmentStatus[] = ['pending', 'enrolled', 'completed', 'cancelled'];
+
+// Une inscription en attente ne devient effective qu'à la validation de sa facture :
+// on peut seulement l'annuler. Les autres ne peuvent pas repasser « en attente ».
+function editableStatuses(current: EnrollmentStatus): EnrollmentStatus[] {
+  return current === 'pending' ? ['pending', 'cancelled'] : ['enrolled', 'completed', 'cancelled'];
+}
 
 function statusLabel(status: EnrollmentStatus, t: ReturnType<typeof useTranslation>['t']): string {
   switch (status) {
+    case 'pending': return t('academy.statusPending');
     case 'enrolled': return t('academy.statusEnrolled');
     case 'completed': return t('academy.statusCompleted');
     case 'cancelled': return t('academy.statusCancelled');
@@ -52,6 +59,7 @@ function statusLabel(status: EnrollmentStatus, t: ReturnType<typeof useTranslati
 }
 
 const STATUS_BADGE_CLASSES: Record<EnrollmentStatus, string> = {
+  pending: 'bg-amber-100 text-amber-700',
   enrolled: 'bg-blue-100 text-blue-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
@@ -881,7 +889,7 @@ export default function FormationEnrollmentPage() {
               onChange={(e) => setNewStatus(e.target.value as EnrollmentStatus)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             >
-              {STATUSES.map((s) => (
+              {editableStatuses((statusModal?.status ?? 'enrolled') as EnrollmentStatus).map((s) => (
                 <option key={s} value={s}>
                   {statusLabel(s, t)}
                 </option>

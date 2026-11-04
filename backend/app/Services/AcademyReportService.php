@@ -35,7 +35,9 @@ class AcademyReportService
             })
             ->get();
 
+        // Les inscriptions en attente de validation de facture ne sont pas encore comptées.
         $enrollments = FormationEnrollment::with(['course:id,name,price,agency_id,mode', 'invoice:id,total_amount'])
+            ->where('status', '!=', FormationEnrollment::STATUS_PENDING)
             ->when($agencyIds !== null, fn ($q) => $q->whereHas('course', fn ($c) => $c->whereIn('agency_id', $agencyIds)->orWhereNull('agency_id')))
             ->get();
 
@@ -49,7 +51,7 @@ class AcademyReportService
             $sessionIds = $courseSessions->pluck('id');
 
             $activeEnrollments = FormationEnrollment::where('course_id', $course->id)
-                ->whereNot('status', 'cancelled')
+                ->active()
                 ->get();
 
             $enrolled = $activeEnrollments->count();

@@ -277,7 +277,7 @@ class TrainingSessionController extends Controller
             $sessionIds = $sessions->pluck('id');
 
             $activeEnrollments = FormationEnrollment::where('course_id', $course->id)
-                ->whereNot('status', 'cancelled')
+                ->active()
                 ->when($from, fn ($q, $v) => $q->whereDate('enrolled_at', '>=', $v))
                 ->when($to, fn ($q, $v) => $q->whereDate('enrolled_at', '<=', $v))
                 ->get();

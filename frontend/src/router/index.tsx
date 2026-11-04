@@ -33,6 +33,7 @@ const TrainerCoursesPage = lazyWithRetry(() => import('@/pages/trainer/TrainerCo
 const TrainerLearnersPage = lazyWithRetry(() => import('@/pages/trainer/TrainerLearnersPage'));
 const TrainerSessionsPage = lazyWithRetry(() => import('@/pages/trainer/TrainerSessionsPage'));
 const TrainerPlanningPage = lazyWithRetry(() => import('@/pages/trainer/TrainerPlanningPage'));
+const MyTrainingsLayout = lazyWithRetry(() => import('@/pages/trainer/MyTrainingsLayout'));
 const ProfilePage = lazyWithRetry(() => import('@/pages/profile/ProfilePage'));
 const ProfileSettingsPage = lazyWithRetry(() => import('@/pages/profile/ProfileSettingsPage'));
 const AgencyListPage = lazyWithRetry(() => import('@/pages/agencies/AgencyListPage'));
@@ -237,11 +238,27 @@ export const router = createBrowserRouter([
               { index: true, element: page(<TrainerOverviewPage />, dashboard) },
               { path: 'formations', element: page(<TrainerCoursesPage />, cards) },
               { path: 'apprenants', element: page(<TrainerLearnersPage />, table) },
+              { path: 'apprenants/:learnerId', element: page(<AcademyLearnerDetailPage asTrainer />, detail) },
               { path: 'sessions', element: page(<TrainerSessionsPage />, table) },
+              { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
               { path: 'planning', element: page(<TrainerPlanningPage />, table) },
             ],
           },
           { path: '/formateur/dashboard', element: <Navigate to="/formateur" replace /> },
+          // Commercial / community manager lié à un profil formateur : mêmes pages en onglets.
+          {
+            path: '/mes-formations',
+            element: page(<MyTrainingsLayout />, dashboard),
+            children: [
+              { index: true, element: page(<TrainerOverviewPage />, dashboard) },
+              { path: 'formations', element: page(<TrainerCoursesPage />, cards) },
+              { path: 'apprenants', element: page(<TrainerLearnersPage />, table) },
+              { path: 'apprenants/:learnerId', element: page(<AcademyLearnerDetailPage asTrainer />, detail) },
+              { path: 'sessions', element: page(<TrainerSessionsPage />, table) },
+              { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
+              { path: 'planning', element: page(<TrainerPlanningPage />, table) },
+            ],
+          },
           { path: '/caissier/commissions', element: page(<CashierCommissionsPage />, table) },
           { path: '/profile', element: page(<ProfilePage />, detail) },
           { path: '/profile/settings', element: page(<ProfileSettingsPage />, detail) },

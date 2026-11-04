@@ -29,7 +29,7 @@ export interface FormationEnrollment {
   seller_user_id: string | null;
   seller_trainer_id: string | null;
   enrolled_at: string;
-  status: 'enrolled' | 'completed' | 'cancelled';
+  status: 'pending' | 'enrolled' | 'completed' | 'cancelled';
   notes: string | null;
   discount_type: EnrollmentDiscountType | null;
   discount_value: string | null;
@@ -58,7 +58,7 @@ export interface FormationEnrollmentPayload {
   training_session_id?: string;
   amount_paid?: number;
   payment_type?: string;
-  status?: 'enrolled' | 'completed' | 'cancelled';
+  status?: 'pending' | 'enrolled' | 'completed' | 'cancelled';
   notes?: string;
   discount_type?: EnrollmentDiscountType;
   discount_value?: number;
@@ -118,12 +118,14 @@ export const SELLER_KIND_COLORS: Record<string, string> = {
 };
 
 export const FORMATION_STATUS_LABELS: Record<string, string> = {
+  pending: 'En attente de validation',
   enrolled: 'Inscrit',
   completed: 'Termin├®',
   cancelled: 'Annul├®',
 };
 
 export const FORMATION_STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-700',
   enrolled: 'bg-blue-100 text-blue-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
@@ -276,7 +278,7 @@ export interface TrainerCandidatesResult {
   meta: { roles: string[] };
 }
 
-export type EnrollmentStatus = 'enrolled' | 'completed' | 'cancelled';
+export type EnrollmentStatus = 'pending' | 'enrolled' | 'completed' | 'cancelled';
 
 export interface Learner {
   id: string;
@@ -428,6 +430,9 @@ export interface TrainerStats {
   }[];
   recent_sessions: TrainerSessionItem[];
   upcoming_sessions: TrainerSessionItem[];
+  /** Toutes les sessions du formateur (les 2 listes ci-dessus sont limitées à 5). */
+  all_sessions?: TrainerSessionItem[];
+  all_upcoming_sessions?: TrainerSessionItem[];
   assigned_modules: {
     id: string;
     name: string;

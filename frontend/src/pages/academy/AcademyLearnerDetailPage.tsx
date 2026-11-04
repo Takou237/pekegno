@@ -75,6 +75,7 @@ function EnrollmentTable({
   function statusBadge(status: LearnerEnrollmentItem['status']) {
     if (status === 'completed') return <Badge variant="success">{t('academy.statusCompleted')}</Badge>;
     if (status === 'cancelled') return <Badge variant="error">{t('academy.statusCancelled')}</Badge>;
+    if (status === 'pending') return <Badge variant="warning">{t('academy.statusPending')}</Badge>;
     return <Badge variant="brand">{t('academy.statusEnrolled')}</Badge>;
   }
 
@@ -155,7 +156,11 @@ const EDITABLE_ROLES = [
   'caissier',
 ];
 
-export default function AcademyLearnerDetailPage() {
+/**
+ * asTrainer : fiche ouverte depuis l'espace formateur — lecture seule, limitée
+ * aux sessions du formateur connecté.
+ */
+export default function AcademyLearnerDetailPage({ asTrainer = false }: { asTrainer?: boolean } = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { learnerId } = useParams<{ learnerId: string }>();
@@ -175,7 +180,7 @@ export default function AcademyLearnerDetailPage() {
   const [editForm, setEditForm] = useState<LearnerEditFormState | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const canEdit = EDITABLE_ROLES.includes(currentUser?.role?.name ?? '');
+  const canEdit = !asTrainer && EDITABLE_ROLES.includes(currentUser?.role?.name ?? '');
 
   function openEdit() {
     if (!data) return;
@@ -242,7 +247,7 @@ export default function AcademyLearnerDetailPage() {
     setIsLoading(true);
     setLoadError(null);
     Promise.all([
-      academyApi.learnerStats(learnerId, courseId),
+      academyApi.learnerStats(learnerId, courseId, asTrainer),
       certificatesApi
         .list({ learner_user_id: learnerId, course_id: courseId || undefined, per_page: 50 })
         .catch(() => ({ data: [] as Certificate[], current_page: 1, last_page: 1, per_page: 50, total: 0 })),
@@ -257,7 +262,7 @@ export default function AcademyLearnerDetailPage() {
       })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
-  }, [learnerId, courseId, t]);
+  }, [learnerId, courseId, asTrainer, t]);
 
   if (isLoading) return <SkeletonDashboard />;
 

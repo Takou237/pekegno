@@ -12,6 +12,7 @@ use App\Models\Trainer;
 use App\Models\TrainingSession;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\FormationEnrollmentActivator;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\PaymentService;
 use App\Services\PendingInvoiceNotifier;
@@ -33,6 +34,7 @@ class FormationEnrollmentController extends Controller
         private readonly PaymentService $paymentService,
         private readonly PendingInvoiceNotifier $pendingNotifier,
         private readonly SaleAgencyResolver $agencyResolver,
+        private readonly FormationEnrollmentActivator $activator,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -95,7 +97,9 @@ class FormationEnrollmentController extends Controller
             ->first();
 
         if ($existing && $existing->status !== 'cancelled') {
-            return response()->json(['message' => 'L\'apprenant est déjà inscrit à cette formation.'], 409);
+            return response()->json(['message' => $existing->status === FormationEnrollment::STATUS_PENDING
+                ? 'L\'apprenant a déjà une inscription à cette formation en attente de validation de facture.'
+                : 'L\'apprenant est déjà inscrit à cette formation.'], 409);
         }
 
         $requestedSessionId = $validated['training_session_id'] ?? null;
@@ -128,7 +132,6 @@ class FormationEnrollmentController extends Controller
         $discountAmount = $this->resolveDiscountAmount($validated);
 
         $validated['enrolled_at'] = now();
-        $validated['status'] = 'enrolled';
 
         // T8 : sans vendeur explicite, c'est l'utilisateur connecté (commercial, caissier…)
         // qui est crédité de la vente, sur l'inscription comme sur la facture générée.
@@ -146,9 +149,19 @@ class FormationEnrollmentController extends Controller
                 $validated['invoice_id'] = $invoiceId;
             }
 
+            // Facture en attente de validation : l'apprenant n'est pas encore inscrit
+            // (statut pending, aucune place en session). La session choisie est
+            // mémorisée et lui sera attribuée à la validation de la facture.
+            $invoice = $invoiceId ? Invoice::find($invoiceId) : null;
+            $status = $this->activator->initialStatusFor($invoice);
+            $isPending = $status === FormationEnrollment::STATUS_PENDING;
+            $validated['status'] = $status;
+            $validated['requested_session_id'] = $isPending ? $requestedSessionId : null;
+
             if ($existing) {
                 $existing->update([
-                    'status' => 'enrolled',
+                    'status' => $status,
+                    'requested_session_id' => $validated['requested_session_id'],
                     'enrolled_at' => $validated['enrolled_at'],
                     'invoice_id' => $invoiceId ?? $existing->invoice_id,
                     'notes' => $validated['notes'] ?? $existing->notes,
@@ -161,12 +174,13 @@ class FormationEnrollmentController extends Controller
                 $enrollment = FormationEnrollment::create($validated);
             }
 
-            $this->assignToAvailableSessions($enrollment, $requestedSessionId);
+            if (! $isPending) {
+                $this->activator->assignToAvailableSessions($enrollment, $requestedSessionId);
+            }
 
             // L'avance est encaissée une fois l'inscription créée : la résolution
             // du vendeur (notamment formateur sans compte) s'appuie sur le lien
             // formation_enrollments.invoice_id pour générer la commission.
-            $invoice = $invoiceId ? Invoice::find($invoiceId) : null;
             $amountPaid = $invoice
                 ? min((float) ($validated['amount_paid'] ?? 0), (float) $invoice->total_amount)
                 : 0.0;
@@ -206,7 +220,7 @@ class FormationEnrollmentController extends Controller
     public function update(Request $request, FormationEnrollment $formationEnrollment): JsonResponse
     {
         $validated = $request->validate([
-            'status' => 'sometimes|string|in:enrolled,completed,cancelled',
+            'status' => 'sometimes|string|in:pending,enrolled,completed,cancelled',
             'notes' => 'nullable|string',
             'invoice_id' => 'nullable|exists:invoices,id',
             'seller_user_id' => 'nullable|exists:users,id',
@@ -214,6 +228,28 @@ class FormationEnrollmentController extends Controller
         ]);
 
         $previousStatus = $formationEnrollment->status;
+
+        // Une inscription en attente ne devient effective qu'à la validation de sa
+        // facture : on ne peut que l'annuler à la main, pas forcer l'inscription.
+        if ($previousStatus === FormationEnrollment::STATUS_PENDING
+            && array_key_exists('status', $validated)
+            && ! in_array($validated['status'], [FormationEnrollment::STATUS_PENDING, FormationEnrollment::STATUS_CANCELLED], true)) {
+            throw ValidationException::withMessages([
+                'status' => 'Cette inscription attend la validation de sa facture : elle ne peut qu\'être annulée.',
+            ]);
+        }
+
+        // Le statut « en attente » est réservé au circuit de validation de facture.
+        if ($previousStatus !== FormationEnrollment::STATUS_PENDING
+            && ($validated['status'] ?? null) === FormationEnrollment::STATUS_PENDING) {
+            throw ValidationException::withMessages([
+                'status' => 'Une inscription ne peut pas être remise en attente de validation.',
+            ]);
+        }
+
+        if (($validated['status'] ?? null) === FormationEnrollment::STATUS_CANCELLED) {
+            $validated['requested_session_id'] = null;
+        }
 
         $formationEnrollment->update($validated);
 
@@ -225,7 +261,7 @@ class FormationEnrollmentController extends Controller
                     ->update(['status' => 'cancelled']);
             } else {
                 // Réactivation : on resynchronise aussi les sessions créées pendant l'annulation.
-                $this->assignToAvailableSessions($formationEnrollment);
+                $this->activator->assignToAvailableSessions($formationEnrollment);
             }
         }
 
@@ -257,55 +293,6 @@ class FormationEnrollmentController extends Controller
         });
 
         return response()->json(null, 204);
-    }
-
-    /**
-     * Affecte l'inscription aux sessions de la formation encore « vivantes »
-     * (non terminées tête connue : end_at absent ou futur), jamais rétroactivement
-     * sur les sessions déjà terminées, en respectant la capacité de chaque session.
-     * Le statut du participant est réactivé (upd/repère), ce qui resynchronise une
-     * réinscription après annulation.
-     *
-     * Sans session explicitement demandée, l'affectation n'a lieu que si la
-     * formation n'a qu'une seule session vivante (voir T6) : une formation en
-     * ligne peut n'en avoir aucune, et en avoir plusieurs reste un choix à faire.
-     */
-    private function assignToAvailableSessions(FormationEnrollment $enrollment, ?string $trainingSessionId = null): void
-    {
-        $query = TrainingSession::where('course_id', $enrollment->course_id)
-            ->where(fn ($q) => $q->whereNull('end_at')->orWhere('end_at', '>=', now()));
-
-        if ($trainingSessionId) {
-            $query->whereKey($trainingSessionId);
-        }
-
-        $sessions = $query->get(['id', 'max_capacity']);
-
-        // Sans session choisie, on n'affecte que si le choix est évident : une seule
-        // session disponible. En présence de plusieurs, inscrire l'apprenant à
-        // toutes serait arbitraire — d'autant qu'une formation en ligne n'a pas
-        // forcément de session du tout (elle reste donc inscriptible sans).
-        if (! $trainingSessionId && $sessions->count() > 1) {
-            return;
-        }
-
-        foreach ($sessions as $session) {
-            $count = SessionParticipant::where('training_session_id', $session->id)
-                ->where('status', 'enrolled')
-                ->count();
-
-            if ($session->max_capacity !== null && $count >= $session->max_capacity) {
-                continue;
-            }
-
-            SessionParticipant::updateOrCreate(
-                [
-                    'training_session_id' => $session->id,
-                    'formation_enrollment_id' => $enrollment->id,
-                ],
-                ['status' => 'enrolled']
-            );
-        }
     }
 
     /**

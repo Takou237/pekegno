@@ -57,6 +57,12 @@ class UserResource extends JsonResource
                 $this->relationLoaded('role') && $this->role?->relationLoaded('permissions'),
                 fn () => $this->role->permissions->pluck('name')->values()->all(),
             ),
+            // Utilisateur connecté : un compte non formateur (commercial, community
+            // manager…) lié à un profil formateur accède à l'espace « Mes formations ».
+            'has_trainer_profile' => $this->when(
+                $this->relationLoaded('role') && $this->role?->relationLoaded('permissions'),
+                fn () => $this->trainerProfile()->exists(),
+            ),
             'email_verified_at' => $this->email_verified_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

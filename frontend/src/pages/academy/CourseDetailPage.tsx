@@ -796,12 +796,14 @@ export default function CourseDetailPage() {
                       )}
                     </td>
                     <td className="px-5 py-3">
-                      <Badge variant={enrollment.status === 'cancelled' ? 'error' : enrollment.status === 'completed' ? 'success' : 'brand'}>
+                      <Badge variant={enrollment.status === 'cancelled' ? 'error' : enrollment.status === 'completed' ? 'success' : enrollment.status === 'pending' ? 'warning' : 'brand'}>
                         {enrollment.status === 'cancelled'
                           ? t('academy.statusCancelled')
                           : enrollment.status === 'completed'
                             ? t('academy.statusCompleted')
-                            : t('academy.statusEnrolled')}
+                            : enrollment.status === 'pending'
+                              ? t('academy.statusPending')
+                              : t('academy.statusEnrolled')}
                       </Badge>
                     </td>
                     <td className="px-5 py-3">

@@ -7,6 +7,7 @@ import { courseCategoriesApi } from '@/api/courseCategories.api';
 import { countriesApi } from '@/api/countries.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -99,7 +100,13 @@ export function CourseFormModal({
 }: CourseFormModalProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { user: currentUser } = useAuth();
   const editing = course;
+  // Sans accès aux fiches pays (countries.consulter, ex. chef de département), la
+  // liste des pays du déploiement vient du catalogue public (pays actifs, sans
+  // statistiques) : le déploiement multi-pays reste possible, sans « accès refusé ».
+  const canViewCountries =
+    currentUser?.role?.name === 'super-admin' || Boolean(currentUser?.permissions?.includes('countries.consulter'));
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [categories, setCategories] = useState<CourseCategory[]>([]);
@@ -123,17 +130,17 @@ export function CourseFormModal({
       .list({ per_page: 100 })
       .then((res) => setCategories(res.data))
       .catch(() => {});
-    countriesApi
-      .list({ per_page: 100 })
+    (canViewCountries ? countriesApi.list({ per_page: 100 }) : countriesApi.listActivePublic())
       .then((res) => {
         setCountries(res.data);
         if (course) return;
-        // Par défaut la formation est déployée dans tous les pays (ticket T12) ;
-        // l'utilisateur décoche ceux qui ne sont pas concernés.
+        // Par défaut seul le pays courant est coché : les autres pays se cochent
+        // à la main, pour éviter un déploiement partout par simple validation.
+        // Sans pays courant (création au niveau groupe), tous restent cochés.
         const allCountryIds = res.data.filter((c) => c.is_active).map((c) => c.id);
         setForm((prev) => ({
           ...prev,
-          target_country_ids: allCountryIds.length ? allCountryIds : currentCountryId ? [currentCountryId] : [],
+          target_country_ids: currentCountryId ? [currentCountryId] : allCountryIds,
         }));
         setDeployLoaded(true);
       })

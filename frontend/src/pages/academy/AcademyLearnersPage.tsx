@@ -6,6 +6,9 @@ import { academyApi, type Course, type Learner, type TrainingSession } from '@/a
 import { clientsApi } from '@/api/clients.api';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
+import { actsAsCommercial } from '@/utils/commercialRoles';
+import type { PaymentMethod } from '@/types/invoice';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -25,13 +28,14 @@ interface DepartmentLayoutContext {
   agencyId?: string;
 }
 
-const STATUSES = ['enrolled', 'completed', 'cancelled'] as const;
+const STATUSES = ['pending', 'enrolled', 'completed', 'cancelled'] as const;
 
 interface EnrollmentFormState {
   course_id: string;
   learner_user_id: string;
   training_session_id: string;
   amount_paid: string;
+  payment_type: '' | PaymentMethod;
   notes: string;
 }
 
@@ -40,6 +44,7 @@ const emptyEnrollmentForm: EnrollmentFormState = {
   learner_user_id: '',
   training_session_id: '',
   amount_paid: '',
+  payment_type: '',
   notes: '',
 };
 
@@ -77,6 +82,14 @@ export default function AcademyLearnersPage() {
   // Modal inscription : formations recherchées côté serveur et
   // apprenants recherchés côté serveur.
   const [enrollmentOpen, setEnrollmentOpen] = useState(false);
+  // Vendeur soumis à validation (commercial, community manager, chef d'agence /
+  // de département) : la preuve de paiement est obligatoire, comme sur la page
+  // Inscriptions. Elle est examinée par le caissier avant validation de la facture.
+  const { user: currentUser } = useAuth();
+  const needsPaymentProof =
+    actsAsCommercial(currentUser?.role?.name) ||
+    ['responsable-agence', 'responsable-departement'].includes(currentUser?.role?.name ?? '');
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const [enrollmentForm, setEnrollmentForm] = useState<EnrollmentFormState>(emptyEnrollmentForm);
   const [isSubmittingEnrollment, setIsSubmittingEnrollment] = useState(false);
   const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
@@ -232,6 +245,7 @@ export default function AcademyLearnersPage() {
 
   function openEnrollmentModal() {
     setEnrollmentForm(emptyEnrollmentForm);
+    setProofFile(null);
     setLearnerMode('existing');
     setNewLearner(emptyNewLearnerForm);
     setEnrollmentSessions([]);
@@ -252,6 +266,10 @@ export default function AcademyLearnersPage() {
     if (!agencyId) return;
     setEnrollmentError(null);
     setEnrollmentFieldErrors({});
+    if (needsPaymentProof && !proofFile) {
+      setEnrollmentError(t('invoices.proofRequiredForSale'));
+      return;
+    }
     setIsSubmittingEnrollment(true);
     try {
       let learnerUserId = enrollmentForm.learner_user_id;
@@ -272,14 +290,20 @@ export default function AcademyLearnersPage() {
         learnerUserId = created.id;
         clientWasCreated = true;
       }
-      await academyApi.createFormationEnrollment({
+      const payload = {
         course_id: enrollmentForm.course_id,
         learner_user_id: learnerUserId,
         training_session_id: enrollmentForm.training_session_id || undefined,
         ...(enrollmentForm.amount_paid ? { amount_paid: Number(enrollmentForm.amount_paid) } : {}),
+        ...(enrollmentForm.payment_type ? { payment_type: enrollmentForm.payment_type } : {}),
         notes: enrollmentForm.notes || undefined,
         ...(clientWasCreated ? { client_was_created: true } : {}),
-      });
+      };
+      if (proofFile) {
+        await academyApi.createFormationEnrollmentWithProof(payload, proofFile, enrollmentForm.payment_type || 'cash');
+      } else {
+        await academyApi.createFormationEnrollment(payload);
+      }
       showToast(t('academy.enrollmentCreated'), 'success');
       setEnrollmentOpen(false);
       setPage(1);
@@ -329,6 +353,7 @@ export default function AcademyLearnersPage() {
   function statusBadge(status: Learner['status']) {
     if (status === 'completed') return <Badge variant="success">{t('academy.statusCompleted')}</Badge>;
     if (status === 'cancelled') return <Badge variant="error">{t('academy.statusCancelled')}</Badge>;
+    if (status === 'pending') return <Badge variant="warning">{t('academy.statusPending')}</Badge>;
     if (status === 'enrolled') return <Badge variant="brand">{t('academy.statusEnrolled')}</Badge>;
     return <Badge variant="neutral">{t('academy.noEnrollments')}</Badge>;
   }
@@ -383,7 +408,9 @@ export default function AcademyLearnersPage() {
             <option value="">{t('academy.allStatuses')}</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s === 'enrolled'
+                {s === 'pending'
+                  ? t('academy.statusPending')
+                  : s === 'enrolled'
                   ? t('academy.statusEnrolled')
                   : s === 'completed'
                     ? t('academy.statusCompleted')
@@ -541,6 +568,44 @@ export default function AcademyLearnersPage() {
             error={enrollmentFieldErrors.amount_paid}
           />
 
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('invoices.headerPaymentType')}
+            </label>
+            <select
+              value={enrollmentForm.payment_type}
+              onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, payment_type: e.target.value as '' | PaymentMethod }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="">—</option>
+              <option value="cash">{t('invoices.paymentCash')}</option>
+              <option value="om">{t('invoices.paymentOm')}</option>
+              <option value="momo">{t('invoices.paymentMomo')}</option>
+              <option value="wave">{t('invoices.paymentWave')}</option>
+            </select>
+            {enrollmentFieldErrors.payment_type && (
+              <p className="mt-1 text-xs text-red-500">{enrollmentFieldErrors.payment_type}</p>
+            )}
+          </div>
+
+          {needsPaymentProof && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('invoices.paymentProof')} <span className="text-error-500">*</span>
+              </label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                className="w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-400"
+              />
+              {enrollmentFieldErrors.proof_file && (
+                <p className="mt-1 text-xs text-error-500">{enrollmentFieldErrors.proof_file}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-400">{t('invoices.paymentProofHint')}</p>
+            </div>
+          )}
+
           {enrollmentForm.course_id && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -600,7 +665,13 @@ export default function AcademyLearnersPage() {
             <Button type="button" variant="outline" onClick={() => setEnrollmentOpen(false)} disabled={isSubmittingEnrollment} className="flex-1">
               {t('common.cancel')}
             </Button>
-            <Button type="submit" isLoading={isSubmittingEnrollment} className="flex-1">
+            <Button
+              type="submit"
+              isLoading={isSubmittingEnrollment}
+              disabled={needsPaymentProof && Boolean(enrollmentForm.course_id) && !proofFile}
+              title={needsPaymentProof && Boolean(enrollmentForm.course_id) && !proofFile ? t('invoices.proofRequiredForSale') : undefined}
+              className="flex-1"
+            >
               {t('common.create')}
             </Button>
           </div>

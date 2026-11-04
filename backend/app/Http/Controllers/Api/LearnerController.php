@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\SessionParticipant;
+use App\Models\Trainer;
 use App\Models\TrainingSession;
 use App\Models\User;
 use App\Services\ScopeService;
@@ -26,9 +27,14 @@ class LearnerController extends Controller
     {
         $query = SessionParticipant::whereHas('formationEnrollment', fn ($q) => $q->where('learner_user_id', $learner->id))
             ->whereHas('session');
-        $agencyIds = $this->scopeService->agencyIds($request->user());
+        $trainerSessionIds = $this->trainerSessionIds($request);
 
-        $this->applyAgencyScope($query, $agencyIds);
+        if ($trainerSessionIds !== null) {
+            // Espace formateur : uniquement les sessions du formateur connecté.
+            $query->whereIn('training_session_id', $trainerSessionIds);
+        } else {
+            $this->applyAgencyScope($query, $this->scopeService->agencyIds($request->user()));
+        }
 
         // Fiche apprenant ouverte depuis une formation précise (onglet Apprenants
         // d'un cours) : ne montrer que ce qui concerne cette formation, pas tout
@@ -42,13 +48,37 @@ class LearnerController extends Controller
     }
 
     /**
-     * Sous-requête des inscriptions restreintes au périmètre organisationnel.
+     * Espace formateur (« as_trainer=1 ») : sessions animées par le profil
+     * formateur lié au compte connecté (rôle formateur, ou commercial / community
+     * manager lié à un profil formateur). Le formateur voit les apprenants de ses
+     * sessions quelle que soit leur agence. null hors espace formateur.
+     *
+     * @return array<int, string>|null
      */
-    private function scopedSessionParticipantQuery(?array $scopeAgencyIds)
+    private function trainerSessionIds(Request $request): ?array
+    {
+        if (! $request->boolean('as_trainer')) {
+            return null;
+        }
+
+        $trainer = Trainer::where('user_id', $request->user()?->id)->first();
+
+        return $trainer ? $trainer->sessions()->pluck('id')->all() : [];
+    }
+
+    /**
+     * Sous-requête des inscriptions restreintes au périmètre organisationnel
+     * (ou aux sessions du formateur connecté dans son espace).
+     */
+    private function scopedSessionParticipantQuery(?array $scopeAgencyIds, ?array $trainerSessionIds = null)
     {
         $query = SessionParticipant::query()->whereHas('session');
 
-        $this->applyAgencyScope($query, $scopeAgencyIds);
+        if ($trainerSessionIds !== null) {
+            $query->whereIn('training_session_id', $trainerSessionIds);
+        } else {
+            $this->applyAgencyScope($query, $scopeAgencyIds);
+        }
 
         return $query;
     }
@@ -78,7 +108,7 @@ class LearnerController extends Controller
         security: [['sanctum' => []]],
         parameters: [
             new OA\Parameter(name: 'agency_id', in: 'query', description: 'Filtrer par agence', schema: new OA\Schema(type: 'string', format: 'uuid')),
-            new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut d\'inscription', schema: new OA\Schema(type: 'string', enum: ['enrolled', 'completed', 'cancelled'])),
+            new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut d\'inscription', schema: new OA\Schema(type: 'string', enum: ['pending', 'enrolled', 'completed', 'cancelled'])),
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par nom/email/numéro client', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 15)),
         ],
@@ -97,15 +127,34 @@ class LearnerController extends Controller
             $scopeAgencyIds = [$agencyId];
         }
 
-        $participantQuery = fn () => $this->scopedSessionParticipantQuery($scopeAgencyIds);
+        $trainerSessionIds = $this->trainerSessionIds($request);
+
+        if ($trainerSessionIds !== null) {
+            $scopeAgencyIds = null;
+        }
+
+        $participantQuery = fn () => $this->scopedSessionParticipantQuery($scopeAgencyIds, $trainerSessionIds);
         $formationQuery = fn () => \App\Models\FormationEnrollment::query()
             ->when(
                 $scopeAgencyIds !== null,
                 fn ($q) => $q->whereHas('course', fn ($cq) => $cq->whereIn('agency_id', $scopeAgencyIds)->orWhereNull('agency_id')),
+            )
+            ->when(
+                $trainerSessionIds !== null,
+                fn ($q) => $q->whereIn('id', SessionParticipant::whereIn('training_session_id', $trainerSessionIds)->select('formation_enrollment_id')),
             );
 
         $query = User::query()
             ->whereHas('role', fn ($q) => $q->where('name', 'client'));
+
+        if ($trainerSessionIds !== null) {
+            // Espace formateur : les apprenants inscrits (non annulés) à ses sessions.
+            $query->whereIn('id', SessionParticipant::query()
+                ->whereIn('session_participants.training_session_id', $trainerSessionIds)
+                ->where('session_participants.status', '!=', 'cancelled')
+                ->join('formation_enrollments', 'formation_enrollments.id', '=', 'session_participants.formation_enrollment_id')
+                ->select('formation_enrollments.learner_user_id'));
+        }
 
         if ($scopeAgencyIds !== null) {
             $learnerIdsFromParticipants = $participantQuery()

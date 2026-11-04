@@ -23,7 +23,7 @@ export default function TrainerPlanningPage() {
       <TrainerSessionsTable
         title={t('academy.selfPlanning')}
         icon={CalendarClock}
-        sessions={data.upcoming_sessions}
+        sessions={data.all_upcoming_sessions ?? data.upcoming_sessions}
         emptyLabel={t('academy.noSessions')}
       />
     </div>

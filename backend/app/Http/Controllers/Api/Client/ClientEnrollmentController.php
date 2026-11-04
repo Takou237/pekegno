@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\SessionParticipant;
 use App\Models\TrainingSession;
 use App\Services\ActivityLogger;
+use App\Services\FormationEnrollmentActivator;
 use App\Services\InvoiceNumberGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class ClientEnrollmentController extends Controller
     public function __construct(
         private readonly InvoiceNumberGenerator $invoiceNumber,
         private readonly ActivityLogger $logger,
+        private readonly FormationEnrollmentActivator $enrollmentActivator,
     ) {}
 
     #[OA\Get(
@@ -78,7 +80,9 @@ class ClientEnrollmentController extends Controller
             ->first();
 
         if ($existing && $existing->status !== 'cancelled') {
-            return response()->json(['message' => 'Vous êtes déjà inscrit à cette formation.'], 409);
+            return response()->json(['message' => $existing->status === FormationEnrollment::STATUS_PENDING
+                ? 'Votre inscription à cette formation est déjà en attente de validation du paiement.'
+                : 'Vous êtes déjà inscrit à cette formation.'], 409);
         }
 
         $requestedSessionId = $validated['training_session_id'] ?? null;
@@ -108,6 +112,7 @@ class ClientEnrollmentController extends Controller
         $enrollment = DB::transaction(function () use ($course, $user, $existing, $requestedSessionId, $request) {
             $price = (float) $course->effective_price;
             $invoiceId = null;
+            $invoice = null;
 
             if ($price > 0) {
                 $invoice = Invoice::create([
@@ -146,9 +151,16 @@ class ClientEnrollmentController extends Controller
                 $invoiceId = $invoice->id;
             }
 
+            // Formation payante : la facture attend la validation de la preuve de
+            // paiement, l'inscription reste donc en attente (aucune place en session)
+            // jusque-là. La session choisie est mémorisée pour la validation.
+            $status = $this->enrollmentActivator->initialStatusFor($invoice);
+            $isPending = $status === FormationEnrollment::STATUS_PENDING;
+
             if ($existing) {
                 $existing->update([
-                    'status' => 'enrolled',
+                    'status' => $status,
+                    'requested_session_id' => $isPending ? $requestedSessionId : null,
                     'enrolled_at' => now(),
                     'invoice_id' => $invoiceId ?? $existing->invoice_id,
                 ]);
@@ -158,12 +170,13 @@ class ClientEnrollmentController extends Controller
                     'course_id' => $course->id,
                     'learner_user_id' => $user->id,
                     'invoice_id' => $invoiceId,
+                    'requested_session_id' => $isPending ? $requestedSessionId : null,
                     'enrolled_at' => now(),
-                    'status' => 'enrolled',
+                    'status' => $status,
                 ]);
             }
 
-            if ($requestedSessionId) {
+            if (! $isPending && $requestedSessionId) {
                 SessionParticipant::updateOrCreate(
                     [
                         'training_session_id' => $requestedSessionId,

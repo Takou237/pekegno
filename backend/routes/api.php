@@ -497,7 +497,9 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     // === Sprint 5 : Présences ===
     Route::get('/training-sessions/{session}/attendances', [AttendanceController::class, 'index'])->middleware('permission:presences.consulter');
-    Route::put('/training-sessions/{session}/attendances', [AttendanceController::class, 'bulkUpdate'])->middleware('permission:presences.modifier');
+    // presences.modifier OU formateur de la session (vérifié dans le contrôleur) :
+    // un commercial / community manager lié à un profil formateur pointe ses sessions.
+    Route::put('/training-sessions/{session}/attendances', [AttendanceController::class, 'bulkUpdate'])->middleware('permission:presences.consulter');
 
     // === Sprint 5 : Certificats ===
     Route::get('/certificates', [CertificateController::class, 'index'])->middleware('permission:certificats.consulter');

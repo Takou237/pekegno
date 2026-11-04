@@ -133,7 +133,8 @@ export const academyApi = {
     return data.data ?? (data as unknown as Trainer);
   },
 
-  async learners(params: { agency_id?: string; status?: string; search?: string; course_id?: string; session_id?: string; per_page?: number; page?: number } = {}): Promise<Paginated<Learner>> {
+  /** as_trainer : espace formateur, uniquement les apprenants des sessions du formateur connecté. */
+  async learners(params: { agency_id?: string; status?: string; search?: string; course_id?: string; session_id?: string; as_trainer?: boolean; per_page?: number; page?: number } = {}): Promise<Paginated<Learner>> {
     const { data } = await client.get<Paginated<Learner>>('/learners', { params });
     return data;
   },
@@ -192,9 +193,9 @@ export const academyApi = {
     return data.data ?? (data as unknown as LearnerStats['learner']);
   },
 
-  async learnerStats(learnerId: string, courseId?: string): Promise<LearnerStats> {
+  async learnerStats(learnerId: string, courseId?: string, asTrainer = false): Promise<LearnerStats> {
     const { data } = await client.get<LearnerStats>(`/learners/${learnerId}/stats`, {
-      params: { course_id: courseId || undefined },
+      params: { course_id: courseId || undefined, as_trainer: asTrainer ? 1 : undefined },
     });
     return data;
   },

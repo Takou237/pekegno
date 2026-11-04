@@ -24,6 +24,16 @@ class AttendanceController extends Controller
 
     public function bulkUpdate(Request $request, TrainingSession $session): JsonResponse
     {
+        $caller = $request->user();
+        $isSessionTrainer = $session->trainer_id !== null
+            && $session->trainer()->where('user_id', $caller->id)->exists();
+
+        abort_unless(
+            $caller->hasPermission('presences.modifier') || $isSessionTrainer,
+            403,
+            'Seul le formateur de la session ou un responsable peut saisir les présences.'
+        );
+
         $data = $request->validate([
             'attendances' => ['required', 'array'],
             'attendances.*.learner_user_id' => ['required', 'uuid', 'exists:users,id'],

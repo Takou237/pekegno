@@ -12,6 +12,7 @@ use App\Models\CourseModule;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\SellerProfile;
+use App\Models\SessionParticipant;
 use App\Models\Trainer;
 use App\Models\User;
 use App\Services\ScopeService;
@@ -387,7 +388,9 @@ class TrainerController extends Controller
         // Repli : compte « formateur » sans affectation d'agence (le sync ne
         // s'applique qu'aux utilisateurs ayant une affectation). On crée alors
         // le profil depuis le compte pour que le tableau de bord fonctionne.
-        if (! $trainer && $user) {
+        // Un autre rôle (commercial, community manager…) n'a d'espace formateur
+        // que si un profil formateur a été lié à son compte : rien n'est créé.
+        if (! $trainer && $user && $user->role?->name === 'formateur') {
             $trainer = Trainer::create([
                 'user_id' => $user->id,
                 'agency_id' => DB::table('user_assignments')->where('user_id', $user->id)->value('agency_id'),
@@ -413,13 +416,23 @@ class TrainerController extends Controller
         $sessions = $this->scopedSessions($request, $trainer)->with('course')->get();
 
         $sessionIds = $sessions->pluck('id');
-        $courseIds = $sessions->pluck('course_id')->filter()->unique()->values();
 
-        $enrollments = $courseIds->isNotEmpty()
-            ? FormationEnrollment::whereIn('course_id', $courseIds)->get()
+        // Les effectifs du formateur sont ceux de SES sessions (participants), et
+        // non toutes les inscriptions des formations concernées : une formation peut
+        // avoir plusieurs sessions et des inscrits sans session (en attente…).
+        $participants = $sessionIds->isNotEmpty()
+            ? SessionParticipant::whereIn('training_session_id', $sessionIds)
+                ->where('status', '!=', 'cancelled')
+                ->get(['training_session_id', 'formation_enrollment_id'])
             : collect();
 
-        $notCancelled = fn ($enrollment) => $enrollment->status !== 'cancelled';
+        $enrollments = $sessionIds->isNotEmpty()
+            ? FormationEnrollment::whereIn('id', SessionParticipant::whereIn('training_session_id', $sessionIds)->select('formation_enrollment_id'))->get()
+            : collect();
+
+        $activeEnrollmentIds = $participants->pluck('formation_enrollment_id')->unique();
+        $notCancelled = fn ($enrollment) => in_array($enrollment->status, FormationEnrollment::ACTIVE_STATUSES, true)
+            && $activeEnrollmentIds->contains($enrollment->id);
 
         $enrolled = $enrollments->filter($notCancelled)->count();
         $completed = $enrollments->where('status', 'completed')->count();
@@ -434,14 +447,9 @@ class TrainerController extends Controller
         $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
         $expectedPresences = $attendanceStatuses->count();
 
-        // Revenus potentiels : inscrits (non annulés) au cours × prix effectif de chaque session.
-        $revenue = $sessions->sum(function ($session) use ($enrollments, $notCancelled) {
-            $count = $enrollments
-                ->where('course_id', $session->course_id)
-                ->filter($notCancelled)
-                ->count();
-
-            return $count * $session->effective_price;
+        // Revenus potentiels : participants (non annulés) de chaque session × son prix effectif.
+        $revenue = $sessions->sum(function ($session) use ($participants) {
+            return $participants->where('training_session_id', $session->id)->count() * $session->effective_price;
         });
 
         // Heures enseignées : durée du cours des sessions terminées ou en cours.
@@ -458,18 +466,26 @@ class TrainerController extends Controller
 
         $recentSessions = $this->scopedSessions($request, $trainer)
             ->with(['course', 'agency'])
-            ->withCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
+            ->withCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->orderByDesc('start_at')
             ->limit(5)
             ->get();
 
-        $upcomingSessions = $this->scopedSessions($request, $trainer)
+        // Toutes les sessions à venir (onglet Planning) ; l'aperçu n'en montre que 5.
+        $allUpcomingSessions = $this->scopedSessions($request, $trainer)
             ->with(['course', 'agency'])
-            ->withCount(['formationEnrollments as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
+            ->withCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->whereIn('status', ['planned', 'ongoing'])
             ->where('start_at', '>=', now())
             ->orderBy('start_at')
-            ->limit(5)
+            ->get();
+        $upcomingSessions = $allUpcomingSessions->take(5);
+
+        // Toutes les sessions du formateur (onglet Sessions), les plus récentes d'abord.
+        $allSessions = $this->scopedSessions($request, $trainer)
+            ->with(['course', 'agency'])
+            ->withCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
+            ->orderByDesc('start_at')
             ->get();
 
         $assignedModules = CourseModule::where('trainer_id', $trainer->id)
@@ -596,12 +612,12 @@ class TrainerController extends Controller
                 ] : null,
                 'sessions_total' => $sessions->count(),
                 'sessions_by_status' => $byStatus,
-                'sessions_upcoming' => $upcomingSessions->count(),
+                'sessions_upcoming' => $allUpcomingSessions->count(),
                 'enrollments_total' => $enrollments->count(),
                 'enrollments_enrolled' => $enrolled,
                 'enrollments_completed' => $completed,
                 'enrollments_cancelled' => $cancelled,
-                'learners_unique' => $enrollments->pluck('learner_user_id')->unique()->count(),
+                'learners_unique' => $enrollments->filter($notCancelled)->pluck('learner_user_id')->unique()->count(),
                 'attendance_count' => $present,
                 'attendance_rate' => $expectedPresences > 0
                     ? min(100, round($present / $expectedPresences * 100, 1))
@@ -668,6 +684,8 @@ class TrainerController extends Controller
                 ->all(),
             'recent_sessions' => $recentSessions->map(fn ($s) => $this->formatSession($s))->values(),
             'upcoming_sessions' => $upcomingSessions->map(fn ($s) => $this->formatSession($s))->values(),
+            'all_sessions' => $allSessions->map(fn ($s) => $this->formatSession($s))->values(),
+            'all_upcoming_sessions' => $allUpcomingSessions->map(fn ($s) => $this->formatSession($s))->values(),
             'assigned_modules' => $assignedModules->map(fn ($m) => [
                 'id' => $m->id,
                 'name' => $m->name,

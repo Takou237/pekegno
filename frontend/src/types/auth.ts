@@ -34,6 +34,8 @@ export interface User {
   country_id?: string | null;
   /** Noms des permissions du rôle (menu construit pour les rôles personnalisés). */
   permissions?: string[];
+  /** Compte (commercial, community manager…) lié à un profil formateur → menu « Mes formations ». */
+  has_trainer_profile?: boolean;
   is_active: boolean;
   two_factor_enabled: boolean;
   two_factor_channel: TwoFactorChannel;

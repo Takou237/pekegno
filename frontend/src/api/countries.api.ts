@@ -32,6 +32,28 @@ export const countriesApi = {
     return data;
   },
 
+  /**
+   * Pays actifs du catalogue public (sans statistiques) : sélecteur de pays des
+   * formulaires de déploiement pour les rôles sans accès aux fiches pays
+   * (countries.consulter), ex. chef de département. Même forme que list().
+   */
+  async listActivePublic(): Promise<PaginatedResponse<CountryStat>> {
+    const { data } = await client.get<Array<Pick<CountryStat, 'id' | 'name' | 'code' | 'currency_code' | 'iso_code' | 'phone_code' | 'agencies_count'>>>('/public/countries');
+    const countries: CountryStat[] = data.map((c) => ({
+      ...c,
+      is_active: true,
+      revenue: 0,
+      outstanding: 0,
+      invoices_count: 0,
+    }));
+    const n = countries.length;
+    return {
+      data: countries,
+      links: { first: '', last: '', prev: null, next: null },
+      meta: { current_page: 1, from: n ? 1 : 0, last_page: 1, per_page: n, to: n, total: n },
+    };
+  },
+
   async get(id: string): Promise<CountryStat> {
     const { data } = await client.get<CountryStat>(`/countries/${id}`);
     return data;
