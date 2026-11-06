@@ -82,6 +82,7 @@ use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\SubscriptionNotificationController;
 use App\Http\Controllers\Api\TrainerController;
+use App\Http\Controllers\Api\TrainerRealizationController;
 use App\Http\Controllers\Api\TrainingSessionController;
 use App\Http\Controllers\Api\TreasuryController;
 use App\Http\Controllers\Api\UploadController;
@@ -235,7 +236,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/trainers/{trainer}/link-user', [TrainerController::class, 'linkUser'])->middleware('permission:sessions.modifier');
     Route::get('/trainers', [TrainerController::class, 'index'])->middleware('permission:sessions.consulter');
     // Avant /trainers/{trainer}/stats : sinon « me » serait résolu comme un UUID.
-    Route::get('/trainers/me/stats', [TrainerController::class, 'meStats'])->middleware('permission:sessions.consulter')->middleware('cache.response:data,300');
+    // Accessible à tout compte rattaché à un profil formateur, quel que soit son rôle.
+    Route::get('/trainers/me/stats', [TrainerController::class, 'meStats'])->middleware('cache.response:data,300');
+    Route::get('/trainers/me/realizations', [TrainerRealizationController::class, 'index'])->middleware('trainer');
+    Route::put('/trainers/me/realizations/{execution}', [TrainerRealizationController::class, 'update'])->middleware('trainer');
     Route::get('/trainers/{trainer}/stats', [TrainerController::class, 'stats'])->middleware('permission:sessions.consulter')->middleware('cache.response:data,300');
     Route::get('/trainers/{trainer}', [TrainerController::class, 'show'])->middleware('permission:sessions.consulter');
     Route::put('/trainers/{trainer}', [TrainerController::class, 'update'])->middleware('permission:sessions.modifier');

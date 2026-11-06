@@ -34,6 +34,7 @@ const TrainerLearnersPage = lazyWithRetry(() => import('@/pages/trainer/TrainerL
 const TrainerSessionsPage = lazyWithRetry(() => import('@/pages/trainer/TrainerSessionsPage'));
 const TrainerPlanningPage = lazyWithRetry(() => import('@/pages/trainer/TrainerPlanningPage'));
 const MyTrainingsLayout = lazyWithRetry(() => import('@/pages/trainer/MyTrainingsLayout'));
+const TrainerRealizationsPage = lazyWithRetry(() => import('@/pages/trainer/TrainerRealizationsPage'));
 const ProfilePage = lazyWithRetry(() => import('@/pages/profile/ProfilePage'));
 const ProfileSettingsPage = lazyWithRetry(() => import('@/pages/profile/ProfileSettingsPage'));
 const AgencyListPage = lazyWithRetry(() => import('@/pages/agencies/AgencyListPage'));
@@ -242,6 +243,7 @@ export const router = createBrowserRouter([
               { path: 'sessions', element: page(<TrainerSessionsPage />, table) },
               { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
               { path: 'planning', element: page(<TrainerPlanningPage />, table) },
+              { path: 'realisations', element: page(<TrainerRealizationsPage />, table) },
             ],
           },
           { path: '/formateur/dashboard', element: <Navigate to="/formateur" replace /> },

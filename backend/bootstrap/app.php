@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureInvoiceValidator;
 use App\Http\Middleware\EnsurePortal;
 use App\Http\Middleware\EnsureSingleSession;
 use App\Http\Middleware\EnsureSubscriptionsWritable;
+use App\Http\Middleware\EnsureTrainer;
 use App\Http\Middleware\InactivityLogout;
 use App\Http\Middleware\InvalidateApiCache;
 use App\Http\Middleware\UpdateLastActivity;
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'portal' => EnsurePortal::class,
             'subscriptions.writable' => EnsureSubscriptionsWritable::class,
             'cache.response' => CacheApiResponse::class,
+            'trainer' => EnsureTrainer::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

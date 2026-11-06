@@ -219,6 +219,40 @@ export interface PrestationActionExecution {
   updated_at: string;
 }
 
+/** Réalisation studio vue depuis l'espace formateur (action + prestation). */
+export interface TrainerRealization extends PrestationActionExecution {
+  action?: {
+    id: string;
+    prestation_id: string;
+    title: string;
+    type: ActionType;
+    status: ActionStatus;
+    due_date: string | null;
+    prestation?: {
+      id: string;
+      reference: string;
+      name: string;
+      status: PrestationStatus;
+      department_id: string | null;
+      start_date: string | null;
+      end_date: string | null;
+      department?: { id: string; name: string; type: string } | null;
+      client?: PersonRef | null;
+      agency?: { id: string; name: string } | null;
+    } | null;
+  } | null;
+}
+
+export interface TrainerRealizationPage extends LaravelPage<TrainerRealization> {
+  summary: {
+    total: number;
+    todo: number;
+    in_progress: number;
+    done: number;
+    overdue: number;
+  };
+}
+
 export interface WeekSummary {
   week_number: number;
   week_start_date: string | null;

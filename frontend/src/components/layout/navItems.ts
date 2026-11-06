@@ -96,6 +96,18 @@ function trackingItem(t: TranslateFn): NavItem {
   return { to: '/team/tracking', label: t('agencyDept.team.myMissions'), icon: UserCheck, end: true };
 }
 
+/** Espace formateur, accessible à tout compte rattaché à un profil Trainer. */
+function trainerItems(t: TranslateFn): NavItem[] {
+  return [
+    { to: '/formateur', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+    { to: '/formateur/formations', label: t('nav.courses'), icon: BookOpen, end: false },
+    { to: '/formateur/apprenants', label: t('nav.learners'), icon: UserCheck, end: false },
+    { to: '/formateur/sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
+    { to: '/formateur/planning', label: t('nav.planning'), icon: CalendarCheck, end: false },
+    { to: '/formateur/realisations', label: t('nav.realizations'), icon: ClipboardList, end: false },
+  ];
+}
+
 export function getMainItems(t: TranslateFn, roleName: string | null | undefined, agencyId?: string, unpaidBadge?: number, departmentId?: string): NavItem[] {
   const baseItems: NavItem[] = [
     { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
@@ -253,14 +265,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
 
   if (roleName === 'formateur') {
     // Espace formateur : uniquement ses formations, ses apprenants, ses
-    // sessions et son planning (pas de Pays/Agence/Département).
-    return [
-      { to: '/formateur', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
-      { to: '/formateur/formations', label: t('nav.courses'), icon: BookOpen, end: false },
-      { to: '/formateur/apprenants', label: t('nav.learners'), icon: UserCheck, end: false },
-      { to: '/formateur/sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
-      { to: '/formateur/planning', label: t('nav.planning'), icon: CalendarCheck, end: false },
-    ];
+    // sessions, son planning et ses réalisations studio (pas de Pays/Agence/Département).
+    return trainerItems(t);
   }
 
   return [

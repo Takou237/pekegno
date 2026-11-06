@@ -28,6 +28,11 @@ import type {
   LearnerObservation as LearnerObservationItem,
   SellerProfile,
 } from '@/types/formation';
+import type {
+  ExecutionStatus,
+  TrainerRealization,
+  TrainerRealizationPage,
+} from '@/types/agencyDepartment';
 
 export type {
   Paginated,
@@ -167,6 +172,32 @@ export const academyApi = {
 
   async myTrainerStats(): Promise<TrainerStats> {
     const { data } = await client.get<TrainerStats>('/trainers/me/stats');
+    return data;
+  },
+
+  /** Réalisations de production assignées au formateur pour le pôle studio. */
+  async myRealizations(
+    params: { status?: ExecutionStatus; overdue?: boolean; per_page?: number; page?: number } = {},
+  ): Promise<TrainerRealizationPage> {
+    const { data } = await client.get<TrainerRealizationPage>('/trainers/me/realizations', { params });
+    return data;
+  },
+
+  async updateMyRealization(
+    executionId: string,
+    payload: {
+      status?: ExecutionStatus;
+      done_at?: string | null;
+      proof_url?: string | null;
+      proof_file?: string | null;
+      actual_cost?: number | null;
+      note?: string | null;
+    },
+  ): Promise<TrainerRealization> {
+    const { data } = await client.put<TrainerRealization>(
+      `/trainers/me/realizations/${executionId}`,
+      payload,
+    );
     return data;
   },
 

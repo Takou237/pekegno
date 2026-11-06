@@ -51,6 +51,10 @@ class UserResource extends JsonResource
             'is_password_change_required' => (bool) $this->is_password_change_required,
             'role' => $this->whenLoaded('role'),
             'role_id' => $this->role_id,
+            // Tout compte interne rattaché à un profil formateur (assigné à une
+            // session) obtient l'espace formateur, quel que soit son rôle.
+            'is_trainer' => $this->whenLoaded('trainerProfile', fn () => $this->trainerProfile !== null),
+            'trainer_id' => $this->whenLoaded('trainerProfile', fn () => $this->trainerProfile?->id),
             // Utilisateur connecté (/user, login) : noms des permissions de son
             // rôle, pour construire le menu d'un rôle personnalisé.
             'permissions' => $this->when(

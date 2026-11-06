@@ -36,6 +36,9 @@ export interface User {
   permissions?: string[];
   /** Compte (commercial, community manager…) lié à un profil formateur → menu « Mes formations ». */
   has_trainer_profile?: boolean;
+  /** Compte rattaché à un profil formateur (quel que soit le rôle). */
+  is_trainer?: boolean;
+  trainer_id?: string | null;
   is_active: boolean;
   two_factor_enabled: boolean;
   two_factor_channel: TwoFactorChannel;
