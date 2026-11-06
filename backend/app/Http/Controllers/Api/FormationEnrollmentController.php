@@ -288,6 +288,8 @@ class FormationEnrollmentController extends Controller
                     $invoice->update(['cancelled_at' => now()]);
                     $invoice->refreshStatus();
                     $invoice->save();
+                    // Paiements, recettes comptables et commissions annulés avec la facture.
+                    app(\App\Services\InvoiceCancellationService::class)->reverseFinancials($invoice, auth()->id());
                 }
             }
         });

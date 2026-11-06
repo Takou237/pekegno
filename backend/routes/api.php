@@ -92,18 +92,18 @@ use Illuminate\Support\Facades\Route;
 
 // === Public storefront (aucune authentification) ===
 Route::prefix('public')->group(function () {
-    Route::get('/countries', [PublicCatalogController::class, 'countries']);
-    Route::get('/agencies', [PublicCatalogController::class, 'agencies']);
-    Route::get('/services', [PublicCatalogController::class, 'services']);
-    Route::get('/services/{service}', [PublicCatalogController::class, 'service']);
-    Route::get('/products', [PublicCatalogController::class, 'products']);
-    Route::get('/products/{product}', [PublicCatalogController::class, 'product']);
-    Route::get('/courses', [PublicCatalogController::class, 'courses']);
-    Route::get('/courses/{course}', [PublicCatalogController::class, 'course']);
-    Route::get('/packages', [PublicCatalogController::class, 'packages']);
-    Route::get('/packages/{package}', [PublicCatalogController::class, 'package']);
-    Route::get('/offers', [PublicCatalogController::class, 'offers']);
-    Route::get('/agencies/{agency}/payment-methods', [PublicCatalogController::class, 'agencyPaymentMethods']);
+    Route::get('/countries', [PublicCatalogController::class, 'countries'])->middleware('cache.response:reference,3600');
+    Route::get('/agencies', [PublicCatalogController::class, 'agencies'])->middleware('cache.response:reference,3600');
+    Route::get('/services', [PublicCatalogController::class, 'services'])->middleware('cache.response:data,600');
+    Route::get('/services/{service}', [PublicCatalogController::class, 'service'])->middleware('cache.response:data,600');
+    Route::get('/products', [PublicCatalogController::class, 'products'])->middleware('cache.response:data,600');
+    Route::get('/products/{product}', [PublicCatalogController::class, 'product'])->middleware('cache.response:data,600');
+    Route::get('/courses', [PublicCatalogController::class, 'courses'])->middleware('cache.response:data,600');
+    Route::get('/courses/{course}', [PublicCatalogController::class, 'course'])->middleware('cache.response:data,600');
+    Route::get('/packages', [PublicCatalogController::class, 'packages'])->middleware('cache.response:data,600');
+    Route::get('/packages/{package}', [PublicCatalogController::class, 'package'])->middleware('cache.response:data,600');
+    Route::get('/offers', [PublicCatalogController::class, 'offers'])->middleware('cache.response:data,600');
+    Route::get('/agencies/{agency}/payment-methods', [PublicCatalogController::class, 'agencyPaymentMethods'])->middleware('cache.response:reference,3600');
 });
 
 Route::post('/auth/login', LoginController::class);
@@ -183,13 +183,13 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::delete('/agencies/{agency}/force-delete', [AgencyController::class, 'forceDelete']);
     Route::apiResource('agencies', AgencyController::class);
 
-    Route::get('/countries', [CountryController::class, 'index'])->middleware('permission:countries.consulter');
+    Route::get('/countries', [CountryController::class, 'index'])->middleware('permission:countries.consulter')->middleware('cache.response:data,300');
     Route::post('/countries', [CountryController::class, 'store'])->middleware('permission:countries.creer');
     Route::get('/countries/{country}', [CountryController::class, 'show'])->middleware('permission:countries.consulter');
     Route::put('/countries/{country}', [CountryController::class, 'update'])->middleware('permission:countries.modifier');
     Route::delete('/countries/{country}', [CountryController::class, 'destroy'])->middleware('permission:countries.supprimer');
 
-    Route::get('/cities', [CityController::class, 'index'])->middleware('permission:cities.consulter');
+    Route::get('/cities', [CityController::class, 'index'])->middleware('permission:cities.consulter')->middleware('cache.response:reference,3600');
     Route::post('/cities', [CityController::class, 'store'])->middleware('permission:cities.creer');
     Route::get('/cities/{city}', [CityController::class, 'show'])->middleware('permission:cities.consulter');
     Route::put('/cities/{city}', [CityController::class, 'update'])->middleware('permission:cities.modifier');
@@ -201,9 +201,9 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/categories/trash', [CategoryController::class, 'trash']);
     Route::post('/categories/{category}/restore', [CategoryController::class, 'restore']);
     Route::delete('/categories/{category}/force-delete', [CategoryController::class, 'forceDelete']);
-    Route::apiResource('categories', CategoryController::class);
+    Route::apiResource('categories', CategoryController::class)->middleware('cache.response:reference,3600');
 
-    Route::apiResource('course-categories', CourseCategoryController::class);
+    Route::apiResource('course-categories', CourseCategoryController::class)->middleware('cache.response:reference,3600');
 
     Route::post('/products', [ProductController::class, 'store'])->middleware('permission:products.creer');
     Route::get('/products/trash', [ProductController::class, 'trash'])->middleware('permission:products.consulter');
@@ -227,7 +227,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::post('/training-sessions', [TrainingSessionController::class, 'store'])->middleware('permission:sessions.creer');
     Route::get('/training-sessions/trash', [TrainingSessionController::class, 'trash'])->middleware('permission:sessions.consulter');
-    Route::get('/reports/training', [TrainingSessionController::class, 'report'])->middleware('permission:sessions.consulter');
+    Route::get('/reports/training', [TrainingSessionController::class, 'report'])->middleware('permission:sessions.consulter')->middleware('cache.response:data,300');
     Route::post('/trainers', [TrainerController::class, 'store'])->middleware('permission:sessions.creer');
     Route::get('/trainers/available-users', [TrainerController::class, 'availableUsers'])->middleware('permission:sessions.consulter');
     // Avant /trainers/{trainer} : « candidates » n'est pas un identifiant.
@@ -235,8 +235,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/trainers/{trainer}/link-user', [TrainerController::class, 'linkUser'])->middleware('permission:sessions.modifier');
     Route::get('/trainers', [TrainerController::class, 'index'])->middleware('permission:sessions.consulter');
     // Avant /trainers/{trainer}/stats : sinon « me » serait résolu comme un UUID.
-    Route::get('/trainers/me/stats', [TrainerController::class, 'meStats'])->middleware('permission:sessions.consulter');
-    Route::get('/trainers/{trainer}/stats', [TrainerController::class, 'stats'])->middleware('permission:sessions.consulter');
+    Route::get('/trainers/me/stats', [TrainerController::class, 'meStats'])->middleware('permission:sessions.consulter')->middleware('cache.response:data,300');
+    Route::get('/trainers/{trainer}/stats', [TrainerController::class, 'stats'])->middleware('permission:sessions.consulter')->middleware('cache.response:data,300');
     Route::get('/trainers/{trainer}', [TrainerController::class, 'show'])->middleware('permission:sessions.consulter');
     Route::put('/trainers/{trainer}', [TrainerController::class, 'update'])->middleware('permission:sessions.modifier');
     Route::delete('/trainers/{trainer}', [TrainerController::class, 'destroy'])->middleware('permission:sessions.supprimer');
@@ -245,11 +245,11 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     // est un compte client : droit « clients.modifier » (le commercial qui crée les
     // apprenants peut aussi corriger leurs informations).
     Route::put('/learners/{learner}', [LearnerController::class, 'update'])->middleware('permission:clients.modifier');
-    Route::get('/learners/{learner}/stats', [LearnerController::class, 'stats'])->middleware('permission:enrollments.consulter');
+    Route::get('/learners/{learner}/stats', [LearnerController::class, 'stats'])->middleware('permission:enrollments.consulter')->middleware('cache.response:data,300');
 
-    Route::get('/reports/subscriptions', [ReportController::class, 'subscriptions'])->middleware('permission:reports.consulter');
-    Route::get('/reports/customers', [ReportController::class, 'customers'])->middleware('permission:reports.consulter');
-    Route::get('/reports/comparison', [ReportController::class, 'comparison'])->middleware('permission:reports.consulter');
+    Route::get('/reports/subscriptions', [ReportController::class, 'subscriptions'])->middleware('permission:reports.consulter')->middleware('cache.response:data,300');
+    Route::get('/reports/customers', [ReportController::class, 'customers'])->middleware('permission:reports.consulter')->middleware('cache.response:data,300');
+    Route::get('/reports/comparison', [ReportController::class, 'comparison'])->middleware('permission:reports.consulter')->middleware('cache.response:data,300');
     Route::get('/training-sessions/{trainingSession}', [TrainingSessionController::class, 'show'])->middleware('permission:sessions.consulter');
     Route::put('/training-sessions/{trainingSession}', [TrainingSessionController::class, 'update'])->middleware('permission:sessions.modifier');
     Route::delete('/training-sessions/{trainingSession}', [TrainingSessionController::class, 'destroy'])->middleware('permission:sessions.supprimer');
@@ -283,13 +283,13 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::get('/commercials/search', [CommercialController::class, 'search'])->middleware('permission:commercials.consulter');
     Route::get('/commercials/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:commercials.consulter');
-    Route::get('/commercials/ranking', [CommercialController::class, 'ranking'])->middleware('permission:commercials.consulter');
-    Route::get('/commercials/report/options', [CommercialReportController::class, 'options'])->middleware('permission:commercials.reporting');
-    Route::get('/commercials/report', [CommercialReportController::class, 'report'])->middleware('permission:commercials.reporting');
-    Route::get('/commercials/report/detail', [CommercialReportController::class, 'detail'])->middleware('permission:commercials.reporting');
-    Route::get('/sales-tracking', [SalesTrackingController::class, 'index'])->middleware('permission:commercials.reporting');
-    Route::get('/commercials/me/stats', [CommercialController::class, 'meStats']);
-    Route::get('/commercials/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:commercials.consulter');
+    Route::get('/commercials/ranking', [CommercialController::class, 'ranking'])->middleware('permission:commercials.consulter')->middleware('cache.response:data,300');
+    Route::get('/commercials/report/options', [CommercialReportController::class, 'options'])->middleware('permission:commercials.reporting')->middleware('cache.response:data,300');
+    Route::get('/commercials/report', [CommercialReportController::class, 'report'])->middleware('permission:commercials.reporting')->middleware('cache.response:data,300');
+    Route::get('/commercials/report/detail', [CommercialReportController::class, 'detail'])->middleware('permission:commercials.reporting')->middleware('cache.response:data,300');
+    Route::get('/sales-tracking', [SalesTrackingController::class, 'index'])->middleware('permission:commercials.reporting')->middleware('cache.response:data,300');
+    Route::get('/commercials/me/stats', [CommercialController::class, 'meStats'])->middleware('cache.response:data,300');
+    Route::get('/commercials/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:commercials.consulter')->middleware('cache.response:data,300');
     Route::post('/commercials/{commercial}/points', [CommercialController::class, 'adjustPoints'])->middleware('permission:commercials.modifier');
     Route::get('/commercials', [CommercialController::class, 'index'])->middleware('permission:commercials.consulter');
     Route::post('/commercials', [CommercialController::class, 'store'])->middleware('permission:commercials.creer');
@@ -300,8 +300,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/employees/search', [CommercialController::class, 'search'])->middleware('permission:employes.consulter')->defaults('intent', 'autocomplete');
     Route::get('/commercials/search', [CommercialController::class, 'search'])->middleware('permission:commercials.consulter')->defaults('intent', 'autocomplete');
     Route::get('/employees/available-users', [CommercialController::class, 'availableUsers'])->middleware('permission:employes.consulter');
-    Route::get('/employees/ranking', [CommercialController::class, 'ranking'])->middleware('permission:employes.consulter');
-    Route::get('/employees/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:employes.consulter');
+    Route::get('/employees/ranking', [CommercialController::class, 'ranking'])->middleware('permission:employes.consulter')->middleware('cache.response:data,300');
+    Route::get('/employees/{commercial}/stats', [CommercialController::class, 'stats'])->middleware('permission:employes.consulter')->middleware('cache.response:data,300');
     Route::post('/employees/{commercial}/points', [CommercialController::class, 'adjustPoints'])->middleware('permission:employes.modifier');
     Route::get('/employees', [CommercialController::class, 'index'])->middleware('permission:employes.consulter');
     Route::post('/employees', [CommercialController::class, 'store'])->middleware('permission:employes.creer');
@@ -369,27 +369,27 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/settings', [SettingController::class, 'index'])->middleware('permission:settings.modifier');
     Route::put('/settings', [SettingController::class, 'update'])->middleware('permission:settings.modifier');
 
-    Route::get('/stats/overview', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
-    Route::get('/stats/dashboard', [StatsController::class, 'overview'])->middleware('permission:stats.consulter');
-    Route::get('/stats/group', [StatsController::class, 'group'])->middleware('permission:stats.consulter');
-    Route::get('/stats/training-group', [StatsController::class, 'trainingGroup'])->middleware('permission:stats.consulter');
-    Route::get('/stats/country/{country}', [StatsController::class, 'country'])->middleware('permission:stats.consulter');
-    Route::get('/dashboard', [DashboardController::class, '__invoke'])->middleware('permission:stats.consulter');
-    Route::get('/stats/agency/{agency}', [StatsController::class, 'agency'])->middleware('permission:stats.consulter');
-    Route::get('/stats/monthly-revenue', [StatsController::class, 'monthlyRevenue'])->middleware('permission:stats.consulter');
-    Route::get('/stats/top-commercials', [StatsController::class, 'topCommercials'])->middleware('permission:stats.consulter');
-    Route::get('/stats/sales-by-category', [StatsController::class, 'salesByCategory'])->middleware('permission:stats.consulter');
-    Route::get('/stats/payment-methods', [StatsController::class, 'paymentMethods'])->middleware('permission:stats.consulter');
-    Route::get('/stats/top-products', [StatsController::class, 'topProducts'])->middleware('permission:stats.consulter');
-    Route::get('/stats/top-agencies', [StatsController::class, 'topAgencies'])->middleware('permission:stats.consulter');
+    Route::get('/stats/overview', [StatsController::class, 'overview'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/dashboard', [StatsController::class, 'overview'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/group', [StatsController::class, 'group'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/training-group', [StatsController::class, 'trainingGroup'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/country/{country}', [StatsController::class, 'country'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/dashboard', [DashboardController::class, '__invoke'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/agency/{agency}', [StatsController::class, 'agency'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/monthly-revenue', [StatsController::class, 'monthlyRevenue'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/top-commercials', [StatsController::class, 'topCommercials'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/sales-by-category', [StatsController::class, 'salesByCategory'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/payment-methods', [StatsController::class, 'paymentMethods'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/top-products', [StatsController::class, 'topProducts'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+    Route::get('/stats/top-agencies', [StatsController::class, 'topAgencies'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
 
     Route::get('/treasury/accounts', [TreasuryController::class, 'indexAccounts'])->middleware('permission:tresories.consulter');
     Route::get('/treasury/accounts/{account}', [TreasuryController::class, 'showAccount'])->middleware('permission:tresories.consulter');
     Route::get('/treasury/transactions', [TreasuryController::class, 'indexTransactions'])->middleware('permission:tresories.consulter');
     Route::post('/treasury/transfer', [TreasuryController::class, 'transfer'])->middleware('permission:tresories.modifier');
 
-    Route::get('/bilans/period', [BilanController::class, 'period'])->middleware('permission:bilans.consulter');
-    Route::get('/bilans', [BilanController::class, 'dailyBilan'])->middleware('permission:bilans.consulter');
+    Route::get('/bilans/period', [BilanController::class, 'period'])->middleware('permission:bilans.consulter')->middleware('cache.response:data,300');
+    Route::get('/bilans', [BilanController::class, 'dailyBilan'])->middleware('permission:bilans.consulter')->middleware('cache.response:data,300');
 
     Route::get('/subscription-packs', [SubscriptionController::class, 'packsIndex'])->middleware('permission:abonnements.consulter');
     Route::post('/subscription-packs', [SubscriptionController::class, 'packsStore'])->middleware('permission:abonnements.creer');
@@ -428,13 +428,13 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::put('/users/{user}/role', [UserRoleController::class, 'update']);
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
 
-    Route::get('/roles', [RoleController::class, 'index']);
+    Route::get('/roles', [RoleController::class, 'index'])->middleware('cache.response:reference,3600');
     Route::post('/roles', [RoleController::class, 'store']);
     Route::put('/roles/{role}', [RoleController::class, 'update']);
     Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
     Route::put('/roles/{role}/permissions', [RoleController::class, 'syncPermissions']);
 
-    Route::get('/permissions', [PermissionController::class, 'index']);
+    Route::get('/permissions', [PermissionController::class, 'index'])->middleware('cache.response:reference,3600');
 
     // === Sprint 3 : Dépenses ===
     Route::get('/expenses', [ExpenseController::class, 'index'])->middleware('permission:depenses.consulter');
@@ -466,7 +466,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/commissions/entries/{entry}/pay', [CommissionController::class, 'payEntry'])->middleware('permission:commissions.valider,commissions.encaisser');
     Route::post('/commissions/entries/{entry}/cancel', [CommissionController::class, 'cancelEntry'])->middleware('permission:commissions.valider');
     Route::post('/commissions/seller-profiles/{sellerProfile}/recalculate', [CommissionController::class, 'recalculateSeller'])->middleware('permission:commissions.valider');
-    Route::get('/commission-payments/summary', [CommissionController::class, 'summary'])->middleware('permission:commissions.consulter');
+    Route::get('/commission-payments/summary', [CommissionController::class, 'summary'])->middleware('permission:commissions.consulter')->middleware('cache.response:data,300');
     Route::post('/commission-payments', [CommissionController::class, 'storePayment'])->middleware('permission:commissions.valider,commissions.encaisser');
 
     // === Sprint 4 : CRM — Entreprises ===
@@ -538,7 +538,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/prestations', [PrestationController::class, 'index'])->middleware('permission:prestations.consulter');
     Route::get('/prestations/tracking', [PrestationController::class, 'tracking'])->middleware('permission:prestations.consulter');
     Route::get('/prestations/tracking/export', [PrestationController::class, 'exportTracking'])->middleware('permission:prestations.exporter');
-    Route::get('/prestations/reviews/summary', [PrestationReviewController::class, 'aggregate'])->middleware('permission:prestations.consulter');
+    Route::get('/prestations/reviews/summary', [PrestationReviewController::class, 'aggregate'])->middleware('permission:prestations.consulter')->middleware('cache.response:data,300');
     Route::get('/prestation-actions/board', [PrestationActionController::class, 'board'])->middleware('permission:prestation-actions.consulter');
     Route::post('/prestations', [PrestationController::class, 'store'])->middleware('permission:prestations.creer');
     Route::get('/prestations/{prestation}', [PrestationController::class, 'show'])->middleware('permission:prestations.consulter');
@@ -572,15 +572,15 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     // === Agency — Notes 5★ (lecture seule staff, D5) ===
     Route::get('/prestations/{prestation}/reviews', [PrestationReviewController::class, 'index'])->middleware('permission:prestations.consulter');
-    Route::get('/prestations/{prestation}/reviews/summary', [PrestationReviewController::class, 'summary'])->middleware('permission:prestations.consulter');
+    Route::get('/prestations/{prestation}/reviews/summary', [PrestationReviewController::class, 'summary'])->middleware('permission:prestations.consulter')->middleware('cache.response:data,300');
 
     // === Agency — Équipe client ===
-    Route::get('/client-team-roles', [ClientTeamController::class, 'roles'])->middleware('permission:equipe-client.consulter');
+    Route::get('/client-team-roles', [ClientTeamController::class, 'roles'])->middleware('permission:equipe-client.consulter')->middleware('cache.response:reference,3600');
     Route::post('/client-team-roles', [ClientTeamController::class, 'storeRole'])->middleware('permission:equipe-client.gerer');
     Route::post('/client-team-roles/defaults', [ClientTeamController::class, 'seedDefaultRoles'])->middleware('permission:equipe-client.gerer');
     Route::put('/client-team-roles/{role}', [ClientTeamController::class, 'updateRole'])->middleware('permission:equipe-client.gerer');
     Route::delete('/client-team-roles/{role}', [ClientTeamController::class, 'destroyRole'])->middleware('permission:equipe-client.gerer');
-    Route::get('/client-team', [ClientTeamController::class, 'overview'])->middleware('permission:equipe-client.consulter');
+    Route::get('/client-team', [ClientTeamController::class, 'overview'])->middleware('permission:equipe-client.consulter')->middleware('cache.response:data,300');
     Route::get('/prestations/{prestation}/team', [ClientTeamController::class, 'members'])->middleware('permission:equipe-client.consulter');
     Route::post('/prestations/{prestation}/team', [ClientTeamController::class, 'storeMember'])->middleware('permission:equipe-client.gerer');
     Route::put('/prestation-team-members/{member}', [ClientTeamController::class, 'updateMember'])->middleware('permission:equipe-client.gerer');
@@ -598,7 +598,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/team/missions', [ClientTeamController::class, 'missions']);
 
     // === Agency — Rapports, notifications, réglages ===
-    Route::get('/reports/agency', AgencyReportController::class)->middleware('permission:reports.consulter,prestations.consulter');
+    Route::get('/reports/agency', AgencyReportController::class)->middleware('permission:reports.consulter,prestations.consulter')->middleware('cache.response:data,300');
     Route::get('/agency-notifications', [AgencyNotificationController::class, 'index']);
     Route::post('/agency-notifications/read-all', [AgencyNotificationController::class, 'markAllRead']);
     Route::post('/agency-notifications/{notification}/read', [AgencyNotificationController::class, 'markRead']);

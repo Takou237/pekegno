@@ -18,6 +18,13 @@ return [
     'default' => env('CACHE_STORE', 'database'),
 
     /*
+    | Cache des réponses JSON de l'API (middleware « cache.response », voir
+    | App\Support\ApiCache). Désactivable sans déploiement de code :
+    | API_RESPONSE_CACHE=false dans le .env (puis config:clear).
+    */
+    'api_responses' => (bool) env('API_RESPONSE_CACHE', true),
+
+    /*
     |--------------------------------------------------------------------------
     | Cache Stores
     |--------------------------------------------------------------------------

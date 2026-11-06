@@ -10,7 +10,6 @@ import {
   CalendarDays,
   CalendarCheck,
   UserCheck,
-  TrendingUp,
   Clock,
   Trophy,
   Receipt,
@@ -28,6 +27,7 @@ import {
 import { client } from '@/api/client';
 import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
 import { statsApi } from '@/api/stats.api';
+import { FinancialKpiCards } from '@/components/dashboard/FinancialKpiCards';
 import { formatCurrency } from '@/utils/number';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
@@ -207,6 +207,8 @@ export default function DepartmentOverviewPage() {
     isLoading: boolean;
   } | null>(null);
   const [business, setBusiness] = useState<BusinessOverview | null>(null);
+  // Cartes financières du département (tous types), même calcul que groupe / pays / agence.
+  const [departmentKpis, setDepartmentKpis] = useState<AgencyStats | null>(null);
 
   useEffect(() => {
     if (!departmentId) return;
@@ -230,7 +232,8 @@ export default function DepartmentOverviewPage() {
     };
     let avg = 0;
     try {
-      const { data } = await client.get<TrainingReportResponse>('/reports/training');
+      // Compteurs de l'agence du département, pas du réseau entier (B23).
+      const { data } = await client.get<TrainingReportResponse>('/reports/training', { params: { agency_id: agencyId } });
       summary = data.summary;
       const total = data.data.reduce((s, r) => s + r.report.enrollments_enrolled, 0);
       const present = data.data.reduce((s, r) => s + r.report.attendance_count, 0);
@@ -345,7 +348,7 @@ export default function DepartmentOverviewPage() {
   const fetchBusiness = useCallback(async () => {
     if (isAcademy || !agencyId) return;
     const [statsRes, monthlyRes, invoicesRes, clientsRes, commercialsRes] = await Promise.allSettled([
-      statsApi.agency(agencyId, { from: period.from, to: period.to }),
+      statsApi.agency(agencyId, { from: period.from, to: period.to, department_id: departmentId }),
       statsApi.monthlyRevenue({ months: 12, agencyId }),
       invoicesApi.list({ agency_id: agencyId, per_page: 5, from: period.from, to: period.to }),
       client.get<{ meta?: { total?: number } }>('/clients', {
@@ -369,7 +372,7 @@ export default function DepartmentOverviewPage() {
       commercialsCount:
         commercialsRes.status === 'fulfilled' ? commercialsRes.value.data.meta?.total ?? 0 : 0,
     });
-  }, [isAcademy, agencyId, period]);
+  }, [isAcademy, agencyId, period, departmentId]);
 
   useEffect(() => {
     if (isAcademy && agencyId) {
@@ -423,20 +426,6 @@ export default function DepartmentOverviewPage() {
         color: 'text-cyan-600 dark:text-cyan-400',
         bg: 'bg-cyan-50 dark:bg-cyan-500/10',
       },
-      {
-        label: t('reports.receivedRevenue'),
-        value: formatCurrency(academy.received),
-        icon: TrendingUp,
-        color: 'text-amber-600 dark:text-amber-400',
-        bg: 'bg-amber-50 dark:bg-amber-500/10',
-      },
-      {
-        label: t('reports.outstanding'),
-        value: formatCurrency(academy.outstanding),
-        icon: Clock,
-        color: 'text-red-600 dark:text-red-400',
-        bg: 'bg-red-50 dark:bg-red-500/10',
-      },
     ];
   }, [academy, t]);
 
@@ -480,22 +469,6 @@ export default function DepartmentOverviewPage() {
     const stats = business.stats;
     return [
       effectifCard,
-      {
-        label: t('dashboard.revenue'),
-        value: formatCurrency(stats?.revenue ?? 0),
-        icon: TrendingUp,
-        to: departmentId ? `/departments/${departmentId}/invoices` : undefined,
-        color: 'text-brand-600 dark:text-brand-400',
-        bg: 'bg-brand-50 dark:bg-brand-500/10',
-      },
-      {
-        label: t('dashboard.outstanding'),
-        value: formatCurrency(stats?.outstanding ?? 0),
-        icon: Clock,
-        to: departmentId ? `/departments/${departmentId}/invoices` : undefined,
-        color: 'text-amber-600 dark:text-amber-400',
-        bg: 'bg-amber-50 dark:bg-amber-500/10',
-      },
       {
         label: t('dashboard.sales'),
         value: stats?.sales_count ?? 0,
@@ -678,14 +651,26 @@ export default function DepartmentOverviewPage() {
   const recentInvoices = business?.recentInvoices ?? [];
   const topCommercials = business?.stats?.top_commercials ?? [];
 
+  useEffect(() => {
+    if (!agencyId || !departmentId) return;
+    let active = true;
+    statsApi
+      .agency(agencyId, { from: period.from, to: period.to, department_id: departmentId })
+      .then((res) => active && setDepartmentKpis(res))
+      .catch(() => active && setDepartmentKpis(null));
+    return () => {
+      active = false;
+    };
+  }, [agencyId, departmentId, period]);
+
   return (
     <div className="flex flex-col gap-6">
-      {!isAcademy && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{department.name}</h1>
-          <PeriodPicker value={period} onChange={setPeriod} />
-        </div>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{department.name}</h1>
+        <PeriodPicker value={period} onChange={setPeriod} />
+      </div>
+      {/* Cartes de la section 1 du cahier, limitées au département (calcul unique serveur). */}
+      <FinancialKpiCards kpis={departmentKpis} currency={departmentKpis?.currency_code} />
       {isAcademy ? (
         academy && !academy.isLoading ? (
           <>

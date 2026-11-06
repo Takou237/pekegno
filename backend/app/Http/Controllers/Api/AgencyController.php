@@ -58,7 +58,7 @@ class AgencyController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Agency::with(array_merge(['departments', 'activities'], $this->parseWith($request)))
-            ->withSum(['invoices as revenue' => fn ($q) => $q->where('status', 'paid')->whereNull('cancelled_at')->validated()], 'total_amount')
+            ->withSum(['invoices as revenue' => fn ($q) => $q->whereNull('cancelled_at')->validated()], 'total_amount')
             ->withSum(['accountingTransactions as expenses' => fn ($q) => $q->where('type', 'expense')], 'amount')
             ->search($request->input('search'))
             ->byCountry($request->input('country'));

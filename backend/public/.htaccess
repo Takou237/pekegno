@@ -23,3 +23,13 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# Fichiers téléversés (public/storage → images formations / services, cachets,
+# preuves de paiement) : enregistrés sous un nom aléatoire unique (store()), un
+# fichier n'est jamais réécrit au même nom → cache navigateur long sans risque.
+# « private » : le navigateur garde le fichier, pas les proxys partagés (preuves).
+<IfModule mod_headers.c>
+    <FilesMatch "\.(jpe?g|png|gif|webp|svg|pdf)$">
+        Header set Cache-Control "private, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>

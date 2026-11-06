@@ -5,8 +5,6 @@ import {
   FolderTree,
   Users,
   TrendingUp,
-  Wallet,
-  Clock,
   ArrowRight,
   Receipt,
   UserCheck,
@@ -37,6 +35,7 @@ import {
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { statsApi } from '@/api/stats.api';
+import { FinancialKpiCards } from '@/components/dashboard/FinancialKpiCards';
 import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
@@ -248,34 +247,8 @@ export default function PEKEGNOGroupDashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <StatCard
-          label={t('dashboard.netCollected')}
-          value={formatCurrency(stats?.net_cash ?? 0)}
-          icon={<TrendingUp className="h-5 w-5" />}
-          tone="bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
-          sub={`${t('dashboard.expenses')}: ${formatCurrency(stats?.expenses_total ?? 0)}`}
-        />
-        <StatCard
-          label={t('dashboard.paymentsTotal')}
-          value={formatCurrency(stats?.payments_total ?? 0)}
-          icon={<Wallet className="h-5 w-5" />}
-          tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
-        />
-        <StatCard
-          label={t('dashboard.outstanding')}
-          value={formatCurrency(stats?.outstanding ?? 0)}
-          icon={<Clock className="h-5 w-5" />}
-          tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
-        />
-        <StatCard
-          label={t('dashboard.invoicesTotal')}
-          value={String(stats?.invoices_total ?? 0)}
-          icon={<Receipt className="h-5 w-5" />}
-          tone="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"
-          sub={`${stats?.invoices_paid ?? 0} ${t('dashboard.cashier.todayPaid')}`}
-        />
-      </div>
+      {/* Cartes de la section 1 du cahier, en tête et dans l'ordre (calcul unique serveur). */}
+      <FinancialKpiCards kpis={stats} currency={stats?.currency_code} />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard

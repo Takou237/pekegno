@@ -28,7 +28,8 @@ export const statsApi = {
     return data;
   },
 
-  async agency(agencyId: string, params: { from?: string; to?: string } = {}): Promise<AgencyStats> {
+  /** department_id : cartes limitées aux factures et dépenses du département. */
+  async agency(agencyId: string, params: { from?: string; to?: string; department_id?: string } = {}): Promise<AgencyStats> {
     const { data } = await client.get<AgencyStats>(`/stats/agency/${agencyId}`, { params });
     return data;
   },

@@ -893,6 +893,23 @@ export default {
   },
 
   dashboard: {
+    // Cartes financières (cahier, section 1) — calcul unique côté serveur.
+    kpi: {
+      revenue: 'Chiffre d\'affaires',
+      revenueSub: '{{count}} factures validées · panier moyen {{basket}}',
+      collected: 'Encaissé',
+      collectedSub: 'dont {{amount}} de recouvrements d\'anciennes factures',
+      advances: 'Acomptes',
+      advancesSub: 'Versés sur les factures non soldées',
+      outstanding: 'Impayés',
+      outstandingSub: 'Reste à payer des factures de la période',
+      expenses: 'Dépenses',
+      pending: 'En attente de validation',
+      pendingSub: '{{count}} facture(s) annoncée(s) par les commerciaux',
+      netCash: 'Net caisse',
+      netCashSub: 'Encaissé − Dépenses',
+      controlKo: 'Contrôle non vérifié : le chiffre d\'affaires devrait égaler l\'encaissé sur les factures de la période + les impayés.',
+    },
     title: 'Tableau de bord',
     welcome: 'Bienvenue, {{name}}',
     agencies: 'Agences',

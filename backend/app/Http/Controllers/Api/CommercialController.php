@@ -566,15 +566,23 @@ class CommercialController extends Controller
         $from = $request->date('from');
         $to = $request->date('to');
 
-        $paidFilter = fn ($q) => $q->where('status', 'paid')
-            ->whereNull('cancelled_at')
+        // CA d'un commercial = ses factures validées (payées ou non), cf. FinancialKpiService.
+        // Filtre agence = agence de la FACTURE (vente inter-agences, B16) : une
+        // commerciale d'Abidjan qui vend à Douala apparaît dans le classement de Douala.
+        $agencyFilter = $request->agency_id;
+        $paidFilter = fn ($q) => $q->whereNull('cancelled_at')
             ->where('validation_status', Invoice::VALIDATION_VALIDATED)
+            ->when($agencyFilter, fn ($q, $v) => $q->where('agency_id', $v))
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
 
         $commercials = $this->scopeByRole(Commercial::query(), $request->user())
             ->kind($request->input('kind', $this->defaultKind($request)))
-            ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
+            ->when($agencyFilter, fn ($q, $v) => $q->where(fn ($w) => $w->where('agency_id', $v)
+                ->orWhereExists(fn ($e) => $e->selectRaw('1')->from('invoices')
+                    ->whereColumn('invoices.commercial_id', 'commercials.id')
+                    ->where('invoices.agency_id', $v)
+                    ->whereNull('invoices.cancelled_at'))))
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $s = $request->input('search');
@@ -657,8 +665,7 @@ class CommercialController extends Controller
      */
     private function rankRowForTrainer(Trainer $trainer, ?string $from, ?string $to): array
     {
-        $paidFilter = fn ($q) => $q->where('status', 'paid')
-            ->whereNull('cancelled_at')
+        $paidFilter = fn ($q) => $q->whereNull('cancelled_at')
             ->where('validation_status', Invoice::VALIDATION_VALIDATED)
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to));
@@ -760,7 +767,6 @@ class CommercialController extends Controller
         $to = $request->date('to');
 
         $base = $commercial->invoices()
-            ->where('status', 'paid')
             ->where('validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereNull('cancelled_at')
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
@@ -783,7 +789,6 @@ class CommercialController extends Controller
         $servicesSold = DB::table('invoice_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->where('invoices.commercial_id', $commercial->id)
-            ->where('invoices.status', 'paid')
             ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereNull('invoices.cancelled_at')
             ->when($from, fn ($q) => $q->whereDate('invoices.invoice_date', '>=', $from))
@@ -850,8 +855,7 @@ class CommercialController extends Controller
                 'turnover' => Invoice::query()
                     ->selectRaw('coalesce(sum(total_amount), 0)')
                     ->whereColumn('commercial_id', 'commercials.id')
-                    ->where('status', 'paid')
-                    ->where('validation_status', Invoice::VALIDATION_VALIDATED)
+                            ->where('validation_status', Invoice::VALIDATION_VALIDATED)
                     ->whereNull('cancelled_at'),
             ])
             ->get(['id'])
@@ -867,7 +871,6 @@ class CommercialController extends Controller
         $salesCount = (int) DB::table('invoice_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->where('invoices.commercial_id', $commercial->id)
-            ->where('invoices.status', 'paid')
             ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereNull('invoices.cancelled_at')
             ->when($from, fn ($q) => $q->whereDate('invoices.invoice_date', '>=', $from))

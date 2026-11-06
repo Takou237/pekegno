@@ -1,4 +1,11 @@
 export interface DashboardStats {
+  /** Cartes du cahier (FinancialKpiService). */
+  recoveries_total?: number;
+  pending_validation_total?: number;
+  pending_validation_count?: number;
+  average_basket?: number;
+  control_ok?: boolean;
+  currency_code?: string;
   period: { from: string; to: string };
   revenue: number;
   payments_total: number;
@@ -26,6 +33,13 @@ export interface DashboardStats {
 }
 
 export interface AgencyStats {
+  /** Cartes du cahier (FinancialKpiService). */
+  recoveries_total?: number;
+  pending_validation_total?: number;
+  pending_validation_count?: number;
+  average_basket?: number;
+  control_ok?: boolean;
+  currency_code?: string;
   agency: { id: string; name: string };
   period: { from: string; to: string };
   revenue: number;
@@ -107,6 +121,13 @@ export interface CountryStat {
 }
 
 export interface GroupStats {
+  /** Cartes du cahier (FinancialKpiService). */
+  recoveries_total?: number;
+  pending_validation_total?: number;
+  pending_validation_count?: number;
+  average_basket?: number;
+  control_ok?: boolean;
+  currency_code?: string;
   period: { from: string; to: string };
   revenue: number;
   payments_total: number;

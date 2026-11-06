@@ -17,6 +17,7 @@ class InvoicePayment extends Model
         'payment_method',
         'is_advance',
         'paid_at',
+        'cancelled_at',
         'received_by',
         'comment',
         'treasury_account_id',
@@ -29,6 +30,7 @@ class InvoicePayment extends Model
             'amount' => 'decimal:2',
             'is_advance' => 'boolean',
             'paid_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
 

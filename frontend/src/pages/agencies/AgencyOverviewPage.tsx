@@ -10,15 +10,12 @@ import {
   Phone,
   Mail,
   ArrowRight,
-  TrendingUp,
-  Wallet,
-  Clock,
-  Trophy,
 } from 'lucide-react';
 import { servicesApi } from '@/api/services.api';
 import { usersApi } from '@/api/users.api';
 import { promotionsApi } from '@/api/promotions.api';
 import { statsApi } from '@/api/stats.api';
+import { FinancialKpiCards } from '@/components/dashboard/FinancialKpiCards';
 import { currentLocale } from '@/i18n';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
@@ -129,6 +126,8 @@ export default function AgencyOverviewPage() {
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{agency.name}</h1>
         <PeriodPicker value={period} onChange={setPeriod} />
       </div>
+      {/* Cartes de la section 1 du cahier, en tête (calcul unique serveur, monnaie de l'agence). */}
+      <FinancialKpiCards kpis={agencyStats} currency={agencyStats?.currency_code} />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, to, color, bg }) => (
           <Link
@@ -145,61 +144,6 @@ export default function AgencyOverviewPage() {
             </div>
           </Link>
         ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-              <TrendingUp className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-lg font-bold sm:text-2xl text-gray-900 dark:text-white">
-                {formatPrice(String(agencyStats?.revenue ?? 0))}
-              </p>
-              <p className="truncate text-sm text-gray-500 dark:text-gray-400">{t('dashboard.revenue')}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400">
-              <Wallet className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-lg font-bold sm:text-2xl text-gray-900 dark:text-white">
-                {agencyStats?.sales_count ?? 0}
-              </p>
-              <p className="truncate text-sm text-gray-500 dark:text-gray-400">{t('dashboard.salesCount')}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
-              <Clock className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-lg font-bold sm:text-2xl text-amber-600 dark:text-amber-400">
-                {formatPrice(String(agencyStats?.outstanding ?? 0))}
-              </p>
-              <p className="truncate text-sm text-gray-500 dark:text-gray-400">{t('dashboard.outstanding')}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400">
-              <Trophy className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-lg font-bold sm:text-2xl text-gray-900 dark:text-white">
-                {agencyStats?.top_commercials.length ?? 0}
-              </p>
-              <p className="truncate text-sm text-gray-500 dark:text-gray-400">{t('dashboard.topCommercials')}</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       <MonthlyRevenueChart data={monthly} />

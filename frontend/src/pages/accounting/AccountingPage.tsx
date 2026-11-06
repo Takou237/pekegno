@@ -146,7 +146,15 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
       setTransactions(
         [...(res.transactions?.data ?? [])].sort((a, b) => Number(b.number) - Number(a.number)),
       );
-      setMeta(res.transactions?.meta ?? null);
+      // L'API renvoie un paginateur Laravel brut (current_page, last_page… à la
+      // racine), sans clé « meta » : la pagination ne s'affichait jamais (B10).
+      const page_ = res.transactions as unknown as Partial<PaginationMeta> & { meta?: PaginationMeta };
+      setMeta(
+        page_?.meta ??
+          (page_?.current_page != null
+            ? { current_page: page_.current_page, last_page: page_.last_page ?? 1, per_page: page_.per_page ?? 15, total: page_.total ?? 0 }
+            : null),
+      );
       if (res.totals) {
         setServerTotals(res.totals);
       }

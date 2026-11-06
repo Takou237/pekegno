@@ -163,8 +163,9 @@ class ReportController extends Controller
             ->get()
             ->map(fn ($row) => ['city' => $row->name, 'count' => (int) $row->total]);
 
+        // CA = factures validées non annulées de la période, payées ou non
+        // (calcul unique, cf. FinancialKpiService) — plus seulement les factures soldées.
         $invoices = Invoice::whereNull('invoices.cancelled_at')
-            ->where('invoices.status', 'paid')
             ->validated()
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('invoices.agency_id', $agencyId))
@@ -251,8 +252,9 @@ class ReportController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
+        // CA = factures validées non annulées de la période, payées ou non
+        // (calcul unique, cf. FinancialKpiService) — plus seulement les factures soldées.
         $query = Invoice::whereNull('cancelled_at')
-            ->where('status', 'paid')
             ->validated()
             ->whereBetween('invoice_date', [$from, $to])
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('agency_id', $agencyId))
@@ -284,7 +286,7 @@ class ReportController extends Controller
             ->join('agencies', 'agencies.id', '=', 'invoices.agency_id')
             ->when($dimension === 'country', fn ($q) => $q->join('countries', 'countries.id', '=', 'agencies.country_id'))
             ->when($dimension === 'city', fn ($q) => $q->join('cities', 'cities.id', '=', 'agencies.city_id'))
-            ->select([...$select, DB::raw('sum(invoices.total_amount) as revenue'), DB::raw('count(*) as invoices')])
+            ->select([...$select, DB::raw('round(sum(invoices.total_amount * '.\App\Support\GroupCurrency::rateSql('invoices.agency_id').')) as revenue'), DB::raw('count(*) as invoices')])
             ->groupBy($groupBy)
             ->orderByDesc('revenue')
             ->get();

@@ -52,6 +52,7 @@ class AcademyReportService
 
             $activeEnrollments = FormationEnrollment::where('course_id', $course->id)
                 ->active()
+                ->with('invoice:id,total_amount,cancelled_at')
                 ->get();
 
             $enrolled = $activeEnrollments->count();
@@ -66,11 +67,7 @@ class AcademyReportService
             $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
             $marked = $attendanceStatuses->count();
 
-            $revenue = $courseSessions->sum(function ($session) use ($enrolled, $course) {
-                $price = $session->price !== null ? (float) $session->price : (float) ($course->price ?? 0);
-
-                return $enrolled * $price;
-            });
+            $revenue = self::enrollmentsRevenue($activeEnrollments, $course);
 
             $rate = $marked > 0 ? round($present / $marked * 100, 1) : 0;
 
@@ -314,5 +311,27 @@ class AcademyReportService
             'top_services' => $topServices,
             'by_category' => $byCategory,
         ];
+    }
+
+    /**
+     * Revenus d'une formation = somme des montants de ses inscriptions actives
+     * (B7) : le montant de la facture de l'inscription (remise comprise), ou le
+     * prix de la formation sans facture. Une inscription compte UNE fois, quel que
+     * soit le nombre de sessions (l'ancien calcul inscrits × prix × sessions
+     * gonflait le chiffre, ex. CRS-00001 : 35 × 189 000 × 4).
+     *
+     * @param  \Illuminate\Support\Collection<int, FormationEnrollment>  $enrollments  avec la relation invoice chargée
+     */
+    public static function enrollmentsRevenue(\Illuminate\Support\Collection $enrollments, Course $course): float
+    {
+        $price = (float) ($course->effective_price ?? $course->price ?? 0);
+
+        return round((float) $enrollments->sum(function (FormationEnrollment $e) use ($price) {
+            if ($e->invoice && $e->invoice->cancelled_at === null) {
+                return (float) $e->invoice->total_amount;
+            }
+
+            return $e->invoice_id ? 0.0 : $price;
+        }));
     }
 }

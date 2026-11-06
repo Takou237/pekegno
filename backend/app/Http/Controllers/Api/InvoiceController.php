@@ -27,6 +27,7 @@ use App\Services\ContractService;
 use App\Services\FormationEnrollmentActivator;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\InvoiceRejectionNotifier;
+use App\Services\InvoiceCancellationService;
 use App\Services\InvoiceClientCleanupService;
 use App\Services\PaymentService;
 use App\Services\PendingInvoiceNotifier;
@@ -191,7 +192,7 @@ class InvoiceController extends Controller
             ->when($request->commercial_id, fn ($q, $id) => $q->where('commercial_id', $id))
             ->when($request->from, fn ($q, $d) => $q->whereDate('invoice_date', '>=', $d))
             ->when($request->to, fn ($q, $d) => $q->whereDate('invoice_date', '<=', $d))
-            ->when(! $request->boolean('include_cancelled'), fn ($q) => $q->whereNull('cancelled_at'));
+            ->when(! $request->boolean('include_cancelled'), fn ($q) => $q->whereNull('invoices.cancelled_at'));
 
         $totals = (clone $base)->selectRaw(
             'coalesce(sum(amount_paid), 0) as revenue, '
@@ -1070,6 +1071,9 @@ class InvoiceController extends Controller
         $invoice->update(['cancelled_at' => now()]);
         $invoice->refreshStatus();
         $invoice->save();
+
+        // Paiements, recettes comptables et commissions annulés avec la facture (B9).
+        app(InvoiceCancellationService::class)->reverseFinancials($invoice, $request->user()->id);
 
         $this->logger->log('cancelled', 'invoice', $invoice->id, "Facture {$invoice->number} annulée", agencyId: $invoice->agency_id);
 

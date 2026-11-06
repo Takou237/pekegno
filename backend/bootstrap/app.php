@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CacheApiResponse;
 use App\Http\Middleware\CompressResponse;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsureInvoiceValidator;
@@ -7,6 +8,7 @@ use App\Http\Middleware\EnsurePortal;
 use App\Http\Middleware\EnsureSingleSession;
 use App\Http\Middleware\EnsureSubscriptionsWritable;
 use App\Http\Middleware\InactivityLogout;
+use App\Http\Middleware\InvalidateApiCache;
 use App\Http\Middleware\UpdateLastActivity;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(CompressResponse::class);
+        // Toute écriture réussie invalide le cache des réponses (App\Support\ApiCache).
+        $middleware->append(InvalidateApiCache::class);
 
         $middleware->alias([
             'single.session' => EnsureSingleSession::class,
@@ -31,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'invoice.validator' => EnsureInvoiceValidator::class,
             'portal' => EnsurePortal::class,
             'subscriptions.writable' => EnsureSubscriptionsWritable::class,
+            'cache.response' => CacheApiResponse::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

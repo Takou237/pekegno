@@ -4,11 +4,6 @@ import {
   Building2,
   FolderTree,
   Users,
-  TrendingUp,
-  TrendingDown,
-  Wallet,
-  HandCoins,
-  Clock,
   ArrowRight,
   Globe,
   Star,
@@ -16,42 +11,13 @@ import {
 import { useTranslation } from 'react-i18next';
 import { client } from '@/api/client';
 import { statsApi } from '@/api/stats.api';
+import { FinancialKpiCards } from '@/components/dashboard/FinancialKpiCards';
 import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import { PeriodPicker, defaultPeriod, type Period } from '@/components/ui/PeriodPicker';
 import { formatCurrency } from '@/utils/number';
 import type { DashboardStats, MonthlyRevenuePoint } from '@/types/stats';
 import type { Agency } from '@/types/agency';
-import type { ReactNode } from 'react';
-
-function StatCard({
-  label,
-  value,
-  icon,
-  tone,
-  sub,
-}: {
-  label: string;
-  value: string;
-  icon: ReactNode;
-  tone: string;
-  sub?: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex flex-col items-start gap-2 *:max-w-full sm:flex-row sm:items-center sm:gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
-          {icon}
-        </div>
-        <div className="w-full min-w-0">
-          <p className="truncate text-lg font-bold sm:text-2xl text-gray-900 dark:text-white">{value}</p>
-          <p className="truncate text-sm text-gray-500 dark:text-gray-400">{label}</p>
-          {sub && <p className="truncate text-xs text-gray-400">{sub}</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function CountryDashboardPage() {
   const { t } = useTranslation();
@@ -144,39 +110,8 @@ export default function CountryDashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
-        <StatCard
-          label={t('dashboard.revenue')}
-          value={formatCurrency(stats?.revenue ?? 0)}
-          icon={<TrendingUp className="h-5 w-5" />}
-          tone="bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
-        />
-        <StatCard
-          label={t('dashboard.paymentsTotal')}
-          value={formatCurrency(stats?.payments_total ?? 0)}
-          icon={<Wallet className="h-5 w-5" />}
-          tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
-        />
-        <StatCard
-          label={t('dashboard.expensesTotal')}
-          value={formatCurrency(stats?.expenses_total ?? 0)}
-          icon={<TrendingDown className="h-5 w-5" />}
-          tone="bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
-          sub={stats?.net_cash != null ? `${t('dashboard.netCash')} : ${formatCurrency(stats.net_cash)}` : undefined}
-        />
-        <StatCard
-          label={t('dashboard.advancesTotal')}
-          value={formatCurrency(stats?.advances_total ?? 0)}
-          icon={<HandCoins className="h-5 w-5" />}
-          tone="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"
-        />
-        <StatCard
-          label={t('dashboard.outstanding')}
-          value={formatCurrency(stats?.outstanding ?? 0)}
-          icon={<Clock className="h-5 w-5" />}
-          tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
-        />
-      </div>
+      {/* Cartes de la section 1 du cahier, dans la monnaie du pays (calcul unique serveur). */}
+      <FinancialKpiCards kpis={stats} currency={(stats as { country?: { currency_code?: string } } | null)?.country?.currency_code} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link

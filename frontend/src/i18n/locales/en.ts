@@ -887,6 +887,22 @@ export default {
   },
 
   dashboard: {
+    kpi: {
+      revenue: 'Revenue',
+      revenueSub: '{{count}} validated invoices · average basket {{basket}}',
+      collected: 'Collected',
+      collectedSub: 'incl. {{amount}} recovered from older invoices',
+      advances: 'Advances',
+      advancesSub: 'Paid on invoices not yet settled',
+      outstanding: 'Unpaid',
+      outstandingSub: 'Balance due on invoices of the period',
+      expenses: 'Expenses',
+      pending: 'Awaiting validation',
+      pendingSub: '{{count}} invoice(s) announced by sales reps',
+      netCash: 'Net cash',
+      netCashSub: 'Collected − Expenses',
+      controlKo: 'Check failed: revenue should equal the amount collected on the period invoices + unpaid.',
+    },
     title: 'Dashboard',
     welcome: 'Welcome, {{name}}',
     agencies: 'Agencies',

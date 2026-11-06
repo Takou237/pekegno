@@ -10,7 +10,7 @@ use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\RevenueService;
+use App\Services\FinancialKpiService;
 use App\Services\ScopeService;
 use App\Support\GroupCurrency;
 use App\Support\Period;
@@ -81,85 +81,21 @@ class DashboardController extends Controller
 
         $agencies = $this->agenciesInLevel($agencyIds, $country, $city, $agency);
 
-        $invoiceQuery = function ($q) use ($agencyIds, $country, $city, $agency) {
-            $q->join('agencies', 'agencies.id', '=', 'invoices.agency_id')
-                ->when($agencyIds !== null, fn ($inner) => $inner->whereIn('invoices.agency_id', $agencyIds))
-                ->when($country, fn ($inner) => $inner->where('agencies.country_id', $country->id))
-                ->when($city, fn ($inner) => $inner->where('agencies.city_id', $city->id))
-                ->when($agency, fn ($inner) => $inner->where('invoices.agency_id', $agency->id));
-
-            return $q;
-        };
-
-        $invoicesBase = static function () use ($from, $to, $invoiceQuery) {
-            // Même définition du chiffre d'affaires que StatsController : factures
-            // validées uniquement (les pending/rejetées n'entrent pas en comptabilité),
-            // sinon les chiffres ne concordent pas entre les niveaux agence → groupe.
-            return $invoiceQuery(
-                Invoice::query()
-                    ->whereBetween('invoices.invoice_date', [$from, $to])
-                    ->whereNull('invoices.cancelled_at')
-                    ->validated()
-            );
-        };
-
-        // Niveau groupe (plusieurs pays) : montants convertis dans la monnaie du
-        // groupe. À partir du niveau pays, tout est dans la monnaie du pays.
-        $rateFactor = $country ? '' : ' * '.GroupCurrency::rateSql('invoices.agency_id');
-
-        // CA = encaissements (hors pass-through) de la période, par agence.
-        $revenueByAgency = app(RevenueService::class)->byAgency($from, $to, [
-            'agency_ids' => $agencyIds,
-            'country_id' => $country?->id,
-            'city_id' => $city?->id,
-            'agency_id' => $agency?->id,
-        ], $country === null);
-
-        $paidCounts = $invoicesBase()
-            ->where('invoices.status', 'paid')
-            ->selectRaw('invoices.agency_id, count(*) as invoices_paid')
-            ->groupBy('invoices.agency_id')
-            ->get()
-            ->keyBy('agency_id');
-
-        $counts = $invoicesBase()
-            ->selectRaw('invoices.agency_id, count(*) as invoices_total')
-            ->groupBy('invoices.agency_id')
-            ->get()
-            ->keyBy('agency_id');
-
-        $payments = $invoiceQuery(
-            InvoicePayment::query()
-                ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
-                ->whereBetween('invoice_payments.paid_at', [$from, $to])
-                ->whereNull('invoices.cancelled_at')
-                ->where('invoices.validation_status', 'validated')
-        )->sum(DB::raw('invoice_payments.amount'.$rateFactor));
-
-        $rates = $country ? [] : GroupCurrency::agencyRates();
-        $outstanding = $invoicesBase()
-            ->whereIn('invoices.status', ['unpaid', 'partial'])
-            ->get(['invoices.agency_id', 'invoices.total_amount', 'invoices.amount_paid'])
-            ->sum(fn (Invoice $i) => $i->balance_due * ($rates[$i->agency_id] ?? 1));
-
-        // Dépenses comptables du niveau (même périmètre agences) : cohérence
-        // avec /stats/group (expenses_total / net_cash).
-        $expenseRate = $country ? '' : ' * '.GroupCurrency::rateSql('accounting_transactions.agency_id');
-        $expenses = \App\Models\AccountingTransaction::where('type', 'expense')
-            ->whereBetween('transacted_at', [$from, $to])
-            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
-            ->when($country, fn ($q) => $q->whereIn('agency_id', \App\Models\Agency::idsForCountry($country->id)))
-            ->when($city, fn ($q) => $q->whereIn('agency_id', \App\Models\Agency::where('city_id', $city->id)->pluck('id')))
-            ->when($agency, fn ($q) => $q->where('agency_id', $agency->id))
-            ->sum(DB::raw('amount'.$expenseRate));
+        // Cartes financières : calcul unique (FinancialKpiService, section 1 du
+        // cahier), par agence du niveau puis au total. Monnaie du groupe tant
+        // qu'aucun pays n'est sélectionné, monnaie du pays ensuite.
+        $convert = $country === null;
+        $kpiService = app(FinancialKpiService::class);
+        $perAgencyKpi = $agencies->mapWithKeys(fn (Agency $a) => [$a->id => $kpiService->summary($from, $to, [$a->id], $convert)]);
+        $kpi = $kpiService->summary($from, $to, $agencies->pluck('id')->all(), $convert);
 
         $agenciesPerNode = $agencies->map(fn (Agency $a) => [
             'agency_id' => $a->id,
             'country_id' => $a->country_id,
             'city_id' => $a->city_id,
-            'revenue' => (float) ($revenueByAgency->get($a->id)['fees'] ?? 0),
-            'invoices_total' => (int) ($counts->get($a->id)->invoices_total ?? 0),
-            'invoices_paid' => (int) ($paidCounts->get($a->id)->invoices_paid ?? 0),
+            'revenue' => $perAgencyKpi[$a->id]['revenue'],
+            'invoices_total' => $perAgencyKpi[$a->id]['invoices_validated'],
+            'invoices_paid' => $perAgencyKpi[$a->id]['invoices_paid'],
         ]);
 
         return response()->json([
@@ -170,13 +106,20 @@ class DashboardController extends Controller
                 'to' => $to->toISOString(),
             ],
             'kpis' => [
-                'revenue' => (float) $agenciesPerNode->sum('revenue'),
-                'payments_total' => (float) $payments,
-                'expenses_total' => (float) $expenses,
-                'net_cash' => round((float) $payments - (float) $expenses, 2),
-                'outstanding' => (float) $outstanding,
-                'invoices_total' => (int) $agenciesPerNode->sum('invoices_total'),
-                'invoices_paid' => (int) $agenciesPerNode->sum('invoices_paid'),
+                'revenue' => $kpi['revenue'],
+                'payments_total' => $kpi['collected'],
+                'recoveries_total' => $kpi['recoveries'],
+                'advances_total' => $kpi['advances'],
+                'outstanding' => $kpi['outstanding'],
+                'expenses_total' => $kpi['expenses'],
+                'pending_validation_total' => $kpi['pending_validation'],
+                'pending_validation_count' => $kpi['pending_validation_count'],
+                'net_cash' => $kpi['net_cash'],
+                'invoices_total' => $kpi['invoices_validated'],
+                'invoices_paid' => $kpi['invoices_paid'],
+                'average_basket' => $kpi['average_basket'],
+                'collection_rate' => $kpi['collection_rate'],
+                'control_ok' => $kpi['control_ok'],
                 'clients_total' => $this->clientsCount($country, $city, $agency),
                 'agencies_total' => $agencies->count(),
             ],

@@ -278,6 +278,7 @@ class TrainingSessionController extends Controller
 
             $activeEnrollments = FormationEnrollment::where('course_id', $course->id)
                 ->active()
+                ->with('invoice:id,total_amount,cancelled_at')
                 ->when($from, fn ($q, $v) => $q->whereDate('enrolled_at', '>=', $v))
                 ->when($to, fn ($q, $v) => $q->whereDate('enrolled_at', '<=', $v))
                 ->get();
@@ -292,11 +293,7 @@ class TrainingSessionController extends Controller
             $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
             $marked = $attendanceStatuses->count();
 
-            $revenue = $sessions->sum(function ($session) use ($enrolled, $course) {
-                $price = $session->price !== null ? (float) $session->price : (float) ($course->price ?? 0);
-
-                return $enrolled * $price;
-            });
+            $revenue = \App\Services\AcademyReportService::enrollmentsRevenue($activeEnrollments, $course);
 
             $course->training_report = [
                 'sessions_count' => $sessions->count(),
