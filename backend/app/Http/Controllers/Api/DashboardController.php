@@ -10,7 +10,7 @@ use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\FinancialKpiService;
+use App\Services\FinancialMetricsService;
 use App\Services\ScopeService;
 use App\Support\GroupCurrency;
 use App\Support\Period;
@@ -81,11 +81,11 @@ class DashboardController extends Controller
 
         $agencies = $this->agenciesInLevel($agencyIds, $country, $city, $agency);
 
-        // Cartes financières : calcul unique (FinancialKpiService, section 1 du
+        // Cartes financières : calcul unique (FinancialMetricsService, section 1 du
         // cahier), par agence du niveau puis au total. Monnaie du groupe tant
         // qu'aucun pays n'est sélectionné, monnaie du pays ensuite.
         $convert = $country === null;
-        $kpiService = app(FinancialKpiService::class);
+        $kpiService = app(FinancialMetricsService::class);
         $perAgencyKpi = $agencies->mapWithKeys(fn (Agency $a) => [$a->id => $kpiService->summary($from, $to, [$a->id], $convert)]);
         $kpi = $kpiService->summary($from, $to, $agencies->pluck('id')->all(), $convert);
 

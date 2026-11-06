@@ -17,6 +17,9 @@ class InvoicePayment extends Model
         'payment_method',
         'is_advance',
         'paid_at',
+        'received_at',
+        'validated_at',
+        'validation_status',
         'cancelled_at',
         'received_by',
         'comment',
@@ -30,6 +33,8 @@ class InvoicePayment extends Model
             'amount' => 'decimal:2',
             'is_advance' => 'boolean',
             'paid_at' => 'datetime',
+            'received_at' => 'datetime',
+            'validated_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];
     }
@@ -42,6 +47,12 @@ class InvoicePayment extends Model
     {
         static::creating(function (InvoicePayment $payment) {
             $payment->receipt_number ??= app(ReceiptNumberGenerator::class)->next();
+
+            // T1.3 : un paiement enregistré est réputé reçu et validé à sa date
+            // de règlement, sauf indication contraire explicite.
+            $payment->received_at ??= $payment->paid_at;
+            $payment->validated_at ??= $payment->paid_at;
+            $payment->validation_status ??= 'validated';
         });
     }
 

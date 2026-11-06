@@ -15,7 +15,7 @@ use App\Models\InvoicePayment;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AcademyReportService;
-use App\Services\FinancialKpiService;
+use App\Services\FinancialMetricsService;
 use App\Services\RevenueService;
 use App\Services\ScopeService;
 use App\Support\GroupCurrency;
@@ -52,7 +52,7 @@ class StatsController extends Controller
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
         // Cartes financières : calcul unique (section 1 du cahier), converti dans la monnaie du groupe.
-        $kpi = app(FinancialKpiService::class)->summary($from, $to, $agencyIds, true);
+        $kpi = app(FinancialMetricsService::class)->summary($from, $to, $agencyIds, true);
 
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
             ->when($countryIds !== null, fn ($q) => $q->whereIn('country_id', $countryIds))
@@ -69,7 +69,7 @@ class StatsController extends Controller
             ->get()
             ->map(function (Commercial $c) use ($from, $to) {
                 // CA du commercial = ses factures validées, quelle que soit l'agence de la facture.
-                $revenue = app(FinancialKpiService::class)->summary($from, $to, null, true, $c->id)['revenue'];
+                $revenue = app(FinancialMetricsService::class)->summary($from, $to, null, true, $c->id)['revenue'];
 
                 return [
                     'c' => $c,
@@ -142,7 +142,7 @@ class StatsController extends Controller
             ? Department::where('agency_id', $agency->id)->findOrFail($request->input('department_id'))
             : null;
 
-        $kpi = app(FinancialKpiService::class)->summary($from, $to, [$agency->id], false, null, $department);
+        $kpi = app(FinancialMetricsService::class)->summary($from, $to, [$agency->id], false, null, $department);
 
         $top = (clone $invoices)
             ->selectRaw('commercial_id, count(*) as sales')
@@ -153,7 +153,7 @@ class StatsController extends Controller
             ->map(function ($row) use ($from, $to, $agency) {
                 $commercial = Commercial::find($row->commercial_id);
                 // Ventes du commercial dans CETTE agence (agence de la facture).
-                $turnover = app(FinancialKpiService::class)->summary($from, $to, [$agency->id], false, $row->commercial_id)['revenue'];
+                $turnover = app(FinancialMetricsService::class)->summary($from, $to, [$agency->id], false, $row->commercial_id)['revenue'];
 
                 return [
                     'id' => $row->commercial_id,
@@ -206,7 +206,7 @@ class StatsController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
-        // Même calcul que les cartes (FinancialKpiService) : CA = factures validées
+        // Même calcul que les cartes (FinancialMetricsService) : CA = factures validées
         // non annulées, par MOIS DE FACTURE ; « collected » = encaissé, par mois de
         // paiement. Monnaie du groupe en vue multi-pays, locale sinon.
         $convert = ! ($request->input('country_id') || $request->input('agency_id'));
@@ -279,7 +279,7 @@ class StatsController extends Controller
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         // CA d'un commercial = ses factures validées de la période (calcul unique,
-        // cf. FinancialKpiService), dans les agences du périmètre — l'agence de la
+        // cf. FinancialMetricsService), dans les agences du périmètre — l'agence de la
         // FACTURE, pas celle de son profil (vente inter-agences, B16).
         $paidByCommercial = DB::table('invoices')
             ->whereNull('invoices.cancelled_at')
@@ -489,7 +489,7 @@ class StatsController extends Controller
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
         // Cartes financières du groupe : calcul unique, converti dans la monnaie du groupe.
-        $kpi = app(FinancialKpiService::class)->summary($from, $to, $agencyIds, true);
+        $kpi = app(FinancialMetricsService::class)->summary($from, $to, $agencyIds, true);
 
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
             ->when($agencyIds !== null, function ($q) use ($agencyIds) {
@@ -519,7 +519,7 @@ class StatsController extends Controller
                 $countryAgencyIds = collect(Agency::idsForCountry($country->id));
 
                 // Monnaie locale du pays : calcul unique des cartes.
-                $countryKpi = app(FinancialKpiService::class)->summary($from, $to, $countryAgencyIds->values()->all());
+                $countryKpi = app(FinancialMetricsService::class)->summary($from, $to, $countryAgencyIds->values()->all());
 
                 return [
                     'id' => $country->id,
@@ -589,7 +589,7 @@ class StatsController extends Controller
             ->validated();
 
         // Cartes financières du pays (monnaie locale) : calcul unique.
-        $kpi = app(FinancialKpiService::class)->summary($from, $to, array_values($countryAgencyIds));
+        $kpi = app(FinancialMetricsService::class)->summary($from, $to, array_values($countryAgencyIds));
 
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
             ->where('country_id', $country->id)
@@ -615,7 +615,7 @@ class StatsController extends Controller
             ->map(fn (Commercial $c) => [
                 'c' => $c,
                 // Ventes du commercial dans les agences du pays (agence de la facture).
-                'revenue' => app(FinancialKpiService::class)->summary($from, $to, array_values($countryAgencyIds), false, $c->id)['revenue'],
+                'revenue' => app(FinancialMetricsService::class)->summary($from, $to, array_values($countryAgencyIds), false, $c->id)['revenue'],
             ])
             ->sortByDesc('revenue')
             ->values()
@@ -687,7 +687,7 @@ class StatsController extends Controller
     }
 
     /**
-     * Cartes financières (FinancialKpiService) au format des réponses de stats.
+     * Cartes financières (FinancialMetricsService) au format des réponses de stats.
      * Les anciennes clés sont conservées (revenue, payments_total…) avec le
      * calcul du cahier : `revenue` = CA facturé validé, `payments_total` = encaissé.
      *

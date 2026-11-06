@@ -9,11 +9,12 @@ use App\Models\Course;
 use App\Models\Department;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\AccountingService;
-use App\Services\FinancialKpiService;
+use App\Services\FinancialMetricsService;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -102,7 +103,7 @@ class FinancialKpiTest extends TestCase
     {
         $this->scenario();
 
-        $kpi = app(FinancialKpiService::class)->summary(
+        $kpi = app(FinancialMetricsService::class)->summary(
             Carbon::parse('2026-11-01'), Carbon::parse('2026-11-30 23:59:59'), [$this->agency->id]
         );
 
@@ -177,6 +178,133 @@ class FinancialKpiTest extends TestCase
         $this->getJson("/api/stats/agency/{$this->agency->id}?{$q}")->assertJsonPath('revenue', 110000);
         $this->getJson("/api/stats/agency/{$this->agency->id}?{$q}&department_id={$academy->id}")->assertJsonPath('revenue', 80000);
         $this->getJson("/api/stats/agency/{$this->agency->id}?{$q}&department_id={$agencyDept->id}")->assertJsonPath('revenue', 30000);
+    }
+
+    public function test_metrics_endpoint_exposes_the_single_financial_contract(): void
+    {
+        $this->scenario();
+        Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]));
+        $q = 'from=2026-11-01&to=2026-11-30';
+
+        $this->getJson("/api/metrics/summary?{$q}")
+            ->assertOk()
+            ->assertJsonPath('ca', 100000)
+            ->assertJsonPath('encaisse', 50000)
+            ->assertJsonPath('impayes', 60000)
+            ->assertJsonPath('acomptes', 40000)
+            ->assertJsonPath('depenses', 5000)
+            ->assertJsonPath('en_attente_validation', 20000)
+            ->assertJsonPath('net_caisse', 45000)
+            ->assertJsonPath('control_ok', true)
+            ->assertJsonStructure(['period' => ['from', 'to'], 'currency_code']);
+
+        $this->getJson("/api/metrics/breakdown?{$q}")
+            ->assertOk()
+            ->assertJsonPath('by_mode.total', 50000)
+            ->assertJsonPath('by_mode.buckets.cash', 50000)
+            ->assertJsonPath('by_agency.0.revenue', 100000)
+            ->assertJsonPath('by_agency.0.collected', 50000);
+    }
+
+    public function test_metrics_breakdown_sums_match_the_summary(): void
+    {
+        $this->scenario();
+        Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]));
+        $q = 'from=2026-11-01&to=2026-11-30';
+
+        $summary = $this->getJson("/api/metrics/summary?{$q}")->assertOk()->json();
+        $breakdown = $this->getJson("/api/metrics/breakdown?{$q}")->assertOk()->json();
+
+        $this->assertSame($summary['ca'], array_sum(array_column($breakdown['by_agency'], 'revenue')));
+        $this->assertSame($summary['encaisse'], $breakdown['by_mode']['total']);
+        $this->assertSame($summary['encaisse'], array_sum(array_column($breakdown['by_agency'], 'collected')));
+    }
+
+    public function test_collected_uses_the_reception_date_and_ignores_rejected_payments(): void
+    {
+        $invoice = $this->invoice('2026-11-30', 10000, 10000);
+        $payment = InvoicePayment::create([
+            'invoice_id' => $invoice->id,
+            'amount' => 10000,
+            'payment_method' => 'cash',
+            'paid_at' => '2026-11-30',
+            'received_at' => '2026-12-02',
+        ]);
+
+        $service = app(FinancialMetricsService::class);
+        $november = $service->summary(Carbon::parse('2026-11-01'), Carbon::parse('2026-11-30 23:59:59'), [$this->agency->id]);
+        $december = $service->summary(Carbon::parse('2026-12-01'), Carbon::parse('2026-12-31 23:59:59'), [$this->agency->id]);
+
+        $this->assertSame(10000.0, $november['ca']);
+        $this->assertSame(0.0, $november['collected']);
+        $this->assertSame(10000.0, $december['collected']);
+        $this->assertSame(10000.0, $december['recoveries']);
+
+        // Un paiement rejeté n'est jamais encaissé, même s'il est daté dans la période.
+        $payment->update(['validation_status' => 'rejected']);
+        $december = $service->summary(Carbon::parse('2026-12-01'), Carbon::parse('2026-12-31 23:59:59'), [$this->agency->id]);
+        $this->assertSame(0.0, $december['collected']);
+    }
+
+    public function test_pass_through_budget_is_excluded_from_revenue_and_collected(): void
+    {
+        $invoice = $this->invoice('2026-11-10', 100000, 100000);
+        InvoiceItem::create([
+            'invoice_id' => $invoice->id,
+            'label' => 'Budget publicitaire client',
+            'unit_price' => 30000,
+            'quantity' => 1,
+            'line_total' => 30000,
+            'is_pass_through' => true,
+        ]);
+        InvoiceItem::create([
+            'invoice_id' => $invoice->id,
+            'label' => 'Prestation Pekegno',
+            'unit_price' => 70000,
+            'quantity' => 1,
+            'line_total' => 70000,
+            'is_pass_through' => false,
+        ]);
+        $this->pay($invoice, 100000, '2026-11-10');
+
+        $kpi = app(FinancialMetricsService::class)->summary(
+            Carbon::parse('2026-11-01'), Carbon::parse('2026-11-30 23:59:59'), [$this->agency->id]
+        );
+
+        $this->assertSame(70000.0, $kpi['ca']);
+        $this->assertSame(70000.0, $kpi['encaisse']);
+        $this->assertTrue($kpi['control_ok']);
+    }
+
+    public function test_agency_filter_narrows_the_metrics_to_the_scope(): void
+    {
+        $this->scenario();
+        $other = Agency::factory()->create();
+        $invoice = Invoice::create([
+            'number' => 'PK-OTHER-001',
+            'agency_id' => $other->id,
+            'invoice_date' => '2026-11-10',
+            'total_amount' => 90000,
+            'amount_paid' => 0,
+            'discount' => 0,
+            'vat_rate' => 0,
+            'status' => 'unpaid',
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+            'source' => 'in_person',
+        ]);
+
+        Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]));
+
+        $this->getJson("/api/metrics/summary?from=2026-11-01&to=2026-11-30&agency_id={$this->agency->id}")
+            ->assertOk()
+            ->assertJsonPath('ca', 100000)
+            ->assertJsonPath('converted', false);
+
+        $this->getJson("/api/metrics/summary?from=2026-11-01&to=2026-11-30&agency_id={$other->id}")
+            ->assertOk()
+            ->assertJsonPath('ca', 90000);
+
+        $this->assertSame(90000.0, (float) $invoice->fresh()->total_amount);
     }
 
     public function test_course_revenue_counts_each_enrollment_once(): void

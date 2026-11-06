@@ -566,7 +566,7 @@ class CommercialController extends Controller
         $from = $request->date('from');
         $to = $request->date('to');
 
-        // CA d'un commercial = ses factures validées (payées ou non), cf. FinancialKpiService.
+        // CA d'un commercial = ses factures validées (payées ou non), cf. FinancialMetricsService.
         // Filtre agence = agence de la FACTURE (vente inter-agences, B16) : une
         // commerciale d'Abidjan qui vend à Douala apparaît dans le classement de Douala.
         $agencyFilter = $request->agency_id;

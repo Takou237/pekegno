@@ -18,6 +18,7 @@ class StoreInvoicePaymentRequest extends FormRequest
             'payment_method' => ['required', 'in:cash,om,momo,mobile,wave'],
             'is_advance' => ['sometimes', 'boolean'],
             'paid_at' => ['nullable', 'date'],
+            'received_at' => ['nullable', 'date'],
             'comment' => ['nullable', 'string', 'max:500'],
             'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
         ];

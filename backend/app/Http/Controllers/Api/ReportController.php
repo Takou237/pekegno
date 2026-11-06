@@ -164,7 +164,7 @@ class ReportController extends Controller
             ->map(fn ($row) => ['city' => $row->name, 'count' => (int) $row->total]);
 
         // CA = factures validées non annulées de la période, payées ou non
-        // (calcul unique, cf. FinancialKpiService) — plus seulement les factures soldées.
+        // (calcul unique, cf. FinancialMetricsService) — plus seulement les factures soldées.
         $invoices = Invoice::whereNull('invoices.cancelled_at')
             ->validated()
             ->whereBetween('invoices.invoice_date', [$from, $to])
@@ -253,7 +253,7 @@ class ReportController extends Controller
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
         // CA = factures validées non annulées de la période, payées ou non
-        // (calcul unique, cf. FinancialKpiService) — plus seulement les factures soldées.
+        // (calcul unique, cf. FinancialMetricsService) — plus seulement les factures soldées.
         $query = Invoice::whereNull('cancelled_at')
             ->validated()
             ->whereBetween('invoice_date', [$from, $to])

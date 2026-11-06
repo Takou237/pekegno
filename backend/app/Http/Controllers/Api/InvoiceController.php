@@ -182,7 +182,7 @@ class InvoiceController extends Controller
             })
             ->when($request->validation_status, function ($q, $s) {
                 $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
-                $q->whereIn('validation_status', $statuses);
+                $q->whereIn('invoices.validation_status', $statuses);
             })
             // « Mes ventes » : les factures du vendeur connecté, quelle que soit l'agence.
             ->when($request->boolean('mine'), fn ($q) => $q->where(fn ($q) => $this->whereOwnSale($q, $request->user())))
@@ -897,6 +897,7 @@ class InvoiceController extends Controller
             userId: $request->user()->id,
             treasuryAccountId: $request->input('treasury_account_id'),
             paidAt: $request->input('paid_at'),
+            receivedAt: $request->input('received_at'),
         );
 
         $this->logger->log(

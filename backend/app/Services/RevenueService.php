@@ -3,22 +3,21 @@
 namespace App\Services;
 
 use App\Models\Agency;
-use App\Models\Invoice;
-use App\Support\GroupCurrency;
+use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 /**
- * Source unique de vérité du chiffre d'affaires PEKEGNO : le CA correspond aux
- * ENCAISSEMENTS (invoice_payments) sur factures validées et non annulées — plus
- * jamais le montant facturé (`invoices.total_amount where status = 'paid'`).
+ * Façade historique du chiffre d'affaires.
  *
- * Le CA net (« fees ») exclut le budget publicitaire client (pass-through),
- * réparti au prorata des lignes de chaque facture, comme AgencyReportService et
- * le bilan du jour. Les montants sont convertis dans la monnaie du groupe au
- * niveau multi-pays (group / organisation), et laissés en monnaie locale dès
- * qu'un pays, une ville ou une agence est sélectionné.
+ * Depuis la décision T0.2, le calcul unique vit dans
+ * {@see FinancialMetricsService}. Cette classe est conservée pour ne pas casser
+ * les appelants existants (et les constantes de modes de paiement) : elle ne
+ * fait que déléguer.
+ *
+ * Attention : dans l'ancienne doctrine, « CA » signifiait encaissements. Les
+ * méthodes de cette façade restent donc des méthodes d'ENCAISSEMENT ; le CA
+ * facturé doit être lu via FinancialMetricsService::summary()['ca'].
  */
 class RevenueService
 {
@@ -34,6 +33,8 @@ class RevenueService
 
     /** Les 5 seaux de modes de paiement exposés par l'application. */
     public const MODES = [self::MODE_CASH, self::MODE_OM, self::MODE_MOMO, self::MODE_MOBILE, self::MODE_BANK];
+
+    public function __construct(private readonly FinancialMetricsService $metrics) {}
 
     /**
      * Normalise un libellé de mode de paiement (saisi librement pour certaines
@@ -63,60 +64,15 @@ class RevenueService
      */
     public function byAgency(Carbon $from, Carbon $to, array $filters = [], bool $convert = false): Collection
     {
-        $query = DB::table('invoice_payments')
-            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
-            ->whereBetween('invoice_payments.paid_at', [$from, $to]);
-
-        $this->applyScope($query, $filters);
-
-        $rows = $query
-            ->groupBy('invoices.id', 'invoices.agency_id')
-            ->selectRaw('invoices.id as invoice_id, invoices.agency_id, sum(invoice_payments.amount) as total, count(*) as payments')
-            ->get();
-
-        if ($rows->isEmpty()) {
-            return collect();
-        }
-
-        $ratios = DB::table('invoice_items')
-            ->whereIn('invoice_id', $rows->pluck('invoice_id'))
-            ->selectRaw('invoice_id, sum(case when is_pass_through then line_total else 0 end) as pass, sum(line_total) as lines')
-            ->groupBy('invoice_id')
-            ->get()
-            ->keyBy('invoice_id');
-
-        $rates = $convert ? GroupCurrency::agencyRates() : [];
-
-        return $rows
-            ->groupBy('agency_id')
-            ->map(function (Collection $group, $agencyId) use ($ratios, $convert, $rates) {
-                $total = 0.0;
-                $fees = 0.0;
-                $payments = 0;
-
-                foreach ($group as $row) {
-                    $paid = (float) $row->total;
-                    $share = $ratios[$row->invoice_id] ?? null;
-                    $ratio = $share && (float) $share->lines > 0
-                        ? (float) $share->pass / (float) $share->lines
-                        : 0.0;
-
-                    $total += $paid;
-                    $fees += $paid * (1 - $ratio);
-                    $payments += (int) $row->payments;
-                }
-
-                $rate = $convert ? (float) ($rates[$agencyId] ?? 1.0) : 1.0;
-
-                return [
-                    'agency_id' => (string) $agencyId,
-                    'total' => round($total * $rate, 2),
-                    'fees' => round($fees * $rate, 2),
-                    'payments' => $payments,
-                ];
-            });
+        return $this->metrics
+            ->byAgency($from, $to, $this->agencyIds($filters), $convert, $filters['commercial_id'] ?? null)
+            ->map(fn (array $row) => [
+                'agency_id' => $row['agency_id'],
+                'total' => Money::franc($row['collected']),
+                // Le pass-through est déjà exclu par FinancialMetricsService.
+                'fees' => Money::franc($row['collected']),
+                'payments' => 0,
+            ]);
     }
 
     /**
@@ -129,89 +85,57 @@ class RevenueService
      */
     public function byMode(Carbon $from, Carbon $to, array $filters = [], bool $convert = false): array
     {
-        $query = DB::table('invoice_payments')
-            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
-            ->whereBetween('invoice_payments.paid_at', [$from, $to]);
-
-        $this->applyScope($query, $filters);
-
-        $amountExpr = $convert
-            ? 'sum(invoice_payments.amount * '.GroupCurrency::rateSql('invoices.agency_id').')'
-            : 'sum(invoice_payments.amount)';
-
-        $rows = $query
-            ->selectRaw('invoice_payments.payment_method as method, '.$amountExpr.' as total, count(*) as count')
-            ->groupBy('invoice_payments.payment_method')
-            ->get();
-
-        $buckets = array_fill_keys(self::MODES, 0.0);
-        $counts = array_fill_keys(self::MODES, 0);
-        $total = 0.0;
-
-        foreach ($rows as $row) {
-            $bucket = self::normalizeMode($row->method);
-            $amount = (float) $row->total;
-            $buckets[$bucket] += $amount;
-            $counts[$bucket] += (int) $row->count;
-            $total += $amount;
-        }
-
-        return [
-            'total' => round($total, 2),
-            'buckets' => array_map(fn ($value) => round($value, 2), $buckets),
-            'counts' => $counts,
-        ];
+        return $this->metrics->byMode($from, $to, $this->agencyIds($filters), $convert, $filters['commercial_id'] ?? null);
     }
 
     /**
-     * CA net (hors pass-through) encaissé sur la période.
+     * Encaissements nets sur la période.
      *
      * @param  array<string, mixed>  $filters
      */
     public function feeTotal(Carbon $from, Carbon $to, array $filters = [], bool $convert = false): float
     {
-        return round((float) $this->byAgency($from, $to, $filters, $convert)->sum('fees'), 2);
+        return Money::franc($this->byAgency($from, $to, $filters, $convert)->sum('fees'));
     }
 
     /**
-     * Encaissements bruts (pass-through compris) sur la période.
+     * Encaissements bruts sur la période.
      *
      * @param  array<string, mixed>  $filters
      */
     public function paidTotal(Carbon $from, Carbon $to, array $filters = []): float
     {
-        return round((float) $this->byAgency($from, $to, $filters)->sum('total'), 2);
+        return Money::franc($this->byAgency($from, $to, $filters)->sum('total'));
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
      * @param  array<string, mixed>  $filters
+     * @return array<int, string>|null null = toutes les agences
      */
-    private function applyScope($query, array $filters): void
+    private function agencyIds(array $filters): ?array
     {
+        $ids = null;
+
         if (! empty($filters['agency_id'])) {
-            $query->where('invoices.agency_id', $filters['agency_id']);
+            $ids = [$filters['agency_id']];
         }
 
-        if (array_key_exists('agency_ids', $filters) && $filters['agency_ids'] !== null) {
-            $query->whereIn('invoices.agency_id', $filters['agency_ids']);
+        if (array_key_exists('agency_ids', $filters)) {
+            $ids = $ids === null
+                ? $filters['agency_ids']
+                : array_values(array_intersect($ids, $filters['agency_ids'] ?? []));
         }
 
         if (! empty($filters['country_id'])) {
-            $ids = Agency::idsForCountry($filters['country_id']);
-            // Aucune agence rattachée (ni FK ni libellé legacy) : forcer un
-            // ensemble vide plutôt qu'un whereIn([]) silencieux côté appelant.
-            $query->whereIn('invoices.agency_id', $ids ?: ['00000000-0000-0000-0000-000000000000']);
+            $countryIds = Agency::idsForCountry($filters['country_id']);
+            $ids = $ids === null ? $countryIds : array_values(array_intersect($ids, $countryIds));
         }
 
         if (! empty($filters['city_id'])) {
-            $query->whereIn('invoices.agency_id', Agency::where('city_id', $filters['city_id'])->pluck('id'));
+            $cityIds = Agency::where('city_id', $filters['city_id'])->pluck('id')->all();
+            $ids = $ids === null ? $cityIds : array_values(array_intersect($ids, $cityIds));
         }
 
-        if (! empty($filters['commercial_id'])) {
-            $query->where('invoices.commercial_id', $filters['commercial_id']);
-        }
+        return $ids;
     }
 }

@@ -62,6 +62,7 @@ use App\Http\Controllers\Api\FormationEnrollmentController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\LearnerController;
 use App\Http\Controllers\Api\LearnerObservationController;
+use App\Http\Controllers\Api\MetricsController;
 use App\Http\Controllers\Api\OpportunityController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentProofController;
@@ -386,6 +387,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/stats/payment-methods', [StatsController::class, 'paymentMethods'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
     Route::get('/stats/top-products', [StatsController::class, 'topProducts'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
     Route::get('/stats/top-agencies', [StatsController::class, 'topAgencies'])->middleware('permission:stats.consulter')->middleware('cache.response:data,300');
+
+    // Synthèse financière unique (T1.7) : 7 indicateurs + contrôle CA.
+    Route::get('/metrics/summary', [MetricsController::class, 'summary'])->middleware('permission:stats.consulter');
+    Route::get('/metrics/breakdown', [MetricsController::class, 'breakdown'])->middleware('permission:stats.consulter');
 
     Route::get('/treasury/accounts', [TreasuryController::class, 'indexAccounts'])->middleware('permission:tresories.consulter');
     Route::get('/treasury/accounts/{account}', [TreasuryController::class, 'showAccount'])->middleware('permission:tresories.consulter');
