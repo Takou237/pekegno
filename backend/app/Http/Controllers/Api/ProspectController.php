@@ -304,7 +304,7 @@ class ProspectController extends Controller
                 'registered_at' => now(),
             ]);
 
-            $user->update(['client_number' => User::generateClientNumber()]);
+            $user->assignClientNumber();
 
             $this->pointsService->awardForConversion($prospect->commercial, $actorId);
 

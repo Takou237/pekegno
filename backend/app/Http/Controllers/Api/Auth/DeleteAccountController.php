@@ -66,8 +66,8 @@ class DeleteAccountController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        $user->tokens()->delete();
-        $user->delete();
+        // Libère l'email et l'identifiant : le client pourra se réinscrire.
+        $user->softDeleteAccount();
 
         return response()->json([
             'message' => 'Votre compte a été supprimé avec succès.',

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -184,6 +185,22 @@ class User extends Authenticatable
         return $this->role?->name === 'client';
     }
 
+    /**
+     * Attribue le prochain numéro client sous verrou : deux créations
+     * simultanées ne peuvent pas obtenir le même numéro (le verrou PostgreSQL
+     * est tenu jusqu'à la fin de la transaction englobante).
+     */
+    public function assignClientNumber(): void
+    {
+        DB::transaction(function () {
+            if (DB::getDriverName() === 'pgsql') {
+                DB::select('SELECT pg_advisory_xact_lock(?)', [crc32('client_number')]);
+            }
+
+            $this->update(['client_number' => static::generateClientNumber()]);
+        });
+    }
+
     public static function generateClientNumber(): string
     {
         // withTrashed : un client supprimé (suppression logique) garde son
@@ -199,11 +216,20 @@ class User extends Authenticatable
     }
 
     /**
-     * Suppression logique d'un client : l'email et l'identifiant de connexion
-     * sont libérés (suffixés) pour permettre une nouvelle inscription avec les
-     * mêmes coordonnées, sans casser les contraintes d'unicité.
+     * Suppression logique d'un client (alias historique de softDeleteAccount).
      */
     public function softDeleteClient(): void
+    {
+        $this->softDeleteAccount();
+    }
+
+    /**
+     * Suppression logique d'un compte (client ou employé) : l'email et
+     * l'identifiant de connexion sont libérés (suffixés) pour permettre une
+     * nouvelle inscription avec les mêmes coordonnées, sans casser les
+     * contraintes d'unicité ; les jetons de connexion sont révoqués.
+     */
+    public function softDeleteAccount(): void
     {
         $suffix = '.deleted.'.Str::lower((string) Str::ulid());
 
