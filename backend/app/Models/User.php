@@ -186,7 +186,11 @@ class User extends Authenticatable
 
     public static function generateClientNumber(): string
     {
-        $last = static::where('client_number', 'like', 'CL-%')
+        // withTrashed : un client supprimé (suppression logique) garde son
+        // numéro en base ; l'ignorer faisait recalculer un numéro déjà pris
+        // (contrainte d'unicité → erreur 500 à la création du client suivant).
+        $last = static::withTrashed()
+            ->where('client_number', 'like', 'CL-%')
             ->pluck('client_number')
             ->map(fn (string $number): int => preg_match('/^CL-(\d+)$/', $number, $matches) ? (int) $matches[1] : 0)
             ->max();
