@@ -69,7 +69,7 @@ class RegisterController extends Controller
             'is_password_change_required' => false,
         ]);
 
-        $user->update(['client_number' => User::generateClientNumber()]);
+        $user->assignClientNumber();
 
         $this->activityLogger->log(
             action: 'created',

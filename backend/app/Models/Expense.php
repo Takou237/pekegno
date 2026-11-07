@@ -119,7 +119,9 @@ class Expense extends Model
 
     public static function generateNextNumber(): string
     {
-        $last = self::query()->orderByDesc('number')->value('number');
+        // withTrashed : une dépense supprimée garde son numéro (expenses.number
+        // est unique) ; l'ignorer faisait recalculer un numéro déjà pris.
+        $last = self::withTrashed()->orderByDesc('number')->value('number');
         $next = $last ? ((int) substr($last, 4)) + 1 : 1;
 
         return 'EXP-'.str_pad((string) $next, 5, '0', STR_PAD_LEFT);

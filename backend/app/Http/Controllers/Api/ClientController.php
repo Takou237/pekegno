@@ -181,7 +181,7 @@ class ClientController extends Controller
                 'registered_at' => $data['registered_at'] ?? now(),
             ]);
 
-            $user->update(['client_number' => User::generateClientNumber()]);
+            $user->assignClientNumber();
 
             $this->activityLogger->log(
                 action: 'created',
@@ -397,8 +397,8 @@ class ClientController extends Controller
 
         $clientNumber = $client->client_number;
 
-        $client->tokens()->delete();
-        $client->delete();
+        // Libère l'email et l'identifiant : sinon impossible de recréer le compte.
+        $client->softDeleteAccount();
 
         $this->activityLogger->log(
             action: 'deleted',

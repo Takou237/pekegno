@@ -627,8 +627,8 @@ class UserController extends Controller
             Trainer::where('user_id', $user->id)->update(['is_active' => false]);
             Trainer::where('user_id', $user->id)->delete();
 
-            $user->tokens()->delete();
-            $user->delete();
+            // Libère l'email et l'identifiant : sinon impossible de recréer le compte.
+            $user->softDeleteAccount();
         });
 
         $this->logger->log(
