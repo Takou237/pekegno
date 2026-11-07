@@ -91,6 +91,11 @@ function paymentProofsItem(t: TranslateFn): NavItem {
   return { to: '/invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false };
 }
 
+/** T2.11 — caisses du jour : soldes, clôture et validation. */
+function cashClosingsItem(t: TranslateFn): NavItem {
+  return { to: '/treasury/closings', label: t('nav.cashClosings'), icon: ClipboardCheck, end: false };
+}
+
 /** Suivi personnel : prestations et actions liées au connecté (tous les rôles). */
 function trackingItem(t: TranslateFn): NavItem {
   return { to: '/team/tracking', label: t('agencyDept.team.myMissions'), icon: UserCheck, end: true };
@@ -143,6 +148,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/academy', label: t('nav.statAca'), icon: GraduationCap, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: FileText, end: false },
+      cashClosingsItem(t),
       invoiceItem(t),
       { to: '/contracts', label: t('nav.contracts'), icon: FileText, end: false },
       ...(canValidateInvoices(roleName)
@@ -176,6 +182,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       catalogItem(t),
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
+      cashClosingsItem(t),
       { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
@@ -211,6 +218,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       // Comptabilité de son agence : mêmes actions que l'admin (le backend
       // restreint déjà au périmètre des agences du caissier).
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
+      cashClosingsItem(t),
       { to: '/caissier/commissions', label: t('nav.commissions'), icon: Coins, end: false },
       catalogItem(t),
     ];
@@ -224,6 +232,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
       invoiceItem(t, unpaidBadge),
       { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
+      cashClosingsItem(t),
       { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
       { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: ScrollText, end: false },
@@ -323,6 +332,7 @@ export function getPermissionItems(t: TranslateFn, permissions: string[]): NavIt
     [has('comptabilite.consulter'), { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false }],
     [has('bilans.consulter'), { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false }],
     [has('tresories.consulter'), { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false }],
+    [has('tresories.consulter'), cashClosingsItem(t)],
     [has('depenses.consulter'), { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false }],
     [has('commissions.consulter'), { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: Coins, end: false }],
     [has('entreprises.consulter'), { to: '/companies', label: t('nav.companies'), icon: Building2, end: false }],

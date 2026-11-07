@@ -47,7 +47,7 @@ class TreasuryController extends Controller
     )]
     public function indexAccounts(Request $request): JsonResponse
     {
-        $query = TreasuryAccount::active()->with('agency');
+        $query = TreasuryAccount::active()->with('agency')->visibleTo($request->user());
 
         if ($request->filled('agency_id')) {
             $query->where('agency_id', $request->input('agency_id'));
@@ -97,6 +97,9 @@ class TreasuryController extends Controller
         if ($scopeIds !== null) {
             $query->whereHas('account', fn ($q) => $q->whereIn('agency_id', $scopeIds));
         }
+
+        // T2.3/T2.4 : une caissière ne voit pas les mouvements O/M/B.
+        $query->whereHas('account', fn ($q) => $q->visibleTo($request->user()));
 
         if ($request->filled('treasury_account_id')) {
             $query->ofAccount($request->input('treasury_account_id'));
@@ -152,10 +155,14 @@ class TreasuryController extends Controller
             'to_account_id' => ['required', 'uuid', 'exists:treasury_accounts,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'label' => ['nullable', 'string', 'max:200'],
+            'transfer_type' => ['nullable', 'string', 'in:'.implode(',', TreasuryTransaction::TRANSFER_TYPES)],
         ]);
 
         $from = TreasuryAccount::findOrFail($data['from_account_id']);
         $to = TreasuryAccount::findOrFail($data['to_account_id']);
+
+        $this->authorize('transfer', $from);
+        $this->authorize('transfer', $to);
 
         // Hors direction : transfert limité aux comptes du périmètre.
         $scopeIds = $this->scopeAgencyIds($request->user());
@@ -170,6 +177,7 @@ class TreasuryController extends Controller
             amount: (float) $data['amount'],
             label: $data['label'] ?? null,
             createdBy: $request->user()->id,
+            transferType: $data['transfer_type'] ?? 'internal',
         );
 
         return response()->json([
@@ -195,6 +203,8 @@ class TreasuryController extends Controller
     public function showAccount(string $id): JsonResponse
     {
         $account = TreasuryAccount::with('agency')->findOrFail($id);
+
+        $this->authorize('view', $account);
 
         $scopeIds = $this->scopeAgencyIds(request()->user());
         if ($scopeIds !== null && ! in_array($account->agency_id, $scopeIds, true)) {

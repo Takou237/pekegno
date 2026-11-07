@@ -102,6 +102,7 @@ class BilanService
             'total_bank' => 0,
             'total_depenses' => 0,
             'total_solde_final' => 0,
+            'total_treasury' => 0,
             'total_agency' => 0,
             'total_agency_pass_through' => 0,
         ];
@@ -123,6 +124,7 @@ class BilanService
             $totals['total_bank'] += $b['bank_total'];
             $totals['total_depenses'] += $b['expense_total'];
             $totals['total_solde_final'] += $b['solde_final'];
+            $totals['total_treasury'] += $b['treasury_balance'] ?? 0;
             $totals['total_agency'] += $b['agency_total'];
             $totals['total_agency_pass_through'] += $b['agency_pass_through_total'];
 
@@ -194,8 +196,10 @@ class BilanService
 
         $agency = $agencyId ? Agency::find($agencyId)?->only('id', 'name') : null;
 
-        // Solde réel trésorerie (tous les comptes de l'agence) — sans objet pour un département.
-        $treasuryBalance = $this->department ? null : $this->treasuryBalance($date, $agencyId, $agencyIds);
+        // T2.12 : solde réel par compte de trésorerie (C/O/M/B), pas un seau
+        // unique — sans objet pour un département.
+        $treasury = $this->department ? null : $this->treasuryBalances($date, $agencyId, $agencyIds);
+        $treasuryBalance = $treasury['total'] ?? null;
 
         // Écart entre solde théorique et solde réel
         $gap = $treasuryBalance !== null ? round($closing - $treasuryBalance, 2) : null;
@@ -227,40 +231,55 @@ class BilanService
             'solde_initial' => $opening,
             'solde_final' => $closing,
             'treasury_balance' => $treasuryBalance,
+            'treasury_accounts' => $treasury['accounts'] ?? [],
             'gap' => $gap,
             'gap_percent' => $gapPercent,
         ];
     }
 
     /**
-     * Solde réel de la trésorerie (tous les comptes actifs d'une agence).
+     * T2.12 — soldes réels par compte de trésorerie actif d'une agence.
+     *
+     * @return array{total: float, accounts: array<int, array{id: string, code: ?string, name: string, type: string, balance: float}>}|null
      */
-    private function treasuryBalance(Carbon $date, ?string $agencyId, ?array $agencyIds = null): ?float
+    private function treasuryBalances(Carbon $date, ?string $agencyId, ?array $agencyIds = null): ?array
     {
         $accounts = TreasuryAccount::active()
             ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->orderBy('code')
             ->get();
 
         if ($accounts->isEmpty()) {
             return null;
         }
 
+        $rows = [];
         $total = 0.0;
+
         foreach ($accounts as $account) {
-            $in = TreasuryTransaction::ofAccount($account->id)
+            $in = (float) TreasuryTransaction::ofAccount($account->id)
                 ->where('transacted_at', '<=', $this->dayBounds($date)[1])
                 ->where('direction', 'in')
                 ->sum('amount');
-            $out = TreasuryTransaction::ofAccount($account->id)
+            $out = (float) TreasuryTransaction::ofAccount($account->id)
                 ->where('transacted_at', '<=', $this->dayBounds($date)[1])
                 ->where('direction', 'out')
                 ->sum('amount');
 
-            $total += (float) $account->opening_balance + (float) $in - (float) $out;
+            $balance = round((float) $account->opening_balance + $in - $out, 2);
+            $total += $balance;
+
+            $rows[] = [
+                'id' => $account->id,
+                'code' => $account->code,
+                'name' => $account->name,
+                'type' => $account->type,
+                'balance' => $balance,
+            ];
         }
 
-        return round($total, 2);
+        return ['total' => round($total, 2), 'accounts' => $rows];
     }
 
     /**

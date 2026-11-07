@@ -102,7 +102,25 @@ class PaymentService
 
         $agencyAccounts = TreasuryAccount::where('agency_id', $invoice->agency_id)->where('is_active', true);
 
-        // Le mode de paiement détermine le type de compte attendu.
+        // T2.5 : le mode de paiement est ventilé vers la caisse codifiée
+        // correspondante (C/O/M/B, plus W/V en Côte d'Ivoire).
+        $code = match (strtolower(trim((string) $method))) {
+            'om', 'orange_money', 'orange' => 'O',
+            'momo', 'mtn_momo', 'mtn' => 'M',
+            'wave' => 'W',
+            'moov_money', 'moov' => 'V',
+            'bank', 'bank_transfer', 'virement' => 'B',
+            default => null,
+        };
+
+        if ($code !== null) {
+            $account = (clone $agencyAccounts)->where('code', $code)->first();
+            if ($account !== null) {
+                return $account;
+            }
+        }
+
+        // Repli par type : caisse cash, banque, ou mobile money.
         $type = match (RevenueService::normalizeMode($method)) {
             RevenueService::MODE_OM, RevenueService::MODE_MOMO, RevenueService::MODE_MOBILE => 'mobile_money',
             RevenueService::MODE_BANK => 'bank',

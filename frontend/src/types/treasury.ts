@@ -5,6 +5,8 @@ export interface TreasuryAccount {
   agency_id: string | null;
   agency?: { id: string; name: string } | null;
   name: string;
+  code: string | null;
+  visible_roles: string[] | null;
   type: TreasuryAccountType;
   provider: string | null;
   account_number: string | null;
@@ -58,9 +60,48 @@ export interface TreasuryTransactionListParams {
   per_page?: number;
 }
 
+export type TransferType = 'bank_deposit' | 'admin_disbursement' | 'withdrawal' | 'internal';
+
 export interface TransferPayload {
   from_account_id: string;
   to_account_id: string;
   amount: number;
   label?: string;
+  transfer_type?: TransferType;
+}
+
+export type CashClosingStatus = 'closed' | 'validated';
+
+export interface CashClosing {
+  id: string;
+  agency_id: string | null;
+  treasury_account_id: string;
+  closing_date: string;
+  opening_balance: number;
+  theoretical_balance: number;
+  actual_balance: number;
+  difference: number;
+  justification: string | null;
+  status: CashClosingStatus;
+  closed_by: string | null;
+  validated_by: string | null;
+  validated_at: string | null;
+  account?: TreasuryAccount;
+  closer?: { id: string; name: string };
+  validator?: { id: string; name: string };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CashClosingListParams {
+  date?: string;
+  agency_id?: string;
+  treasury_account_id?: string;
+}
+
+export interface CloseCashPayload {
+  treasury_account_id: string;
+  closing_date: string;
+  actual_balance: number;
+  justification?: string;
 }

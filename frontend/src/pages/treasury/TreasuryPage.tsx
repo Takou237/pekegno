@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
-import type { TreasuryAccount, TreasuryDirection, TreasuryTransaction } from '@/types/treasury';
+import type { TreasuryAccount, TreasuryDirection, TreasuryTransaction, TransferType } from '@/types/treasury';
 import type { PaginationMeta } from '@/types/agency';
 
 const TYPE_ICONS: Record<string, string> = {
@@ -43,6 +43,7 @@ export default function TreasuryPage() {
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferLabel, setTransferLabel] = useState('');
+  const [transferType, setTransferType] = useState<TransferType>('internal');
   const [transferErrors, setTransferErrors] = useState<Record<string, string>>({});
   const [transferSubmitting, setTransferSubmitting] = useState(false);
 
@@ -81,6 +82,7 @@ export default function TreasuryPage() {
     setTransferTo('');
     setTransferAmount('');
     setTransferLabel('');
+    setTransferType('internal');
     setTransferErrors({});
     setTransferOpen(true);
   }
@@ -104,6 +106,7 @@ export default function TreasuryPage() {
         to_account_id: transferTo,
         amount,
         label: transferLabel || undefined,
+        transfer_type: transferType,
       });
       showToast(t('treasury.transferSuccess'), 'success');
       setTransferOpen(false);
@@ -288,6 +291,16 @@ export default function TreasuryPage() {
             {accounts.filter((a) => a.id !== transferFrom).map((a) => (
               <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>
             ))}
+          </Select>
+          <Select
+            label={t('treasury.transferType')}
+            value={transferType}
+            onChange={(e) => setTransferType(e.target.value as TransferType)}
+          >
+            <option value="internal">{t('treasury.transferInternal')}</option>
+            <option value="bank_deposit">{t('treasury.transferBankDeposit')}</option>
+            <option value="withdrawal">{t('treasury.transferWithdrawal')}</option>
+            <option value="admin_disbursement">{t('treasury.transferAdminDisbursement')}</option>
           </Select>
           <Input
             label={t('treasury.amount')}

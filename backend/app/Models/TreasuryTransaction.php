@@ -19,6 +19,14 @@ class TreasuryTransaction extends Model
         self::DIRECTION_OUT,
     ];
 
+    /** T2.6 — nature d'un transfert (jamais une dépense). */
+    public const TRANSFER_TYPES = [
+        'bank_deposit',       // versement d'espèces en banque
+        'admin_disbursement', // décaissement administratif
+        'withdrawal',         // retrait
+        'internal',           // transfert interne entre caisses
+    ];
+
     protected $fillable = [
         'treasury_account_id',
         'direction',
@@ -26,6 +34,7 @@ class TreasuryTransaction extends Model
         'source_type',
         'source_id',
         'category',
+        'transfer_type',
         'label',
         'reference',
         'transacted_at',

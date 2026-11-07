@@ -19,6 +19,7 @@ class TreasuryService
         ?string $sourceType = null,
         ?string $sourceId = null,
         ?string $category = null,
+        ?string $transferType = null,
         ?string $reference = null,
         ?string $createdBy = null,
     ): TreasuryTransaction {
@@ -33,6 +34,7 @@ class TreasuryService
             'source_type' => $sourceType,
             'source_id' => $sourceId,
             'category' => $category,
+            'transfer_type' => $transferType,
             'label' => $label ?? ($direction === 'in' ? 'Encaissement' : 'Décaissement'),
             'reference' => $reference,
             'transacted_at' => now(),
@@ -57,15 +59,17 @@ class TreasuryService
         float $amount,
         ?string $label = null,
         ?string $createdBy = null,
+        string $transferType = 'internal',
     ): array {
         abort_if($amount <= 0, 422, 'Le montant du transfert doit être supérieur à 0.');
         abort_if(! $from->is_active, 422, 'Le compte source est inactif.');
         abort_if(! $to->is_active, 422, 'Le compte destination est inactif.');
         abort_if($from->id === $to->id, 422, 'Les comptes source et destination doivent être différents.');
+        abort_if(! in_array($transferType, TreasuryTransaction::TRANSFER_TYPES, true), 422, 'Type de transfert invalide.');
 
         $transferRef = 'XFER-' . strtoupper(uniqid());
 
-        return DB::transaction(function () use ($from, $to, $amount, $label, $createdBy, $transferRef) {
+        return DB::transaction(function () use ($from, $to, $amount, $label, $createdBy, $transferRef, $transferType) {
             $out = $this->recordMovement(
                 account: $from,
                 direction: TreasuryTransaction::DIRECTION_OUT,
@@ -74,6 +78,7 @@ class TreasuryService
                 sourceType: 'transfer',
                 sourceId: $transferRef,
                 category: 'transfert',
+                transferType: $transferType,
                 reference: $transferRef,
                 createdBy: $createdBy,
             );
@@ -86,6 +91,7 @@ class TreasuryService
                 sourceType: 'transfer',
                 sourceId: $transferRef,
                 category: 'transfert',
+                transferType: $transferType,
                 reference: $transferRef,
                 createdBy: $createdBy,
             );

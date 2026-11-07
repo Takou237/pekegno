@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ScopeService;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,12 +26,14 @@ class TreasuryAccount extends Model
     protected $fillable = [
         'agency_id',
         'name',
+        'code',
         'type',
         'provider',
         'account_number',
         'opening_balance',
         'currency_code',
         'is_active',
+        'visible_roles',
     ];
 
     protected function casts(): array
@@ -38,6 +41,7 @@ class TreasuryAccount extends Model
         return [
             'opening_balance' => 'decimal:2',
             'is_active' => 'boolean',
+            'visible_roles' => 'array',
         ];
     }
 
@@ -71,6 +75,45 @@ class TreasuryAccount extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * T2.4 : comptes visibles pour un utilisateur selon son rôle.
+     *
+     * `visible_roles = null` → caisse ouverte à tout le périmètre (caisse C).
+     * Sinon seuls les rôles listés voient le compte (O/M/B, réservés à
+     * l'administration et à la DG). Un utilisateur global voit tout.
+     */
+    public function scopeVisibleTo($query, ?User $user)
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if (app(ScopeService::class)->isGlobal($user)) {
+            return $query;
+        }
+
+        $role = $user->role?->name;
+
+        return $query->where(function ($q) use ($role) {
+            $q->whereNull('visible_roles')
+                ->orWhereJsonContains('visible_roles', $role);
+        });
+    }
+
+    public function isVisibleTo(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if (app(ScopeService::class)->isGlobal($user)) {
+            return true;
+        }
+
+        return $this->visible_roles === null
+            || in_array($user->role?->name, $this->visible_roles, true);
     }
 
     public static function typeValidationRule(): string

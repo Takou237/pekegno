@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\Auth\StaffLoginController;
 use App\Http\Controllers\Api\Auth\TwoFactorController;
 use App\Http\Controllers\Api\BilanController;
+use App\Http\Controllers\Api\CashClosingController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CertificateController;
 use App\Http\Controllers\Api\CityController;
@@ -396,6 +397,10 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/treasury/accounts/{account}', [TreasuryController::class, 'showAccount'])->middleware('permission:tresories.consulter');
     Route::get('/treasury/transactions', [TreasuryController::class, 'indexTransactions'])->middleware('permission:tresories.consulter');
     Route::post('/treasury/transfer', [TreasuryController::class, 'transfer'])->middleware('permission:tresories.modifier');
+
+    Route::get('/treasury/closings', [CashClosingController::class, 'index'])->middleware('permission:tresories.consulter');
+    Route::post('/treasury/closings', [CashClosingController::class, 'store'])->middleware('permission:tresories.modifier');
+    Route::post('/treasury/closings/{closing}/validate', [CashClosingController::class, 'validateClosing'])->middleware('permission:tresories.modifier');
 
     Route::get('/bilans/period', [BilanController::class, 'period'])->middleware('permission:bilans.consulter')->middleware('cache.response:data,300');
     Route::get('/bilans', [BilanController::class, 'dailyBilan'])->middleware('permission:bilans.consulter')->middleware('cache.response:data,300');

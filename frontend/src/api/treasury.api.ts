@@ -1,5 +1,8 @@
 import { client } from './client';
 import type {
+  CashClosing,
+  CashClosingListParams,
+  CloseCashPayload,
   TreasuryAccount,
   TreasuryAccountListParams,
   TreasuryTransaction,
@@ -28,5 +31,17 @@ export const treasuryApi = {
     in: TreasuryTransaction;
   }> {
     return client.post('/treasury/transfer', payload).then((r) => r.data);
+  },
+
+  listClosings(params?: CashClosingListParams): Promise<CashClosing[]> {
+    return client.get('/treasury/closings', { params }).then((r) => r.data);
+  },
+
+  closeCash(payload: CloseCashPayload): Promise<CashClosing> {
+    return client.post('/treasury/closings', payload).then((r) => r.data);
+  },
+
+  validateClosing(id: string): Promise<CashClosing> {
+    return client.post(`/treasury/closings/${id}/validate`).then((r) => r.data);
   },
 };

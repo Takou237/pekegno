@@ -116,6 +116,7 @@ const AcademyLearnersPage = lazyWithRetry(() => import('@/pages/academy/AcademyL
 const AcademyLearnerDetailPage = lazyWithRetry(() => import('@/pages/academy/AcademyLearnerDetailPage'));
 const ComingSoonPage = lazyWithRetry(() => import('@/pages/ComingSoonPage'));
 const TreasuryPage = lazyWithRetry(() => import('@/pages/treasury/TreasuryPage'));
+const CashClosingsPage = lazyWithRetry(() => import('@/pages/treasury/CashClosingsPage'));
 const ExpenseListPage = lazyWithRetry(() => import('@/pages/expenses/ExpenseListPage'));
 const CommissionRulesPage = lazyWithRetry(() => import('@/pages/commissions/CommissionRulesPage'));
 const CommissionEntriesPage = lazyWithRetry(() => import('@/pages/commissions/CommissionEntriesPage'));
@@ -295,6 +296,7 @@ export const router = createBrowserRouter([
           { path: '/trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
           { path: '/accounting', element: page(<AccountingPage />, table) },
           { path: '/treasury', element: page(<TreasuryPage />, table) },
+          { path: '/treasury/closings', element: page(<CashClosingsPage />, table) },
           { path: '/expenses', element: page(<ExpenseListPage />, table) },
           { path: '/commissions/rules', element: page(<CommissionRulesPage />, table) },
           { path: '/commissions/entries', element: page(<CommissionEntriesPage />, table) },

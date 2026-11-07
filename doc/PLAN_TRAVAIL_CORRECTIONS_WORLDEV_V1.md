@@ -175,7 +175,22 @@ Contrôle | `ca = encaisse(factures de la période) + impayes` — assertion tes
 | T1.8 | Brancher `RevenueService` sur `FinancialMetricsService` (garder la classe comme façade pour ne pas casser les appels existants) | `RevenueService` |
 | T1.9 | Écrire le test d'invariant `CA = Encaissé + Impayés` et le test « même CA partout » | `tests/Feature/FinancialMetricsConsistencyTest.php` |
 
-### 4.4 Critères d'acceptation
+### 4.4 Avancement Lot 1 (6/11/2026)
+
+> Coches = implémentation + tests locaux verts, pas encore recette staging.
+
+- [x] T0.2 — Décision écrite doctrine CA (`doc/DECISION_CA_T0.2.md`).
+- [x] T1.1 — `FinancialMetricsService` (summary + byAgency/byMode/byCategory/byCommercial).
+- [x] T1.2 — Période métier unique (`App\Support\Period`, déjà en place et réutilisée).
+- [x] T1.3 — Migration `received_at` / `validated_at` / `validation_status` + backfill.
+- [ ] T1.4 — `treasury_account_id` obligatoire : **reporté** (résolution method-aware en place, durcissement avec T2.5 + UI paiement).
+- [x] T1.5 — `App\Support\Money::franc()` adopté par le service unique et l'endpoint de synthèse.
+- [ ] T1.6 — Ventilation 7 rubriques : **reporté**, dépend de T3.6 (`sale_rubrics`).
+- [x] T1.7 — `GET /api/metrics/summary` et `/api/metrics/breakdown`.
+- [x] T1.8 — `RevenueService` transformé en façade de `FinancialMetricsService`.
+- [x] T1.9 — `tests/Feature/FinancialMetricsConsistencyTest.php` (invariant + cas limites + même CA partout).
+
+### 4.5 Critères d'acceptation
 
 - Sur le jeu de recette 31/10 → 03/11, les 5 écrans (Tableau de bord, Pays, Comparaison CA, Rapport clients, Comptabilité) renvoient **exactement** le même `ca`.
 - Aucun montant avec centimes dans aucune réponse API de synthèse.
@@ -227,6 +242,25 @@ Côte d'Ivoire : liste à confirmer (T0.3) — prévoir `wave`, `moov_money`.
 - Une clôture sans écart ne demande pas de justification ; avec écart, le bouton reste bloqué sans motif.
 
 **Charge : 12–15 j.** Dépend de T1.4.
+
+### 5.5 Avancement Lot 2 (7/11/2026)
+
+> Coches = implémentation + tests locaux verts, pas encore recette staging.
+
+- [x] T2.1 - Migration `code` (unique par agence) + `visible_roles` + backfill canonique C/B/O/M/W/V.
+- [x] T2.2 - `TreasuryAccountSeeder` idempotent (codes, Wave/Moov en XOF, caisses O/M/B restreintes).
+- [x] T2.3 - `TreasuryPolicy` (`view`/`transfer`) enregistrée dans `AppServiceProvider`.
+- [x] T2.4 - `GET /treasury/accounts`, `/treasury/transactions` et transferts filtrés par rôle (403 hors périmètre).
+- [ ] T2.5 - Ventilation méthode → code (O/M/W/V/B) **faite** ; `treasury_account_id` reste optionnel : reporté avec T1.4 et le sélecteur UI de paiement.
+- [x] T2.6 - `transfer_type` (`bank_deposit`, `admin_disbursement`, `withdrawal`, `internal`) + validation API + UI.
+- [ ] T2.7 - **Reporté** : `accounting_transactions.type` est un enum `income|expense` ; une écriture de transfert « hors charges » exige une migration d'enum dédiée.
+- [x] T2.8 - Table `cash_closings` + `CashClosingController` + `CashClosingService`.
+- [x] T2.9 - Unicité caisse/jour + `solde_théorique = solde initial + entrées − sorties`.
+- [x] T2.10 - Écart non nul → justification obligatoire (422) + notification au chef d'agence.
+- [x] T2.11 - `frontend/src/pages/treasury/CashClosingsPage.tsx` + route `/treasury/closings` + menu.
+- [x] T2.12 - `BilanService` expose `treasury_accounts` (solde par caisse) et `total_treasury`.
+
+Tests : `TreasuryCashClosingTest` 6/6 ; suite complète 611/618 (7 échecs préexistants documentés dans `CLAUDE.md`).
 
 ---
 
