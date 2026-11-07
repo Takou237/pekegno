@@ -198,7 +198,8 @@ class UserController extends Controller
         }
 
         $candidate = $base;
-        for ($i = 2; User::where('username', $candidate)->exists(); $i++) {
+        // withTrashed : un compte supprimé garde son identifiant (contrainte d'unicité).
+        for ($i = 2; User::withTrashed()->where('username', $candidate)->exists(); $i++) {
             $candidate = $base.$i;
         }
 
