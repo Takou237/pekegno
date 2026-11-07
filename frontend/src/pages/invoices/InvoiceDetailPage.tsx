@@ -1318,7 +1318,6 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                   <option value="cash">{t('invoices.paymentCash')}</option>
                   <option value="om">{t('invoices.paymentOm')}</option>
                   <option value="momo">{t('invoices.paymentMomo')}</option>
-                  <option value="mobile">{t('invoices.paymentMobile')}</option>
                   <option value="wave">{t('invoices.paymentWave')}</option>
                 </Select>
                 {(editPaymentType === 'om' || editPaymentType === 'momo' || editPaymentType === 'wave') && (

@@ -74,7 +74,7 @@ export function PrestationFormModal({
   const isChief = ['responsable-agence', 'responsable-departement'].includes(user?.role?.name ?? '');
   const needsPaymentProof = !prestation && isChief;
   const [amountPaid, setAmountPaid] = useState('');
-  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'mobile' | 'wave'>('cash');
+  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'wave'>('cash');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
 
@@ -379,7 +379,6 @@ export function PrestationFormModal({
               <option value="cash">Cash</option>
               <option value="om">Orange Money</option>
               <option value="momo">MTN MoMo</option>
-              <option value="mobile">Mobile</option>
               <option value="wave">Wave</option>
             </Select>
             <div className="flex flex-col gap-2 sm:col-span-2">

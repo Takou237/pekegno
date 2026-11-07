@@ -22,6 +22,7 @@ class TreasuryService
         ?string $transferType = null,
         ?string $reference = null,
         ?string $createdBy = null,
+        \DateTimeInterface|string|null $transactedAt = null,
     ): TreasuryTransaction {
         abort_if(! in_array($direction, TreasuryTransaction::DIRECTIONS, true), 422, 'Direction invalide.');
         abort_if($amount <= 0, 422, 'Le montant doit être supérieur à 0.');
@@ -37,7 +38,9 @@ class TreasuryService
             'transfer_type' => $transferType,
             'label' => $label ?? ($direction === 'in' ? 'Encaissement' : 'Décaissement'),
             'reference' => $reference,
-            'transacted_at' => now(),
+            // Date de l'opération : pour un encaissement, le jour où l'argent est
+            // reçu (B11), pas celui de sa validation. À défaut : maintenant.
+            'transacted_at' => $transactedAt ?? now(),
             'created_by' => $createdBy,
         ]);
     }

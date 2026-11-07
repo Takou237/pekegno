@@ -60,6 +60,11 @@ class ExpenseService
 
         $account = TreasuryAccount::where('id', $accountId)->where('is_active', true)->first();
         abort_if(! $account, 422, 'Compte de trésorerie inexistant ou inactif.');
+        abort_if(
+            $expense->agency_id !== null && $account->agency_id !== $expense->agency_id,
+            422,
+            "La caisse choisie n'appartient pas à l'agence de la dépense."
+        );
 
         DB::transaction(function () use ($expense, $account, $actorUserId) {
             $this->treasuryService->recordMovement(
@@ -136,6 +141,7 @@ class ExpenseService
             'agency_id' => $expense->agency_id,
             'department_id' => $expense->department_id,
             'category_id' => $category->id,
+            'treasury_account_id' => $account->id,
             'type' => 'expense',
             'label' => "Dépense {$expense->number} — {$category->name}",
             'reference' => $expense->number,

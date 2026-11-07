@@ -17,6 +17,27 @@ class Period
         return (string) config('app.business_timezone', 'Africa/Douala');
     }
 
+    /**
+     * Fuseau métier d'une agence : Côte d'Ivoire (XOF) = UTC+0 (Africa/Abidjan),
+     * sinon le fuseau métier par défaut (Cameroun, UTC+1). Cahier B29.
+     */
+    public static function timezoneForAgency(?\App\Models\Agency $agency): string
+    {
+        return $agency?->geoCountry?->currency_code === 'XOF' ? 'Africa/Abidjan' : self::businessTimezone();
+    }
+
+    /**
+     * Bornes UTC d'une journée métier (00:00 → 23:59:59 locale).
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public static function dayBoundsUtc(string $date, string $timezone): array
+    {
+        $day = Carbon::parse(substr($date, 0, 10), $timezone);
+
+        return [$day->copy()->startOfDay()->utc(), $day->copy()->endOfDay()->utc()];
+    }
+
     private static function isDateOnly(mixed $value): bool
     {
         return is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1;

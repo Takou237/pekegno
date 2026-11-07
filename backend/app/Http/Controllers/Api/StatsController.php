@@ -675,7 +675,7 @@ class StatsController extends Controller
 
         // Dépenses du périmètre (pour le dashboard academy) : même source
         // comptable que le groupe, filtrée aux agences autorisées.
-        $expenses = AccountingTransaction::where('type', 'expense')
+        $expenses = AccountingTransaction::realExpenses()
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
             ->sum('amount');
 

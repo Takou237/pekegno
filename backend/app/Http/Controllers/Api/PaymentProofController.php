@@ -189,7 +189,7 @@ class PaymentProofController extends Controller
 
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'in:cash,om,momo,mobile,wave'],
+            'payment_method' => ['required', 'in:cash,om,momo,wave,moov'],
             'phone_number_used' => ['nullable', 'string', 'max:30'],
             'reference' => ['nullable', 'string', 'max:100'],
             'file' => ['required', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
@@ -376,7 +376,7 @@ class PaymentProofController extends Controller
 
             if ($invoice && $invoice->validation_status === Invoice::VALIDATION_PENDING) {
                 if ($status === PaymentProof::STATUS_ACCEPTED) {
-                    $this->markInvoiceValidated($invoice, $request->user()->id);
+                    $this->markInvoiceValidated($invoice, $request->user()->id, $proof);
                 } else {
                     $reason = 'Preuve de paiement rejetée : '.trim((string) $request->input('notes', ''));
                     $this->markInvoiceRejected($invoice, $request->user()->id, $reason);
@@ -426,7 +426,7 @@ class PaymentProofController extends Controller
         ]);
     }
 
-    private function markInvoiceValidated(Invoice $invoice, string $userId): void
+    private function markInvoiceValidated(Invoice $invoice, string $userId, PaymentProof $acceptedProof): void
     {
         $invoice->update([
             'validation_status' => Invoice::VALIDATION_VALIDATED,
@@ -442,12 +442,14 @@ class PaymentProofController extends Controller
         // (il ne peut pas manier de caisse) : elle est appliquée maintenant, au
         // moment où un super-admin / caissier valide la facture via la preuve.
         if ((float) ($invoice->declared_advance ?? 0) > 0 && (float) $invoice->amount_paid === 0.0) {
+            // B11 : l'argent a été reçu au dépôt de la preuve, pas à sa validation.
             $this->paymentService->applyPayment(
-                $invoice,
-                (float) $invoice->declared_advance,
-                $invoice->payment_type ?? 'cash',
-                true,
-                $userId,
+                invoice: $invoice,
+                amount: (float) $invoice->declared_advance,
+                method: $invoice->payment_type ?? 'cash',
+                isAdvance: true,
+                userId: $userId,
+                receivedAt: $acceptedProof->created_at,
             );
         } elseif ($invoice->source === 'client_self' && (float) $invoice->amount_paid === 0.0) {
             // Une commande passée en ligne par le client est réglée intégralement (pas
@@ -456,11 +458,12 @@ class PaymentProofController extends Controller
             $proof = $invoice->paymentProofs()->where('status', PaymentProof::STATUS_ACCEPTED)->latest('reviewed_at')->first();
 
             $this->paymentService->applyPayment(
-                $invoice,
-                (float) $invoice->total_amount,
-                $proof?->payment_method ?? $invoice->payment_type ?? 'cash',
-                false,
-                $userId,
+                invoice: $invoice,
+                amount: (float) $invoice->total_amount,
+                method: $proof?->payment_method ?? $invoice->payment_type ?? 'cash',
+                isAdvance: false,
+                userId: $userId,
+                receivedAt: ($proof ?? $acceptedProof)->created_at,
             );
         }
 
@@ -497,6 +500,7 @@ class PaymentProofController extends Controller
             method: $proof->payment_method ?: 'cash',
             isAdvance: false,
             userId: $userId,
+            receivedAt: $proof->created_at,
         );
 
         $this->logger->log(

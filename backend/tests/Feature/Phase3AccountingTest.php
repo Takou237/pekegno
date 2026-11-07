@@ -107,12 +107,14 @@ class Phase3AccountingTest extends TestCase
             'type' => 'expense',
             'label' => 'Achat carburant',
             'amount' => 2000,
+            'treasury_account_id' => $this->cashBoxId(),
         ])->assertStatus(201);
 
         $created = $this->postJson('/api/accounting/transactions', [
             'type' => 'expense',
             'label' => 'Achat carburant',
             'amount' => 2000,
+            'treasury_account_id' => $this->cashBoxId(),
             'beneficiary' => 'Station Total',
             'justification' => 'Déplacement direction',
             'note' => 'Fait le 15/08',
@@ -141,6 +143,7 @@ class Phase3AccountingTest extends TestCase
             'type' => 'expense',
             'label' => 'Loyer',
             'amount' => 20000,
+            'treasury_account_id' => $this->cashBoxId(),
             'beneficiary' => 'Propriétaire',
             'justification' => 'Loyer août',
         ])->assertStatus(201);
@@ -256,5 +259,12 @@ class Phase3AccountingTest extends TestCase
         $this->getJson('/api/exports/accounting')
             ->assertOk()
             ->assertDownload('comptabilite-'.now()->format('Y-m-d').'.csv');
+    }
+
+    /** Caisse C d'une agence de test : une dépense sort toujours d'une caisse (T1.4). */
+    private function cashBoxId(): string
+    {
+        return app(\App\Services\TreasuryAccountProvisioner::class)
+            ->ensureAccount(\App\Models\Agency::first() ?? \App\Models\Agency::factory()->create(), 'C')->id;
     }
 }

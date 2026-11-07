@@ -15,6 +15,8 @@ export interface AccountingTransaction {
   number: number;
   agency_id: string | null;
   category_id: string | null;
+  treasury_account_id?: string | null;
+  is_transfer?: boolean;
   type: AccountingType;
   label: string;
   reference: string | null;
@@ -30,6 +32,7 @@ export interface AccountingTransaction {
   updated_at: string;
   category?: AccountingCategory | null;
   agency?: { id: string; name: string } | null;
+  treasury_account?: { id: string; name: string; code: string | null } | null;
   operator?: { id: string; first_name: string | null; last_name: string | null } | null;
 }
 
@@ -51,6 +54,7 @@ export interface AccountingTransactionPayload {
   agency_id?: string | null;
   department_id?: string | null;
   category_id?: string | null;
+  treasury_account_id?: string | null;
   type: AccountingType;
   label: string;
   reference?: string | null;

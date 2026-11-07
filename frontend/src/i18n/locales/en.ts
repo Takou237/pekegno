@@ -1839,6 +1839,8 @@ export default {
   },
 
   accounting: {
+    treasuryAccount: 'Cash box',
+    selectTreasuryAccount: '— Select the cash box —',
     title: 'Accounting',
     subtitle: 'Manage accounting transactions and categories.',
     searchPlaceholder: 'Search transactions...',

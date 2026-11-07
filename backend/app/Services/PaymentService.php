@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\TreasuryAccount;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class PaymentService
@@ -14,6 +15,7 @@ class PaymentService
         private readonly PointsService $pointsService,
         private readonly TreasuryService $treasuryService,
         private readonly ContractService $contractService,
+        private readonly TreasuryAccountProvisioner $provisioner,
     ) {}
 
     public function applyPayment(
@@ -23,16 +25,18 @@ class PaymentService
         bool $isAdvance,
         string $userId,
         ?string $treasuryAccountId = null,
-        ?string $paidAt = null,
-        ?string $receivedAt = null,
+        \DateTimeInterface|string|null $paidAt = null,
+        \DateTimeInterface|string|null $receivedAt = null,
     ): void {
         // Déterminer le compte de trésorerie
         $account = $this->resolveAccount($treasuryAccountId, $invoice, $method);
 
-        $paidAtValue = $paidAt ?? now();
-        // La date de réception est la référence métier (T1.3) ; à défaut elle
-        // vaut la date de règlement (données historiques et saisies directes).
-        $receivedAtValue = $receivedAt ?? $paidAtValue;
+        $paidAtValue = $paidAt !== null ? Carbon::parse($paidAt) : now();
+        // La date de réception est la référence métier (T1.3, B11) : jour où
+        // l'argent est reçu (date de la preuve pour une validation différée). À
+        // défaut elle vaut la date de règlement.
+        $receivedAtValue = $receivedAt !== null ? Carbon::parse($receivedAt) : $paidAtValue;
+        abort_if($receivedAtValue->isFuture(), 422, 'La date de réception du paiement ne peut pas être dans le futur.');
 
         // Transaction : le verrou du numéro de reçu reste tenu jusqu'à l'insertion.
         $payment = DB::transaction(fn () => $invoice->payments()->create([
@@ -44,27 +48,26 @@ class PaymentService
             'validated_at' => now(),
             'validation_status' => 'validated',
             'received_by' => $userId,
-            'treasury_account_id' => $account?->id,
+            'treasury_account_id' => $account->id,
         ]));
 
         $invoice->increment('amount_paid', $amount);
         $invoice->refreshStatus();
         $invoice->save();
 
-        // Mouvement de trésorerie in
-        if ($account) {
-            $this->treasuryService->recordMovement(
-                account: $account,
-                direction: 'in',
-                amount: $amount,
-                label: "Paiement facture {$invoice->number}",
-                sourceType: 'invoice_payment',
-                sourceId: $payment->id,
-                category: 'vente',
-                reference: $invoice->number,
-                createdBy: $userId,
-            );
-        }
+        // Mouvement de trésorerie in, daté du jour de réception de l'argent.
+        $this->treasuryService->recordMovement(
+            account: $account,
+            direction: 'in',
+            amount: $amount,
+            label: "Paiement facture {$invoice->number}",
+            sourceType: 'invoice_payment',
+            sourceId: $payment->id,
+            category: 'vente',
+            reference: $invoice->number,
+            createdBy: $userId,
+            transactedAt: $payment->received_at,
+        );
 
         $this->commissionService->recordForPayment($invoice, $payment, $userId);
         $this->accountingService->recordIncomeFromPayment($invoice, $payment);
@@ -78,66 +81,78 @@ class PaymentService
     }
 
     /**
-     * Déterminer le compte de trésorerie à utiliser.
+     * Caisse d'un paiement (T1.4 / T2.5) — jamais nulle.
      *
-     * Le compte explicite est obligatoire dès que l'agence en possède un ; à
-     * défaut on résout un compte cohérent avec le mode de paiement (caisse C /
-     * mobile money O-M / banque B), puis la caisse cash de l'agence. Il ne doit
-     * jamais y avoir de repli silencieux sur une caisse sans rapport avec le
-     * mode de paiement (constat F3).
+     * Le mode de paiement détermine la caisse (cahier §2 : « le montant va dans
+     * la bonne caisse, sans qu'ils en voient le solde ») : espèces → C, Orange
+     * Money → O, MTN MoMo → M, Wave → W, Moov → V, banque → B. Si la caisse
+     * standard n'existe pas encore pour l'agence, elle est créée. Plus aucun repli
+     * silencieux sur la caisse espèces pour un paiement mobile (constat F3).
+     *
+     * Un compte explicite reste accepté s'il appartient à l'agence de la facture
+     * et correspond au type du mode de paiement.
      */
-    private function resolveAccount(?string $accountId, Invoice $invoice, ?string $method = null): ?TreasuryAccount
+    private function resolveAccount(?string $accountId, Invoice $invoice, ?string $method = null): TreasuryAccount
     {
+        $expectedType = match (RevenueService::normalizeMode($method)) {
+            RevenueService::MODE_OM, RevenueService::MODE_MOMO, RevenueService::MODE_MOBILE => TreasuryAccount::TYPE_MOBILE_MONEY,
+            RevenueService::MODE_BANK => TreasuryAccount::TYPE_BANK,
+            default => TreasuryAccount::TYPE_CASH,
+        };
+
         if ($accountId) {
             $account = TreasuryAccount::where('id', $accountId)->where('is_active', true)->first();
             abort_if(! $account, 422, 'Compte de trésorerie inexistant ou inactif.');
             abort_if(
-                $account->agency_id !== null && $invoice->agency_id !== null && $account->agency_id !== $invoice->agency_id,
+                $account->agency_id !== $invoice->agency_id,
                 422,
                 "Le compte de trésorerie sélectionné n'appartient pas à l'agence de la facture."
+            );
+            abort_if(
+                $account->type !== $expectedType,
+                422,
+                'Le compte de trésorerie sélectionné ne correspond pas au mode de paiement.'
             );
 
             return $account;
         }
 
         $agencyAccounts = TreasuryAccount::where('agency_id', $invoice->agency_id)->where('is_active', true);
+        $code = TreasuryAccountProvisioner::codeForMethod($method);
 
-        // T2.5 : le mode de paiement est ventilé vers la caisse codifiée
-        // correspondante (C/O/M/B, plus W/V en Côte d'Ivoire).
-        $code = match (strtolower(trim((string) $method))) {
-            'om', 'orange_money', 'orange' => 'O',
-            'momo', 'mtn_momo', 'mtn' => 'M',
-            'wave' => 'W',
-            'moov_money', 'moov' => 'V',
-            'bank', 'bank_transfer', 'virement' => 'B',
-            default => null,
-        };
+        if ($code === null) {
+            // Mode « mobile » générique : acceptable s'il n'y a qu'une caisse
+            // numérique dans l'agence, sinon le mode exact doit être précisé.
+            $candidates = (clone $agencyAccounts)->where('type', $expectedType)->get();
+            abort_if(
+                $candidates->count() !== 1,
+                422,
+                'Précisez le mode de paiement mobile (Orange Money, MTN MoMo, Wave ou Moov) pour affecter le montant à la bonne caisse.'
+            );
 
-        if ($code !== null) {
-            $account = (clone $agencyAccounts)->where('code', $code)->first();
-            if ($account !== null) {
-                return $account;
-            }
-        }
-
-        // Repli par type : caisse cash, banque, ou mobile money.
-        $type = match (RevenueService::normalizeMode($method)) {
-            RevenueService::MODE_OM, RevenueService::MODE_MOMO, RevenueService::MODE_MOBILE => 'mobile_money',
-            RevenueService::MODE_BANK => 'bank',
-            default => 'cash',
-        };
-
-        // S'il existe plusieurs comptes de ce type, l'utilisateur doit choisir.
-        $candidates = (clone $agencyAccounts)->where('type', $type)->get();
-        if ($candidates->count() === 1) {
             return $candidates->first();
         }
 
-        if ($candidates->count() > 1) {
-            abort(422, 'Plusieurs comptes de trésorerie correspondent à ce mode de paiement : précisez treasury_account_id.');
+        $account = (clone $agencyAccounts)->where('code', $code)->first();
+        if ($account) {
+            return $account;
         }
 
-        // Dernier recours : la caisse cash de l'agence.
-        return (clone $agencyAccounts)->where('type', 'cash')->first();
+        // Comptes antérieurs à la codification (sans code) : un seul compte du bon
+        // type et du bon opérateur est repris tel quel.
+        $template = TreasuryAccountProvisioner::TEMPLATES[$code];
+        $legacy = (clone $agencyAccounts)
+            ->whereNull('code')
+            ->where('type', $template['type'])
+            ->when($template['provider'] !== null, fn ($q) => $q->where('provider', $template['provider']))
+            ->get();
+        if ($legacy->count() === 1) {
+            return $legacy->first();
+        }
+
+        $account = $this->provisioner->ensureAccount($invoice->agency, $code);
+        abort_if(! $account->is_active, 422, "La caisse {$code} de l'agence est désactivée : réactivez-la ou choisissez un autre mode de paiement.");
+
+        return $account;
     }
 }

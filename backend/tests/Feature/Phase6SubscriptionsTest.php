@@ -165,13 +165,13 @@ class Phase6SubscriptionsTest extends TestCase
             'client_id' => $client['id'],
             'months' => 2,
             'advance' => 10000,
-            'payment_type' => 'mobile',
+            'payment_type' => 'om',
         ])->assertStatus(201)->json();
 
         $invoice = $subscription['invoice'];
         $this->assertCount(1, $invoice['payments']);
         $this->assertEquals(10000, $invoice['payments'][0]['amount']);
-        $this->assertSame('mobile', $invoice['payments'][0]['payment_method']);
+        $this->assertSame('om', $invoice['payments'][0]['payment_method']);
         $this->assertSame('partial', $invoice['status']);
 
         $this->assertDatabaseHas('accounting_transactions', [

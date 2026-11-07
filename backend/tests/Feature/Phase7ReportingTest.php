@@ -192,7 +192,7 @@ class Phase7ReportingTest extends TestCase
 
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
             'amount' => 5000,
-            'payment_method' => 'mobile',
+            'payment_method' => 'om',
         ])->assertOk();
 
         $what = $this->createInvoice([

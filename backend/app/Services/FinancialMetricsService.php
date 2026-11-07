@@ -95,6 +95,7 @@ class FinancialMetricsService
         // Dépenses de la période (les transferts entre caisses sont exclus).
         $expenses = DB::table('accounting_transactions')
             ->where('type', 'expense')
+            ->where('is_transfer', false)
             ->whereBetween('transacted_at', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds ?: ['00000000-0000-0000-0000-000000000000']))
             ->when($commercialId, fn ($q) => $q->whereRaw('1 = 0'))
@@ -113,6 +114,22 @@ class FinancialMetricsService
             coalesce(sum(invoices.total_amount * {$r}), 0) as total
         ")->first();
 
+        // … et règlements de reste à payer annoncés par preuve, pas encore acceptés
+        // (factures déjà validées) : « montants annoncés par les commerciaux ».
+        $pendingProofs = DB::table('payment_proofs')
+            ->join('invoices', 'invoices.id', '=', 'payment_proofs.invoice_id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
+            ->where('payment_proofs.status', 'pending')
+            ->where('payment_proofs.amount', '>', 0)
+            ->whereBetween('payment_proofs.created_at', [$from, $to]);
+        $scope($pendingProofs, 'invoices');
+        $proofRow = $pendingProofs->selectRaw("
+            count(*) as nb,
+            coalesce(sum(payment_proofs.amount * {$r}), 0) as announced
+        ")->first();
+        $pendingAnnounced = (float) $pendingRow->announced + (float) $proofRow->announced;
+
         $revenue = Money::franc($period->revenue);
         $collectedTotal = Money::franc($collected->total);
         $expensesTotal = Money::franc($expenses);
@@ -127,7 +144,7 @@ class FinancialMetricsService
             'acomptes' => Money::franc($period->advances),
             'impayes' => $outstanding,
             'depenses' => $expensesTotal,
-            'en_attente_validation' => Money::franc($pendingRow->announced),
+            'en_attente_validation' => Money::franc($pendingAnnounced),
             'net_caisse' => $collectedTotal - $expensesTotal,
             'panier_moyen' => $count > 0 ? Money::franc($revenue / $count) : 0.0,
             // Noms historiques conservés pour ne pas casser les écrans existants.
@@ -140,7 +157,8 @@ class FinancialMetricsService
             'advances' => Money::franc($period->advances),
             'outstanding' => $outstanding,
             'expenses' => $expensesTotal,
-            'pending_validation' => Money::franc($pendingRow->announced),
+            'pending_validation' => Money::franc($pendingAnnounced),
+            'pending_proofs_count' => (int) $proofRow->nb,
             'pending_validation_total' => Money::franc($pendingRow->total),
             'pending_validation_count' => (int) $pendingRow->nb,
             'net_cash' => $collectedTotal - $expensesTotal,
@@ -173,7 +191,7 @@ class FinancialMetricsService
             ->groupBy('invoices.agency_id')
             ->selectRaw("invoices.agency_id,
                 coalesce(sum(({$netTotal}) * {$rate('invoices.agency_id')}), 0) as revenue,
-                coalesce(sum(({$netTotal}) - (invoices.amount_paid * {$this->netOfPassThroughFactor()})), 0) as outstanding,
+                coalesce(sum((({$netTotal}) - (invoices.amount_paid * {$this->netOfPassThroughFactor()})) * {$rate('invoices.agency_id')}), 0) as outstanding,
                 count(*) as invoices")
             ->get()
             ->keyBy('agency_id');

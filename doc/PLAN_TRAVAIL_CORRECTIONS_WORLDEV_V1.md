@@ -183,7 +183,7 @@ Contrôle | `ca = encaisse(factures de la période) + impayes` — assertion tes
 - [x] T1.1 — `FinancialMetricsService` (summary + byAgency/byMode/byCategory/byCommercial).
 - [x] T1.2 — Période métier unique (`App\Support\Period`, déjà en place et réutilisée).
 - [x] T1.3 — Migration `received_at` / `validated_at` / `validation_status` + backfill.
-- [ ] T1.4 — `treasury_account_id` obligatoire : **reporté** (résolution method-aware en place, durcissement avec T2.5 + UI paiement).
+- [x] T1.4 — Caisse obligatoire sur chaque paiement **et chaque dépense** (7/11) : paiement → caisse déduite du mode, jamais nulle, sans repli sur C (`TreasuryAccountProvisioner`) ; dépense saisie en Comptabilité → caisse obligatoire + sortie de caisse synchronisée (création/modification/suppression). Mode « mobile » générique retiré de la saisie (ambigu O/M).
 - [x] T1.5 — `App\Support\Money::franc()` adopté par le service unique et l'endpoint de synthèse.
 - [ ] T1.6 — Ventilation 7 rubriques : **reporté**, dépend de T3.6 (`sale_rubrics`).
 - [x] T1.7 — `GET /api/metrics/summary` et `/api/metrics/breakdown`.
@@ -251,16 +251,16 @@ Côte d'Ivoire : liste à confirmer (T0.3) — prévoir `wave`, `moov_money`.
 - [x] T2.2 - `TreasuryAccountSeeder` idempotent (codes, Wave/Moov en XOF, caisses O/M/B restreintes).
 - [x] T2.3 - `TreasuryPolicy` (`view`/`transfer`) enregistrée dans `AppServiceProvider`.
 - [x] T2.4 - `GET /treasury/accounts`, `/treasury/transactions` et transferts filtrés par rôle (403 hors périmètre).
-- [ ] T2.5 - Ventilation méthode → code (O/M/W/V/B) **faite** ; `treasury_account_id` reste optionnel : reporté avec T1.4 et le sélecteur UI de paiement.
+- [x] T2.5 - Ventilation méthode → caisse (C/O/M/B/W/V) obligatoire (7/11). Mouvement de caisse et écriture de recette datés de la **réception** (B11) ; validation d'une preuve = date de dépôt de la preuve. Annulation d'une facture = sortie de caisse compensatoire. Rattrapage : `php artisan treasury:backfill-payments` (simulation, puis `--apply`, après `invoices:reverse-cancelled-payments --apply`). Tests : `PaymentTreasuryRoutingTest` 12/12.
 - [x] T2.6 - `transfer_type` (`bank_deposit`, `admin_disbursement`, `withdrawal`, `internal`) + validation API + UI.
-- [ ] T2.7 - **Reporté** : `accounting_transactions.type` est un enum `income|expense` ; une écriture de transfert « hors charges » exige une migration d'enum dédiée.
+- [x] T2.7 - Colonne `accounting_transactions.is_transfer` (sans toucher l'enum) : un transfert n'est jamais compté en dépense (service financier, Bilan, Stats, Comptabilité, agences). Saisie d'un « versement bancaire » en dépense refusée (422). Rattrapage : `php artisan treasury:reclassify-transfers` (simulation puis `--apply`).
 - [x] T2.8 - Table `cash_closings` + `CashClosingController` + `CashClosingService`.
-- [x] T2.9 - Unicité caisse/jour + `solde_théorique = solde initial + entrées − sorties`.
-- [x] T2.10 - Écart non nul → justification obligatoire (422) + notification au chef d'agence.
+- [x] T2.9 - Unicité caisse/jour + `solde_théorique = solde initial + entrées − sorties`, journée en **heure locale** de l'agence (Douala UTC+1, Abidjan UTC+0).
+- [x] T2.10 - Écart non nul → justification obligatoire (422) + notification au chef d'agence ; validation réservée au chef d'agence / à la direction, jamais à l'auteur de la clôture.
 - [x] T2.11 - `frontend/src/pages/treasury/CashClosingsPage.tsx` + route `/treasury/closings` + menu.
 - [x] T2.12 - `BilanService` expose `treasury_accounts` (solde par caisse) et `total_treasury`.
 
-Tests : `TreasuryCashClosingTest` 6/6 ; suite complète 611/618 (7 échecs préexistants documentés dans `CLAUDE.md`).
+Tests (7/11) : `TreasuryCashClosingTest` 8/8, `PaymentTreasuryRoutingTest` 12/12, `TreasuryControlsTest` 9/9 ; suite complète locale 598 verts / 37 échecs préexistants documentés dans `CLAUDE.md` (31 = extension GD absente de l'image Docker locale).
 
 ---
 

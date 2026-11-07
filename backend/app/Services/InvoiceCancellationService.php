@@ -6,6 +6,7 @@ use App\Models\AccountingTransaction;
 use App\Models\CommissionEntry;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
+use App\Models\TreasuryTransaction;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\DB;
  *  - chaque paiement est marqué annulé (invoice_payments.cancelled_at) ;
  *  - une écriture de contre-passation (montant négatif, datée du jour de
  *    l'annulation) neutralise sa recette en Comptabilité ;
+ *  - l'argent ressort de la caisse où il était entré (mouvement « out » daté du
+ *    jour de l'annulation), pour que le solde de caisse reste juste ;
  *  - les commissions non encore versées passent « annulées ».
  *
  * Idempotent : un paiement déjà annulé n'est pas contre-passé deux fois.
@@ -39,6 +42,8 @@ class InvoiceCancellationService
             foreach ($payments as $payment) {
                 $payment->update(['cancelled_at' => $now]);
                 $amount += (float) $payment->amount;
+
+                $this->reverseTreasuryMovement($payment, $invoice, $operatorId, $now);
 
                 // Contre-passation de la recette (seulement si la recette a été journalisée).
                 $income = AccountingTransaction::where('invoice_id', $invoice->id)
@@ -80,5 +85,43 @@ class InvoiceCancellationService
                 'paid_commissions' => $paidCommissions,
             ];
         });
+    }
+
+    /**
+     * Sortie de caisse compensant l'encaissement d'un paiement annulé. Écrite
+     * directement (pas via TreasuryService) pour fonctionner même si la caisse a
+     * été désactivée depuis ; jamais deux fois pour le même paiement.
+     */
+    private function reverseTreasuryMovement(InvoicePayment $payment, Invoice $invoice, ?string $operatorId, $now): void
+    {
+        $movement = TreasuryTransaction::where('source_type', 'invoice_payment')
+            ->where('source_id', $payment->id)
+            ->where('direction', TreasuryTransaction::DIRECTION_IN)
+            ->first();
+
+        if (! $movement) {
+            return;
+        }
+
+        $alreadyReversed = TreasuryTransaction::where('source_type', 'invoice_payment_cancel')
+            ->where('source_id', $payment->id)
+            ->exists();
+
+        if ($alreadyReversed) {
+            return;
+        }
+
+        TreasuryTransaction::create([
+            'treasury_account_id' => $movement->treasury_account_id,
+            'direction' => TreasuryTransaction::DIRECTION_OUT,
+            'amount' => $movement->amount,
+            'source_type' => 'invoice_payment_cancel',
+            'source_id' => $payment->id,
+            'category' => 'annulation',
+            'label' => "Annulation du paiement — facture {$invoice->number}",
+            'reference' => $invoice->number.'-ANNUL',
+            'transacted_at' => $now,
+            'created_by' => $operatorId,
+        ]);
     }
 }

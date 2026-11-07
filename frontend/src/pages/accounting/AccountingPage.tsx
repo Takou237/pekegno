@@ -6,6 +6,8 @@ import { accountingApi } from '@/api/accounting.api';
 import { commissionsApi } from '@/api/commissions.api';
 import { countriesApi } from '@/api/countries.api';
 import { agenciesApi } from '@/api/agencies.api';
+import { treasuryApi } from '@/api/treasury.api';
+import type { TreasuryAccount } from '@/types/treasury';
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors';
 import { downloadExport } from '@/api/exports.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -78,7 +80,9 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
     reference: '',
     note: '',
     beneficiary: '',
+    treasury_account_id: '',
   });
+  const [txAccounts, setTxAccounts] = useState<TreasuryAccount[]>([]);
   const [txErrors, setTxErrors] = useState<Record<string, string>>({});
   const [txSubmitting, setTxSubmitting] = useState(false);
 
@@ -117,6 +121,14 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
       .then((r) => setAgencies(r.data.map((a) => ({ id: a.id, name: a.name }))))
       .catch(() => {});
   }, [isGlobalContext, isCaissier, countryFilter]);
+
+  // T1.4 : caisses visibles de l'utilisateur (une caissière ne voit que C).
+  useEffect(() => {
+    if (!txOpen) return;
+    treasuryApi.listAccounts(effectiveAgencyId ? { agency_id: effectiveAgencyId } : undefined)
+      .then((accounts) => setTxAccounts(accounts ?? []))
+      .catch(() => setTxAccounts([]));
+  }, [txOpen, effectiveAgencyId]);
 
   const fetchCategories = useCallback(() => {
     accountingApi.categories({ silentForbidden: true }).then((d) => setCategories(d ?? [])).catch(() => {});
@@ -187,6 +199,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
       reference: '',
       note: '',
       beneficiary: '',
+      treasury_account_id: '',
     });
     setTxErrors({});
     setTxOpen(true);
@@ -203,6 +216,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
       reference: tx.reference ?? '',
       note: tx.note ?? '',
       beneficiary: tx.beneficiary ?? '',
+      treasury_account_id: tx.treasury_account_id ?? '',
     });
     setTxErrors({});
     setTxOpen(true);
@@ -222,6 +236,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
         reference: txForm.reference.trim() || null,
         note: txForm.note.trim() || null,
         beneficiary: txForm.beneficiary.trim() || null,
+        treasury_account_id: txForm.treasury_account_id || null,
         agency_id: effectiveAgencyId || null,
         department_id: fixedDepartmentId ?? null,
       };
@@ -562,6 +577,18 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
             </Select>
             <Input label={t('accounting.colDate')} type="date" required value={txForm.transacted_at} onChange={(e) => setTxForm((f) => ({ ...f, transacted_at: e.target.value }))} />
           </div>
+          <Select
+            label={`${t('accounting.treasuryAccount')}${txForm.type === 'expense' ? ' *' : ''}`}
+            required={txForm.type === 'expense'}
+            value={txForm.treasury_account_id}
+            onChange={(e) => setTxForm((f) => ({ ...f, treasury_account_id: e.target.value }))}
+            error={txErrors.treasury_account_id}
+          >
+            <option value="">{t('accounting.selectTreasuryAccount')}</option>
+            {txAccounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.code ? `${a.code} — ` : ''}{a.name}{a.agency?.name ? ` (${a.agency.name})` : ''}</option>
+            ))}
+          </Select>
           <Input label={t('accounting.colReference')} value={txForm.reference} onChange={(e) => setTxForm((f) => ({ ...f, reference: e.target.value }))} />
           <Input label={t('accounting.colBeneficiary')} value={txForm.beneficiary} onChange={(e) => setTxForm((f) => ({ ...f, beneficiary: e.target.value }))} />
           <Input label={t('accounting.colNote')} value={txForm.note} onChange={(e) => setTxForm((f) => ({ ...f, note: e.target.value }))} />

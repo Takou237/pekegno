@@ -31,7 +31,7 @@ export function SubmitWithProofModal({ prestation, onClose, onDone }: SubmitWith
   const { showToast } = useToast();
 
   const [amount, setAmount] = useState('');
-  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'mobile' | 'wave'>('cash');
+  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'wave'>('cash');
   const [treasuryAccountId, setTreasuryAccountId] = useState('');
   const [accounts, setAccounts] = useState<TreasuryAccount[]>([]);
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -121,7 +121,6 @@ export function SubmitWithProofModal({ prestation, onClose, onDone }: SubmitWith
             <option value="cash">Cash</option>
             <option value="om">Orange Money</option>
             <option value="momo">MTN MoMo</option>
-            <option value="mobile">Mobile</option>
             <option value="wave">Wave</option>
           </Select>
           {accounts.length > 0 && (

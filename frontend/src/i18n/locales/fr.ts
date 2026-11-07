@@ -1852,6 +1852,8 @@ export default {
   },
 
   accounting: {
+    treasuryAccount: 'Caisse',
+    selectTreasuryAccount: '— Choisir la caisse —',
     title: 'Comptabilité',
     subtitle: 'Gestion des transactions comptables et catégories.',
     searchPlaceholder: 'Rechercher une transaction...',

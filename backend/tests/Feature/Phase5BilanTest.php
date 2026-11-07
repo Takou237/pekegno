@@ -169,6 +169,7 @@ class Phase5BilanTest extends TestCase
             'label' => 'Achat carburant',
             'amount' => 2000,
             'agency_id' => $agency->id,
+            'treasury_account_id' => $this->cashBoxId($agency->id),
             'beneficiary' => 'Station Total',
             'justification' => 'Déplacement direction',
         ])->assertStatus(201);
@@ -219,6 +220,7 @@ class Phase5BilanTest extends TestCase
             'label' => 'Réparation',
             'amount' => 3000,
             'agency_id' => $agency->id,
+            'treasury_account_id' => $this->cashBoxId($agency->id),
             'beneficiary' => 'Garage X',
             'justification' => 'Maintenance',
         ])->assertStatus(201);
@@ -304,7 +306,8 @@ class Phase5BilanTest extends TestCase
             'agency_id' => $agency->id,
             'items' => [['label' => 'Coaching', 'unit_price' => 10000, 'quantity' => 1]],
             'advance' => 10000,
-            'payment_type' => 'mobile',
+            'payment_type' => 'om',
+            'payer_phone' => '690000000',
         ]);
 
         $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk();
@@ -370,5 +373,12 @@ class Phase5BilanTest extends TestCase
         $this->assertSame([], $bilan['services_by_category']);
         $this->assertEquals(1, $bilan['total_ventes']);
         $this->assertEquals(30000, $bilan['total_ventes_amount']);
+    }
+
+    /** Caisse C de l'agence : une dépense sort toujours d'une caisse (T1.4). */
+    private function cashBoxId(string $agencyId): string
+    {
+        return app(\App\Services\TreasuryAccountProvisioner::class)
+            ->ensureAccount(\App\Models\Agency::findOrFail($agencyId), 'C')->id;
     }
 }

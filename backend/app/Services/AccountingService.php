@@ -6,6 +6,7 @@ use App\Models\AccountingCategory;
 use App\Models\AccountingTransaction;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
+use App\Models\TreasuryTransaction;
 
 class AccountingService
 {
@@ -50,7 +51,7 @@ class AccountingService
             'amount' => (float) $payment->amount,
             'client_id' => $invoice->client_id,
             'invoice_id' => $invoice->id,
-            'transacted_at' => $payment->paid_at ?? now(),
+            'transacted_at' => $payment->received_at ?? $payment->paid_at ?? now(),
             'operator_id' => $payment->received_by,
         ]);
     }
@@ -79,5 +80,48 @@ class AccountingService
     public function nextNumber(): int
     {
         return ((int) AccountingTransaction::max('number')) + 1;
+    }
+
+    /**
+     * T1.4 — mouvement de caisse d'une écriture saisie à la main en Comptabilité.
+     *
+     * Une dépense manuelle sort de sa caisse (out), une recette manuelle avec
+     * caisse y entre (in). Le mouvement suit l'écriture : créé, mis à jour
+     * (montant, date, caisse, sens) ou supprimé avec elle. Les écritures
+     * automatiques (paiements, dépenses du circuit) ont leur propre mouvement.
+     */
+    public function syncManualTreasuryMovement(AccountingTransaction $transaction, bool $deleted = false): void
+    {
+        $movement = TreasuryTransaction::where('source_type', 'accounting_transaction')
+            ->where('source_id', $transaction->id)
+            ->first();
+
+        if ($deleted || $transaction->treasury_account_id === null) {
+            $movement?->delete();
+
+            return;
+        }
+
+        $attributes = [
+            'treasury_account_id' => $transaction->treasury_account_id,
+            'direction' => $transaction->type === 'expense' ? TreasuryTransaction::DIRECTION_OUT : TreasuryTransaction::DIRECTION_IN,
+            'amount' => $transaction->amount,
+            'category' => $transaction->category?->name ?? ($transaction->type === 'expense' ? 'depense' : 'recette'),
+            'label' => $transaction->label,
+            'reference' => 'CPT-'.$transaction->number,
+            'transacted_at' => $transaction->transacted_at ?? now(),
+        ];
+
+        if ($movement) {
+            $movement->update($attributes);
+
+            return;
+        }
+
+        TreasuryTransaction::create($attributes + [
+            'source_type' => 'accounting_transaction',
+            'source_id' => $transaction->id,
+            'created_by' => $transaction->operator_id,
+        ]);
     }
 }

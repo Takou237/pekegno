@@ -74,9 +74,16 @@ class CashClosingController extends Controller
         );
     }
 
-    public function validateClosing(Request $request, CashClosing $closing, CashClosingService $service)
+    public function validateClosing(Request $request, CashClosing $closing, CashClosingService $service, ScopeService $scope)
     {
         $this->authorize('view', $closing->account);
+
+        $scopeIds = $scope->agencyIds($request->user());
+        abort_if(
+            $scopeIds !== null && $closing->agency_id !== null && ! in_array($closing->agency_id, $scopeIds, true),
+            403,
+            'Cette clôture est hors de votre périmètre.'
+        );
 
         return $service->validate($closing, $request->user());
     }

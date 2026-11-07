@@ -962,12 +962,17 @@ class InvoiceController extends Controller
         // (il ne peut pas manier de caisse) : elle est appliquée maintenant, au
         // moment où un super-admin / caissier valide la facture.
         if ((float) ($invoice->declared_advance ?? 0) > 0 && (float) $invoice->amount_paid === 0.0) {
+            // B11 : date de réception = dépôt de la preuve acceptée, sinon
+            // création de la facture (l'avance a été annoncée à ce moment-là).
+            $acceptedProof = $proofs->where('status', PaymentProof::STATUS_ACCEPTED)->sortBy('created_at')->first();
+
             $this->paymentService->applyPayment(
-                $invoice,
-                (float) $invoice->declared_advance,
-                $invoice->payment_type ?? 'cash',
-                true,
-                auth()->id(),
+                invoice: $invoice,
+                amount: (float) $invoice->declared_advance,
+                method: $invoice->payment_type ?? 'cash',
+                isAdvance: true,
+                userId: auth()->id(),
+                receivedAt: $acceptedProof?->created_at ?? $invoice->created_at,
             );
         }
 

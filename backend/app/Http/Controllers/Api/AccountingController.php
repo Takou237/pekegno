@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AccountingTransaction;
+use App\Models\TreasuryAccount;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
 use App\Services\ScopeService;
@@ -60,7 +61,7 @@ class AccountingController extends Controller
     public function index(Request $request): JsonResponse
     {
         $base = AccountingTransaction::query()
-            ->with(['agency:id,name,code', 'category:id,name,type', 'client:id,first_name,last_name', 'operator:id,first_name,last_name']);
+            ->with(['agency:id,name,code', 'category:id,name,type', 'client:id,first_name,last_name', 'operator:id,first_name,last_name', 'treasuryAccount:id,name,code']);
         // Caissier : scope forcé à ses agences, avant tout filtre explicite.
         $base = $this->applyCashierScope($base, $request->user());
         $base = $base
@@ -84,7 +85,7 @@ class AccountingController extends Controller
         $totals = (clone $base)
             ->selectRaw(
                 "coalesce(sum(case when type = 'income' then amount else 0 end), 0) as income, "
-                ."coalesce(sum(case when type = 'expense' then amount else 0 end), 0) as expense"
+                ."coalesce(sum(case when type = 'expense' and is_transfer = false then amount else 0 end), 0) as expense"
             )
             ->first();
 
@@ -161,6 +162,10 @@ class AccountingController extends Controller
             'reference' => ['nullable', 'string', 'max:255'],
             'beneficiary' => ['nullable', 'string', 'max:255'],
             'justification' => ['nullable', 'string', 'max:1000'],
+            // T1.4 : une dépense sort toujours d'une caisse (cahier §4, CdC §12).
+            'treasury_account_id' => ['nullable', 'required_if:type,expense', 'uuid', 'exists:treasury_accounts,id'],
+        ], [
+            'treasury_account_id.required_if' => 'Indiquez la caisse d\'où sort cette dépense.',
         ]);
 
         // Caissier : force l'agence à son périmètre, refuse toute autre agence.
@@ -182,11 +187,33 @@ class AccountingController extends Controller
             abort_unless(in_array($data['agency_id'], $agencyIds, true), 403, 'Hors périmètre agence.');
         }
 
-        $transaction = AccountingTransaction::create(array_merge($data, [
-            'number' => $this->accountingService->nextNumber(),
-            'operator_id' => $request->user()->id,
-            'transacted_at' => $data['transacted_at'] ?? now(),
-        ]));
+        // B13 : un versement en banque / décaissement administratif n'est pas une
+        // dépense mais un transfert entre caisses (Trésorerie → Transfert).
+        if ($data['type'] === 'expense' && ! empty($data['category_id'])) {
+            $categoryName = \App\Models\AccountingCategory::whereKey($data['category_id'])->value('name');
+            abort_if(
+                AccountingTransaction::looksLikeTransfer($categoryName),
+                422,
+                'Un versement en banque ou un décaissement vers l\'administration est un transfert entre caisses, pas une dépense : utilisez Trésorerie → Transfert.'
+            );
+        }
+
+        // Agence déduite de la caisse si elle n'est pas précisée.
+        if (empty($data['agency_id']) && ! empty($data['treasury_account_id'])) {
+            $data['agency_id'] = TreasuryAccount::whereKey($data['treasury_account_id'])->value('agency_id');
+        }
+        $this->assertTreasuryAccount($request, $data['treasury_account_id'] ?? null, $data['agency_id'] ?? null);
+
+        $transaction = DB::transaction(function () use ($data, $request) {
+            $transaction = AccountingTransaction::create(array_merge($data, [
+                'number' => $this->accountingService->nextNumber(),
+                'operator_id' => $request->user()->id,
+                'transacted_at' => $data['transacted_at'] ?? now(),
+            ]));
+            $this->accountingService->syncManualTreasuryMovement($transaction);
+
+            return $transaction;
+        });
 
         $this->logger->log(
             action: 'created',
@@ -197,7 +224,7 @@ class AccountingController extends Controller
             request: $request,
         );
 
-        return response()->json($transaction->fresh()->load(['agency', 'category', 'client', 'operator']), 201);
+        return response()->json($transaction->fresh()->load(['agency', 'category', 'client', 'operator', 'treasuryAccount']), 201);
     }
 
     #[OA\Put(
@@ -213,6 +240,12 @@ class AccountingController extends Controller
     public function update(Request $request, AccountingTransaction $transaction): JsonResponse
     {
         abort_if($transaction->invoice_id !== null, 422, 'Une écriture générée automatiquement ne peut pas être modifiée.');
+        abort_if($transaction->is_transfer, 422, 'Cette écriture a été reclassée en transfert entre caisses : elle ne se modifie plus ici.');
+        abort_if(
+            $transaction->reference !== null && \App\Models\Expense::where('number', $transaction->reference)->exists(),
+            422,
+            'Cette écriture vient du circuit des dépenses : modifiez la dépense elle-même.'
+        );
         if (($request->user()->role?->name ?? '') === 'caissier') {
             $agencyIds = DB::table('user_assignments')
                 ->where('user_id', $request->user()->id)
@@ -238,9 +271,18 @@ class AccountingController extends Controller
             'reference' => ['nullable', 'string', 'max:255'],
             'beneficiary' => ['nullable', 'string', 'max:255'],
             'justification' => ['nullable', 'string', 'max:1000'],
+            'treasury_account_id' => ['nullable', 'uuid', 'exists:treasury_accounts,id'],
         ]);
 
-        $transaction->update($data);
+        $type = $data['type'] ?? $transaction->type;
+        $accountId = array_key_exists('treasury_account_id', $data) ? $data['treasury_account_id'] : $transaction->treasury_account_id;
+        abort_if($type === 'expense' && $accountId === null, 422, "Indiquez la caisse d'où sort cette dépense.");
+        $this->assertTreasuryAccount($request, $accountId, array_key_exists('agency_id', $data) ? $data['agency_id'] : $transaction->agency_id);
+
+        DB::transaction(function () use ($transaction, $data) {
+            $transaction->update($data);
+            $this->accountingService->syncManualTreasuryMovement($transaction->fresh());
+        });
 
         $this->logger->log(
             action: 'updated',
@@ -250,7 +292,7 @@ class AccountingController extends Controller
             request: $request,
         );
 
-        return response()->json($transaction->fresh()->load(['agency', 'category', 'client', 'operator']));
+        return response()->json($transaction->fresh()->load(['agency', 'category', 'client', 'operator', 'treasuryAccount']));
     }
 
     #[OA\Delete(
@@ -266,6 +308,11 @@ class AccountingController extends Controller
     public function destroy(Request $request, AccountingTransaction $transaction): JsonResponse
     {
         abort_if($transaction->invoice_id !== null, 422, 'Une écriture générée automatiquement ne peut pas être supprimée.');
+        abort_if(
+            $transaction->reference !== null && \App\Models\Expense::where('number', $transaction->reference)->exists(),
+            422,
+            'Cette écriture vient du circuit des dépenses : modifiez la dépense elle-même.'
+        );
         if (($request->user()->role?->name ?? '') === 'caissier') {
             $agencyIds = DB::table('user_assignments')
                 ->where('user_id', $request->user()->id)
@@ -279,7 +326,10 @@ class AccountingController extends Controller
         }
 
         $number = $transaction->number;
-        $transaction->delete();
+        DB::transaction(function () use ($transaction) {
+            $this->accountingService->syncManualTreasuryMovement($transaction, deleted: true);
+            $transaction->delete();
+        });
 
         $this->logger->log(
             action: 'deleted',
@@ -290,5 +340,25 @@ class AccountingController extends Controller
         );
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * La caisse d'une écriture manuelle doit être active, de la même agence que
+     * l'écriture et visible de l'utilisateur (une caissière ne débite pas O/M/B).
+     */
+    private function assertTreasuryAccount(Request $request, ?string $accountId, ?string $agencyId): void
+    {
+        if ($accountId === null) {
+            return;
+        }
+
+        $account = TreasuryAccount::where('id', $accountId)->where('is_active', true)->first();
+        abort_if(! $account, 422, 'Caisse inexistante ou inactive.');
+        abort_if(
+            $account->agency_id !== null && $account->agency_id !== $agencyId,
+            422,
+            "La caisse choisie n'appartient pas à l'agence de l'écriture."
+        );
+        $this->authorize('view', $account);
     }
 }

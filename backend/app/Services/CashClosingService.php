@@ -7,6 +7,7 @@ use App\Models\TreasuryAccount;
 use App\Models\TreasuryTransaction;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\Period;
 use Carbon\Carbon;
 
 /**
@@ -18,25 +19,36 @@ use Carbon\Carbon;
  */
 class CashClosingService
 {
+    public const VALIDATOR_ROLES = ['responsable-agence', 'direction-generale', 'super-admin'];
+
     public function __construct(private readonly AgencyNotifier $notifier) {}
+
+    /**
+     * Journée métier de la caisse, en heure locale de son agence (B29, R3) :
+     * à Douala, un encaissement de 00:30 appartient au jour qui commence, pas à
+     * la veille UTC.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function dayBounds(TreasuryAccount $account, string $closingDate): array
+    {
+        return Period::dayBoundsUtc($closingDate, Period::timezoneForAgency($account->agency));
+    }
 
     public function theoreticalBalance(TreasuryAccount $account, string $closingDate): float
     {
-        $day = Carbon::parse($closingDate)->startOfDay();
-        $endOfDay = $day->copy()->endOfDay();
+        [, $endOfDay] = $this->dayBounds($account, $closingDate);
 
-        $before = $this->netBetween($account, null, $day->copy()->subSecond());
-        $during = $this->netBetween($account, $day, $endOfDay);
-
-        return Money::round((float) $account->opening_balance + $before + $during, 2);
+        return Money::round((float) $account->opening_balance + $this->netBetween($account, null, $endOfDay), 2);
     }
 
+    /** Solde initial = solde final de la veille (cahier §2). */
     public function openingBalance(TreasuryAccount $account, string $closingDate): float
     {
-        $day = Carbon::parse($closingDate)->startOfDay();
+        [$startOfDay] = $this->dayBounds($account, $closingDate);
 
         return Money::round(
-            (float) $account->opening_balance + $this->netBetween($account, null, $day->copy()->subSecond()),
+            (float) $account->opening_balance + $this->netBetween($account, null, $startOfDay->copy()->subSecond()),
             2
         );
     }
@@ -86,8 +98,24 @@ class CashClosingService
         return $closing->load('account');
     }
 
+    /**
+     * Validation par le chef d'agence (T2.10) ou la direction — jamais par la
+     * personne qui a fait la clôture.
+     */
     public function validate(CashClosing $closing, User $validator): CashClosing
     {
+        $role = $validator->role?->name;
+        abort_unless(
+            in_array($role, self::VALIDATOR_ROLES, true),
+            403,
+            "Seuls le chef d'agence et la direction peuvent valider une clôture de caisse."
+        );
+        abort_if(
+            $closing->closed_by !== null && $closing->closed_by === $validator->id,
+            403,
+            'La clôture doit être validée par une autre personne que celle qui l\'a faite.'
+        );
+
         if ($closing->status !== CashClosing::STATUS_VALIDATED) {
             $closing->update([
                 'status' => CashClosing::STATUS_VALIDATED,

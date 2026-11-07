@@ -1,0 +1,288 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\AccountingCategory;
+use App\Models\AccountingTransaction;
+use App\Models\Agency;
+use App\Models\CashClosing;
+use App\Models\Invoice;
+use App\Models\PaymentProof;
+use App\Models\Role;
+use App\Models\TreasuryAccount;
+use App\Models\TreasuryTransaction;
+use App\Models\User;
+use App\Services\FinancialMetricsService;
+use App\Services\PaymentService;
+use App\Services\TreasuryAccountProvisioner;
+use App\Services\TreasuryService;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+/**
+ * Contrôles caisses / dépenses ajoutés le 07/11 (suite revue Lots 1–2) :
+ *  - caisse obligatoire sur les dépenses saisies en Comptabilité (T1.4) ;
+ *  - versements en banque = transferts, jamais des dépenses (B13, T2.7) ;
+ *  - clôture en heure locale et validée par le chef d'agence (T2.9, T2.10) ;
+ *  - « en attente de validation » inclut les preuves de reste à payer ;
+ *  - scénario de réception « Douala 02/11 : caisse C = 381 000 puis 131 000 ».
+ */
+class TreasuryControlsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private Agency $agency;
+
+    private int $seq = 0;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed([PermissionSeeder::class, RoleSeeder::class]);
+        Carbon::setTestNow('2026-11-03 10:00:00');
+
+        $this->agency = Agency::factory()->create();
+        app(TreasuryAccountProvisioner::class)->ensureForAgency($this->agency);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
+    private function user(string $role, bool $assign = true): User
+    {
+        $user = User::factory()->create(['role_id' => Role::where('name', $role)->value('id')]);
+        if ($assign) {
+            $user->assignments()->sync([$this->agency->id => ['is_primary' => $role === 'responsable-agence']]);
+        }
+
+        return $user;
+    }
+
+    private function account(string $code): TreasuryAccount
+    {
+        return TreasuryAccount::where('agency_id', $this->agency->id)->where('code', $code)->firstOrFail();
+    }
+
+    private function category(string $name): AccountingCategory
+    {
+        return AccountingCategory::create(['name' => $name, 'type' => 'expense']);
+    }
+
+    private function invoice(array $extra = []): Invoice
+    {
+        $this->seq++;
+
+        return Invoice::create(array_merge([
+            'number' => sprintf('PK-CTL-%03d', $this->seq),
+            'agency_id' => $this->agency->id,
+            'invoice_date' => '2026-11-02',
+            'total_amount' => 100000,
+            'amount_paid' => 0,
+            'discount' => 0,
+            'vat_rate' => 0,
+            'status' => 'unpaid',
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+            'source' => 'in_person',
+        ], $extra));
+    }
+
+    // --- T1.4 : caisse obligatoire sur les dépenses manuelles -------------------
+
+    public function test_manual_expense_requires_a_cash_box(): void
+    {
+        Sanctum::actingAs($this->user('super-admin', false));
+
+        $this->postJson('/api/accounting/transactions', [
+            'type' => 'expense',
+            'label' => 'Carburant',
+            'amount' => 24000,
+            'agency_id' => $this->agency->id,
+        ])->assertUnprocessable()->assertJsonValidationErrors('treasury_account_id');
+    }
+
+    public function test_manual_expense_follows_its_cash_box_movement(): void
+    {
+        Sanctum::actingAs($this->user('super-admin', false));
+        $cash = $this->account('C');
+
+        $id = $this->postJson('/api/accounting/transactions', [
+            'type' => 'expense',
+            'label' => 'Carburant',
+            'amount' => 24000,
+            'treasury_account_id' => $cash->id,
+            'transacted_at' => '2026-11-02',
+        ])->assertCreated()->json('id');
+
+        // Agence déduite de la caisse, sortie de caisse créée et datée.
+        $this->assertSame($this->agency->id, AccountingTransaction::find($id)->agency_id);
+        $this->assertSame(-24000.0, (float) $cash->fresh()->computed_balance);
+        $movement = TreasuryTransaction::where('source_type', 'accounting_transaction')->where('source_id', $id)->firstOrFail();
+        $this->assertSame('2026-11-02', $movement->transacted_at->toDateString());
+
+        $this->putJson("/api/accounting/transactions/{$id}", ['amount' => 30000])->assertOk();
+        $this->assertSame(-30000.0, (float) $cash->fresh()->computed_balance);
+
+        $this->deleteJson("/api/accounting/transactions/{$id}")->assertNoContent();
+        $this->assertSame(0.0, (float) $cash->fresh()->computed_balance);
+    }
+
+    public function test_cashier_cannot_spend_from_a_restricted_cash_box(): void
+    {
+        Sanctum::actingAs($this->user('caissier'));
+
+        $this->postJson('/api/accounting/transactions', [
+            'type' => 'expense',
+            'label' => 'Achat',
+            'amount' => 5000,
+            'treasury_account_id' => $this->account('O')->id,
+        ])->assertForbidden();
+    }
+
+    // --- B13 / T2.7 : versement en banque = transfert ---------------------------
+
+    public function test_bank_deposit_cannot_be_entered_as_an_expense(): void
+    {
+        Sanctum::actingAs($this->user('super-admin', false));
+
+        $this->postJson('/api/accounting/transactions', [
+            'type' => 'expense',
+            'label' => 'Versement à Afriland',
+            'amount' => 222000,
+            'category_id' => $this->category('VERSEMENT BANCAIRE')->id,
+            'treasury_account_id' => $this->account('C')->id,
+        ])->assertUnprocessable();
+    }
+
+    public function test_reclassify_command_turns_legacy_bank_deposits_into_transfers(): void
+    {
+        // Yaoundé 02/11 : 222 000 versés à la banque saisis en dépense, 89 000 de vraies dépenses.
+        $deposit = AccountingTransaction::create([
+            'number' => 1, 'agency_id' => $this->agency->id, 'type' => 'expense', 'amount' => 222000,
+            'category_id' => $this->category('VERSEMENT BANCAIRE')->id, 'label' => 'Versement à Afriland',
+            'transacted_at' => '2026-11-02 15:00:00',
+        ]);
+        AccountingTransaction::create([
+            'number' => 2, 'agency_id' => $this->agency->id, 'type' => 'expense', 'amount' => 89000,
+            'category_id' => $this->category('Fournitures')->id, 'label' => 'Fournitures',
+            'transacted_at' => '2026-11-02 11:00:00',
+        ]);
+
+        $metrics = fn () => app(FinancialMetricsService::class)
+            ->summary(Carbon::parse('2026-11-01'), Carbon::parse('2026-11-03 23:59:59'), [$this->agency->id]);
+        $this->assertSame(311000.0, $metrics()['depenses']);
+
+        $this->artisan('treasury:reclassify-transfers')->assertSuccessful();
+        $this->assertFalse($deposit->fresh()->is_transfer);
+
+        $this->artisan('treasury:reclassify-transfers', ['--apply' => true])->assertSuccessful();
+        $this->artisan('treasury:reclassify-transfers', ['--apply' => true])->assertSuccessful();
+
+        $this->assertTrue($deposit->fresh()->is_transfer);
+        $this->assertSame(89000.0, $metrics()['depenses']);
+        $this->assertSame(-222000.0, (float) $this->account('C')->computed_balance);
+        $this->assertSame(222000.0, (float) $this->account('B')->computed_balance);
+        $this->assertSame(2, TreasuryTransaction::where('transfer_type', 'bank_deposit')->count());
+    }
+
+    // --- T2.9 / T2.10 : clôture ---------------------------------------------------
+
+    public function test_closing_uses_the_local_business_day(): void
+    {
+        $cash = $this->account('C');
+        // 01/11 23:30 UTC = 02/11 00:30 à Douala : appartient à la journée du 02/11.
+        app(TreasuryService::class)->recordMovement($cash, 'in', 10000, 'Vente nocturne', transactedAt: '2026-11-01 23:30:00');
+
+        Sanctum::actingAs($this->user('caissier'));
+        $closing = $this->postJson('/api/treasury/closings', [
+            'treasury_account_id' => $cash->id,
+            'closing_date' => '2026-11-01',
+            'actual_balance' => 0,
+        ])->assertCreated()->json();
+
+        $this->assertEquals(0, $closing['theoretical_balance']);
+        $this->assertEquals(10000, $this->postJson('/api/treasury/closings', [
+            'treasury_account_id' => $cash->id,
+            'closing_date' => '2026-11-02',
+            'actual_balance' => 10000,
+        ])->assertCreated()->json('theoretical_balance'));
+    }
+
+    public function test_only_the_agency_chief_validates_a_closing(): void
+    {
+        $cashier = $this->user('caissier');
+        Sanctum::actingAs($cashier);
+        $id = $this->postJson('/api/treasury/closings', [
+            'treasury_account_id' => $this->account('C')->id,
+            'closing_date' => '2026-11-02',
+            'actual_balance' => 0,
+        ])->assertCreated()->json('id');
+
+        $this->postJson("/api/treasury/closings/{$id}/validate")->assertForbidden();
+
+        Sanctum::actingAs($this->user('responsable-agence'));
+        $this->postJson("/api/treasury/closings/{$id}/validate")->assertOk();
+        $this->assertSame(CashClosing::STATUS_VALIDATED, CashClosing::find($id)->status);
+    }
+
+    // --- Indicateur « en attente de validation » ---------------------------------
+
+    public function test_pending_validation_includes_pending_remaining_payment_proofs(): void
+    {
+        $this->invoice(['validation_status' => Invoice::VALIDATION_PENDING, 'declared_advance' => 30000]);
+        $validated = $this->invoice();
+        PaymentProof::create([
+            'invoice_id' => $validated->id, 'submitted_by' => $this->user('commercial', false)->id,
+            'payment_method' => 'om', 'amount' => 20000, 'file_path' => 'proofs/x.jpg',
+            'status' => PaymentProof::STATUS_PENDING,
+        ]);
+
+        $summary = app(FinancialMetricsService::class)
+            ->summary(Carbon::parse('2026-11-01'), Carbon::parse('2026-11-03 23:59:59'), [$this->agency->id]);
+
+        $this->assertSame(50000.0, $summary['en_attente_validation']);
+    }
+
+    // --- Contrôle de réception du cahier ------------------------------------------
+
+    public function test_reception_check_douala_cash_box_on_november_2(): void
+    {
+        $admin = $this->user('super-admin', false);
+        $c = $this->account('C');
+        $c->update(['opening_balance' => 260000]);
+
+        // 550 000 encaissés le 02/11 : 145 000 en espèces, 405 000 en OM et MTN.
+        $pay = fn (float $amount, string $method) => app(PaymentService::class)->applyPayment(
+            $this->invoice(['total_amount' => $amount]), $amount, $method, false, $admin->id, null, null, '2026-11-02 10:00:00');
+        $pay(145000, 'cash');
+        $pay(300000, 'om');
+        $pay(105000, 'momo');
+
+        // 24 000 de dépenses payées depuis la caisse C.
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/accounting/transactions', [
+            'type' => 'expense', 'label' => 'Dépenses du jour', 'amount' => 24000,
+            'treasury_account_id' => $c->id, 'transacted_at' => '2026-11-02 12:00:00',
+        ])->assertCreated();
+
+        $closing = app(\App\Services\CashClosingService::class);
+        $this->assertSame(381000.0, $closing->theoreticalBalance($c->fresh(), '2026-11-02'));
+
+        // Décaissement administratif de 250 000 : un transfert, pas une dépense.
+        app(TreasuryService::class)->transfer($c->fresh(), $this->account('B'), 250000, 'Décaissement administratif', $admin->id, 'admin_disbursement');
+        $this->assertSame(131000.0, (float) $c->fresh()->computed_balance);
+        $this->assertSame(300000.0, (float) $this->account('O')->computed_balance);
+        $this->assertSame(105000.0, (float) $this->account('M')->computed_balance);
+
+        $summary = app(FinancialMetricsService::class)
+            ->summary(Carbon::parse('2026-11-02'), Carbon::parse('2026-11-02 23:59:59'), [$this->agency->id]);
+        $this->assertSame(550000.0, $summary['encaisse']);
+        $this->assertSame(24000.0, $summary['depenses']);
+    }
+}
