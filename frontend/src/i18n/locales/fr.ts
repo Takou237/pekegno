@@ -896,6 +896,7 @@ export default {
   },
 
   dashboard: {
+    displayCurrency: "Devise d'affichage",
     // Cartes financières (cahier, section 1) — calcul unique côté serveur.
     kpi: {
       revenue: 'Chiffre d\'affaires',
@@ -1910,6 +1911,13 @@ export default {
   },
 
   bilans: {
+    cashBoxesTitle: 'Caisses',
+    cashBox: 'Caisse',
+    cashIn: 'Entrées',
+    cashOut: 'Sorties',
+    cashCounted: 'Compté (écart)',
+    notClosed: 'Non clôturée',
+    cashBoxesTotal: 'Total des caisses',
     title: 'Bilan du jour',
     subtitle: 'Récapitulatif financier journalier par agence.',
     date: 'Date',
@@ -2681,6 +2689,13 @@ export default {
     realizationProofUploaded: 'Fichier de preuve envoyé.',
     realizationSaved: 'Réalisation enregistrée.',
     realizationStarted: 'Réalisation démarrée.',
+    realizationProofUrl: 'Lien de preuve (post, vidéo…)',
+    realizationCost: 'Coût réel engagé (optionnel)',
+    realizationNote: 'Note ou compte-rendu',
+    realizationProject: 'Prestation',
+    realizationDue: 'Échéance',
+    realizationOnlyOverdue: 'Seulement en retard',
+    realizationViewProof: 'Voir la preuve',
     noLearners: 'Aucun apprenant pour vos formations.',
     potentialRevenue: 'Revenus potentiels',
     metricsTitle: 'Métriques',

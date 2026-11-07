@@ -52,7 +52,7 @@
   <div class="meta">
     <b>Date</b><span>7 novembre 2026</span>
     <b>Référentiel</b><span>Cahier client (sections 1 à 5, bugs B1–B30, 17 contrôles de réception) et rapport de diagnostic du 05/11/2026</span>
-    <b>Code testé</b><span>Branche <code>master</code> : commits <code>116d7c9</code> (06/11), <code>ade4b1d</code> (lot 1), <code>cb10fa4</code> (lot 2) + corrections du 07/11 (non encore commitées)</span>
+    <b>Code testé</b><span>Branche <code>master</code> : commits <code>116d7c9</code> (06/11), <code>ade4b1d</code> (lot 1), <code>cb10fa4</code> (lot 2), <code>a583c61</code> (corrections du 07/11) + espace formateur « Mes réalisations » (07/11, non commité)</span>
     <b>Environnement</b><span>Tests automatisés Laravel, conteneur PHP 8.3 local, base SQLite en mémoire. <b>Pas encore de staging ni de production.</b></span>
   </div>
 </div>
@@ -60,10 +60,10 @@
 <h2>1. Synthèse</h2>
 
 <div class="kpis">
-  <div class="kpi"><div class="v">598</div><div class="l">tests automatisés verts (suite complète)</div></div>
+  <div class="kpi"><div class="v">603</div><div class="l">tests automatisés verts (suite complète)</div></div>
   <div class="kpi"><div class="v">37</div><div class="l">échecs, tous préexistants et identiques avant / après</div></div>
   <div class="kpi"><div class="v">53 / 53</div><div class="l">tests finance &amp; trésorerie verts (266 vérifications)</div></div>
-  <div class="kpi"><div class="v">21</div><div class="l">nouveaux tests ajoutés le 07/11</div></div>
+  <div class="kpi"><div class="v">26</div><div class="l">nouveaux tests ajoutés le 07/11 (21 finance / caisses + 5 espace formateur)</div></div>
 </div>
 
 <p><b>Statuts utilisés dans ce rapport.</b>
@@ -268,6 +268,20 @@ du cahier, §4).</div>
   <tr><td>reception check douala cash box on november 2</td><td>Contrôle de réception n° 9 (381 000 / 131 000).</td></tr>
 </table>
 
+<h3>Espace formateur « Mes réalisations » (hors cahier, réparation du build) — 5 tests</h3>
+<p>Le commit <code>33c396b</code> déclarait la page, les routes API et le middleware de cet espace sans les fichiers correspondants :
+le frontend ne compilait plus et <code>php artisan route:list</code> plantait. Les trois fichiers manquants ont été écrits
+(<code>TrainerRealizationsPage.tsx</code>, <code>TrainerRealizationController.php</code>, <code>EnsureTrainer.php</code>) selon le contrat
+déjà présent (types, appels API, traductions). Le frontend compile de nouveau (<code>tsc -b</code> et <code>vite build</code> OK).</p>
+<table>
+  <tr><th>Test</th><th>Ce qu'il prouve</th></tr>
+  <tr><td>only trainer accounts reach the space</td><td>Accès réservé au rôle formateur et aux comptes liés à un profil formateur ; un commercial non lié reçoit 403.</td></tr>
+  <tr><td>lists my studio realizations with summary</td><td>Seules les réalisations du pôle studio assignées au formateur (directement, ou via l'action non réassignée) ; compteurs et filtre « en retard » justes.</td></tr>
+  <tr><td>generates executions of actions assigned to me</td><td>Les occurrences d'une action jamais ouverte sont générées ; rien pour une prestation en brouillon.</td></tr>
+  <tr><td>trainer completes a realization</td><td>Date, preuve, coût et note enregistrés ; le coût réel remonte sur l'action.</td></tr>
+  <tr><td>trainer cannot touch other realizations or cancel</td><td>403 sur la réalisation d'un autre ; pas d'annulation, pas de date future, titre et affectation non modifiables.</td></tr>
+</table>
+
 <h3>Autres suites vérifiées</h3>
 <p><i>InterAgencySaleTest</i> (6 tests, ventes depuis une autre agence) et <i>ApiResponseCacheTest</i> (6 tests, cache des statistiques invalidé à chaque écriture) : verts.</p>
 
@@ -295,8 +309,8 @@ du cahier, §4).</div>
 <h2>10. Limites et points ouverts</h2>
 <ul>
   <li>Tous les résultats viennent de tests automatisés locaux (SQLite) : <b>aucune vérification sur données réelles</b> tant que le staging n'existe pas.</li>
-  <li>Les corrections du 07/11 ne sont pas encore commitées.</li>
-  <li>Le frontend ne compile pas tant que <code>pages/trainer/TrainerRealizationsPage</code> n'est pas ajouté au dépôt (fichier importé mais absent, sans lien avec ces lots).</li>
+  <li>Les corrections finance / caisses du 07/11 sont commitées (<code>a583c61</code>) ; l'espace formateur « Mes réalisations » ne l'est pas encore.</li>
+  <li>Le frontend compile de nouveau : les fichiers manquants de l'espace formateur ont été recréés. À rapprocher de la version locale de l'auteur du commit <code>33c396b</code>, s'il en a une, avant fusion.</li>
   <li>Le mode « Mobile » générique a été retiré de la saisie : choix produit à confirmer avec Pekegno.</li>
   <li>Décisions client attendues : liste des caisses Côte d'Ivoire (T0.3), mapping des 7 rubriques (T0.4), contresignature de la doctrine CA (T0.2).</li>
   <li>Prochaine étape proposée : Lot 4 (B3, B4, B5, B6, B8, puis B1 côté Comptabilité), qui ne dépend d'aucune réponse du client.</li>

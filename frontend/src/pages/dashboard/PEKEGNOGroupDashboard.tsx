@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Building2,
@@ -41,7 +41,7 @@ import { SkeletonDashboard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { MonthlyRevenueChart } from '@/components/charts/MonthlyRevenueChart';
 import { PeriodPicker, defaultPeriod, type Period } from '@/components/ui/PeriodPicker';
-import { formatCurrency, formatNumber } from '@/utils/number';
+import { currencyLabel, formatCurrency, formatNumber } from '@/utils/number';
 import { paymentMethodLabel } from '@/utils/paymentMethods';
 import type { GroupStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, TopCommercial, TopProduct, TopAgency, TrainingGroupStats, ServiceGroupStats, GroupReportStats } from '@/types/stats';
 import type { Invoice } from '@/types/invoice';
@@ -104,6 +104,47 @@ export default function PEKEGNOGroupDashboard() {
   const [loading, setLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [period, setPeriod] = useState<Period>(defaultPeriod());
+
+  // Devise d'affichage du groupe (bouton de bascule) : les montants arrivent
+  // convertis dans la monnaie du groupe ; on les ramène dans la devise choisie
+  // avec le taux de son pays (1 unité locale = exchange_rate unités du groupe).
+  const groupCode = (stats?.currency_code ?? 'XAF').toUpperCase();
+  const [viewCurrency, setViewCurrency] = useState<string>(() => {
+    try {
+      return localStorage.getItem('pekegno.groupViewCurrency') ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const currencyRates = useMemo(() => {
+    const rates = new Map<string, number>([[groupCode, 1]]);
+    for (const c of stats?.countries ?? []) {
+      const code = c.currency_code?.toUpperCase();
+      if (code && !rates.has(code) && Number(c.exchange_rate) > 0) rates.set(code, Number(c.exchange_rate));
+    }
+    return rates;
+  }, [stats, groupCode]);
+  const displayCode = viewCurrency && currencyRates.has(viewCurrency) ? viewCurrency : groupCode;
+  const factor = 1 / (currencyRates.get(displayCode) ?? 1);
+  const money = (value: number | string | null | undefined) => formatCurrency(Number(value ?? 0) * factor, displayCode);
+  const kpisInView = useMemo(() => {
+    if (!stats || factor === 1) return stats;
+    const keys = ['revenue', 'payments_total', 'recoveries_total', 'advances_total', 'outstanding', 'expenses_total', 'pending_validation_total', 'net_cash', 'average_basket'] as const;
+    const scaled: Record<string, unknown> = { ...stats };
+    for (const k of keys) {
+      const v = (stats as unknown as Record<string, unknown>)[k];
+      if (typeof v === 'number') scaled[k] = v * factor;
+    }
+    return scaled as unknown as GroupStats;
+  }, [stats, factor]);
+  function chooseCurrency(code: string) {
+    setViewCurrency(code);
+    try {
+      localStorage.setItem('pekegno.groupViewCurrency', code);
+    } catch {
+      /* stockage indisponible : choix non mémorisé */
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -243,12 +284,33 @@ export default function PEKEGNOGroupDashboard() {
           </p>
         </div>
         {stats && (
-          <PeriodPicker value={period} onChange={setPeriod} />
+          <div className="flex flex-wrap items-center gap-2">
+            {currencyRates.size > 1 && (
+              <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800" role="group" aria-label={t('dashboard.displayCurrency')}>
+                {[...currencyRates.keys()].map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => chooseCurrency(code)}
+                    aria-pressed={displayCode === code}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      displayCode === code
+                        ? 'bg-white text-brand-700 shadow-sm dark:bg-gray-900 dark:text-brand-300'
+                        : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {currencyLabel(code)}
+                  </button>
+                ))}
+              </div>
+            )}
+            <PeriodPicker value={period} onChange={setPeriod} />
+          </div>
         )}
       </div>
 
       {/* Cartes de la section 1 du cahier, en tête et dans l'ordre (calcul unique serveur). */}
-      <FinancialKpiCards kpis={stats} currency={stats?.currency_code} />
+      <FinancialKpiCards kpis={kpisInView} currency={displayCode} />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
@@ -292,7 +354,7 @@ export default function PEKEGNOGroupDashboard() {
         />
         <StatCard
           label={t('dashboard.averageInvoiceValue')}
-          value={formatCurrency(stats?.average_invoice_value ?? 0)}
+          value={money(stats?.average_invoice_value ?? 0)}
           icon={<Receipt className="h-5 w-5" />}
           tone="bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-400"
         />
@@ -327,7 +389,7 @@ export default function PEKEGNOGroupDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(c.turnover)}
+                      {money(c.turnover)}
                     </p>
                     <p className="text-xs text-gray-400">
                       {c.sales_count} {t('dashboard.sales')} · {c.points_balance} pts
@@ -364,7 +426,7 @@ export default function PEKEGNOGroupDashboard() {
                       </td>
                       <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{p.quantity}</td>
                       <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
-                        {formatCurrency(p.revenue)}
+                        {money(p.revenue)}
                       </td>
                     </tr>
                   ))}
@@ -402,7 +464,7 @@ export default function PEKEGNOGroupDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(a.revenue)}
+                      {money(a.revenue)}
                     </p>
                     <p className="text-xs text-gray-400">
                       {a.invoices_count} {t('dashboard.invoices')}
@@ -475,7 +537,7 @@ export default function PEKEGNOGroupDashboard() {
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-300">{paymentMethodLabel(p.method, t)}</span>
                     <span className="font-medium text-gray-800 dark:text-gray-100">
-                      {formatCurrency(p.total)}
+                      {money(p.total)}
                     </span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
@@ -519,7 +581,7 @@ export default function PEKEGNOGroupDashboard() {
                       </td>
                       <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{c.items}</td>
                       <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
-                        {formatCurrency(c.revenue)}
+                        {money(c.revenue)}
                       </td>
                     </tr>
                   ))}
@@ -576,7 +638,7 @@ export default function PEKEGNOGroupDashboard() {
                         )}
                       </td>
                       <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
-                        {formatCurrency(inv.total_amount)}
+                        {money(inv.total_amount)}
                       </td>
                     </tr>
                   ))}
@@ -624,13 +686,13 @@ export default function PEKEGNOGroupDashboard() {
               />
               <StatCard
                 label={t('reports.receivedRevenue')}
-                value={formatCurrency(training.received)}
+                value={money(training.received)}
                 icon={<DollarSign className="h-5 w-5" />}
                 tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
               />
               <StatCard
                 label={t('reports.outstanding')}
-                value={formatCurrency(training.outstanding)}
+                value={money(training.outstanding)}
                 icon={<TrendingUp className="h-5 w-5" />}
                 tone="bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
               />
@@ -793,7 +855,7 @@ export default function PEKEGNOGroupDashboard() {
                         stroke="#9ca3af"
                         width={120}
                       />
-                      <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                      <Tooltip formatter={(value) => money(Number(value))} />
                       <Bar dataKey="revenu" fill="#f59e0b" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -851,7 +913,7 @@ export default function PEKEGNOGroupDashboard() {
               />
               <StatCard
                 label={t('reports.serviceRevenue')}
-                value={formatCurrency(services.summary.revenue)}
+                value={money(services.summary.revenue)}
                 icon={<DollarSign className="h-5 w-5" />}
                 tone="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
                 sub={`${t('reports.seminars')}: ${services.summary.seminars}`}
@@ -879,7 +941,7 @@ export default function PEKEGNOGroupDashboard() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#9ca3af" />
                       <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                      <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                      <Tooltip formatter={(value) => money(Number(value))} />
                       <Line
                         type="monotone"
                         dataKey="revenue"
@@ -916,7 +978,7 @@ export default function PEKEGNOGroupDashboard() {
                             <Cell key={entry.name} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        <Tooltip formatter={(value) => money(Number(value))} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="mt-3 flex flex-wrap justify-center gap-4">
@@ -929,7 +991,7 @@ export default function PEKEGNOGroupDashboard() {
                             className="h-2.5 w-2.5 rounded-full"
                             style={{ backgroundColor: m.color }}
                           />
-                          {m.name} ({formatCurrency(m.value)})
+                          {m.name} ({money(m.value)})
                         </span>
                       ))}
                     </div>
@@ -957,7 +1019,7 @@ export default function PEKEGNOGroupDashboard() {
                         stroke="#9ca3af"
                         width={120}
                       />
-                      <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                      <Tooltip formatter={(value) => money(Number(value))} />
                       <Bar dataKey="revenue" fill="#14b8a6" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -996,7 +1058,7 @@ export default function PEKEGNOGroupDashboard() {
                               {formatNumber(s.invoices)}
                             </td>
                             <td className="py-2.5 text-right text-gray-600 dark:text-gray-300">
-                              {formatCurrency(s.revenue)}
+                              {money(s.revenue)}
                             </td>
                           </tr>
                         ))}

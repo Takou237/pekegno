@@ -3,11 +3,11 @@
 namespace App\Services;
 
 use App\Models\Agency;
+use App\Models\CashClosing;
 use App\Models\Category;
-use App\Models\DailyBalance;
 use App\Models\Department;
 use App\Models\TreasuryAccount;
-use App\Models\TreasuryTransaction;
+use App\Support\Period;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -18,6 +18,12 @@ class BilanService
      * les écritures du département (cf. DepartmentLedger).
      */
     private ?Department $department = null;
+
+    /** Fuseau de la journée métier : celui de l'agence quand une seule est affichée. */
+    private ?string $timezone = null;
+
+    /** Date de réception d'un paiement (B11) : repli sur paid_at pour l'historique. */
+    private const RECEIVED_AT = 'coalesce(invoice_payments.received_at, invoice_payments.paid_at)';
 
     public function __construct(private readonly DepartmentLedger $ledger) {}
 
@@ -68,6 +74,9 @@ class BilanService
             $current->addDay();
         }
 
+        $first = $days[0] ?? null;
+        $last = $days === [] ? null : $days[array_key_last($days)];
+
         return [
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
@@ -77,6 +86,15 @@ class BilanService
             // même sans vente sur la période (sinon le tableau « disparaît »).
             'sale_categories' => Category::query()->orderBy('name')->pluck('name')->values()->all(),
             'days' => $days,
+            // B5 : les flux s'additionnent, pas les soldes. Total période = solde
+            // initial du premier jour et solde final du dernier jour.
+            'totals' => [
+                'total_ventes_amount' => round((float) collect($days)->sum('total_ventes_amount'), 2),
+                'total_received' => round((float) collect($days)->sum('total_received'), 2),
+                'expense_total' => round((float) collect($days)->sum('expense_total'), 2),
+                'solde_initial' => $first['solde_initial'] ?? 0.0,
+                'solde_final' => $last['solde_final'] ?? 0.0,
+            ],
         ];
     }
 
@@ -101,8 +119,9 @@ class BilanService
             'total_mobile' => 0,
             'total_bank' => 0,
             'total_depenses' => 0,
+            // B6 : solde initial consolidé = somme des soldes finaux des agences la veille.
+            'total_solde_initial' => 0,
             'total_solde_final' => 0,
-            'total_treasury' => 0,
             'total_agency' => 0,
             'total_agency_pass_through' => 0,
         ];
@@ -123,8 +142,8 @@ class BilanService
             $totals['total_mobile'] += $b['mobile_total'];
             $totals['total_bank'] += $b['bank_total'];
             $totals['total_depenses'] += $b['expense_total'];
+            $totals['total_solde_initial'] += $b['solde_initial'];
             $totals['total_solde_final'] += $b['solde_final'];
-            $totals['total_treasury'] += $b['treasury_balance'] ?? 0;
             $totals['total_agency'] += $b['agency_total'];
             $totals['total_agency_pass_through'] += $b['agency_pass_through_total'];
 
@@ -151,6 +170,18 @@ class BilanService
      * Construit le bilan complet d'un seul jour.
      */
     private function buildSingleDay(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
+    {
+        $previousTimezone = $this->timezone;
+        $this->timezone = $agencyId ? Period::timezoneForAgency(Agency::with('geoCountry')->find($agencyId)) : null;
+
+        try {
+            return $this->buildDay($date, $agencyId, $agencyIds);
+        } finally {
+            $this->timezone = $previousTimezone;
+        }
+    }
+
+    private function buildDay(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
         $servicesByCategory = $this->servicesByCategory($date, $agencyId, $agencyIds);
         $productsByCategory = $this->productsByCategory($date, $agencyId, $agencyIds);
@@ -186,26 +217,23 @@ class BilanService
         $expensesByCategory = $this->expensesByCategory($date, $agencyId, $agencyIds);
         $expenseTotal = collect($expensesByCategory)->sum('total');
 
-        $opening = $this->openingBalance($date, $agencyId, $agencyIds);
-        $closing = $opening + $totalReceived - $expenseTotal;
-
-        // Les soldes stockés sont ceux de l'agence : pas d'écriture pour une vue département.
-        if ($this->department === null && ($agencyId !== null || $agencyIds === null)) {
-            $this->storeBalance($date, $agencyId, $opening, $closing);
+        // Cahier §2 : les ventes d'un côté, les caisses de l'autre. Le solde de
+        // l'agence est celui de ses caisses C/O/M/B…, calculé à partir de leurs
+        // mouvements (B6) : le solde initial d'un jour est toujours le solde
+        // final de la veille, et rien n'est réécrit quand on consulte le Bilan.
+        // Un département n'a pas de caisse : son solde suit ses encaissements
+        // moins ses dépenses.
+        if ($this->department) {
+            $treasury = null;
+            $opening = $this->departmentOpeningBalance($date);
+            $closing = round($opening + $totalReceived - $expenseTotal, 2);
+        } else {
+            $treasury = $this->treasuryDay($date, $agencyId, $agencyIds);
+            $opening = $treasury['opening'];
+            $closing = $treasury['closing'];
         }
 
         $agency = $agencyId ? Agency::find($agencyId)?->only('id', 'name') : null;
-
-        // T2.12 : solde réel par compte de trésorerie (C/O/M/B), pas un seau
-        // unique — sans objet pour un département.
-        $treasury = $this->department ? null : $this->treasuryBalances($date, $agencyId, $agencyIds);
-        $treasuryBalance = $treasury['total'] ?? null;
-
-        // Écart entre solde théorique et solde réel
-        $gap = $treasuryBalance !== null ? round($closing - $treasuryBalance, 2) : null;
-        $gapPercent = $treasuryBalance !== null && abs($treasuryBalance) > 0
-            ? round(($gap / abs($treasuryBalance)) * 100, 2)
-            : null;
 
         return [
             'date' => $date->toDateString(),
@@ -230,56 +258,89 @@ class BilanService
             'expenses_by_category' => $expensesByCategory,
             'solde_initial' => $opening,
             'solde_final' => $closing,
-            'treasury_balance' => $treasuryBalance,
             'treasury_accounts' => $treasury['accounts'] ?? [],
-            'gap' => $gap,
-            'gap_percent' => $gapPercent,
         ];
     }
 
     /**
-     * T2.12 — soldes réels par compte de trésorerie actif d'une agence.
+     * Caisses du périmètre pour une journée : solde initial (fin de la veille),
+     * entrées, sorties et solde final de chaque caisse, avec sa clôture du jour
+     * si elle existe (solde compté, écart, statut). Chaque agence est lue dans
+     * son fuseau, comme la clôture de caisse (CashClosingService).
      *
-     * @return array{total: float, accounts: array<int, array{id: string, code: ?string, name: string, type: string, balance: float}>}|null
+     * @return array{opening: float, closing: float, accounts: array<int, array<string, mixed>>}
      */
-    private function treasuryBalances(Carbon $date, ?string $agencyId, ?array $agencyIds = null): ?array
+    private function treasuryDay(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
-        $accounts = TreasuryAccount::active()
+        $accounts = TreasuryAccount::query()
+            ->with('agency.geoCountry')
             ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
             ->orderBy('code')
             ->get();
 
-        if ($accounts->isEmpty()) {
-            return null;
-        }
+        $closings = CashClosing::query()
+            ->whereIn('treasury_account_id', $accounts->pluck('id'))
+            ->whereDate('closing_date', $date->toDateString())
+            ->get()
+            ->keyBy('treasury_account_id');
 
         $rows = [];
-        $total = 0.0;
+        $opening = 0.0;
+        $closing = 0.0;
 
-        foreach ($accounts as $account) {
-            $in = (float) TreasuryTransaction::ofAccount($account->id)
-                ->where('transacted_at', '<=', $this->dayBounds($date)[1])
-                ->where('direction', 'in')
-                ->sum('amount');
-            $out = (float) TreasuryTransaction::ofAccount($account->id)
-                ->where('transacted_at', '<=', $this->dayBounds($date)[1])
-                ->where('direction', 'out')
-                ->sum('amount');
+        foreach ($accounts->groupBy('agency_id') as $agencyAccounts) {
+            $timezone = Period::timezoneForAgency($agencyAccounts->first()->agency);
+            [$start, $end] = Period::dayBoundsUtc($date->toDateString(), $timezone);
 
-            $balance = round((float) $account->opening_balance + $in - $out, 2);
-            $total += $balance;
+            $flows = DB::table('treasury_transactions')
+                ->whereNull('deleted_at')
+                ->whereIn('treasury_account_id', $agencyAccounts->pluck('id'))
+                ->where('transacted_at', '<=', $end)
+                ->groupBy('treasury_account_id')
+                ->selectRaw("
+                    treasury_account_id,
+                    sum(case when transacted_at < ? then (case when direction = 'in' then amount else -amount end) else 0 end) as before_day,
+                    sum(case when transacted_at >= ? and direction = 'in' then amount else 0 end) as day_in,
+                    sum(case when transacted_at >= ? and direction = 'out' then amount else 0 end) as day_out
+                ", [$start, $start, $start])
+                ->get()
+                ->keyBy('treasury_account_id');
 
-            $rows[] = [
-                'id' => $account->id,
-                'code' => $account->code,
-                'name' => $account->name,
-                'type' => $account->type,
-                'balance' => $balance,
-            ];
+            foreach ($agencyAccounts as $account) {
+                $flow = $flows->get($account->id);
+                $accountOpening = round((float) $account->opening_balance + (float) ($flow->before_day ?? 0), 2);
+                $in = round((float) ($flow->day_in ?? 0), 2);
+                $out = round((float) ($flow->day_out ?? 0), 2);
+                $accountClosing = round($accountOpening + $in - $out, 2);
+                $cashClosing = $closings->get($account->id);
+
+                // Caisse désactivée et vide : rien à montrer.
+                if (! $account->is_active && $accountOpening == 0 && $in == 0 && $out == 0) {
+                    continue;
+                }
+
+                $opening += $accountOpening;
+                $closing += $accountClosing;
+
+                $rows[] = [
+                    'id' => $account->id,
+                    'agency_id' => $account->agency_id,
+                    'code' => $account->code,
+                    'name' => $account->name,
+                    'type' => $account->type,
+                    'opening' => $accountOpening,
+                    'in' => $in,
+                    'out' => $out,
+                    'closing' => $accountClosing,
+                    'closing_status' => $cashClosing?->status,
+                    'counted' => $cashClosing ? (float) $cashClosing->actual_balance : null,
+                    'difference' => $cashClosing ? (float) $cashClosing->difference : null,
+                ];
+            }
         }
 
-        return ['total' => round($total, 2), 'accounts' => $rows];
+        return ['opening' => round($opening, 2), 'closing' => round($closing, 2), 'accounts' => $rows];
     }
 
     /**
@@ -291,7 +352,7 @@ class BilanService
      */
     private function dayBounds(Carbon $date): array
     {
-        $tz = (string) config('app.business_timezone', 'Africa/Douala');
+        $tz = $this->timezone ?? (string) config('app.business_timezone', 'Africa/Douala');
         $day = Carbon::parse($date->toDateString(), $tz);
 
         return [$day->copy()->startOfDay()->utc(), $day->copy()->endOfDay()->utc()];
@@ -310,7 +371,9 @@ class BilanService
     private function paidLines(Carbon $date, ?string $agencyId, ?array $agencyIds = null)
     {
         $paidToday = DB::table('invoice_payments')
-            ->whereBetween('paid_at', $this->dayBounds($date))
+            ->whereNull('invoice_payments.cancelled_at')
+            ->where('invoice_payments.validation_status', 'validated')
+            ->whereRaw(self::RECEIVED_AT.' between ? and ?', $this->dayBounds($date))
             ->groupBy('invoice_id')
             ->selectRaw('invoice_id, sum(amount) as amount');
 
@@ -501,7 +564,9 @@ class BilanService
             ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', 'validated')
-            ->whereBetween('invoice_payments.paid_at', $this->dayBounds($date))
+            ->whereNull('invoice_payments.cancelled_at')
+            ->where('invoice_payments.validation_status', 'validated')
+            ->whereRaw(self::RECEIVED_AT.' between ? and ?', $this->dayBounds($date))
             ->when($this->department, fn ($q) => $q->whereIn('invoices.id', $this->ledger->invoiceIds($this->department)))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
@@ -544,77 +609,31 @@ class BilanService
             ->all();
     }
 
-    private function openingBalance(Carbon $date, ?string $agencyId, ?array $agencyIds = null): float
+    /**
+     * Département : solde cumulé de ses encaissements (date de réception) moins
+     * ses dépenses avant ce jour.
+     */
+    private function departmentOpeningBalance(Carbon $date): float
     {
-        // Département : solde cumulé de ses encaissements moins ses dépenses avant ce jour.
-        if ($this->department) {
-            $before = $this->dayBounds($date)[0];
+        $before = $this->dayBounds($date)[0];
 
-            $in = (float) DB::table('invoice_payments')
-                ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
-                ->whereNull('invoices.cancelled_at')
-                ->where('invoices.validation_status', 'validated')
-                ->where('invoice_payments.paid_at', '<', $before)
-                ->whereIn('invoices.id', $this->ledger->invoiceIds($this->department))
-                ->sum('invoice_payments.amount');
+        $in = (float) DB::table('invoice_payments')
+            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', 'validated')
+            ->whereNull('invoice_payments.cancelled_at')
+            ->where('invoice_payments.validation_status', 'validated')
+            ->whereRaw(self::RECEIVED_AT.' < ?', [$before])
+            ->whereIn('invoices.id', $this->ledger->invoiceIds($this->department))
+            ->sum('invoice_payments.amount');
 
-            $out = (float) DB::table('accounting_transactions')
-                ->where('type', 'expense')
-                ->where('is_transfer', false)
-                ->where('department_id', $this->department->id)
-                ->where('transacted_at', '<', $before)
-                ->sum('amount');
+        $out = (float) DB::table('accounting_transactions')
+            ->where('type', 'expense')
+            ->where('is_transfer', false)
+            ->where('department_id', $this->department->id)
+            ->where('transacted_at', '<', $before)
+            ->sum('amount');
 
-            return round($in - $out, 2);
-        }
-
-        // Vue multi-agences : somme des soldes initiaux de chaque agence, pour que
-        // le consolidé corresponde exactement aux tableaux par agence (l'ancienne
-        // requête « agency_id nul ET parmi ces agences » ne trouvait jamais rien).
-        if ($agencyId === null) {
-            $ids = $agencyIds ?? Agency::whereNull('deleted_at')->pluck('id')->all();
-
-            return round(array_sum(array_map(fn ($id) => $this->openingBalance($date, $id), $ids)), 2);
-        }
-
-        $previous = $date->copy()->subDay();
-
-        $stored = DailyBalance::query()
-            ->where('date', $previous->toDateString())
-            ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId), fn ($q) => $q->whereNull('agency_id'))
-            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
-            ->first();
-
-        if ($stored) {
-            return (float) $stored->solde_final;
-        }
-
-        $received = $this->receivedByMode($previous, $agencyId, $agencyIds);
-
-        return (float) array_sum($received);
-    }
-
-    private function storeBalance(Carbon $date, ?string $agencyId, float $opening, float $closing): DailyBalance
-    {
-        $balance = DailyBalance::query()
-            ->where('date', $date->toDateString())
-            ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId), fn ($q) => $q->whereNull('agency_id'))
-            ->first();
-
-        if ($balance) {
-            $balance->update([
-                'solde_initial' => $opening,
-                'solde_final' => $closing,
-            ]);
-
-            return $balance;
-        }
-
-        return DailyBalance::create([
-            'agency_id' => $agencyId,
-            'date' => $date->toDateString(),
-            'solde_initial' => $opening,
-            'solde_final' => $closing,
-        ]);
+        return round($in - $out, 2);
     }
 }

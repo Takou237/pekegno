@@ -15,6 +15,23 @@ export interface BilanExpenseLine {
   total: number;
 }
 
+/** Caisse d'une agence sur la journée (cahier §2) : calculée depuis ses mouvements. */
+export interface BilanTreasuryAccount {
+  id: string;
+  agency_id: string;
+  code: string | null;
+  name: string;
+  type: string;
+  opening: number;
+  in: number;
+  out: number;
+  closing: number;
+  /** Clôture du jour, si elle a été faite. */
+  closing_status: 'closed' | 'validated' | null;
+  counted: number | null;
+  difference: number | null;
+}
+
 export interface BilanAgency {
   date: string;
   agency_id: string | null;
@@ -39,8 +56,10 @@ export interface BilanAgency {
   total_received: number;
   expense_total: number;
   expenses_by_category: BilanExpenseLine[];
+  /** Agence / groupe : total des caisses en début et fin de journée. Département : encaissé − dépenses cumulés. */
   solde_initial: number;
   solde_final: number;
+  treasury_accounts?: BilanTreasuryAccount[];
 }
 
 export interface DailyBilan extends BilanAgency {
@@ -56,6 +75,7 @@ export interface DailyBilan extends BilanAgency {
     total_mobile: number;
     total_bank: number;
     total_depenses: number;
+    total_solde_initial: number;
     total_solde_final: number;
   };
 }
@@ -67,6 +87,8 @@ export interface BilanPeriod {
   agency: { id: string; name: string } | null;
   sale_categories?: string[];
   days: BilanAgency[];
+  /** B5 : flux additionnés ; soldes = premier solde initial et dernier solde final. */
+  totals?: { total_ventes_amount: number; total_received: number; expense_total: number; solde_initial: number; solde_final: number };
 }
 
 export type BilanParams = {

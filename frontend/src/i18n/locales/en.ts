@@ -890,6 +890,7 @@ export default {
   },
 
   dashboard: {
+    displayCurrency: 'Display currency',
     kpi: {
       revenue: 'Revenue',
       revenueSub: '{{count}} validated invoices · average basket {{basket}}',
@@ -1897,6 +1898,13 @@ export default {
   },
 
   bilans: {
+    cashBoxesTitle: 'Cash boxes',
+    cashBox: 'Cash box',
+    cashIn: 'In',
+    cashOut: 'Out',
+    cashCounted: 'Counted (gap)',
+    notClosed: 'Not closed',
+    cashBoxesTotal: 'Total cash boxes',
     title: 'Daily Bilan',
     subtitle: 'Daily financial summary by agency.',
     date: 'Date',
@@ -2668,6 +2676,13 @@ export default {
     realizationProofUploaded: 'Proof file uploaded.',
     realizationSaved: 'Deliverable saved.',
     realizationStarted: 'Deliverable started.',
+    realizationProofUrl: 'Proof link (post, video…)',
+    realizationCost: 'Actual cost incurred (optional)',
+    realizationNote: 'Note or report',
+    realizationProject: 'Service',
+    realizationDue: 'Due',
+    realizationOnlyOverdue: 'Overdue only',
+    realizationViewProof: 'View proof',
     noLearners: 'No learners for your courses.',
     potentialRevenue: 'Potential revenue',
     metricsTitle: 'Metrics',

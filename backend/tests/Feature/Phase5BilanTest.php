@@ -8,6 +8,7 @@ use App\Models\DailyBalance;
 use App\Models\InvoicePayment;
 use App\Models\Product;
 use App\Models\Role;
+use App\Models\TreasuryTransaction;
 use App\Models\User;
 use App\Support\Period;
 use Database\Seeders\AccountingCategorySeeder;
@@ -192,21 +193,19 @@ class Phase5BilanTest extends TestCase
             'payment_type' => 'cash',
         ]);
 
+        // Argent reçu la veille (date de réception, B11) : paiement et entrée en caisse.
+        $yesterday = Period::businessToday()->subDay()->setTime(10, 0);
         InvoicePayment::where('invoice_id', $invoice['id'])->update([
-            'paid_at' => Period::businessToday()->subDay(),
+            'paid_at' => $yesterday,
+            'received_at' => $yesterday,
         ]);
+        TreasuryTransaction::where('source_type', 'invoice_payment')->update(['transacted_at' => $yesterday]);
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
         $this->assertEquals(0, $bilan['total_received']);
         $this->assertEquals(25000, $bilan['solde_initial']);
         $this->assertEquals(25000, $bilan['solde_final']);
-
-        $this->assertDatabaseHas('daily_balances', [
-            'date' => Period::businessToday()->toDateString(),
-            'agency_id' => $agency->id,
-            'solde_initial' => 25000,
-        ]);
     }
 
     public function test_daily_bilan_uses_stored_closing_balance_as_next_opening(): void
@@ -297,7 +296,7 @@ class Phase5BilanTest extends TestCase
             ->assertDownload('bilan-global-'.Period::businessToday()->format('Y-m-d').'.csv');
     }
 
-    public function test_daily_balance_model_stores_row(): void
+    public function test_daily_bilan_reads_balances_from_cash_boxes_without_writing(): void
     {
         $this->actingAsAdmin();
 
@@ -310,16 +309,16 @@ class Phase5BilanTest extends TestCase
             'payer_phone' => '690000000',
         ]);
 
-        $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk();
+        $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
-        $this->assertDatabaseHas('daily_balances', [
-            'date' => Period::businessToday()->toDateString(),
-            'agency_id' => $agency->id,
-            'solde_initial' => 0,
-            'solde_final' => 10000,
-        ]);
+        // Le solde vient des caisses : l'OM est dans la caisse O, pas dans la caisse C.
+        $boxes = collect($bilan['treasury_accounts'])->keyBy('code');
+        $this->assertEquals(10000, $boxes['O']['closing']);
+        $this->assertEquals(0, $boxes['C']['closing'] ?? 0);
+        $this->assertEquals(10000, $bilan['solde_final']);
 
-        $this->assertSame(1, DailyBalance::count());
+        // B6 : consulter le Bilan n'écrit plus aucun solde.
+        $this->assertSame(0, DailyBalance::count());
     }
 
     public function test_daily_bilan_counts_products_separately(): void
