@@ -123,6 +123,8 @@ export interface CountryStat {
 export interface GroupStats {
   /** Cartes du cahier (FinancialKpiService). */
   recoveries_total?: number;
+  /** Encaissé sur les factures de la période (base du taux de recouvrement, B15). */
+  collected_on_period_invoices?: number;
   pending_validation_total?: number;
   pending_validation_count?: number;
   average_basket?: number;

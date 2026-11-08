@@ -178,7 +178,10 @@ class InvoiceController extends Controller
             }))
             ->when($request->status, function ($q, $s) {
                 $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
-                $q->whereIn('status', $statuses);
+                // « Annulée » : toute facture qui a une date d'annulation, même si
+                // son statut de paiement n'a pas été recalculé à l'époque.
+                $q->where(fn ($w) => $w->whereIn('status', $statuses)
+                    ->when(in_array('cancelled', $statuses, true), fn ($w) => $w->orWhereNotNull('invoices.cancelled_at')));
             })
             ->when($request->validation_status, function ($q, $s) {
                 $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
@@ -192,7 +195,12 @@ class InvoiceController extends Controller
             ->when($request->commercial_id, fn ($q, $id) => $q->where('commercial_id', $id))
             ->when($request->from, fn ($q, $d) => $q->whereDate('invoice_date', '>=', $d))
             ->when($request->to, fn ($q, $d) => $q->whereDate('invoice_date', '<=', $d))
-            ->when(! $request->boolean('include_cancelled'), fn ($q) => $q->whereNull('invoices.cancelled_at'));
+            // B8 : les annulées sont masquées par défaut mais restent consultables
+            // (filtre « Annulée » ou include_cancelled) ; aucune n'est supprimée.
+            ->when(
+                ! $request->boolean('include_cancelled') && ! in_array('cancelled', explode(',', (string) $request->status), true),
+                fn ($q) => $q->whereNull('invoices.cancelled_at')
+            );
 
         $totals = (clone $base)->selectRaw(
             'coalesce(sum(amount_paid), 0) as revenue, '
@@ -1081,7 +1089,14 @@ class InvoiceController extends Controller
         // Paiements, recettes comptables et commissions annulés avec la facture (B9).
         app(InvoiceCancellationService::class)->reverseFinancials($invoice, $request->user()->id);
 
-        $this->logger->log('cancelled', 'invoice', $invoice->id, "Facture {$invoice->number} annulée", agencyId: $invoice->agency_id);
+        $reason = trim((string) $request->input('reason', ''));
+        $this->logger->log(
+            'cancelled',
+            'invoice',
+            $invoice->id,
+            "Facture {$invoice->number} annulée".($reason !== '' ? " : {$reason}" : ''),
+            agencyId: $invoice->agency_id,
+        );
 
         // Une facture de souscription annulée avant l'activation invalide la
         // souscription : on résilie le contrat encore en attente et sa prestation

@@ -184,7 +184,8 @@ export interface CommercialMonthlyResponse {
   };
 }
 
-export type SalesTrackingType = 'academy' | 'agency';
+/** Branche de la ligne (règle commune SaleBranch côté serveur). */
+export type SalesTrackingType = 'academy' | 'agency' | 'store' | 'studio' | 'other';
 
 export type SalesTrackingStatus = 'unpaid' | 'partial' | 'paid';
 
@@ -203,6 +204,8 @@ export interface SalesTrackingLine {
   paid: number;
   balance: number;
   status: SalesTrackingStatus;
+  /** B14 : devise de l'agence de la facture. */
+  currency_code?: string;
 }
 
 export interface SalesTrackingTotals {
@@ -211,6 +214,8 @@ export interface SalesTrackingTotals {
   received: number;
   balance_due: number;
   collection_rate: number;
+  /** B14 : devise des totaux (celle du groupe si plusieurs devises). */
+  currency_code?: string;
 }
 
 export interface SalesTrackingResponse {

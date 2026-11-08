@@ -335,27 +335,17 @@ class StatsController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
-        $rows = InvoiceItem::query()
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            // LEFT JOIN : les lignes issues de packages / prestations / produits
-            // n'ont pas toujours de service_id, et un service n'a pas toujours
-            // de catégorie. En INNER JOIN elles disparaissaient et le tableau
-            // « Ventes par catégorie » affichait « Aucune donnée » à tort.
-            ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')
-            ->leftJoin('categories', 'categories.id', '=', 'services.category_id')
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', 'validated')
-            ->whereBetween('invoices.invoice_date', [$from, $to])
-            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->selectRaw("coalesce(categories.name, 'Sans catégorie') as name, sum(invoice_items.line_total * ".GroupCurrency::rateSql('invoices.agency_id').') as total, count(*) as items')
-            ->groupByRaw("coalesce(categories.name, 'Sans catégorie')")
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn ($row) => [
-                'category' => $row->name,
-                'revenue' => (float) $row->total,
-                'items' => (int) $row->items,
-            ]);
+        // B4 : même calcul que la carte CA (FinancialMetricsService), converti
+        // dans la monnaie du groupe ; la somme des catégories égale le CA.
+        $rows = app(FinancialMetricsService::class)
+            ->byCategory($from, $to, $agencyIds, true)
+            ->map(fn (array $row) => [
+                'category' => $row['name'],
+                'branch' => $row['branch'],
+                'revenue' => $row['total'],
+                'items' => $row['items'],
+            ])
+            ->values();
 
         return response()->json($rows);
     }

@@ -60,6 +60,8 @@ export interface BilanAgency {
   solde_initial: number;
   solde_final: number;
   treasury_accounts?: BilanTreasuryAccount[];
+  /** B14 : devise des montants (agence, ou groupe en vue multi-agences). */
+  currency_code?: string;
 }
 
 export interface DailyBilan extends BilanAgency {
@@ -87,6 +89,7 @@ export interface BilanPeriod {
   agency: { id: string; name: string } | null;
   sale_categories?: string[];
   days: BilanAgency[];
+  currency_code?: string;
   /** B5 : flux additionnés ; soldes = premier solde initial et dernier solde final. */
   totals?: { total_ventes_amount: number; total_received: number; expense_total: number; solde_initial: number; solde_final: number };
 }

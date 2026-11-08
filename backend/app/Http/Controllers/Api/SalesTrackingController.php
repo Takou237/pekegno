@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Support\GroupCurrency;
 use App\Support\Period;
+use App\Support\SaleBranch;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -36,7 +39,7 @@ class SalesTrackingController extends Controller
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'city', in: 'query', description: 'Ville du client ou de l\'agence', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'activity', in: 'query', description: 'Libellé de la ligne (article/service)', schema: new OA\Schema(type: 'string')),
-            new OA\Parameter(name: 'type', in: 'query', description: 'Académie ou Agency', schema: new OA\Schema(type: 'string', enum: ['academy', 'agency'])),
+            new OA\Parameter(name: 'type', in: 'query', description: 'Branche (SaleBranch)', schema: new OA\Schema(type: 'string', enum: ['academy', 'agency', 'store', 'studio', 'other'])),
             new OA\Parameter(name: 'status', in: 'query', description: 'Statut de paiement (payé/partiel/impayé, séparable par virgule)', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche numéro de facture ou client', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'per_page', in: 'query', schema: new OA\Schema(type: 'integer', default: 20)),
@@ -57,7 +60,7 @@ class SalesTrackingController extends Controller
         }
 
         $activity = $request->input('activity');
-        $type = $request->input('type');
+        $type = in_array($request->input('type'), SaleBranch::BRANCHES, true) ? $request->input('type') : null;
 
         $invoiceBase = Invoice::query()
             ->where('validation_status', Invoice::VALIDATION_VALIDATED)
@@ -123,13 +126,29 @@ class SalesTrackingController extends Controller
             }));
 
         // Filtres portés par les lignes : une facture est retenue si au moins une
-        // de ses lignes correspond (activité, type académie/agency).
-        if ($activity || in_array($type, ['academy', 'agency'], true)) {
+        // de ses lignes correspond (activité, branche).
+        if ($activity || $type) {
             $invoiceBase->whereIn('id', $this->itemFilterQuery($activity, $type)->select('invoice_id'));
         }
 
+        // B14 : XOF et XAF ne s'additionnent pas tels quels. Une seule devise dans
+        // le résultat : totaux dans cette devise ; plusieurs : convertis dans la
+        // monnaie du groupe.
+        // Sous-requête (pas de jointure) : les filtres de $invoiceBase ne sont pas
+        // qualifiés et deviendraient ambigus.
+        $currencies = DB::table('agencies')
+            ->join('countries', 'countries.id', '=', 'agencies.country_id')
+            ->whereIn('agencies.id', (clone $invoiceBase)->select('agency_id'))
+            ->distinct()
+            ->pluck('countries.currency_code')
+            ->filter()
+            ->values();
+        $convert = $currencies->count() > 1;
+        $totalsCurrency = $convert || $currencies->isEmpty() ? GroupCurrency::code() : (string) $currencies->first();
+        $rate = $convert ? GroupCurrency::rateSql('invoices.agency_id') : '1';
+
         $totalsRow = (clone $invoiceBase)
-            ->selectRaw('coalesce(sum(total_amount), 0) as billed, coalesce(sum(amount_paid), 0) as received')
+            ->selectRaw("coalesce(sum(total_amount * {$rate}), 0) as billed, coalesce(sum(amount_paid * {$rate}), 0) as received")
             ->first();
 
         $billed = (float) $totalsRow->billed;
@@ -158,13 +177,17 @@ class SalesTrackingController extends Controller
         // Somme brute des lignes de chaque facture de la page : sert à répartir le
         // total réellement facturé (après remise) au prorata.
         $invoiceIds = collect($paginator->items())->pluck('invoice_id')->unique()->values();
+
+        // B24 : branche de chaque ligne selon la règle commune (SaleBranch) — le
+        // livre est Store ici comme au tableau de bord, plus « Académie » par défaut.
+        $branches = $this->branchesOf(collect($paginator->items())->pluck('id')->all());
         $linesTotals = $invoiceIds->isEmpty() ? collect() : InvoiceItem::query()
             ->whereIn('invoice_id', $invoiceIds)
             ->groupBy('invoice_id')
             ->selectRaw('invoice_id, coalesce(sum(line_total), 0) as lines_total')
             ->pluck('lines_total', 'invoice_id');
 
-        $data = collect($paginator->items())->map(function (InvoiceItem $item) use ($linesTotals): array {
+        $data = collect($paginator->items())->map(function (InvoiceItem $item) use ($linesTotals, $branches): array {
             $invoice = $item->invoice;
             $total = (float) ($invoice?->total_amount ?? 0);
             $paidTotal = (float) ($invoice?->amount_paid ?? 0);
@@ -193,12 +216,13 @@ class SalesTrackingController extends Controller
                 'client' => $clientName ?: '—',
                 'city' => $client?->city ?: ($invoice?->agency?->city ?: '—'),
                 'activity' => $item->label ?: '—',
-                'type' => ($item->package_id || $item->prestation_id) ? 'agency' : 'academy',
+                'type' => $branches[$item->id] ?? SaleBranch::OTHER,
                 'quantity' => (int) $item->quantity,
                 'billed' => round($billedLine, 2),
                 'paid' => round($paidLine, 2),
                 'balance' => round($balance, 2),
                 'status' => $invoice?->status,
+                'currency_code' => GroupCurrency::currencyForAgency($invoice?->agency_id),
             ];
         })->all();
 
@@ -216,6 +240,7 @@ class SalesTrackingController extends Controller
                 'received' => round($received, 2),
                 'balance_due' => round(max(0.0, $billed - $received), 2),
                 'collection_rate' => $billed > 0 ? round($received / $billed * 100, 1) : 0.0,
+                'currency_code' => $totalsCurrency,
             ],
         ]);
     }
@@ -231,12 +256,29 @@ class SalesTrackingController extends Controller
     private function applyItemFilters($query, ?string $activity, ?string $type): void
     {
         if ($activity) {
-            $query->where('label', 'like', '%'.$activity.'%');
+            $query->where('invoice_items.label', 'like', '%'.$activity.'%');
         }
-        if ($type === 'academy') {
-            $query->whereNull('package_id')->whereNull('prestation_id');
-        } elseif ($type === 'agency') {
-            $query->where(fn ($w) => $w->whereNotNull('package_id')->orWhereNotNull('prestation_id'));
+        if ($type) {
+            $query->whereIn('invoice_items.id', SaleBranch::joinCatalog(DB::table('invoice_items'))
+                ->whereRaw(SaleBranch::branchSql().' = ?', [$type])
+                ->select('invoice_items.id'));
         }
+    }
+
+    /**
+     * @param  array<int, string>  $itemIds
+     * @return array<string, string> branche par identifiant de ligne
+     */
+    private function branchesOf(array $itemIds): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        return SaleBranch::joinCatalog(DB::table('invoice_items'))
+            ->whereIn('invoice_items.id', $itemIds)
+            ->selectRaw('invoice_items.id as id, '.SaleBranch::branchSql().' as branch')
+            ->pluck('branch', 'id')
+            ->all();
     }
 }

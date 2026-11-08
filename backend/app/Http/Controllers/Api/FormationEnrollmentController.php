@@ -290,6 +290,15 @@ class FormationEnrollmentController extends Controller
                     $invoice->save();
                     // Paiements, recettes comptables et commissions annulés avec la facture.
                     app(\App\Services\InvoiceCancellationService::class)->reverseFinancials($invoice, auth()->id());
+
+                    // B8 : la facture quittait la liste sans aucune trace au journal.
+                    $this->logger->log(
+                        'cancelled',
+                        'invoice',
+                        $invoice->id,
+                        "Facture {$invoice->number} annulée avec la suppression de l'inscription",
+                        agencyId: $invoice->agency_id,
+                    );
                 }
             }
         });

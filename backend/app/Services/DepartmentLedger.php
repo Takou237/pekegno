@@ -6,6 +6,7 @@ use App\Models\Contract;
 use App\Models\Department;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
+use App\Support\SaleBranch;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +33,7 @@ class DepartmentLedger
     public const FALLBACK_TYPE = Department::TYPE_AGENCY;
 
     /** Catégorie qui ne nomme aucun type de département : catalogue Store. */
-    public const DEFAULT_CATALOG_TYPE = Department::TYPE_STORE;
+    public const DEFAULT_CATALOG_TYPE = SaleBranch::DEFAULT_CATALOG_BRANCH;
 
     public function departmentForInvoice(Invoice $invoice): ?string
     {
@@ -134,10 +135,8 @@ class DepartmentLedger
      */
     private function directSaleTypeSql(): array
     {
-        $category = "lower(coalesce(service_categories.name, product_categories.name, ''))";
-        $types = [Department::TYPE_ACADEMY, Department::TYPE_AGENCY, Department::TYPE_STORE, Department::TYPE_STUDIO];
-        $whens = implode(' ', array_map(fn ($type) => "when {$category} = '{$type}' then '{$type}'", $types));
-        $lineType = "case {$whens} else '".self::DEFAULT_CATALOG_TYPE."' end";
+        // Même correspondance catégorie → branche que partout ailleurs (SaleBranch).
+        $lineType = SaleBranch::catalogBranchSql('coalesce(service_categories.name, product_categories.name)');
 
         $sub = DB::table('invoice_items')
             ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')

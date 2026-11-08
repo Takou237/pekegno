@@ -7,6 +7,7 @@ use App\Models\CashClosing;
 use App\Models\Category;
 use App\Models\Department;
 use App\Models\TreasuryAccount;
+use App\Support\GroupCurrency;
 use App\Support\Period;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,13 @@ class BilanService
 
     /** Fuseau de la journée métier : celui de l'agence quand une seule est affichée. */
     private ?string $timezone = null;
+
+    /**
+     * B14 : vue multi-agences (groupe / pays) — chaque montant est converti dans
+     * la monnaie du groupe avant d'être additionné (XOF et XAF ne s'ajoutent
+     * pas tels quels). Une agence seule reste dans sa monnaie.
+     */
+    private bool $convert = false;
 
     /** Date de réception d'un paiement (B11) : repli sur paid_at pour l'historique. */
     private const RECEIVED_AT = 'coalesce(invoice_payments.received_at, invoice_payments.paid_at)';
@@ -86,6 +94,9 @@ class BilanService
             // même sans vente sur la période (sinon le tableau « disparaît »).
             'sale_categories' => Category::query()->orderBy('name')->pluck('name')->values()->all(),
             'days' => $days,
+            'currency_code' => $this->department
+                ? GroupCurrency::currencyForAgency($this->department->agency_id)
+                : GroupCurrency::currencyForAgency($agencyId),
             // B5 : les flux s'additionnent, pas les soldes. Total période = solde
             // initial du premier jour et solde final du dernier jour.
             'totals' => [
@@ -127,10 +138,19 @@ class BilanService
         ];
 
         $expenseByCategory = [];
+        $rates = GroupCurrency::agencyRates();
 
         foreach ($agencies as $agency) {
             $b = $this->buildSingleDay($date, $agency->id);
             $agencyBilans[] = $b;
+
+            // B14 : chaque agence garde sa monnaie ; les totaux sont convertis
+            // dans la monnaie du groupe.
+            $r = (float) ($rates[$agency->id] ?? 1.0);
+            foreach (['total_ventes_amount', 'formation_total', 'total_received', 'cash_total', 'om_total', 'momo_total', 'mobile_total', 'bank_total', 'expense_total', 'solde_initial', 'solde_final', 'agency_total', 'agency_pass_through_total'] as $amountKey) {
+                $b[$amountKey] = round((float) $b[$amountKey] * $r, 2);
+            }
+            $b['expenses_by_category'] = array_map(fn ($c) => ['name' => $c['name'], 'total' => round($c['total'] * $r, 2)], $b['expenses_by_category']);
 
             $totals['total_ventes'] += $b['total_ventes'];
             $totals['total_ventes_amount'] += $b['total_ventes_amount'];
@@ -161,6 +181,7 @@ class BilanService
             'agency_id' => null,
             'agency' => null,
             'agencies' => $agencyBilans,
+            'currency_code' => GroupCurrency::code(),
             'totals' => $totals,
             'expenses_by_category' => array_values($expenseByCategory),
         ];
@@ -172,12 +193,19 @@ class BilanService
     private function buildSingleDay(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
         $previousTimezone = $this->timezone;
+        $previousConvert = $this->convert;
         $this->timezone = $agencyId ? Period::timezoneForAgency(Agency::with('geoCountry')->find($agencyId)) : null;
+        $this->convert = $agencyId === null && $this->department === null;
 
         try {
-            return $this->buildDay($date, $agencyId, $agencyIds);
+            return $this->buildDay($date, $agencyId, $agencyIds) + [
+                'currency_code' => $this->department
+                    ? GroupCurrency::currencyForAgency($this->department->agency_id)
+                    : GroupCurrency::currencyForAgency($agencyId),
+            ];
         } finally {
             $this->timezone = $previousTimezone;
+            $this->convert = $previousConvert;
         }
     }
 
@@ -289,8 +317,11 @@ class BilanService
         $opening = 0.0;
         $closing = 0.0;
 
-        foreach ($accounts->groupBy('agency_id') as $agencyAccounts) {
+        $rates = $this->convert ? GroupCurrency::agencyRates() : [];
+
+        foreach ($accounts->groupBy('agency_id') as $agencyId => $agencyAccounts) {
             $timezone = Period::timezoneForAgency($agencyAccounts->first()->agency);
+            $rate = (float) ($rates[$agencyId] ?? 1.0);
             [$start, $end] = Period::dayBoundsUtc($date->toDateString(), $timezone);
 
             $flows = DB::table('treasury_transactions')
@@ -309,9 +340,9 @@ class BilanService
 
             foreach ($agencyAccounts as $account) {
                 $flow = $flows->get($account->id);
-                $accountOpening = round((float) $account->opening_balance + (float) ($flow->before_day ?? 0), 2);
-                $in = round((float) ($flow->day_in ?? 0), 2);
-                $out = round((float) ($flow->day_out ?? 0), 2);
+                $accountOpening = round(((float) $account->opening_balance + (float) ($flow->before_day ?? 0)) * $rate, 2);
+                $in = round((float) ($flow->day_in ?? 0) * $rate, 2);
+                $out = round((float) ($flow->day_out ?? 0) * $rate, 2);
                 $accountClosing = round($accountOpening + $in - $out, 2);
                 $cashClosing = $closings->get($account->id);
 
@@ -393,6 +424,17 @@ class BilanService
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds));
     }
 
+    /** Taux de conversion SQL (1 hors vue multi-agences). */
+    private function rate(string $agencyColumn): string
+    {
+        return $this->convert ? GroupCurrency::rateSql($agencyColumn) : '1';
+    }
+
+    private function allocated(): string
+    {
+        return '('.self::ALLOCATED.' * '.$this->rate('invoices.agency_id').')';
+    }
+
     /** Part de l'encaissement du jour revenant à une ligne (cf. paidLines). */
     private const ALLOCATED = 'invoice_items.line_total * paid_today.amount / line_sums.lines_total';
 
@@ -421,7 +463,7 @@ class BilanService
                 coalesce(categories.name, 'Autres') as category,
                 coalesce(invoice_items.label, '') as label,
                 sum(invoice_items.quantity) as count,
-                sum(".self::ALLOCATED.") as total
+                sum(".$this->allocated().") as total
             ")
             ->groupBy('category', 'label')
             ->orderByDesc('total')
@@ -449,7 +491,7 @@ class BilanService
                 coalesce(categories.name, 'Autres') as category,
                 coalesce(invoice_items.label, '') as label,
                 sum(invoice_items.quantity) as count,
-                sum(".self::ALLOCATED.") as total
+                sum(".$this->allocated().") as total
             ")
             ->groupBy('category', 'label')
             ->orderByDesc('total')
@@ -483,7 +525,7 @@ class BilanService
                 case when invoice_items.package_id is not null then 'package' else 'prestation' end as item_kind,
                 invoice_items.is_pass_through as item_pass_through,
                 sum(invoice_items.quantity) as count,
-                sum(".self::ALLOCATED.") as total
+                sum(".$this->allocated().") as total
             ")
             // Alias distincts des colonnes réelles (agency_categories.kind) : PostgreSQL
             // résoudrait sinon le GROUP BY sur la colonne et non sur l'expression.
@@ -527,7 +569,7 @@ class BilanService
                 ->from('formation_enrollments')
                 ->whereColumn('formation_enrollments.invoice_id', 'invoices.id'));
 
-        $total = (float) (clone $formationLines)->selectRaw('sum('.self::ALLOCATED.') as total')->value('total');
+        $total = (float) (clone $formationLines)->selectRaw('sum('.$this->allocated().') as total')->value('total');
 
         $rows = DB::table('formation_enrollments')
             ->leftJoin('courses', 'courses.id', '=', 'formation_enrollments.course_id')
@@ -570,7 +612,7 @@ class BilanService
             ->when($this->department, fn ($q) => $q->whereIn('invoices.id', $this->ledger->invoiceIds($this->department)))
             ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->selectRaw('invoice_payments.payment_method as method, sum(invoice_payments.amount) as total')
+            ->selectRaw('invoice_payments.payment_method as method, sum(invoice_payments.amount * '.$this->rate('invoices.agency_id').') as total')
             ->groupBy('invoice_payments.payment_method')
             ->get();
 
@@ -596,7 +638,7 @@ class BilanService
             ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('accounting_transactions.agency_id', $agencyIds))
             ->selectRaw("
                 coalesce(accounting_categories.name, 'Autres') as name,
-                sum(accounting_transactions.amount) as total
+                sum(accounting_transactions.amount * ".$this->rate('accounting_transactions.agency_id').") as total
             ")
             ->groupBy('name')
             ->orderByDesc('total')

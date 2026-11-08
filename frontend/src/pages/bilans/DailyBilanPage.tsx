@@ -56,6 +56,7 @@ export default function DailyBilanPage({ fixedAgencyId, fixedDepartmentId }: Dai
     agencies: BilanAgency[];
     totals: { total_ventes: number; total_ventes_amount: number; total_formations: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_mobile: number; total_bank: number; total_depenses: number; total_solde_initial: number; total_solde_final: number };
     expenses_by_category: { name: string; total: number }[];
+    currency_code?: string;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -84,7 +85,7 @@ export default function DailyBilanPage({ fixedAgencyId, fixedDepartmentId }: Dai
       .then((data) => {
         if (!active) return;
         if (data.agencies) {
-          setConsolidated({ agencies: data.agencies, totals: data.totals!, expenses_by_category: data.expenses_by_category ?? [] });
+          setConsolidated({ agencies: data.agencies, totals: data.totals!, expenses_by_category: data.expenses_by_category ?? [], currency_code: data.currency_code });
         } else {
           setAgencyBilan(data);
         }
@@ -265,13 +266,15 @@ export default function DailyBilanPage({ fixedAgencyId, fixedDepartmentId }: Dai
   );
 }
 
-export function formatSignedCurrency(value: number | string): string {
+export function formatSignedCurrency(value: number | string, currency?: string | null): string {
   const n = Number(value);
   const prefix = n < 0 ? '−' : '';
-  return `${prefix}${formatCurrency(Math.abs(n))}`;
+  return `${prefix}${formatCurrency(Math.abs(n), currency)}`;
 }
 
 export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) => string }) {
+  // B14 : chaque montant dans la devise du périmètre (agence ou groupe).
+  const cur = bilan.currency_code;
   return (
     <>
       <div className="flex items-center gap-2">
@@ -301,7 +304,7 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
                   <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{line.category}</td>
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{line.label}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{line.count}</td>
-                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(line.total)}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(line.total, cur)}</td>
                 </tr>
               ))}
               {(bilan.formation_count ?? 0) > 0 && (
@@ -309,7 +312,7 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
                   <td className="px-5 py-3 text-gray-500 dark:text-gray-400">Formations</td>
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.formationsCol')}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{bilan.formation_count}</td>
-                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(bilan.formation_total ?? 0)}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(bilan.formation_total ?? 0, cur)}</td>
                 </tr>
               )}
               {(bilan.agency_by_category ?? []).map((line, idx) => (
@@ -317,7 +320,7 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
                   <td className="px-5 py-3 text-gray-500 dark:text-gray-400">Agency</td>
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{line.category} · {t(`agencyDept.bilan.${line.kind}`)}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{line.count}</td>
-                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(line.total)}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(line.total, cur)}</td>
                 </tr>
               ))}
               {(bilan.agency_pass_through_total ?? 0) > 0 && (
@@ -325,7 +328,7 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
                   <td className="px-5 py-3">Agency</td>
                   <td className="px-5 py-3 italic">{t('agencyDept.bilan.passThrough')}</td>
                   <td />
-                  <td className="px-5 py-3 text-right italic">{formatCurrency(bilan.agency_pass_through_total ?? 0)}</td>
+                  <td className="px-5 py-3 text-right italic">{formatCurrency(bilan.agency_pass_through_total ?? 0, cur)}</td>
                 </tr>
               )}
               {(bilan.products_by_category ?? []).map((line, idx) => (
@@ -333,44 +336,44 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
                   <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{line.category}</td>
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{line.label}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{line.count}</td>
-                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(line.total)}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(line.total, cur)}</td>
                 </tr>
               ))}
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 text-gray-800 dark:text-gray-100">{t('bilans.totalVentes')}</td>
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{bilan.total_ventes}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(bilan.total_ventes_amount)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(bilan.total_ventes_amount, cur)}</td>
               </tr>
 
               <tr className="border-t-2 border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30">
                 <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.cashTotal')}</td>
                 <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.cash_total)}</td>
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.cash_total, cur)}</td>
               </tr>
               <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.omTotal')}</td>
                 <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.om_total)}</td>
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.om_total, cur)}</td>
               </tr>
               <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.momoTotal')}</td>
                 <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.momo_total)}</td>
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.momo_total, cur)}</td>
               </tr>
               <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.mobileTotal')}</td>
                 <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.mobile_total)}</td>
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.mobile_total, cur)}</td>
               </tr>
               <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.bankTotal')}</td>
                 <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.bank_total)}</td>
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.bank_total, cur)}</td>
               </tr>
               <tr className="bg-brand-50/50 font-semibold dark:bg-brand-500/5">
                 <td colSpan={2} className="px-5 py-3 text-brand-700 dark:text-brand-300">{t('bilans.totalReceived')}</td>
                 <td />
-                <td className="px-5 py-3 text-right text-brand-700 dark:text-brand-300">{formatCurrency(bilan.total_received)}</td>
+                <td className="px-5 py-3 text-right text-brand-700 dark:text-brand-300">{formatCurrency(bilan.total_received, cur)}</td>
               </tr>
             </tbody>
           </table>
@@ -379,35 +382,35 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
 
       {/* Cahier §2 : les caisses de l'agence, à côté de ses ventes. */}
       <div className="flex flex-col gap-4">
-        {(bilan.treasury_accounts ?? []).length > 0 && <TreasuryAccountsTable accounts={bilan.treasury_accounts ?? []} t={t} />}
+        {(bilan.treasury_accounts ?? []).length > 0 && <TreasuryAccountsTable accounts={bilan.treasury_accounts ?? []} currency={cur} t={t} />}
         <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
           <table className="w-full text-left text-sm">
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               <tr>
                 <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.soldeInitial')}</td>
                 <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatSignedCurrency(bilan.solde_initial)}</td>
+                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatSignedCurrency(bilan.solde_initial, cur)}</td>
               </tr>
 
               {bilan.expenses_by_category.map((e) => (
                 <tr key={e.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td colSpan={2} className="px-5 py-3 text-red-600 dark:text-red-400">{e.name}</td>
                   <td />
-                  <td className="px-5 py-3 text-right font-medium text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(e.total))}</td>
+                  <td className="px-5 py-3 text-right font-medium text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(e.total), cur)}</td>
                 </tr>
               ))}
               {bilan.expense_total > 0 && (
                 <tr className="bg-red-50/50 font-semibold dark:bg-red-500/5">
                   <td colSpan={2} className="px-5 py-3 text-red-600 dark:text-red-400">{t('bilans.expenseTotal')}</td>
                   <td />
-                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(bilan.expense_total))}</td>
+                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(bilan.expense_total), cur)}</td>
                 </tr>
               )}
 
               <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold dark:border-gray-700 dark:bg-gray-800/50">
                 <td colSpan={2} className="px-5 py-3 text-gray-900 dark:text-white">{t('bilans.soldeFinal')}</td>
                 <td />
-                <td className={`px-5 py-3 text-right font-bold ${bilan.solde_final >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>{formatSignedCurrency(bilan.solde_final)}</td>
+                <td className={`px-5 py-3 text-right font-bold ${bilan.solde_final >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>{formatSignedCurrency(bilan.solde_final, cur)}</td>
               </tr>
             </tbody>
           </table>
@@ -419,7 +422,7 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
 }
 
 /** Caisses C / O / M / B… de la journée : solde initial, entrées, sorties, solde final et clôture. */
-function TreasuryAccountsTable({ accounts, t }: { accounts: BilanTreasuryAccount[]; t: (key: string) => string }) {
+function TreasuryAccountsTable({ accounts, currency, t }: { accounts: BilanTreasuryAccount[]; currency?: string | null; t: (key: string) => string }) {
   const sum = (fn: (a: BilanTreasuryAccount) => number) => accounts.reduce((s, a) => s + fn(a), 0);
 
   return (
@@ -444,17 +447,17 @@ function TreasuryAccountsTable({ accounts, t }: { accounts: BilanTreasuryAccount
                   {a.code && <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{a.code}</span>}
                   {a.name}
                 </td>
-                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatSignedCurrency(a.opening)}</td>
-                <td className="px-4 py-2.5 text-right text-success-600">{a.in > 0 ? formatCurrency(a.in) : '—'}</td>
-                <td className="px-4 py-2.5 text-right text-red-600 dark:text-red-400">{a.out > 0 ? formatSignedCurrency(-a.out) : '—'}</td>
-                <td className="px-4 py-2.5 text-right font-semibold text-gray-900 dark:text-white">{formatSignedCurrency(a.closing)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatSignedCurrency(a.opening, currency)}</td>
+                <td className="px-4 py-2.5 text-right text-success-600">{a.in > 0 ? formatCurrency(a.in, currency) : '—'}</td>
+                <td className="px-4 py-2.5 text-right text-red-600 dark:text-red-400">{a.out > 0 ? formatSignedCurrency(-a.out, currency) : '—'}</td>
+                <td className="px-4 py-2.5 text-right font-semibold text-gray-900 dark:text-white">{formatSignedCurrency(a.closing, currency)}</td>
                 <td className="px-4 py-2.5 text-right text-xs">
                   {a.counted === null ? (
                     <span className="text-gray-400">{t('bilans.notClosed')}</span>
                   ) : (
                     <span className={Math.abs(a.difference ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-success-600'}>
-                      {formatCurrency(a.counted)}
-                      {Math.abs(a.difference ?? 0) > 0 && <> ({formatSignedCurrency(a.difference ?? 0)})</>}
+                      {formatCurrency(a.counted, currency)}
+                      {Math.abs(a.difference ?? 0) > 0 && <> ({formatSignedCurrency(a.difference ?? 0, currency)})</>}
                     </span>
                   )}
                 </td>
@@ -462,10 +465,10 @@ function TreasuryAccountsTable({ accounts, t }: { accounts: BilanTreasuryAccount
             ))}
             <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
               <td className="px-4 py-3 text-gray-800 dark:text-gray-100">{t('bilans.cashBoxesTotal')}</td>
-              <td className="px-4 py-3 text-right">{formatSignedCurrency(sum((a) => a.opening))}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((a) => a.in))}</td>
-              <td className="px-4 py-3 text-right">{formatSignedCurrency(-sum((a) => a.out))}</td>
-              <td className="px-4 py-3 text-right">{formatSignedCurrency(sum((a) => a.closing))}</td>
+              <td className="px-4 py-3 text-right">{formatSignedCurrency(sum((a) => a.opening), currency)}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((a) => a.in), currency)}</td>
+              <td className="px-4 py-3 text-right">{formatSignedCurrency(-sum((a) => a.out), currency)}</td>
+              <td className="px-4 py-3 text-right">{formatSignedCurrency(sum((a) => a.closing), currency)}</td>
               <td />
             </tr>
           </tbody>
@@ -480,10 +483,13 @@ function ConsolidatedView({ consolidated, t }: {
     agencies: BilanAgency[];
     totals: { total_ventes: number; total_ventes_amount: number; total_formations: number; total_encaisse: number; total_cash: number; total_om: number; total_momo: number; total_mobile: number; total_bank: number; total_depenses: number; total_solde_initial: number; total_solde_final: number };
     expenses_by_category: { name: string; total: number }[];
+    currency_code?: string;
   };
   t: (key: string) => string;
 }) {
   const { agencies, totals, expenses_by_category } = consolidated;
+  // B14 : lignes dans la devise de chaque agence, totaux convertis dans celle du groupe.
+  const cur = consolidated.currency_code;
 
   return (
     <>
@@ -510,32 +516,32 @@ function ConsolidatedView({ consolidated, t }: {
               {agencies.map((ab) => (
                 <tr key={ab.agency_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{ab.agency?.name ?? '—'}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.formation_total ?? 0)}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(agencyTotal(ab))}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.cash_total)}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.om_total)}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.momo_total)}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.mobile_total)}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.bank_total)}</td>
-                  <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(ab.total_received)}</td>
-                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.solde_initial)}</td>
-                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(ab.expense_total))}</td>
-                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatSignedCurrency(ab.solde_final)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.formation_total ?? 0, ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(agencyTotal(ab), ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.cash_total, ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.om_total, ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.momo_total, ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.mobile_total, ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.bank_total, ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(ab.total_received, ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{formatCurrency(ab.solde_initial, ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(ab.expense_total), ab.currency_code)}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatSignedCurrency(ab.solde_final, ab.currency_code)}</td>
                 </tr>
               ))}
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/50">
                 <td className="px-5 py-3 text-gray-800 dark:text-gray-100">{t('bilans.totalGeneral')}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_formations)}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(agencies.reduce((s, a) => s + agencyTotal(a), 0))}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_cash)}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_om)}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_momo)}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_mobile)}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_bank)}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_encaisse)}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatSignedCurrency(totals.total_solde_initial ?? 0)}</td>
-                <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(totals.total_depenses))}</td>
-                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatSignedCurrency(totals.total_solde_final)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_formations, cur)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(agencies.reduce((s, a) => s + agencyTotal(a), 0), cur)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_cash, cur)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_om, cur)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_momo, cur)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_mobile, cur)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_bank, cur)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(totals.total_encaisse, cur)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatSignedCurrency(totals.total_solde_initial ?? 0, cur)}</td>
+                <td className="px-5 py-3 text-right text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(totals.total_depenses), cur)}</td>
+                <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatSignedCurrency(totals.total_solde_final, cur)}</td>
               </tr>
             </tbody>
           </table>
@@ -549,7 +555,7 @@ function ConsolidatedView({ consolidated, t }: {
             {expenses_by_category.map((e) => (
               <div key={e.name} className="flex justify-between">
                 <dt className="text-gray-500 dark:text-gray-400">{e.name}</dt>
-                <dd className="font-medium text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(e.total))}</dd>
+                <dd className="font-medium text-red-600 dark:text-red-400">{formatSignedCurrency(-Math.abs(e.total), cur)}</dd>
               </div>
             ))}
           </dl>
@@ -627,6 +633,8 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
 
   if (days.length === 0) return null;
 
+  const cur = days[0].currency_code;
+
   const sum = (fn: (d: BilanAgency) => number) => days.reduce((s, d) => s + fn(d), 0);
 
   return (
@@ -667,16 +675,16 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
                   {parseDay(d.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                 </td>
                 <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
-                  {formationTotal(d) > 0 ? formatCurrency(formationTotal(d)) : '—'}
+                  {formationTotal(d) > 0 ? formatCurrency(formationTotal(d), cur) : '—'}
                 </td>
                 <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
-                  {agencyTotal(d) > 0 ? formatCurrency(agencyTotal(d)) : '—'}
+                  {agencyTotal(d) > 0 ? formatCurrency(agencyTotal(d), cur) : '—'}
                 </td>
                 {saleCols.map((c) => {
                   const v = categoryTotal(d, c);
                   return (
                     <td key={c} className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
-                      {v > 0 ? formatCurrency(v) : '—'}
+                      {v > 0 ? formatCurrency(v, cur) : '—'}
                     </td>
                   );
                 })}
@@ -684,29 +692,29 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
                   const v = productCategoryTotal(d, c);
                   return (
                     <td key={c} className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">
-                      {v > 0 ? formatCurrency(v) : '—'}
+                      {v > 0 ? formatCurrency(v, cur) : '—'}
                     </td>
                   );
                 })}
-                <td className="px-4 py-2.5 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(d.total_ventes_amount)}</td>
-                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.cash_total)}</td>
-                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.om_total)}</td>
-                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.momo_total)}</td>
-                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.mobile_total)}</td>
-                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.bank_total)}</td>
-                <td className="px-4 py-2.5 text-right font-medium text-brand-700 dark:text-brand-300">{formatCurrency(d.total_received)}</td>
-                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatSignedCurrency(d.solde_initial)}</td>
+                <td className="px-4 py-2.5 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(d.total_ventes_amount, cur)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.cash_total, cur)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.om_total, cur)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.momo_total, cur)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.mobile_total, cur)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatCurrency(d.bank_total, cur)}</td>
+                <td className="px-4 py-2.5 text-right font-medium text-brand-700 dark:text-brand-300">{formatCurrency(d.total_received, cur)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatSignedCurrency(d.solde_initial, cur)}</td>
                 {expenseCols.map((c) => {
                   const v = expenseCategoryTotal(d, c);
                   return (
                     <td key={c} className="px-4 py-2.5 text-right text-red-500 dark:text-red-400">
-                      {v > 0 ? formatCurrency(v) : '—'}
+                      {v > 0 ? formatCurrency(v, cur) : '—'}
                     </td>
                   );
                 })}
-                <td className="px-4 py-2.5 text-right font-medium text-red-600 dark:text-red-400">{formatCurrency(d.expense_total)}</td>
+                <td className="px-4 py-2.5 text-right font-medium text-red-600 dark:text-red-400">{formatCurrency(d.expense_total, cur)}</td>
                 <td className={`px-4 py-2.5 text-right font-bold ${d.solde_final >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
-                  {formatSignedCurrency(d.solde_final)}
+                  {formatSignedCurrency(d.solde_final, cur)}
                 </td>
               </tr>
             ))}
@@ -714,29 +722,29 @@ function PeriodTable({ title, days, saleCategories, t }: { title: string; days: 
           <tfoot>
             <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold dark:border-gray-700 dark:bg-gray-800/50">
               <td className="sticky left-0 z-10 bg-gray-50 px-4 py-3 dark:bg-gray-800/50">{t('bilans.periodTotalRow')}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => formationTotal(d)))}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => agencyTotal(d)))}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => formationTotal(d)), cur)}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => agencyTotal(d)), cur)}</td>
               {saleCols.map((c) => (
-                <td key={c} className="px-4 py-3 text-right">{formatCurrency(sum((d) => categoryTotal(d, c)))}</td>
+                <td key={c} className="px-4 py-3 text-right">{formatCurrency(sum((d) => categoryTotal(d, c)), cur)}</td>
               ))}
               {productCols.map((c) => (
-                <td key={c} className="px-4 py-3 text-right">{formatCurrency(sum((d) => productCategoryTotal(d, c)))}</td>
+                <td key={c} className="px-4 py-3 text-right">{formatCurrency(sum((d) => productCategoryTotal(d, c)), cur)}</td>
               ))}
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.total_ventes_amount))}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.cash_total))}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.om_total))}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.momo_total))}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.mobile_total))}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.bank_total))}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.total_received))}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.total_ventes_amount), cur)}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.cash_total), cur)}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.om_total), cur)}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.momo_total), cur)}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.mobile_total), cur)}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.bank_total), cur)}</td>
+              <td className="px-4 py-3 text-right">{formatCurrency(sum((d) => d.total_received), cur)}</td>
               {/* B5 : un solde ne s'additionne pas — solde initial du premier jour. */}
-              <td className="px-4 py-3 text-right">{formatSignedCurrency(days[0].solde_initial)}</td>
+              <td className="px-4 py-3 text-right">{formatSignedCurrency(days[0].solde_initial, cur)}</td>
               {expenseCols.map((c) => (
-                <td key={c} className="px-4 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(sum((d) => expenseCategoryTotal(d, c)))}</td>
+                <td key={c} className="px-4 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(sum((d) => expenseCategoryTotal(d, c)), cur)}</td>
               ))}
-              <td className="px-4 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(sum((d) => d.expense_total))}</td>
+              <td className="px-4 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(sum((d) => d.expense_total), cur)}</td>
               {/* … et solde final du dernier jour. */}
-              <td className="px-4 py-3 text-right">{formatSignedCurrency(days[days.length - 1].solde_final)}</td>
+              <td className="px-4 py-3 text-right">{formatSignedCurrency(days[days.length - 1].solde_final, cur)}</td>
             </tr>
           </tfoot>
         </table>

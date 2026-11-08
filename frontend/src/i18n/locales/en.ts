@@ -966,6 +966,7 @@ export default {
     expenses: 'Expenses',
     advancesTotal: 'Advances',
     collectionRate: 'Collection rate',
+    collectionRateSub: '{{paid}} collected out of {{revenue}} (invoices of the period)',
     subscriptionsActive: 'Active subscriptions',
     newClients: 'New clients',
     averageInvoiceValue: 'Average invoice',
@@ -2368,6 +2369,9 @@ export default {
       allTypes: 'All types',
       typeAcademy: 'Academy',
       typeAgency: 'Agency',
+      typeStore: 'Store',
+      typeStudio: 'Studio',
+      typeOther: 'Other',
       clientSearch: 'Client search',
       clientSearchPlaceholder: 'Name, email or invoice no…',
       kpi: {

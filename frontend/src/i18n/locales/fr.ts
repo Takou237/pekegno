@@ -973,6 +973,7 @@ export default {
     expenses: 'Dépenses',
     advancesTotal: 'Acomptes',
     collectionRate: 'Taux de recouvrement',
+    collectionRateSub: '{{paid}} encaissés sur {{revenue}} (factures de la période)',
     subscriptionsActive: 'Abonnements actifs',
     newClients: 'Nouveaux clients',
     averageInvoiceValue: 'Panier moyen',
@@ -2381,6 +2382,9 @@ export default {
       allTypes: 'Tous les types',
       typeAcademy: 'Académie',
       typeAgency: 'Agency',
+      typeStore: 'Store',
+      typeStudio: 'Studio',
+      typeOther: 'Autre',
       clientSearch: 'Recherche client',
       clientSearchPlaceholder: 'Nom, email ou n° facture…',
       kpi: {

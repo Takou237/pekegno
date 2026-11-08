@@ -31,7 +31,13 @@ import type { Agency } from '@/types/agency';
 import logoUrl from '@/assets/pekegno-logo.png';
 import { actsAsCommercial } from '@/utils/commercialRoles';
 
-const TYPE_LABEL: Record<SalesTrackingType, string> = { academy: 'typeAcademy', agency: 'typeAgency' };
+const TYPE_LABEL: Record<SalesTrackingType, string> = {
+  academy: 'typeAcademy',
+  agency: 'typeAgency',
+  store: 'typeStore',
+  studio: 'typeStudio',
+  other: 'typeOther',
+};
 
 export default function SalesTrackingPage() {
   const { t } = useTranslation();
@@ -236,6 +242,8 @@ export default function SalesTrackingPage() {
             <option value="">{t('reports.salesTracking.allTypes')}</option>
             <option value="academy">{t('reports.salesTracking.typeAcademy')}</option>
             <option value="agency">{t('reports.salesTracking.typeAgency')}</option>
+            <option value="store">{t('reports.salesTracking.typeStore')}</option>
+            <option value="studio">{t('reports.salesTracking.typeStudio')}</option>
           </Select>
           <Input label={t('reports.salesTracking.clientSearch')} placeholder={t('reports.salesTracking.clientSearchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} />
           <Input label={t('reports.from')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -263,9 +271,9 @@ export default function SalesTrackingPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 print:hidden">
         {[
           { label: t('reports.salesTracking.kpi.lines'), value: formatNumber(totals?.lines ?? 0) },
-          { label: t('reports.salesTracking.kpi.billed'), value: formatCurrency(totals?.billed ?? 0) },
-          { label: t('reports.salesTracking.kpi.received'), value: formatCurrency(totals?.received ?? 0) },
-          { label: t('reports.salesTracking.kpi.balanceDue'), value: formatCurrency(totals?.balance_due ?? 0) },
+          { label: t('reports.salesTracking.kpi.billed'), value: formatCurrency(totals?.billed ?? 0, totals?.currency_code) },
+          { label: t('reports.salesTracking.kpi.received'), value: formatCurrency(totals?.received ?? 0, totals?.currency_code) },
+          { label: t('reports.salesTracking.kpi.balanceDue'), value: formatCurrency(totals?.balance_due ?? 0, totals?.currency_code) },
           { label: t('reports.salesTracking.kpi.collectionRate'), value: `${formatNumber(totals?.collection_rate ?? 0)} %` },
         ].map((k) => (
           <div key={k.label} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
@@ -315,14 +323,14 @@ export default function SalesTrackingPage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{row.city}</td>
                     <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{row.activity}</td>
                     <td className="px-4 py-3">
-                      <Badge variant={row.type === 'agency' ? 'brand' : 'neutral'}>
+                      <Badge variant={row.type === 'agency' ? 'brand' : row.type === 'store' ? 'warning' : row.type === 'academy' ? 'success' : 'neutral'}>
                         {t(`reports.salesTracking.${TYPE_LABEL[row.type]}`)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{formatNumber(row.quantity)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-gray-800 dark:text-gray-200">{formatCurrency(row.billed)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-gray-800 dark:text-gray-200">{formatCurrency(row.paid)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-gray-900 dark:text-white">{formatCurrency(row.balance)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-gray-800 dark:text-gray-200">{formatCurrency(row.billed, row.currency_code)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-gray-800 dark:text-gray-200">{formatCurrency(row.paid, row.currency_code)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-gray-900 dark:text-white">{formatCurrency(row.balance, row.currency_code)}</td>
                     <td className="px-4 py-3">{<InvoiceStatusBadge status={row.status} />}</td>
                   </tr>
                 ))}
@@ -382,9 +390,9 @@ function SalesTrackingPrintPortal({
         <div className="mb-4 grid grid-cols-5 gap-2">
           {[
             { label: t('reports.salesTracking.kpi.lines'), value: formatNumber(totals.lines) },
-            { label: t('reports.salesTracking.kpi.billed'), value: formatCurrency(totals.billed) },
-            { label: t('reports.salesTracking.kpi.received'), value: formatCurrency(totals.received) },
-            { label: t('reports.salesTracking.kpi.balanceDue'), value: formatCurrency(totals.balance_due) },
+            { label: t('reports.salesTracking.kpi.billed'), value: formatCurrency(totals.billed, totals.currency_code) },
+            { label: t('reports.salesTracking.kpi.received'), value: formatCurrency(totals.received, totals.currency_code) },
+            { label: t('reports.salesTracking.kpi.balanceDue'), value: formatCurrency(totals.balance_due, totals.currency_code) },
             { label: t('reports.salesTracking.kpi.collectionRate'), value: `${formatNumber(totals.collection_rate)} %` },
           ].map((k) => (
             <div key={k.label} className="rounded-lg border border-gray-300 px-2 py-1.5">
@@ -420,18 +428,18 @@ function SalesTrackingPrintPortal({
                 <td className={td}>{r.activity}</td>
                 <td className={td}>{t(`reports.salesTracking.${TYPE_LABEL[r.type]}`)}</td>
                 <td className={tdRight}>{formatNumber(r.quantity)}</td>
-                <td className={tdRight}>{formatCurrency(r.billed)}</td>
-                <td className={tdRight}>{formatCurrency(r.paid)}</td>
-                <td className={tdRight}>{formatCurrency(r.balance)}</td>
+                <td className={tdRight}>{formatCurrency(r.billed, r.currency_code)}</td>
+                <td className={tdRight}>{formatCurrency(r.paid, r.currency_code)}</td>
+                <td className={tdRight}>{formatCurrency(r.balance, r.currency_code)}</td>
                 <td className={td}>{t(`invoices.status${r.status.charAt(0).toUpperCase()}${r.status.slice(1)}`)}</td>
               </tr>
             ))}
             <tr className="bg-gray-50 font-semibold">
               <td className={td} colSpan={6}>{t('reports.salesTracking.total')}</td>
               <td className={tdRight}>{formatNumber(totals.lines)}</td>
-              <td className={tdRight}>{formatCurrency(totals.billed)}</td>
-              <td className={tdRight}>{formatCurrency(totals.received)}</td>
-              <td className={tdRight}>{formatCurrency(totals.balance_due)}</td>
+              <td className={tdRight}>{formatCurrency(totals.billed, totals.currency_code)}</td>
+              <td className={tdRight}>{formatCurrency(totals.received, totals.currency_code)}</td>
+              <td className={tdRight}>{formatCurrency(totals.balance_due, totals.currency_code)}</td>
               <td className={td} />
             </tr>
           </tbody>

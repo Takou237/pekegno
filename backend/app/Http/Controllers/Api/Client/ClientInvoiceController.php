@@ -34,7 +34,9 @@ class ClientInvoiceController extends Controller
     {
         $query = Invoice::with(['agency:id,name,city', 'items'])
             ->withCount(['paymentProofs' => fn ($q) => $q->where('status', PaymentProof::STATUS_PENDING)])
-            ->where('client_id', $request->user()->id);
+            ->where('client_id', $request->user()->id)
+            // Factures retirées par le client (annulées) : plus dans son portail.
+            ->whereNull('cancelled_at');
 
         if ($request->filled('validation_status')) {
             $query->whereIn('validation_status', array_filter(array_map('trim', explode(',', (string) $request->input('validation_status')))));
@@ -168,16 +170,19 @@ class ClientInvoiceController extends Controller
         // le contrat en attente pour qu'il puisse souscrire de nouveau au package.
         $this->contracts->cancelPendingForInvoice($invoice, "Facture {$number} supprimée par le client");
 
-        $invoice->paymentProofs()->delete();
-        $invoice->payments()->delete();
-        $invoice->items()->delete();
-        $invoice->delete();
+        // B8 : jamais de suppression physique. La facture est annulée (elle
+        // disparaît du portail client) mais reste visible côté gestion avec son
+        // statut, ses lignes et son historique.
+        $invoice->update(['cancelled_at' => now()]);
+        $invoice->refreshStatus();
+        $invoice->save();
+        app(\App\Services\InvoiceCancellationService::class)->reverseFinancials($invoice, $request->user()->id);
 
         $this->logger->log(
-            action: 'deleted',
+            action: 'cancelled',
             entityType: 'invoice',
             entityId: $invoice->id,
-            description: "Le client a supprimé la facture rejetée {$number}",
+            description: "Le client a retiré la facture rejetée {$number} (annulée, conservée)",
             request: $request,
             agencyId: $invoice->agency_id,
         );
