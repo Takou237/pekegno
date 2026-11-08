@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Rapport de test — Lots 1 et 2</title>
+<title>Rapport de test — Corrections V1</title>
 <style>
   @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
   :root { --ink:#1d2433; --muted:#5b6474; --line:#d9dee7; --soft:#f4f6f9;
@@ -47,23 +47,23 @@
 
 <div class="cover">
   <h1>Rapport de test — Corrections V1 Pekegno</h1>
-  <div class="sub">Lots 1 (calcul financier unique) et 2 (caisses, trésorerie, clôture), confrontés au cahier
+  <div class="sub">Lots 1 (calcul financier unique), 2 (caisses, trésorerie, clôture) et bugs P1 (Bilan, catégories, factures, devises), confrontés au cahier
   « Plateforme Pekegno V1 — Corrections demandées à WORLDEV » (04/11/2026).</div>
   <div class="meta">
-    <b>Date</b><span>7 novembre 2026</span>
+    <b>Date</b><span>9 novembre 2026 (mise à jour du rapport du 7 novembre)</span>
     <b>Référentiel</b><span>Cahier client (sections 1 à 5, bugs B1–B30, 17 contrôles de réception) et rapport de diagnostic du 05/11/2026</span>
-    <b>Code testé</b><span>Branche <code>master</code> : commits <code>116d7c9</code> (06/11), <code>ade4b1d</code> (lot 1), <code>cb10fa4</code> (lot 2), <code>a583c61</code> (corrections du 07/11) + espace formateur « Mes réalisations » (07/11, non commité)</span>
-    <b>Environnement</b><span>Tests automatisés Laravel, conteneur PHP 8.3 local, base SQLite en mémoire. <b>Pas encore de staging ni de production.</b></span>
+    <b>Code testé</b><span>Branche <code>corrections</code>, commit <code>ce3fe04</code> (08/11) : lots 1 et 2 (<code>ade4b1d</code>, <code>cb10fa4</code>, <code>a583c61</code>), Bilan et espace formateur (<code>b81b64e</code>), B3 (<code>167e2e6</code>, <code>46c4224</code>), bugs P1 (<code>ce3fe04</code>). Correctifs de production <code>20a2abe</code> et <code>d923245</code> (branche <code>master</code>, en production) fusionnés.</span>
+    <b>Environnement</b><span>Tests automatisés Laravel, conteneur PHP 8.3 local, base SQLite en mémoire. SQL de migration du lot <code>doc/deploy/08_11/</code> validé sur PostgreSQL 9.6.24 (version de la production). <b>Branche <code>corrections</code> pas encore en production ; pas de staging.</b></span>
   </div>
 </div>
 
 <h2>1. Synthèse</h2>
 
 <div class="kpis">
-  <div class="kpi"><div class="v">603</div><div class="l">tests automatisés verts (suite complète)</div></div>
+  <div class="kpi"><div class="v">625</div><div class="l">tests automatisés verts (suite complète)</div></div>
   <div class="kpi"><div class="v">37</div><div class="l">échecs, tous préexistants et identiques avant / après</div></div>
-  <div class="kpi"><div class="v">53 / 53</div><div class="l">tests finance &amp; trésorerie verts (266 vérifications)</div></div>
-  <div class="kpi"><div class="v">26</div><div class="l">nouveaux tests ajoutés le 07/11 (21 finance / caisses + 5 espace formateur)</div></div>
+  <div class="kpi"><div class="v">0</div><div class="l">nouvel échec depuis le 07/11</div></div>
+  <div class="kpi"><div class="v">48</div><div class="l">nouveaux tests depuis le 06/11 (26 au 07/11, puis 22 : 8 bugs P1, 8 Bilan, 6 numérotation)</div></div>
 </div>
 
 <p><b>Statuts utilisés dans ce rapport.</b>
@@ -74,12 +74,12 @@
 
 <table>
   <tr><th>Section du cahier</th><th class="w-st">Fait</th><th class="w-st">En partie</th><th class="w-st">À faire</th><th>Commentaire</th></tr>
-  <tr><td>§1 Règles de calcul (11 règles)</td><td>5</td><td>3</td><td>3</td><td>Calcul unique et contrôle CA = Encaissé + Impayés en place ; restent la catégorie par ligne, le clic sur carte, l'étiquette de devise.</td></tr>
-  <tr><td>§2 Caisses, administration, publicité (14 points)</td><td>8</td><td>3</td><td>3</td><td>Caisses C/O/M/B, transferts et clôture livrés. Administration par pays, 7 rubriques et publicité = Lot 3.</td></tr>
-  <tr><td>§3 Bugs B1–B30</td><td>7</td><td>9</td><td>11</td><td>+ 3 réponses écrites (B25, B26, B30).</td></tr>
+  <tr><td>§1 Règles de calcul (11 règles)</td><td>7</td><td>3</td><td>1</td><td>Calcul unique, contrôle CA = Encaissé + Impayés, catégorie par ligne et factures toujours visibles en place ; reste le clic sur carte (Lot 4).</td></tr>
+  <tr><td>§2 Caisses, administration, publicité (14 points)</td><td>10</td><td>1</td><td>3</td><td>Caisses C/O/M/B, transferts, clôture et Bilan à deux corps livrés. Administration par pays, 7 rubriques et publicité = Lot 3.</td></tr>
+  <tr><td>§3 Bugs B1–B30</td><td>15</td><td>6</td><td>6</td><td>+ 3 réponses écrites (B25, B26, B30). Tous les P1 sont faits sauf B1, B2 (en partie) et B3 (code sans test).</td></tr>
   <tr><td>§4 Fonctions du CdC (13, hors primes gelées)</td><td>3</td><td>2</td><td>8</td><td>Clôture, transferts et comptes de trésorerie livrés.</td></tr>
   <tr><td>§5 Sécurité et environnement (7)</td><td>1</td><td>0</td><td>6</td><td>Seule la visibilité serveur des caisses (Sécu §16) est livrée.</td></tr>
-  <tr><td>Contrôles de réception (17)</td><td>4</td><td>4</td><td>9</td><td>« Fait » = vérifié par test automatisé sur un jeu reproduisant le cahier ; à rejouer sur staging.</td></tr>
+  <tr><td>Contrôles de réception (17)</td><td>9</td><td>3</td><td>5</td><td>« Fait » = vérifié par test automatisé sur un jeu reproduisant le cahier ; à rejouer sur staging.</td></tr>
 </table>
 
 <div class="box warn"><b>À retenir.</b> Le socle financier et les caisses sont prêts côté code et testés. Rien n'est encore
@@ -92,15 +92,15 @@ du cahier, §4).</div>
 <table>
   <tr><th>Règle demandée</th><th class="w-st">Statut</th><th>Ce qui a été fait / preuve</th></tr>
   <tr><td>Cartes : CA, Encaissé (dont recouvrements), Acomptes, Impayés, Dépenses, En attente de validation, Net caisse — un seul calcul</td><td><span class="tag ok">Fait</span></td><td>Service unique <code>FinancialMetricsService</code> + endpoint <code>GET /api/metrics/summary</code>. Tests : <i>summary follows the cahier rules</i>, <i>invariant holds on edge cases</i>, <i>metrics endpoint exposes the single financial contract</i>. Le 07/11, « En attente de validation » inclut aussi les preuves de reste à payer en attente.</td></tr>
-  <tr><td>Ces cartes en tête de chaque tableau de bord (groupe, pays, agence, département), dans l'ordre</td><td><span class="tag part">En partie</span></td><td>Composant <code>FinancialKpiCards</code> ajouté aux tableaux de bord groupe, pays, agence et département (commit 116d7c9). Pas de test d'affichage : à vérifier visuellement en recette. Bilan du jour non traité.</td></tr>
+  <tr><td>Ces cartes en tête de chaque tableau de bord (groupe, pays, agence, département), dans l'ordre</td><td><span class="tag part">En partie</span></td><td>Composant <code>FinancialKpiCards</code> ajouté aux tableaux de bord groupe, pays, agence et département (commit 116d7c9). Pas de test d'affichage : à vérifier visuellement en recette. Bilan du jour : ventes / caisses livrées (08/11), cartes de la section 1 pas encore ajoutées.</td></tr>
   <tr><td>Contrôle CA = Encaissé sur les factures de la période + Impayés</td><td><span class="tag ok">Fait</span></td><td>Indicateur <code>control_ok</code> calculé ; assertion testée sur facture partielle, acompte, facture annulée, rejetée et encaissement d'une facture antérieure.</td></tr>
   <tr><td>Date d'un paiement = jour de réception ; les deux dates enregistrées</td><td><span class="tag ok">Fait</span></td><td>Colonnes <code>received_at</code> / <code>validated_at</code>. <b>Corrigé le 07/11</b> : une preuve validée le lendemain date le paiement du jour de dépôt de la preuve (avant : jour de validation, 227 paiements sur 228). Caisse et Comptabilité utilisent la date de réception. Tests : <i>accepting a proof dates the payment on proof submission</i>, <i>cash box movement and accounting use the reception date</i>.</td></tr>
   <tr><td>Panier moyen = CA ÷ nombre de factures validées</td><td><span class="tag ok">Fait</span></td><td>Testé (150 000 ÷ 2 = 75 000).</td></tr>
-  <tr><td>Devises : XOF / XAF affichés, totaux groupe convertis au taux de la fiche pays</td><td><span class="tag part">En partie</span></td><td>Conversion groupe en place dans le service. L'étiquette « FCFA » codée en dur reste à remplacer par XOF / XAF (B14).</td></tr>
+  <tr><td>Devises : XOF / XAF affichés, totaux groupe convertis au taux de la fiche pays</td><td><span class="tag part">En partie</span></td><td>Conversion groupe en place dans le service. <b>08/11</b> : Bilan et Suivi des ventes convertissent les montants XOF avant de les additionner en vue multi-pays et affichent la devise (XOF / XAF) de chaque montant ; bouton de devise sur PEKEGNO Group. Autres écrans : étiquette à vérifier en recette.</td></tr>
   <tr><td>Arrondi au franc, sans centimes</td><td><span class="tag part">En partie</span></td><td><code>Money::franc()</code> sur toutes les réponses de synthèse. Les anciens écrans non encore branchés sur le service sont à vérifier (B18).</td></tr>
   <tr><td>Facture jamais supprimée ; annulation tracée, paiements annulés partout</td><td><span class="tag ok">Fait</span></td><td>Annulation = paiements annulés, contre-passation comptable, commissions annulées (116d7c9) ; <b>07/11</b> : l'argent ressort aussi de la caisse. Tests : <i>cancelling an invoice reverses payments income and commissions</i>, <i>cancelling an invoice takes the money out of the cash box</i>.</td></tr>
-  <tr><td>Toute facture reste visible avec son statut</td><td><span class="tag todo">À faire</span></td><td>La liste masque encore les factures annulées par défaut (B8).</td></tr>
-  <tr><td>Chaque paiement reprend la catégorie de la ligne de facture</td><td><span class="tag todo">À faire</span></td><td>B4 — Lot 4.</td></tr>
+  <tr><td>Toute facture reste visible avec son statut</td><td><span class="tag ok">Fait (08/11)</span></td><td>B8 : le filtre « Annulée » renvoie enfin les factures annulées ; une facture retirée par le client est annulée, plus jamais supprimée ; l'annulation par suppression d'une inscription est inscrite au journal. Tests : <i>rejected and cancelled invoices stay findable</i>, <i>client removing a rejected invoice cancels it instead of deleting</i>, <i>deleting an enrollment logs the invoice cancellation</i>.</td></tr>
+  <tr><td>Chaque paiement reprend la catégorie de la ligne de facture</td><td><span class="tag ok">Fait (08/11)</span></td><td>B4 : règle unique <code>SaleBranch</code> (catégorie et branche de chaque ligne), utilisée par le tableau de bord, le Suivi des ventes et le CA des départements. Le CA de chaque facture est réparti sur ses lignes : total des catégories = carte CA. Test : <i>sales by category add up to revenue and classify each line</i>.</td></tr>
   <tr><td>Clic sur une carte → liste des factures / paiements qui la composent</td><td><span class="tag todo">À faire</span></td><td>Lot 4 (B2).</td></tr>
 </table>
 
@@ -116,12 +116,12 @@ du cahier, §4).</div>
   <tr><td>Transferts (O/M → B, C → B, C → administration, O → C) : ni vente ni dépense</td><td><span class="tag ok">Fait</span></td><td>Types <code>bank_deposit</code>, <code>admin_disbursement</code>, <code>withdrawal</code>, <code>internal</code> ; jamais comptés en dépense. <b>07/11</b> : saisie d'un « versement bancaire » en dépense refusée, et reclassement des anciennes écritures.</td></tr>
   <tr><td>Solde réel compté à la clôture, écart justifié, alerte au chef d'agence</td><td><span class="tag ok">Fait</span></td><td>Justification obligatoire si écart, notification au chef d'agence, une clôture par caisse et par jour. <b>07/11</b> : validation réservée au chef d'agence / direction, jamais à l'auteur de la clôture.</td></tr>
   <tr><td>Exemple Douala 02/11 : C = 381 000, puis 131 000 après le décaissement ; O et M séparées</td><td><span class="tag ok">Fait</span></td><td>Reproduit en test : 260 000 + 145 000 espèces − 24 000 = <b>381 000</b> ; − 250 000 de décaissement = <b>131 000</b> ; O = 300 000, M = 105 000 ; encaissé 550 000, dépenses 24 000. Test : <i>reception check douala cash box on november 2</i>.</td></tr>
-  <tr><td>Bilan du jour : ventes d'un côté, caisses de l'autre</td><td><span class="tag part">En partie</span></td><td>Le Bilan expose le solde de chaque caisse (<code>treasury_accounts</code>) ; présentation à deux corps à faire (Lot 3).</td></tr>
+  <tr><td>Bilan du jour : ventes d'un côté, caisses de l'autre</td><td><span class="tag ok">Fait (08/11)</span></td><td>Deux colonnes : ventes / caisses (tableau par caisse : solde initial, entrées, sorties, solde final, compté, écart). Soldes tirés des caisses, paiements datés de leur réception. Test : <i>daily bilan shows each cash box</i>. Les 7 rubriques restent au Lot 3.</td></tr>
   <tr><td>Entité Administration par pays, avec ses dépenses</td><td><span class="tag todo">À faire</span></td><td>Lot 3. En attendant, un décaissement administratif se fait vers une caisse B.</td></tr>
   <tr><td>Sept rubriques de vente</td><td><span class="tag todo">À faire</span></td><td>Lot 3 ; attend le mapping des rubriques (T0.4).</td></tr>
   <tr><td>Publicité Pekegno (campagne locale / nationale au prorata, résultat avant / après pub)</td><td><span class="tag todo">À faire</span></td><td>Lot 3.</td></tr>
   <tr><td>Budget pub client neutre : ni CA ni dépense, seuls les honoraires</td><td><span class="tag part">En partie</span></td><td>Exclu du CA et de l'encaissé (test <i>pass through budget is excluded…</i>). Appariement avec la dépense pub à faire (Lot 3).</td></tr>
-  <tr><td>Ventes entre agences : comptent pour l'agence d'encaissement et pour le commercial, une seule fois au groupe</td><td><span class="tag part">En partie</span></td><td>Classement des commerciaux par agence de la facture (116d7c9) ; test dédié « une seule fois au groupe » à écrire.</td></tr>
+  <tr><td>Ventes entre agences : comptent pour l'agence d'encaissement et pour le commercial, une seule fois au groupe</td><td><span class="tag ok">Fait</span></td><td>Classement des commerciaux par agence de la facture (116d7c9). <b>08/11</b> : test <i>commercial revenue counts in the agency of the invoice</i>.</td></tr>
 </table>
 <p class="small">Non comptés dans le tableau : « Dépenses d'un événement » (À faire, Lot 3).</p>
 
@@ -131,20 +131,20 @@ du cahier, §4).</div>
   <tr><th class="w-ref">Réf</th><th class="w-st">Statut</th><th>Ce qui a été fait</th><th>Reste à faire</th></tr>
   <tr><td><b>B1</b> P1</td><td><span class="tag part">En partie</span></td><td>Un seul calcul (factures validées). Test <i>all pages show the same revenue</i> : même CA sur stats groupe, vue d'ensemble, agence, tableau de bord, Comparaison CA et Rapport clients.</td><td>Comptabilité (registre d'écritures) à rapprocher ; recette sur données réelles.</td></tr>
   <tr><td><b>B2</b> P1</td><td><span class="tag part">En partie</span></td><td>Cartes de la section 1 sur les tableaux de bord groupe / pays / agence / département.</td><td>Bilan du jour ; vérification visuelle.</td></tr>
-  <tr><td><b>B3</b> P1</td><td><span class="tag todo">À faire</span></td><td>—</td><td>Mêmes filtres que la liste, bornes en heure locale.</td></tr>
-  <tr><td><b>B4</b> P1</td><td><span class="tag todo">À faire</span></td><td>—</td><td>Catégorie depuis la ligne de facture + rattrapage.</td></tr>
-  <tr><td><b>B5</b> P1</td><td><span class="tag todo">À faire</span></td><td>—</td><td>Total période = premier solde initial / dernier solde final.</td></tr>
-  <tr><td><b>B6</b> P1</td><td><span class="tag part">En partie</span></td><td>La clôture de caisse calcule le solde initial depuis la veille, par caisse.</td><td>Le Bilan réécrit encore les soldes à chaque consultation ; consolidé = somme des soldes finaux des agences.</td></tr>
+  <tr><td><b>B3</b> P1</td><td><span class="tag part">En partie</span></td><td>08/11 : requête commune <code>InvoiceListQuery</code> pour la liste et le tableau de bord (mêmes exclusions, bornes en heure locale, même périmètre).</td><td>Test automatisé à écrire ; recette 02/11 = 10 factures dont 2 à Yaoundé.</td></tr>
+  <tr><td><b>B4</b> P1</td><td><span class="tag ok">Fait</span></td><td>Catégorie de chaque ligne (<code>SaleBranch</code>) ; les inscriptions vont dans « Formations », les livres dans Store ; total = CA (test : 90 000 + 5 000 + 20 000 = 115 000). Rattrapage des recettes par département : <code>accounting:reassign-departments</code>.</td><td>Exécuter le rattrapage ; recette « Sans catégorie » ≤ total.</td></tr>
+  <tr><td><b>B5</b> P1</td><td><span class="tag ok">Fait</span></td><td>Total période = premier solde initial, somme des mouvements, dernier solde final. Test <i>period total takes first opening and last closing</i>.</td><td>Recette sur une semaine réelle.</td></tr>
+  <tr><td><b>B6</b> P1</td><td><span class="tag ok">Fait</span></td><td>Soldes tirés des caisses : solde initial = solde final de la veille, plus aucune écriture à la consultation ; consolidé = somme des soldes finaux des agences. Test <i>consolidated opening is the sum of previous closings and never rewritten</i>.</td><td>Recette du Bilan consolidé.</td></tr>
   <tr><td><b>B7</b> P1</td><td><span class="tag ok">Fait</span></td><td>Revenus potentiels = somme des inscriptions (une fois chacune). Test <i>course revenue counts each enrollment once</i>.</td><td>Recette CRS-00001 ≤ 6 615 000.</td></tr>
-  <tr><td><b>B8</b> P1</td><td><span class="tag todo">À faire</span></td><td>—</td><td>Liste par défaut avec toutes les factures et leur statut.</td></tr>
+  <tr><td><b>B8</b> P1</td><td><span class="tag ok">Fait</span></td><td>Trois causes corrigées : filtre « Annulée » qui ne renvoyait rien ; facture rejetée supprimée définitivement par le client (désormais annulée) ; suppression d'une inscription qui annulait la facture sans trace au journal (probable origine de PK-20261101-004 à -008). Motif d'annulation accepté et journalisé.</td><td>Champ « motif » dans l'écran d'annulation ; recette PK-20261101-009.</td></tr>
   <tr><td><b>B9</b> P1</td><td><span class="tag ok">Fait</span></td><td>Annulation en cascade (paiements, écritures, commissions, et caisse le 07/11). Rattrapage : <code>invoices:reverse-cancelled-payments</code>.</td><td>Exécuter le rattrapage (19 factures, 992 620).</td></tr>
   <tr><td><b>B10</b> P1</td><td><span class="tag ok">Fait</span></td><td>Pagination de la Comptabilité réparée côté écran (116d7c9).</td><td>Pas de test automatisé front : contrôle visuel.</td></tr>
-  <tr><td><b>B11</b> P1</td><td><span class="tag ok">Fait</span></td><td>Date de réception distincte, prise depuis la preuve ; Bilan, caisses et Comptabilité sur cette date. Rattrapage : <code>treasury:backfill-payments</code>.</td><td>Exécuter le rattrapage ; recette Yaoundé 02/11.</td></tr>
+  <tr><td><b>B11</b> P1</td><td><span class="tag ok">Fait</span></td><td>Date de réception distincte, prise depuis la preuve ; caisses et Comptabilité sur cette date. <b>Rectificatif</b> : le Bilan utilisait encore <code>paid_at</code> le 07/11 ; corrigé le 07/11 au soir (test <i>payment counts on the day it was received not validated</i>). Rattrapage : <code>treasury:backfill-payments</code>.</td><td>Exécuter le rattrapage ; recette Yaoundé 02/11.</td></tr>
   <tr><td><b>B12</b> P1</td><td><span class="tag ok">Fait</span></td><td>Conséquence de B9 et B11 (l'écart de 130 000 venait de paiements de factures annulées).</td><td>Recette : Douala 02/11 Bilan = Comptabilité après rattrapage.</td></tr>
   <tr><td><b>B13</b> P1</td><td><span class="tag ok">Fait</span></td><td>Transferts typés, colonne <code>is_transfer</code>, saisie en dépense refusée, reclassement <code>treasury:reclassify-transfers</code>. Test : Cameroun 311 000 → <b>89 000</b> de vraies dépenses.</td><td>Exécuter le reclassement.</td></tr>
-  <tr><td><b>B14</b> P1</td><td><span class="tag part">En partie</span></td><td>Conversion groupe par taux pays (parité XOF/XAF 1:1, totaux justes).</td><td>Étiquette XOF / XAF au lieu de « FCFA ».</td></tr>
-  <tr><td><b>B15</b> P1</td><td><span class="tag part">En partie</span></td><td>Un seul encaissé dans le service, taux de recouvrement calculé sur la même base.</td><td>Vérifier la carte du tableau de bord groupe en recette.</td></tr>
-  <tr><td><b>B16</b> P1</td><td><span class="tag part">En partie</span></td><td>Classement commercial par agence de la facture.</td><td>Test « une seule fois au groupe » ; recette Abidjan → Douala.</td></tr>
+  <tr><td><b>B14</b> P1</td><td><span class="tag ok">Fait</span></td><td>Conversion groupe par taux pays ; en vue multi-pays, Bilan et Suivi des ventes convertissent avant d'additionner et renvoient la devise de chaque montant. Test : Abidjan au taux 2 → total consolidé 20 000 XAF.</td><td>Vérifier l'étiquette sur les autres écrans.</td></tr>
+  <tr><td><b>B15</b> P1</td><td><span class="tag ok">Fait</span></td><td>Taux = encaissé sur les factures de la période ÷ CA ; la base est affichée sous la carte. Test <i>recovery rate uses the collected amount of the period invoices</i> (60 %).</td><td>Contrôle visuel de la carte.</td></tr>
+  <tr><td><b>B16</b> P1</td><td><span class="tag ok">Fait</span></td><td>Classement commercial par agence de la facture. Test <i>commercial revenue counts in the agency of the invoice</i>.</td><td>Recette Abidjan → Douala.</td></tr>
   <tr><td><b>B17</b> P2</td><td><span class="tag ok">Fait</span></td><td>Panier moyen = CA ÷ factures validées (testé).</td><td>Recette (~117 000).</td></tr>
   <tr><td><b>B18</b> P2</td><td><span class="tag part">En partie</span></td><td>Arrondi au franc sur les synthèses.</td><td>Écrans hors service unique.</td></tr>
   <tr><td><b>B19</b> P2</td><td><span class="tag todo">À faire</span></td><td>—</td><td>Afficher l'avance annoncée et le client.</td></tr>
@@ -152,7 +152,7 @@ du cahier, §4).</div>
   <tr><td><b>B21</b> P2</td><td><span class="tag todo">À faire</span></td><td>—</td><td>Compter les contrats actifs.</td></tr>
   <tr><td><b>B22</b> P2</td><td><span class="tag todo">À faire</span></td><td>—</td><td>Formule unique présents ÷ attendus.</td></tr>
   <tr><td><b>B23</b> P2</td><td><span class="tag part">En partie</span></td><td>Compteurs du département limités à son agence (code 116d7c9).</td><td>Test dédié ; recette 14 formations / 11 sessions.</td></tr>
-  <tr><td><b>B24</b> P2</td><td><span class="tag todo">À faire</span></td><td>—</td><td>Une branche par produit (lié aux 7 rubriques).</td></tr>
+  <tr><td><b>B24</b> P2</td><td><span class="tag ok">Fait</span></td><td>Une branche par article (Academy / Agency / Store / Studio), la même sur toutes les pages ; le livre est Store au Suivi des ventes comme au tableau de bord. Test <i>sales tracking classifies a book as store like the dashboard</i>.</td><td>Les 7 rubriques restent au Lot 3.</td></tr>
   <tr><td><b>B25</b> P2</td><td><span class="tag info">Réponse</span></td><td>Aucune règle automatique : « Date échue » est un motif saisi par la caissière.</td><td>Transmettre la réponse ; proposer une liste de motifs.</td></tr>
   <tr><td><b>B26</b> P2</td><td><span class="tag info">Réponse</span></td><td>2 h d'inactivité et une session par compte (les comptes partagés se déconnectent entre eux).</td><td>Durée par rôle pour la DG (Lot 5 / sécurité).</td></tr>
   <tr><td><b>B27</b> P3</td><td><span class="tag todo">À faire</span></td><td>—</td><td>Villes à renseigner + message explicite.</td></tr>
@@ -187,17 +187,17 @@ du cahier, §4).</div>
   <tr><th>#</th><th>Contrôle</th><th class="w-st">Statut</th><th>Preuve</th></tr>
   <tr><td>1</td><td>CA 2026 identique sur Tableau de bord, Pays, Comparaison CA, Rapport clients, Comptabilité (B1)</td><td><span class="tag part">En partie</span></td><td>Test auto sur 6 écrans ; Comptabilité et données réelles à recetter.</td></tr>
   <tr><td>2</td><td>Chaque tableau de bord commence par les cartes de la section 1 (B2)</td><td><span class="tag part">En partie</span></td><td>Cartes présentes ; contrôle visuel à faire.</td></tr>
-  <tr><td>3</td><td>02/11 : 10 factures, dont 2 à Yaoundé (B3)</td><td><span class="tag todo">À faire</span></td><td>—</td></tr>
-  <tr><td>4</td><td>« Sans catégorie » ≤ total facturé (B4)</td><td><span class="tag todo">À faire</span></td><td>—</td></tr>
-  <tr><td>5</td><td>Soldes du Bilan consolidé justes, jour par jour et total période (B5, B6)</td><td><span class="tag todo">À faire</span></td><td>—</td></tr>
+  <tr><td>3</td><td>02/11 : 10 factures, dont 2 à Yaoundé (B3)</td><td><span class="tag part">En partie</span></td><td>Requête commune liste / tableau de bord ; test et recette à faire.</td></tr>
+  <tr><td>4</td><td>« Sans catégorie » ≤ total facturé (B4)</td><td><span class="tag ok">Fait</span></td><td><i>sales by category add up to revenue and classify each line</i>.</td></tr>
+  <tr><td>5</td><td>Soldes du Bilan consolidé justes, jour par jour et total période (B5, B6)</td><td><span class="tag ok">Fait</span></td><td><i>period total takes first opening…</i>, <i>consolidated opening is the sum of previous closings…</i></td></tr>
   <tr><td>6</td><td>Revenus potentiels CRS-00001 ≤ 6 615 000 (B7)</td><td><span class="tag ok">Fait</span></td><td><i>course revenue counts each enrollment once</i> ; chiffre réel à recetter.</td></tr>
-  <tr><td>7</td><td>PK-20261101-009 visible avec son statut (B8)</td><td><span class="tag todo">À faire</span></td><td>—</td></tr>
-  <tr><td>8</td><td>Montants d'Abidjan en XOF, convertis dans les totaux groupe (B14)</td><td><span class="tag part">En partie</span></td><td>Conversion OK, étiquette à corriger.</td></tr>
+  <tr><td>7</td><td>PK-20261101-009 visible avec son statut (B8)</td><td><span class="tag ok">Fait</span></td><td><i>rejected and cancelled invoices stay findable</i> ; facture réelle à vérifier.</td></tr>
+  <tr><td>8</td><td>Montants d'Abidjan en XOF, convertis dans les totaux groupe (B14)</td><td><span class="tag ok">Fait</span></td><td><i>consolidated bilan converts each country into the group currency</i>.</td></tr>
   <tr><td>9</td><td>Caisse C Douala 02/11 : 381 000 puis 131 000 ; O et M séparées</td><td><span class="tag ok">Fait</span></td><td><i>reception check douala cash box on november 2</i>.</td></tr>
   <tr><td>10</td><td>Versement en banque = transfert, pas dépense (B13)</td><td><span class="tag ok">Fait</span></td><td><i>transfer is typed and never recorded as an expense</i>, <i>reclassify command…</i></td></tr>
   <tr><td>11</td><td>Une caissière ne voit pas les soldes O, M, B</td><td><span class="tag ok">Fait</span></td><td><i>cashier only sees the cash account</i>.</td></tr>
   <tr><td>12</td><td>Pub nationale Academy répartie au prorata du CA Academy</td><td><span class="tag todo">À faire</span></td><td>Lot 3.</td></tr>
-  <tr><td>13</td><td>Vente Abidjan encaissée à Douala comptée une fois, pour Douala et la commerciale (B16)</td><td><span class="tag part">En partie</span></td><td>Classement par agence de facture ; test dédié à écrire.</td></tr>
+  <tr><td>13</td><td>Vente Abidjan encaissée à Douala comptée une fois, pour Douala et la commerciale (B16)</td><td><span class="tag ok">Fait</span></td><td><i>commercial revenue counts in the agency of the invoice</i>.</td></tr>
   <tr><td>14</td><td>Un formateur fait l'appel d'une séance</td><td><span class="tag todo">À faire</span></td><td>Lot 7.</td></tr>
   <tr><td>15</td><td>Comptes partagés supprimés ; 2FA active</td><td><span class="tag todo">À faire</span></td><td>Lot 9.</td></tr>
   <tr><td>16</td><td>Chaque rôle déroule son scénario sans erreur</td><td><span class="tag todo">À faire</span></td><td>Nécessite le staging.</td></tr>
@@ -205,7 +205,7 @@ du cahier, §4).</div>
 </table>
 
 <h2>8. Détail des tests automatisés exécutés</h2>
-<p>Commande : <code>docker exec pekegno-server php artisan test</code>. Les 53 tests ci-dessous couvrent le calcul financier et les caisses ; tous sont verts.</p>
+<p>Commande : <code>docker exec pekegno-server php artisan test</code>. (la machine locale utilise désormais <code>docker run --rm … pekegno-php artisan test</code>). Tous les tests ci-dessous sont verts.</p>
 
 <h3>Calcul financier unique (Lot 1) — 12 tests</h3>
 <table>
@@ -282,6 +282,44 @@ déjà présent (types, appels API, traductions). Le frontend compile de nouveau
   <tr><td>trainer cannot touch other realizations or cancel</td><td>403 sur la réalisation d'un autre ; pas d'annulation, pas de date future, titre et affectation non modifiables.</td></tr>
 </table>
 
+<h3>Bilan du jour et ventes directes (07/11 au soir) — 8 tests</h3>
+<table>
+  <tr><th>Test</th><th>Ce qu'il prouve</th></tr>
+  <tr><td>daily bilan shows each cash box</td><td>Bloc caisses : solde initial, entrées, sorties, solde final de chaque caisse.</td></tr>
+  <tr><td>period total takes first opening and last closing</td><td>B5 : total période = premier solde initial / dernier solde final.</td></tr>
+  <tr><td>consolidated opening is the sum of previous closings and never rewritten</td><td>B6 : solde initial consolidé = somme des soldes finaux de la veille ; aucune écriture à la consultation.</td></tr>
+  <tr><td>payment counts on the day it was received not validated</td><td>B11 : le Bilan date le paiement de sa réception (il utilisait encore <code>paid_at</code>).</td></tr>
+  <tr><td>cancelled payments are not in the bilan</td><td>Paiements annulés ou non validés exclus.</td></tr>
+  <tr><td>direct sales follow the category of the items sold</td><td>Vente directe d'un livre → département Store.</td></tr>
+  <tr><td>agency without the target department keeps the sale in agency</td><td>Pas de département Store → reste à Agency.</td></tr>
+  <tr><td>reassign command moves legacy income to the store</td><td>Rattrapage <code>accounting:reassign-departments</code> : simulation puis application.</td></tr>
+</table>
+
+<h3>Bugs P1 du 08/11 — 8 tests (<i>CorrectionsP1Test</i>)</h3>
+<table>
+  <tr><th>Test</th><th>Ce qu'il prouve</th></tr>
+  <tr><td>sales by category add up to revenue and classify each line</td><td>B4 : Formations 90 000 + Store 5 000 + Sans catégorie 20 000 = CA 115 000.</td></tr>
+  <tr><td>sales tracking classifies a book as store like the dashboard</td><td>B24 : même branche au Suivi des ventes et au tableau de bord.</td></tr>
+  <tr><td>rejected and cancelled invoices stay findable</td><td>B8 : factures rejetées visibles ; le filtre « Annulée » renvoie les factures annulées.</td></tr>
+  <tr><td>client removing a rejected invoice cancels it instead of deleting</td><td>B8 : la facture reste en base, annulée, avec une ligne au journal.</td></tr>
+  <tr><td>deleting an enrollment logs the invoice cancellation</td><td>B8 : l'annulation via l'inscription est tracée.</td></tr>
+  <tr><td>consolidated bilan converts each country into the group currency</td><td>B14 : Abidjan au taux 2 → consolidé 20 000 XAF, devise renvoyée.</td></tr>
+  <tr><td>recovery rate uses the collected amount of the period invoices</td><td>B15 : 60 %, recouvrements de factures antérieures exclus.</td></tr>
+  <tr><td>commercial revenue counts in the agency of the invoice</td><td>B16 : CA du commercial dans l'agence de la facture.</td></tr>
+</table>
+
+<h3>Correctifs de production du 07/11 (master) — 6 tests (<i>SoftDeletedUserNumberingTest</i>)</h3>
+<p>Erreur serveur en production à la création d'un client (numéro CL-00212 déjà pris par un compte supprimé).</p>
+<table>
+  <tr><th>Test</th><th>Ce qu'il prouve</th></tr>
+  <tr><td>client number skips numbers of deleted clients</td><td>Le numéro client tient compte des comptes supprimés (et il est attribué sous verrou).</td></tr>
+  <tr><td>username suggestion skips usernames of deleted accounts</td><td>Identifiant proposé libre.</td></tr>
+  <tr><td>expense number skips numbers of deleted expenses</td><td>Numéro de dépense sans doublon.</td></tr>
+  <tr><td>deleted client frees its email for a new account</td><td>E-mail libéré à la suppression.</td></tr>
+  <tr><td>deleted employee frees email and username</td><td>Idem pour un employé.</td></tr>
+  <tr><td>client deleting own account can register again</td><td>Réinscription possible.</td></tr>
+</table>
+
 <h3>Autres suites vérifiées</h3>
 <p><i>InterAgencySaleTest</i> (6 tests, ventes depuis une autre agence) et <i>ApiResponseCacheTest</i> (6 tests, cache des statistiques invalidé à chaque écriture) : verts.</p>
 
@@ -293,27 +331,34 @@ déjà présent (types, appels API, traductions). Le frontend compile de nouveau
 </ul>
 <p>La liste des 37 échecs a été comparée avant et après chaque modification : elle est identique.</p>
 
-<h2 class="pb">9. Mise en production : étapes obligatoires</h2>
-<p>À faire d'abord sur une copie de la base de production (staging), puis en production. Les commandes de rattrapage simulent par défaut et n'écrivent qu'avec <code>--apply</code> ; elles sont rejouables.</p>
+<h2 class="pb">9. Mise en production : lot <code>doc/deploy/08_11/</code></h2>
+<p>La production (o2switch, PostgreSQL 9.6) tourne sur <code>master</code> avec les correctifs <code>20a2abe</code> et <code>d923245</code>. Le lot du 08/11 apporte la branche <code>corrections</code>. Procédure détaillée et grille de recette : <code>doc/deploy/08_11/README.md</code>. Les commandes de rattrapage simulent par défaut et n'écrivent qu'avec <code>--apply</code> ; elles sont rejouables.</p>
 <table>
   <tr><th>#</th><th>Étape</th><th>Effet</th></tr>
-  <tr><td>1</td><td><code>php artisan migrate</code></td><td>5 migrations : dates de réception / validation des paiements, codes et visibilité des caisses, type de transfert, table des clôtures, caisse et indicateur de transfert sur les écritures comptables.</td></tr>
-  <tr><td>2</td><td><code>php artisan db:seed --class=TreasuryAccountSeeder</code></td><td>Crée les caisses C/O/M/B (+ W/V en Côte d'Ivoire) de chaque agence.</td></tr>
-  <tr><td>3</td><td><code>php artisan invoices:reverse-cancelled-payments</code> puis <code>--apply</code></td><td>B9 : annule les 19 paiements (992 620) et 6 commissions restés sur des factures annulées.</td></tr>
-  <tr><td>4</td><td><code>php artisan treasury:backfill-payments</code> puis <code>--apply</code></td><td>Rattache les 228 paiements à leur caisse, crée les entrées de caisse, corrige la date de réception depuis les preuves (B11). Les paiements « mobile » ambigus sont listés pour décision manuelle.</td></tr>
-  <tr><td>5</td><td><code>php artisan treasury:reclassify-transfers</code> (relire la liste) puis <code>--apply</code></td><td>B13 : versements en banque saisis en dépense → transferts C → B.</td></tr>
-  <tr><td>6</td><td>Première clôture de chaque caisse avec l'équipe</td><td>Saisie du solde réel compté ; les écarts historiques sont justifiés une fois.</td></tr>
-  <tr><td>7</td><td>Recette des contrôles 6, 9, 10 et 11 sur staging</td><td>Contrôles validés aujourd'hui en test automatisé uniquement.</td></tr>
+  <tr><td>0</td><td>Fusion de <code>corrections</code> dans <code>master</code></td><td>Décision de l'équipe : à faire hors heures de vente.</td></tr>
+  <tr><td>1</td><td>cPanel → Update from Remote</td><td>Nouveau code en production.</td></tr>
+  <tr><td>2</td><td>Import immédiat de <code>migration-2026-11-08.sql</code> (phpPgAdmin)</td><td>6 migrations : paiement annulé, dates de réception / validation, codes et visibilité des caisses, type de transfert, clôtures, caisse et transfert sur les écritures ; droit trésorerie de la caissière. Validé deux fois sur PostgreSQL 9.6.24, schéma identique aux migrations Laravel.</td></tr>
+  <tr><td>3</td><td>Vider les caches et l'OPcache</td><td>Nouvelles routes prises en compte.</td></tr>
+  <tr><td>4</td><td>Extraire <code>frontend-dist.zip</code></td><td>Nouvel écran admin (Bilan, Suivi des ventes, devise, trésorerie).</td></tr>
+  <tr><td>5.1</td><td><code>db:seed --class=TreasuryAccountSeeder</code></td><td>Caisses C/O/M/B (+ W/V en Côte d'Ivoire) de chaque agence.</td></tr>
+  <tr><td>5.2</td><td><code>invoices:reverse-cancelled-payments</code> puis <code>--apply</code></td><td>B9 : paiements, recettes et commissions restés sur des factures annulées.</td></tr>
+  <tr><td>5.3</td><td><code>treasury:backfill-payments</code> puis <code>--apply</code></td><td>Paiements rattachés à leur caisse, date de réception depuis la preuve (B11) ; « mobile » ambigus listés.</td></tr>
+  <tr><td>5.4</td><td><code>treasury:reclassify-transfers</code> (relire la liste) puis <code>--apply</code></td><td>B13 : versements en banque → transferts C → B.</td></tr>
+  <tr><td>5.5</td><td><code>accounting:reassign-departments</code> puis <code>--apply</code></td><td>B4 : recettes des ventes directes rattachées au département de la catégorie vendue (livres, Canva → Store).</td></tr>
+  <tr><td>6</td><td>Première clôture de chaque caisse avec l'équipe</td><td>Solde réel compté ; écarts historiques justifiés une fois.</td></tr>
+  <tr><td>7</td><td>Recette avec l'équipe (README §4)</td><td>Contrôles validés aujourd'hui en test automatisé uniquement.</td></tr>
 </table>
 
 <h2>10. Limites et points ouverts</h2>
 <ul>
-  <li>Tous les résultats viennent de tests automatisés locaux (SQLite) : <b>aucune vérification sur données réelles</b> tant que le staging n'existe pas.</li>
-  <li>Les corrections finance / caisses du 07/11 sont commitées (<code>a583c61</code>) ; l'espace formateur « Mes réalisations » ne l'est pas encore.</li>
-  <li>Le frontend compile de nouveau : les fichiers manquants de l'espace formateur ont été recréés. À rapprocher de la version locale de l'auteur du commit <code>33c396b</code>, s'il en a une, avant fusion.</li>
+  <li>Tous les résultats viennent de tests automatisés locaux (SQLite) : <b>aucune vérification sur données réelles</b> tant que le lot n'est pas déployé (pas de staging).</li>
+  <li>Les écrans modifiés le 08/11 (Bilan, Suivi des ventes, PEKEGNO Group) compilent mais n'ont pas encore été ouverts dans un navigateur.</li>
+  <li><b>Rectificatif</b> : le rapport du 07/11 donnait B11 comme fait, mais le Bilan comptait encore sur <code>paid_at</code>. Corrigé et testé depuis.</li>
+  <li>B3 : code livré par l'équipe (<code>InvoiceListQuery</code>) sans test automatisé.</li>
+  <li>B8 : le motif d'annulation est accepté par l'API mais l'écran n'a pas encore de champ pour le saisir.</li>
   <li>Le mode « Mobile » générique a été retiré de la saisie : choix produit à confirmer avec Pekegno.</li>
-  <li>Décisions client attendues : liste des caisses Côte d'Ivoire (T0.3), mapping des 7 rubriques (T0.4), contresignature de la doctrine CA (T0.2).</li>
-  <li>Prochaine étape proposée : Lot 4 (B3, B4, B5, B6, B8, puis B1 côté Comptabilité), qui ne dépend d'aucune réponse du client.</li>
+  <li>Décisions client attendues : liste des caisses Côte d'Ivoire (T0.3), mapping des 7 rubriques et administration par pays (Lot 3, T0.4), contresignature de la doctrine CA (T0.2).</li>
+  <li>Prochaines étapes proposées : déploiement du lot 08_11 et recette, puis B1 côté Comptabilité, B2 (clic sur carte) et les P2.</li>
 </ul>
 
 </body>
