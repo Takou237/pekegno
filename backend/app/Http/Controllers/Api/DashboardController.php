@@ -11,6 +11,7 @@ use App\Models\InvoicePayment;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\FinancialMetricsService;
+use App\Services\InvoiceListQuery;
 use App\Services\ScopeService;
 use App\Support\GroupCurrency;
 use App\Support\Period;
@@ -32,7 +33,10 @@ use OpenApi\Attributes as OA;
  */
 class DashboardController extends Controller
 {
-    public function __construct(private readonly ScopeService $scopeService) {}
+    public function __construct(
+        private readonly ScopeService $scopeService,
+        private readonly InvoiceListQuery $invoiceListQuery
+    ) {}
 
     #[OA\Get(
         path: '/api/dashboard',
@@ -81,9 +85,23 @@ class DashboardController extends Controller
 
         $agencies = $this->agenciesInLevel($agencyIds, $country, $city, $agency);
 
-        // Cartes financières : calcul unique (FinancialMetricsService, section 1 du
-        // cahier), par agence du niveau puis au total. Monnaie du groupe tant
-        // qu'aucun pays n'est sélectionné, monnaie du pays ensuite.
+        // Utilisation du service partagé pour les compteurs de factures (B3).
+        // La même requête que la liste des factures, avec les bornes métier.
+        $invoiceCounts = $this->invoiceListQuery->counts(
+            $user,
+            $from,
+            $to,
+            $agencyIds !== null ? $agencyIds : null,
+            null
+        );
+        $agencyInvoiceCounts = $this->invoiceListQuery->countsByAgency($user, $from, $to);
+
+        // Utilisation du même service de comptage partagé que la liste (B3)
+        // +
+        // la même requête que la liste des factures, avec les bornes métier.
+        // + boutons catégorie dans la UI (cahier B10, section 4).
+        //
+        // Les KPI financières restent via FinancialMetricsService (section 1 du cahier).
         $convert = $country === null;
         $kpiService = app(FinancialMetricsService::class);
         $perAgencyKpi = $agencies->mapWithKeys(fn (Agency $a) => [$a->id => $kpiService->summary($from, $to, [$a->id], $convert)]);
@@ -94,8 +112,8 @@ class DashboardController extends Controller
             'country_id' => $a->country_id,
             'city_id' => $a->city_id,
             'revenue' => $perAgencyKpi[$a->id]['revenue'],
-            'invoices_total' => $perAgencyKpi[$a->id]['invoices_validated'],
-            'invoices_paid' => $perAgencyKpi[$a->id]['invoices_paid'],
+            'invoices_total' => $agencyInvoiceCounts[$a->id]['total'] ?? 0,
+            'invoices_paid' => $agencyInvoiceCounts[$a->id]['paid'] ?? 0,
         ]);
 
         return response()->json([
@@ -115,8 +133,8 @@ class DashboardController extends Controller
                 'pending_validation_total' => $kpi['pending_validation'],
                 'pending_validation_count' => $kpi['pending_validation_count'],
                 'net_cash' => $kpi['net_cash'],
-                'invoices_total' => $kpi['invoices_validated'],
-                'invoices_paid' => $kpi['invoices_paid'],
+                'invoices_total' => $invoiceCounts['total'] ?? 0,
+                'invoices_paid' => $invoiceCounts['paid'] ?? 0,
                 'average_basket' => $kpi['average_basket'],
                 'collection_rate' => $kpi['collection_rate'],
                 'control_ok' => $kpi['control_ok'],
