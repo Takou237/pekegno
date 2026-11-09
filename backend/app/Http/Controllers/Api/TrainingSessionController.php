@@ -13,6 +13,7 @@ use App\Models\FormationEnrollment;
 use App\Models\TrainingSession;
 use App\Services\ScopeService;
 use App\Services\TrainerAssignmentService;
+use App\Support\AttendanceStats;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -269,13 +270,16 @@ class TrainingSessionController extends Controller
             ->orderBy('name')
             ->get();
 
-        $courses->each(function (Course $course) use ($from, $to) {
+        // Cumul du taux de présence du périmètre (B22) : le front affiche la valeur
+        // du serveur au lieu de recalculer présents / pointages de son côté.
+        $attendancePresent = 0;
+        $attendanceExpected = 0;
+
+        $courses->each(function (Course $course) use ($from, $to, &$attendancePresent, &$attendanceExpected) {
             $sessions = $course->sessions()->withTrashed()
                 ->when($from, fn ($q, $v) => $q->where('start_at', '>=', $v))
                 ->when($to, fn ($q, $v) => $q->where('start_at', '<=', $v.' 23:59:59'))
                 ->get();
-            $sessionIds = $sessions->pluck('id');
-
             $activeEnrollments = FormationEnrollment::where('course_id', $course->id)
                 ->active()
                 ->with('invoice:id,total_amount,cancelled_at')
@@ -286,12 +290,13 @@ class TrainingSessionController extends Controller
             $enrolled = $activeEnrollments->count();
             $completed = $activeEnrollments->where('status', 'completed')->count();
 
-            $attendanceStatuses = $sessionIds->isNotEmpty()
-                ? Attendance::whereIn('training_session_id', $sessionIds)->pluck('status')
-                : collect();
+            // B22 : présents / attendus sur les séances passées (formule unique
+            // dans App\Support\AttendanceStats, partagée avec les deux autres écrans).
+            $learners = $activeEnrollments->pluck('learner_user_id')->filter()->unique()->values()->all();
+            $attendance = AttendanceStats::compute($sessions, fn () => $learners);
 
-            $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
-            $marked = $attendanceStatuses->count();
+            $attendancePresent += $attendance['present'];
+            $attendanceExpected += $attendance['expected'];
 
             $revenue = \App\Services\AcademyReportService::enrollmentsRevenue($activeEnrollments, $course);
 
@@ -302,9 +307,10 @@ class TrainingSessionController extends Controller
                 'enrollments_total' => $enrolled,
                 'enrollments_enrolled' => $enrolled,
                 'enrollments_completed' => $completed,
-                'attendance_count' => $present,
-                'attendance_marked' => $marked,
-                'attendance_rate' => $marked > 0 ? round($present / $marked * 100, 1) : 0,
+                'attendance_count' => $attendance['present'],
+                'attendance_expected' => $attendance['expected'],
+                'attendance_marked' => $attendance['marked'],
+                'attendance_rate' => $attendance['rate'],
                 'potential_revenue' => round($revenue, 2),
             ];
         });
@@ -327,6 +333,11 @@ class TrainingSessionController extends Controller
                 'sessions' => $courses->sum(fn ($c) => $c->training_report['sessions_count']),
                 'enrollments' => $courses->sum(fn ($c) => $c->training_report['enrollments_total']),
                 'potential_revenue' => round($courses->sum(fn ($c) => $c->training_report['potential_revenue']), 2),
+                // null = aucune séance passée à attendre (« pas de donnée »).
+                'attendance_expected' => $attendanceExpected,
+                'attendance_rate' => $attendanceExpected > 0
+                    ? min(100.0, round($attendancePresent / $attendanceExpected * 100, 1))
+                    : null,
             ],
         ]);
     }

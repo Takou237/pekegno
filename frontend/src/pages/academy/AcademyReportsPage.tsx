@@ -56,6 +56,7 @@ interface TrainingReportRow {
     enrollments_enrolled: number;
     enrollments_completed: number;
     attendance_count: number;
+    attendance_expected: number;
     attendance_marked: number;
     attendance_rate: number;
     potential_revenue: number;
@@ -69,6 +70,9 @@ interface TrainingReportResponse {
     sessions: number;
     enrollments: number;
     potential_revenue: number;
+    attendance_expected: number;
+    /** Taux de présence du serveur (B22) : présents / attendus ; null = pas de donnée. */
+    attendance_rate: number | null;
   };
 }
 
@@ -227,13 +231,10 @@ export default function AcademyReportsPage() {
       setSessions(sessionList);
       setFormationEnrollments(enrollments);
 
-      // Dénominateur = pointages réellement effectués (present + absent), pas le
-      // nombre d'inscrits : sinon le taux peut dépasser 100 % (présence par module)
-      // et "aucune présence prise" se confond avec "0 % de présence".
-      const attendanceMarked = report.data.reduce((sum, r) => sum + r.report.attendance_marked, 0);
-      const attendancePresent = report.data.reduce((sum, r) => sum + r.report.attendance_count, 0);
-      const avgAttendance =
-        attendanceMarked > 0 ? Math.round((attendancePresent / attendanceMarked) * 100) : null;
+      // B22 : taux fourni par le serveur (présents / attendus sur les séances
+      // passées). On ne le recalcule plus ici : le recalcul local donnait un
+      // pourcentage différent de celui des autres écrans.
+      const avgAttendance = report.summary.attendance_rate;
 
       // null (pas 0) quand aucune session n'a de capacité renseignée : "0 %"
       // laisserait croire que le remplissage est nul plutôt qu'inconnu.

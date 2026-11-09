@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreTrainerRequest;
 use App\Http\Requests\Api\UpdateTrainerRequest;
-use App\Models\Attendance;
 use App\Models\CommissionEntry;
 use App\Models\CommissionPayment;
 use App\Models\CourseModule;
@@ -17,6 +16,7 @@ use App\Models\Trainer;
 use App\Models\User;
 use App\Services\ScopeService;
 use App\Services\TrainerAssignmentService;
+use App\Support\AttendanceStats;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -437,15 +437,28 @@ class TrainerController extends Controller
         $enrolled = $enrollments->filter($notCancelled)->count();
         $completed = $enrollments->where('status', 'completed')->count();
         $cancelled = $enrollments->where('status', 'cancelled')->count();
-        // La présence est enregistrée par (session, module) : le dénominateur du taux doit
-        // être le nombre de pointages réellement effectués (present + absent), pas le
-        // nombre d'inscrits attendus par session, sous peine de taux > 100 % dès qu'un
-        // cours a plusieurs modules pointés par session.
-        $attendanceStatuses = $sessionIds->isNotEmpty()
-            ? Attendance::whereIn('training_session_id', $sessionIds)->pluck('status')
-            : collect();
-        $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
-        $expectedPresences = $attendanceStatuses->count();
+
+        // B22 : présents / attendus sur les séances passées (formule unique dans
+        // App\Support\AttendanceStats, identique aux deux autres écrans).
+        // « Attendus » d'une séance = ses participants non annulés ; à défaut, les
+        // inscrits actifs de sa formation (session sans participants explicites).
+        $expectedBySession = $participants
+            ->groupBy('training_session_id')
+            ->map(fn ($rows) => $enrollments
+                ->whereIn('id', $rows->pluck('formation_enrollment_id'))
+                ->pluck('learner_user_id')->filter()->unique()->values()->all())
+            ->all();
+
+        $activeLearnersByCourse = $enrollments
+            ->filter(fn ($enrollment) => in_array($enrollment->status, FormationEnrollment::ACTIVE_STATUSES, true))
+            ->groupBy('course_id')
+            ->map(fn ($rows) => $rows->pluck('learner_user_id')->filter()->unique()->values()->all())
+            ->all();
+
+        $attendance = AttendanceStats::compute(
+            $sessions,
+            fn ($session) => $expectedBySession[$session->id] ?? $activeLearnersByCourse[$session->course_id] ?? [],
+        );
 
         // Revenus potentiels : participants (non annulés) de chaque session × son prix effectif.
         $revenue = $sessions->sum(function ($session) use ($participants) {
@@ -618,10 +631,9 @@ class TrainerController extends Controller
                 'enrollments_completed' => $completed,
                 'enrollments_cancelled' => $cancelled,
                 'learners_unique' => $enrollments->filter($notCancelled)->pluck('learner_user_id')->unique()->count(),
-                'attendance_count' => $present,
-                'attendance_rate' => $expectedPresences > 0
-                    ? min(100, round($present / $expectedPresences * 100, 1))
-                    : 0.0,
+                'attendance_count' => $attendance['present'],
+                'attendance_expected' => $attendance['expected'],
+                'attendance_rate' => $attendance['rate'],
                 'completion_rate' => $enrolled > 0
                     ? round($completed / $enrolled * 100, 1)
                     : 0.0,

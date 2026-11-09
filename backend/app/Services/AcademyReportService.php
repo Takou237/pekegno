@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Attendance;
 use App\Models\Course;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
@@ -10,6 +9,7 @@ use App\Models\InvoiceItem;
 use App\Models\Service;
 use App\Models\Trainer;
 use App\Models\TrainingSession;
+use App\Support\AttendanceStats;
 use Illuminate\Support\Carbon;
 
 class AcademyReportService
@@ -43,12 +43,11 @@ class AcademyReportService
 
         $reportRows = [];
         $summary = ['courses' => 0, 'sessions' => 0, 'enrollments' => 0, 'potential_revenue' => 0.0];
-        $attendanceMarked = 0;
+        $attendanceExpected = 0;
         $attendancePresent = 0;
 
         foreach ($courses as $course) {
             $courseSessions = $course->sessions()->withTrashed()->get();
-            $sessionIds = $courseSessions->pluck('id');
 
             $activeEnrollments = FormationEnrollment::where('course_id', $course->id)
                 ->active()
@@ -56,23 +55,17 @@ class AcademyReportService
                 ->get();
 
             $enrolled = $activeEnrollments->count();
-            // La présence est enregistrée par (session, module) : un même apprenant peut
-            // avoir plusieurs pointages "présent" sur une seule session (un par module).
-            // Le dénominateur doit donc être le nombre de pointages réellement effectués
-            // (present + absent), pas enrolled × nombre de sessions, sous peine de taux
-            // aberrants (> 100 %) dès qu'un cours a plus d'un module par session.
-            $attendanceStatuses = $sessionIds->isNotEmpty()
-                ? Attendance::whereIn('training_session_id', $sessionIds)->pluck('status')
-                : collect();
-            $present = $attendanceStatuses->filter(fn ($status) => $status === Attendance::STATUS_PRESENT)->count();
-            $marked = $attendanceStatuses->count();
+
+            // B22 : présents / attendus sur les séances passées, formule unique
+            // partagée avec le rapport des sessions et l'espace formateur. Les
+            // apprenants attendus d'une séance sont les inscrits actifs du cours.
+            $learners = $activeEnrollments->pluck('learner_user_id')->filter()->unique()->values()->all();
+            $attendance = AttendanceStats::compute($courseSessions, fn () => $learners);
 
             $revenue = self::enrollmentsRevenue($activeEnrollments, $course);
 
-            $rate = $marked > 0 ? round($present / $marked * 100, 1) : 0;
-
-            $attendanceMarked += $marked;
-            $attendancePresent += $present;
+            $attendanceExpected += $attendance['expected'];
+            $attendancePresent += $attendance['present'];
 
             $reportRows[] = [
                 'id' => $course->id,
@@ -80,8 +73,10 @@ class AcademyReportService
                 'name' => $course->name,
                 'sessions_count' => $courseSessions->count(),
                 'enrollments_enrolled' => $enrolled,
-                'attendance_count' => $present,
-                'attendance_rate' => $rate,
+                'attendance_count' => $attendance['present'],
+                'attendance_expected' => $attendance['expected'],
+                'attendance_marked' => $attendance['marked'],
+                'attendance_rate' => $attendance['rate'],
                 'potential_revenue' => round($revenue, 2),
             ];
 
@@ -103,9 +98,11 @@ class AcademyReportService
             ])
             ->all();
 
-        // null (pas 0) quand aucune présence n'a été pointée : distinct de "tout le
+        // null (pas 0) quand aucune présence n'était attendue : distinct de "tout le
         // monde était absent".
-        $avgAttendance = $attendanceMarked > 0 ? round($attendancePresent / $attendanceMarked * 100) : null;
+        $avgAttendance = $attendanceExpected > 0
+            ? round(min(100, $attendancePresent / $attendanceExpected * 100))
+            : null;
 
         // Répartition par mode : comptée sur le catalogue de formations actives
         // (pas sur les sessions ni les inscriptions) — c'est le mix de formations
