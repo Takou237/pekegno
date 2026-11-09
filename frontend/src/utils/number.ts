@@ -26,7 +26,10 @@ export function currencyLabel(code?: string | null): string {
 }
 
 export function formatCurrency(value: number | string | null | undefined, currency?: string | null): string {
-  return `${formatNumber(value)} ${currencyLabel(currency)}`;
+  // B18 : aucun centime à l'affichage. Les décimales restent en base pour la
+  // réconciliation, mais tout montant montré à l'utilisateur est au franc.
+  const amount = Math.round(Number(value ?? 0));
+  return `${formatNumber(amount)} ${currencyLabel(currency)}`;
 }
 
 const UNITS = [

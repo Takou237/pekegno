@@ -13,6 +13,7 @@ class InvoiceItem extends Model
     protected $fillable = [
         'invoice_id',
         'service_id',
+        'category_id',
         'product_id',
         'package_id',
         'prestation_id',
@@ -35,6 +36,20 @@ class InvoiceItem extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        // B4 : toute ligne rattachée à un service hérite de sa catégorie, même
+        // lorsque l'appelant ne la renseigne pas (vente rapide, packages,
+        // inscriptions, commandes…).
+        static::creating(function (InvoiceItem $item) {
+            if (! $item->category_id && $item->service_id) {
+                $item->category_id = Service::query()
+                    ->whereKey($item->service_id)
+                    ->value('category_id');
+            }
+        });
+    }
+
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
@@ -43,6 +58,11 @@ class InvoiceItem extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     public function package(): BelongsTo

@@ -275,31 +275,53 @@ class FinancialMetricsService
     }
 
     /**
-     * CA facturé validé par catégorie. En attendant les 7 rubriques (T3.6), la
-     * catégorie vient du service de la ligne, avec repli « Sans catégorie ».
+     * Ventilation par catégorie (B4). La catégorie vient de la ligne de facture
+     * (`invoice_items.category_id`), avec repli sur le service puis « Sans
+     * catégorie ». En attendant les 7 rubriques (T3.6), c'est la seule source.
+     *
+     * `$basis` :
+     * - `revenue` (défaut) : CA facturé validé de la période (T1.6 / metrics) ;
+     * - `collected` : part encaissée, répartie au prorata des lignes.
      *
      * @param  array<int, string>|null  $agencyIds
      * @return Collection<int, array{name: string, total: float, items: int}>
      */
-    public function byCategory(Carbon $from, Carbon $to, ?array $agencyIds = null, bool $convert = false, ?string $commercialId = null, ?Department $department = null): Collection
+    public function byCategory(Carbon $from, Carbon $to, ?array $agencyIds = null, bool $convert = false, ?string $commercialId = null, ?Department $department = null, string $basis = 'revenue'): Collection
     {
         $rate = fn (string $column) => $convert ? GroupCurrency::rateSql($column) : '1';
 
+        // Part encaissée d'une ligne : le paiement de la facture est réparti au
+        // prorata de la ligne dans le reste dû hors pass-through, plafonné à la
+        // ligne (une facture ne peut pas encaisser plus que son net).
+        $amount = $basis === 'collected'
+            ? "case when (invoices.total_amount - coalesce(pt.pass_amount, 0)) > 0
+                    and invoices.amount_paid >= (invoices.total_amount - coalesce(pt.pass_amount, 0))
+                then invoice_items.line_total
+                when (invoices.total_amount - coalesce(pt.pass_amount, 0)) > 0
+                then invoice_items.line_total * invoices.amount_paid
+                    / (invoices.total_amount - coalesce(pt.pass_amount, 0))
+                else 0 end"
+            : 'invoice_items.line_total';
+
         $query = DB::table('invoice_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoinSub($this->passThroughSub(), 'pt', 'pt.invoice_id', '=', 'invoices.id')
             ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')
-            ->leftJoin('categories', 'categories.id', '=', 'services.category_id')
+            ->leftJoin('categories as item_categories', 'item_categories.id', '=', 'invoice_items.category_id')
+            ->leftJoin('categories as service_categories', 'service_categories.id', '=', 'services.category_id')
             ->whereNull('invoices.cancelled_at')
             ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->where('invoice_items.is_pass_through', false);
         $this->applyScope($query, $agencyIds, $commercialId, $department);
 
+        $categoryName = "coalesce(item_categories.name, service_categories.name, 'Sans catégorie')";
+
         return $query
-            ->selectRaw("coalesce(categories.name, 'Sans catégorie') as name,
-                coalesce(sum(invoice_items.line_total * {$rate('invoices.agency_id')}), 0) as total,
+            ->selectRaw("{$categoryName} as name,
+                coalesce(sum(({$amount}) * {$rate('invoices.agency_id')}), 0) as total,
                 count(*) as items")
-            ->groupByRaw("coalesce(categories.name, 'Sans catégorie')")
+            ->groupByRaw($categoryName)
             ->orderByDesc('total')
             ->get()
             ->map(fn ($row) => [
