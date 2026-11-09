@@ -309,8 +309,8 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
               ))}
               {(bilan.formation_count ?? 0) > 0 && (
                 <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <td className="px-5 py-3 text-gray-500 dark:text-gray-400">Formations</td>
-                  <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.formationsCol')}</td>
+                  <td className="px-5 py-3 text-gray-500 dark:text-gray-400">Academy</td>
+                  <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.enrollmentsLabel')}</td>
                   <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{bilan.formation_count}</td>
                   <td className="px-5 py-3 text-right font-semibold text-gray-800 dark:text-gray-100">{formatCurrency(bilan.formation_total ?? 0, cur)}</td>
                 </tr>
@@ -566,7 +566,7 @@ function ConsolidatedView({ consolidated, t }: {
 }
 
 // Une catégorie de service « Formations » est déjà couverte par la colonne
-// Formations : on ne la répète pas.
+// Academy (inscriptions) : on ne la répète pas.
 function isFormationCategory(name: string): boolean {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().startsWith('formation');
 }

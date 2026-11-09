@@ -5,18 +5,20 @@ namespace App\Support;
 use App\Models\Department;
 
 /**
- * Catégorie et branche d'une ligne de facture : une seule règle pour toutes
- * les pages (B4, B24). Un même article est donc toujours classé pareil, que
- * ce soit au tableau de bord, au Suivi des ventes ou dans le CA d'un
- * département (DepartmentLedger).
+ * Rubrique et branche d'une ligne de facture : une seule règle pour toutes
+ * les pages (B4, B24, rubriques du Lot 3). Un même article est donc toujours
+ * classé pareil, au tableau de bord, au Bilan du jour, en Comptabilité, au
+ * Suivi des ventes ou dans le CA d'un département (DepartmentLedger).
  *
- * - package ou prestation : branche Agency, catégorie Agency du pack / de la
- *   prestation ;
- * - service ou produit du catalogue (écran « Créer un service » / produits) :
- *   branche Store, toujours ; sa catégorie (Livre, Canva…) est sa rubrique,
- *   avec sa propre colonne au Bilan et en Comptabilité ;
- * - ligne libre d'une facture d'inscription : la formation, branche Academy ;
- * - autre ligne libre : « Sans catégorie », branche « other ».
+ * Rubriques :
+ * - « Academy » : lignes d'une facture d'inscription à une formation ;
+ * - « Agency » : packages et prestations ;
+ * - « Séminaire » : tout service coché « Service séminaire (Pass) », quelle
+ *   que soit sa catégorie ;
+ * - sinon, la catégorie du service ou du produit (Livre, Canva…) : créer une
+ *   catégorie crée sa rubrique. Branche Store ;
+ * - « Sans catégorie » : ligne libre hors inscription, ou article sans
+ *   catégorie.
  *
  * Usage : SaleBranch::joinCatalog($query) sur une requête qui joint déjà
  * `invoice_items` et `invoices`, puis SaleBranch::categorySql() /
@@ -28,7 +30,14 @@ final class SaleBranch
 
     public const UNCATEGORIZED = 'Sans catégorie';
 
-    public const FORMATIONS = 'Formations';
+    /** Rubriques fixes, présentes même sans vente. */
+    public const ACADEMY = 'Academy';
+
+    public const AGENCY = 'Agency';
+
+    public const SEMINAR = 'Séminaire';
+
+    public const DEFAULT_RUBRICS = [self::ACADEMY, self::AGENCY, self::SEMINAR];
 
     /** Branche de tout article du catalogue (services, produits). */
     public const CATALOG_BRANCH = Department::TYPE_STORE;
@@ -57,11 +66,11 @@ final class SaleBranch
     public static function categorySql(): string
     {
         return "case
-            when invoice_items.package_id is not null or invoice_items.prestation_id is not null
-                then coalesce(sb_agency_categories.name, 'Agency')
+            when invoice_items.package_id is not null or invoice_items.prestation_id is not null then '".self::AGENCY."'
+            when sb_services.is_seminar then '".self::SEMINAR."'
             when invoice_items.service_id is not null or invoice_items.product_id is not null
                 then coalesce(sb_service_categories.name, sb_product_categories.name, '".self::UNCATEGORIZED."')
-            when ".self::enrollmentExistsSql()." then '".self::FORMATIONS."'
+            when ".self::enrollmentExistsSql()." then '".self::ACADEMY."'
             else '".self::UNCATEGORIZED."' end";
     }
 

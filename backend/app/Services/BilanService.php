@@ -93,7 +93,8 @@ class BilanService
             'agency' => $agencyId ? Agency::find($agencyId)?->only('id', 'name') : null,
             // Colonnes stables du tableau : toutes les catégories du catalogue,
             // même sans vente sur la période (sinon le tableau « disparaît »).
-            'sale_categories' => Category::query()->orderBy('name')->pluck('name')->values()->all(),
+            // Rubriques : Séminaire (services « Pass ») + une par catégorie du catalogue.
+            'sale_categories' => collect([SaleBranch::SEMINAR])->concat(Category::query()->orderBy('name')->pluck('name'))->unique()->values()->all(),
             'days' => $days,
             'currency_code' => $this->department
                 ? GroupCurrency::currencyForAgency($this->department->agency_id)
@@ -444,7 +445,7 @@ class BilanService
      *
      * Les lignes liées à une inscription de formation (service_id null + rattachement
      * via formation_enrollments) sont exclues : elles sont comptées séparément
-     * dans la colonne « Formations ».
+     * dans la colonne « Academy ».
      */
     private function servicesByCategory(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
     {
@@ -461,12 +462,12 @@ class BilanService
             ->whereNull('invoice_items.prestation_id')
             ->whereNull('formation_enrollments.id')
             ->selectRaw("
-                coalesce(categories.name, '".SaleBranch::UNCATEGORIZED."') as category,
+                case when services.is_seminar then '".SaleBranch::SEMINAR."' else coalesce(categories.name, '".SaleBranch::UNCATEGORIZED."') end as category,
                 coalesce(invoice_items.label, '') as label,
                 sum(invoice_items.quantity) as count,
                 sum(".$this->allocated().") as total
             ")
-            ->groupBy('category', 'label')
+            ->groupByRaw("case when services.is_seminar then '".SaleBranch::SEMINAR."' else coalesce(categories.name, '".SaleBranch::UNCATEGORIZED."') end, coalesce(invoice_items.label, '')")
             ->orderByDesc('total')
             ->get()
             ->map(fn ($row) => [

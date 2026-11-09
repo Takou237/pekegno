@@ -111,9 +111,9 @@ class AccountingController extends Controller
     /**
      * Recettes du filtre ventilées par rubrique, avec la même règle que le Bilan
      * et le tableau de bord (SaleBranch) : chaque versement est réparti sur les
-     * lignes de sa facture (Formations, catégories Agency, catégories du
-     * catalogue : Livre, Canva…). Toutes les catégories du catalogue sont
-     * listées, même sans recette. Une recette saisie à la main garde sa
+     * lignes de sa facture (Academy, Agency, Séminaire, catégories du
+     * catalogue : Livre, Canva…). Toutes les rubriques sont listées, même
+     * sans recette. Une recette saisie à la main garde sa
      * catégorie comptable.
      *
      * @return array<int, array{rubric: string, branch: string, total: float}>
@@ -163,8 +163,14 @@ class AccountingController extends Controller
             $byRubric[SaleBranch::UNCATEGORIZED]['total'] += $rest;
         }
 
+        // Rubriques présentes même sans recette : Academy, Agency, Séminaire et
+        // chaque catégorie du catalogue.
+        $defaults = [SaleBranch::ACADEMY => 'academy', SaleBranch::AGENCY => 'agency', SaleBranch::SEMINAR => SaleBranch::CATALOG_BRANCH];
         foreach (Category::query()->pluck('name') as $name) {
-            $byRubric[$name] ??= ['rubric' => $name, 'branch' => SaleBranch::CATALOG_BRANCH, 'total' => 0.0];
+            $defaults[$name] ??= SaleBranch::CATALOG_BRANCH;
+        }
+        foreach ($defaults as $name => $branch) {
+            $byRubric[$name] ??= ['rubric' => $name, 'branch' => $branch, 'total' => 0.0];
         }
 
         return collect($byRubric)
