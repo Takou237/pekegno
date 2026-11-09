@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccountingTransaction;
 use App\Models\Agency;
 use App\Models\Category;
 use App\Models\Commercial;
@@ -202,6 +203,45 @@ class CorrectionsP1Test extends TestCase
         $period = app(BilanService::class)->period(Carbon::parse('2026-11-02'), Carbon::parse('2026-11-02'), $agency->id);
         $this->assertContains('Goodies', $period['sale_categories']);
         $this->assertContains('Séminaire', $period['sale_categories']);
+    }
+
+    public function test_each_payment_entry_takes_the_rubric_of_its_invoice(): void
+    {
+        $agency = $this->agency();
+        $pay = fn (Invoice $i, float $amount) => app(PaymentService::class)
+            ->applyPayment($i, $amount, 'cash', false, $this->admin->id, null, '2026-11-02 09:00:00');
+        $category = fn (Invoice $i) => AccountingTransaction::with('category')
+            ->where('invoice_id', $i->id)->where('type', 'income')->get()->pluck('category.name')->unique()->values()->all();
+
+        $formation = $this->invoice($agency, 50000, [['line_total' => 50000]]);
+        $this->enroll($formation);
+        $pay($formation, 20000);
+        $pay($formation, 30000);
+        // Facture mixte : la rubrique qui pèse le plus (Livre 5 000 > Canva 3 000).
+        $store = $this->invoice($agency, 8000, [
+            ['service_id' => $this->service('Canva')->id, 'line_total' => 3000],
+            ['service_id' => $this->service('Livre')->id, 'line_total' => 5000],
+        ]);
+        $pay($store, 8000);
+        $pass = $this->service('Livre');
+        $pass->update(['is_seminar' => true]);
+        $seminar = $this->invoice($agency, 20000, [['service_id' => $pass->id, 'line_total' => 20000]]);
+        $pay($seminar, 20000);
+
+        $this->assertSame(['Academy'], $category($formation));
+        $this->assertSame(['Livre'], $category($store));
+        $this->assertSame(['Séminaire'], $category($seminar));
+
+        // L'annulation contre-passe dans la même rubrique.
+        $this->postJson("/api/invoices/{$seminar->id}/cancel")->assertOk();
+        $this->assertSame(['Séminaire'], $category($seminar));
+
+        // Rattrapage des anciennes écritures sans catégorie.
+        AccountingTransaction::where('invoice_id', $store->id)->update(['category_id' => null]);
+        $this->artisan('accounting:categorize-income')->assertSuccessful();
+        $this->assertSame([null], $category($store)); // simulation : rien d'écrit
+        $this->artisan('accounting:categorize-income', ['--apply' => true])->assertSuccessful();
+        $this->assertSame(['Livre'], $category($store));
     }
 
     // --- B8 ------------------------------------------------------------------------

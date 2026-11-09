@@ -126,7 +126,7 @@ class AccountingController extends Controller
             ->groupBy('invoice_id')
             ->selectRaw('invoice_id, sum(line_total) as lines_total');
 
-        $rubricSql = "case when invoice_items.is_pass_through then '".self::PASS_THROUGH_RUBRIC."' else ".SaleBranch::categorySql().' end';
+        $rubricSql = "case when invoice_items.is_pass_through then '".SaleBranch::PASS_THROUGH."' else ".SaleBranch::categorySql().' end';
         $branchSql = "case when invoice_items.is_pass_through then 'agency' else ".SaleBranch::branchSql().' end';
 
         $lines = DB::table('accounting_transactions')
@@ -179,8 +179,6 @@ class AccountingController extends Controller
             ->values()
             ->all();
     }
-
-    private const PASS_THROUGH_RUBRIC = 'Budget pub client';
 
     /**
      * Comptabilité par élément du catalogue (produits, prestations, formations,

@@ -39,6 +39,9 @@ final class SaleBranch
 
     public const DEFAULT_RUBRICS = [self::ACADEMY, self::AGENCY, self::SEMINAR];
 
+    /** Budget publicitaire client (pass-through) : ni CA ni rubrique de vente. */
+    public const PASS_THROUGH = 'Budget pub client';
+
     /** Branche de tout article du catalogue (services, produits). */
     public const CATALOG_BRANCH = Department::TYPE_STORE;
 

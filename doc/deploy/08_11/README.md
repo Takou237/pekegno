@@ -32,11 +32,12 @@ pas fait, **ne rien importer** : le SQL de ce dossier n'est utile qu'avec ce cod
 | 15 | **Revenus potentiels Académie** = somme des prix des inscriptions | B7 | Backend |
 | 16 | **Espace formateur « Mes réalisations »** (réalisations du pôle studio assignées) | — | Backend + Frontend |
 | 17 | **Vente d'un séminaire** : le même service peut revenir sur une autre ligne pour un autre niveau (2 Classique + 1 VIP) ; jamais deux lignes du même niveau | — | Frontend |
+| 18 | **Chaque versement prend la catégorie de sa rubrique** en Comptabilité (Academy, Agency, Séminaire, Livre, Canva…) au lieu d'une catégorie vide ; facture mixte = rubrique principale ; contre-passation dans la même rubrique | B4 | Backend |
 
 | Partie | Action |
 |---|---|
 | Base de données | `migration-2026-11-08.sql` : 6 migrations (paiements, caisses, transferts, clôtures, écritures) + droit `tresories.consulter` / `tresories.modifier` pour le caissier |
-| Données | **5 commandes de rattrapage** (étape 5), chacune en simulation d'abord |
+| Données | **6 commandes de rattrapage** (étape 5), chacune en simulation d'abord |
 | Routes | **nouvelles** (clôtures, transferts, réalisations formateur…) → **vider le cache de routes** |
 | `vendor/` | **aucun changement** |
 | `.env` | rien d'obligatoire. Option : `API_RESPONSE_CACHE=false` coupe le cache des statistiques |
@@ -63,7 +64,7 @@ Validé avant livraison :
   schéma identique à la prod (2026_11_04_000001), avec des caisses existantes : aucune erreur,
   aucun doublon, codes C / C2 / O / B / W attribués correctement ;
 - schéma obtenu **identique** à celui des migrations Laravel (comparaison `pg_dump`) ;
-- tests backend (image Docker PHP 8.3, SQLite mémoire) : **627 OK**. Aucun nouvel échec — les
+- tests backend (image Docker PHP 8.3, SQLite mémoire) : **628 OK**. Aucun nouvel échec — les
   37 échecs restants sont les échecs connus (cf. `CLAUDE.md`).
 
 ## 3. Déploiement (dans cet ordre)
@@ -96,6 +97,9 @@ Validé avant livraison :
       en dépense → transferts C → B. **Relire la liste** (filtre `--id=…` possible).
    5. `php artisan accounting:reassign-departments` puis `--apply` — recettes des ventes directes
       d'articles du catalogue (livres, Canva… quelle que soit la catégorie) rattachées au département Store.
+   6. `php artisan accounting:categorize-income` puis `--apply` — B4 : chaque recette de facture sans
+      catégorie (ou « Encaissement facture ») reçoit la catégorie de sa rubrique. Ne touche pas aux
+      recettes saisies à la main.
 6. **Première clôture** de chaque caisse avec l'équipe : saisir le solde réellement compté ;
    les écarts historiques sont justifiés une seule fois.
 7. Les utilisateurs se **déconnectent / reconnectent**, puis **Ctrl+Maj+R**.
@@ -111,6 +115,7 @@ Validé avant livraison :
 | Clôture | Trésorerie → Clôtures | La caissière clôture C ; le chef d'agence valide |
 | Total période / solde consolidé | Bilan du jour, vue période et consolidée | Premier solde initial / dernier solde final ; solde initial du jour = somme des soldes finaux de la veille |
 | Ventes par catégorie | Tableau de bord | Total = carte CA ; plus de « Sans catégorie » géant |
+| Catégorie des versements | Comptabilité → liste | Plus de « — » : chaque versement affiche sa rubrique (Livre, Séminaire, Academy…) |
 | Rubriques | Créer une catégorie « Goodies » ; vendre un service séminaire (Pass) | Nouvelle colonne au Bilan (période) et ligne à 0 en Comptabilité → Recettes par rubrique ; le Pass va dans « Séminaire », pas dans sa catégorie |
 | Livre « Comment gagner de l'argent… » | Suivi des ventes + Tableau de bord | Store sur les deux pages |
 | Facture annulée | Factures → filtre « Annulée » | Visible |

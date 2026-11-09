@@ -82,7 +82,8 @@ class Phase3AccountingTest extends TestCase
             'amount' => 5000.00,
             'client_id' => $client['id'],
             'invoice_id' => $invoice['id'],
-            'category_id' => AccountingCategory::where('name', 'Encaissement facture')->value('id'),
+            // B4 : le versement reprend la rubrique de la facture (ligne libre ici).
+            'category_id' => AccountingCategory::where('name', 'Sans catégorie')->where('type', 'income')->value('id'),
         ]);
     }
 

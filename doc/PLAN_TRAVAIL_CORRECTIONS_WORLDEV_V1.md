@@ -339,7 +339,7 @@ Test : `CorrectionsP1Test::test_rubrics_are_academy_agency_seminar_and_each_cata
 - [ ] B1 — En partie : même CA sur 6 écrans (test) ; Comptabilité (registre d'écritures) à rapprocher.
 - [ ] B2 — En partie : cartes sur les tableaux de bord groupe / pays / agence / département ; clic sur carte à faire.
 - [ ] B3 — En partie : requête commune `InvoiceListQuery` (Takou237, 8/11) ; test à écrire.
-- [x] B4 — Catégorie de chaque ligne (`SaleBranch`), total des catégories = CA ; rattrapage `accounting:reassign-departments`.
+- [x] B4 — Catégorie de chaque ligne (`SaleBranch`), total des catégories = CA ; chaque écriture de versement prend la catégorie de sa rubrique (9/11). Rattrapages `accounting:reassign-departments` et `accounting:categorize-income`.
 - [x] B5 — Total période = premier solde initial / dernier solde final.
 - [x] B6 — Soldes tirés des caisses, consolidé = somme des soldes finaux de la veille, aucune écriture à la lecture.
 - [x] B7 — Revenus potentiels = somme des inscriptions.
