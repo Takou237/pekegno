@@ -102,8 +102,11 @@ export const invoicesApi = {
     return data;
   },
 
-  async cancel(id: string): Promise<Invoice> {
-    const { data } = await client.post<Invoice>(`/invoices/${id}/cancel`);
+  /** B8 : toute annulation exige un motif, journalisé côté serveur. */
+  async cancel(id: string, reason: string): Promise<Invoice> {
+    const { data } = await client.post<Invoice>(`/invoices/${id}/cancel`, {
+      cancellation_reason: reason,
+    });
     return data;
   },
 

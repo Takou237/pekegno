@@ -195,7 +195,7 @@ class Phase3Test extends TestCase
             ],
         ]);
 
-        $this->postJson("/api/invoices/{$invoice['id']}/cancel")->assertOk();
+        $this->postJson("/api/invoices/{$invoice['id']}/cancel", ['cancellation_reason' => 'Facture annulée pour le test'])->assertOk();
         $this->assertDatabaseHas('invoices', ['id' => $invoice['id'], 'status' => 'cancelled']);
 
         $this->postJson("/api/invoices/{$invoice['id']}/payments", ['amount' => 5000, 'payment_method' => 'cash'])

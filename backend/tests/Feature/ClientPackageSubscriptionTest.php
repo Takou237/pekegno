@@ -199,7 +199,7 @@ class ClientPackageSubscriptionTest extends TestCase
 
         $admin = User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]);
         Sanctum::actingAs($admin);
-        $this->postJson("/api/invoices/{$first['invoice']['id']}/cancel")->assertOk();
+        $this->postJson("/api/invoices/{$first['invoice']['id']}/cancel", ['cancellation_reason' => 'Doublon de facture'])->assertOk();
 
         $this->assertSame(Contract::STATUS_TERMINATED, Contract::find($first['contract']['id'])->status);
         $this->assertSame(Prestation::STATUS_CANCELLED, Prestation::find($first['prestation']['id'])->status);

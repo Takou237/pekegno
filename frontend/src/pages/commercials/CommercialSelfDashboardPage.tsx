@@ -74,10 +74,12 @@ function CommercialSelfDashboard() {
   }, [fetchAll]);
 
   async function handleDelete(inv: Invoice) {
-    if (!window.confirm(t('invoices.cancelTitle'))) return;
+    // B8 : l'annulation exige un motif (saisi, puis journalisé côté serveur).
+    const reason = window.prompt(t('invoices.cancelReasonPrompt'));
+    if (!reason?.trim()) return;
     setDeletingId(inv.id);
     try {
-      await invoicesApi.cancel(inv.id);
+      await invoicesApi.cancel(inv.id, reason.trim());
       showToast(t('invoices.cancelled'), 'success');
       setInvoices((prev) => prev.filter((i) => i.id !== inv.id));
     } catch (error) {

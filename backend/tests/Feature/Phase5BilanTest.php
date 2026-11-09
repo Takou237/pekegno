@@ -121,7 +121,7 @@ class Phase5BilanTest extends TestCase
 
         $agency = $this->createAgency();
         $invoice = $this->createInvoice(['agency_id' => $agency->id, 'advance' => 15000, 'payment_type' => 'cash']);
-        $this->postJson("/api/invoices/{$invoice['id']}/cancel")->assertOk();
+        $this->postJson("/api/invoices/{$invoice['id']}/cancel", ['cancellation_reason' => 'Facture annulée pour le test'])->assertOk();
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 

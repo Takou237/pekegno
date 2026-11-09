@@ -149,7 +149,7 @@ class FinancialKpiTest extends TestCase
         ]);
 
         Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]));
-        $this->postJson("/api/invoices/{$invoice->id}/cancel")->assertOk();
+        $this->postJson("/api/invoices/{$invoice->id}/cancel", ['cancellation_reason' => 'Facture annulée pour le test'])->assertOk();
 
         $this->assertNotNull($payment->fresh()->cancelled_at);
         $this->assertSame(0.0, (float) AccountingTransaction::where('invoice_id', $invoice->id)->where('type', 'income')->sum('amount'));

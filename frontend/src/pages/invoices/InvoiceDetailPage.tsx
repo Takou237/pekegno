@@ -22,7 +22,6 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Autocomplete, FREE_TEXT_PREFIX } from '@/components/ui/Autocomplete';
 import { Alert } from '@/components/ui/Alert';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { InvoicePrint, InvoicePrintPortal, PrintPortal } from '@/components/invoices/InvoicePrint';
 import { PaymentReceiptPrint } from '@/components/invoices/PaymentReceiptPrint';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
@@ -140,6 +139,9 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  // B8 : l'annulation exige un motif, journalisé côté serveur.
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const canCollect = ['super-admin', 'direction-generale', 'caissier'].includes(
     currentUser?.role?.name ?? ''
@@ -386,13 +388,21 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
     }
   }
 
-  async function handleCancel() {
-    if (!invoice) return;
+  function closeCancel() {
+    setCancelTarget(false);
+    setCancelError(null);
+    setCancelReason('');
+  }
+
+  async function handleCancel(e: FormEvent) {
+    e.preventDefault();
+    if (!invoice || !cancelReason.trim()) return;
     setCancelSubmitting(true);
+    setCancelError(null);
     try {
-      await invoicesApi.cancel(invoice.id);
+      await invoicesApi.cancel(invoice.id, cancelReason.trim());
       showToast(t('invoices.cancelled'), 'success');
-      setCancelTarget(false);
+      closeCancel();
       // Une facture annulée n'est plus modifiable ni encaissable : on referme
       // les formulaires ouverts et on repart d'un état propre, sans quitter
       // la page (le lien de retour ci-dessus ramène à la liste d'origine).
@@ -407,7 +417,9 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       resetEditForm();
       fetchInvoice();
     } catch (error) {
-      showToast(extractErrorMessage(error, t('invoices.cancelFailed')), 'error');
+      const message = extractErrorMessage(error, t('invoices.cancelFailed'));
+      setCancelError(message);
+      showToast(message, 'error');
     } finally {
       setCancelSubmitting(false);
     }
@@ -1530,16 +1542,39 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         </form>
       </Modal>
 
-      <ConfirmDialog
+      <Modal
         isOpen={cancelTarget}
+        onClose={closeCancel}
         title={t('invoices.cancelTitle')}
-        message={t('invoices.cancelMessage', { number: invoice.number })}
-        confirmLabel={t('invoices.cancelInvoice')}
-        variant="danger"
-        isLoading={cancelSubmitting}
-        onConfirm={handleCancel}
-        onCancel={() => setCancelTarget(false)}
-      />
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleCancel} className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t('invoices.cancelMessage', { number: invoice.number })}
+          </p>
+          {cancelError && <Alert variant="error">{cancelError}</Alert>}
+          <Input
+            label={t('invoices.cancelReason')}
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder={t('invoices.cancelReasonPlaceholder')}
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('invoices.cancelReasonHint')}</p>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={closeCancel} disabled={cancelSubmitting}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="submit"
+              variant="danger"
+              isLoading={cancelSubmitting}
+              disabled={!cancelReason.trim()}
+            >
+              {t('invoices.cancelInvoice')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         isOpen={proofPreview !== null}

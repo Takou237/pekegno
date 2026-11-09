@@ -211,7 +211,7 @@ class PaymentTreasuryRoutingTest extends TestCase
         $this->assertSame(30000.0, $this->balance('C'));
 
         Sanctum::actingAs($this->admin);
-        $this->postJson("/api/invoices/{$invoice->id}/cancel", ['reason' => 'Doublon'])->assertOk();
+        $this->postJson("/api/invoices/{$invoice->id}/cancel", ['cancellation_reason' => 'Doublon'])->assertOk();
 
         $this->assertSame(0.0, $this->balance('C'));
         $this->assertSame(1, TreasuryTransaction::where('source_type', 'invoice_payment_cancel')->count());

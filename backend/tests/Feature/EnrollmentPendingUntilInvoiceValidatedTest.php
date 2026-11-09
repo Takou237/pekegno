@@ -145,7 +145,7 @@ class EnrollmentPendingUntilInvoiceValidatedTest extends TestCase
         $enrollment = $this->commercialEnrollment($commercial, $course, $session);
 
         Sanctum::actingAs($commercial);
-        $this->postJson("/api/invoices/{$enrollment->invoice_id}/cancel")->assertOk();
+        $this->postJson("/api/invoices/{$enrollment->invoice_id}/cancel", ['cancellation_reason' => 'Inscription abandonnée'])->assertOk();
 
         $this->assertSame(FormationEnrollment::STATUS_CANCELLED, $enrollment->fresh()->status);
         $this->assertCount(0, $this->participants($enrollment));

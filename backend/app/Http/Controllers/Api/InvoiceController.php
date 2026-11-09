@@ -128,7 +128,7 @@ class InvoiceController extends Controller
         security: [['sanctum' => []]],
         parameters: [
             new OA\Parameter(name: 'search', in: 'query', description: 'Recherche par numéro, nom client ou email client', schema: new OA\Schema(type: 'string')),
-            new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut', schema: new OA\Schema(type: 'string', enum: ['unpaid', 'partial', 'paid'])),
+            new OA\Parameter(name: 'status', in: 'query', description: 'Filtrer par statut (séparable par virgule)', schema: new OA\Schema(type: 'string', enum: ['unpaid', 'partial', 'paid', 'cancelled'])),
             new OA\Parameter(name: 'validation_status', in: 'query', description: 'Filtrer par statut de validation (séparable par virgule)', schema: new OA\Schema(type: 'string', enum: ['pending', 'validated', 'rejected'])),
             new OA\Parameter(name: 'agency_id', in: 'query', schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'mine', in: 'query', description: 'Uniquement les ventes de l\'utilisateur connecté, toutes agences', schema: new OA\Schema(type: 'boolean')),
@@ -146,6 +146,13 @@ class InvoiceController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
+        // B8 : par défaut, la liste montre TOUTES les factures non annulées, quel
+        // que soit leur statut de validation (en attente, validée, rejetée). Une
+        // facture annulée ne revient que si on la demande explicitement : filtre
+        // « Annulée » ou include_cancelled=1.
+        $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $request->status))));
+        $wantsCancelled = in_array('cancelled', $statuses, true);
+
         $base = $this->scopeByRole(Invoice::query(), $request->user())
             // Agency : factures des contrats (packages / prestations), éventuellement d'un département.
             ->when($request->boolean('from_contracts'), fn ($q) => $q->whereNotNull('invoices.contract_id'))
@@ -176,9 +183,20 @@ class InvoiceController extends Controller
                         ->orWhere('last_name', 'like', "%{$s}%")
                         ->orWhere('email', 'like', "%{$s}%"));
             }))
-            ->when($request->status, function ($q, $s) {
-                $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
-                $q->whereIn('status', $statuses);
+            ->when($statuses !== [], function ($q) use ($statuses, $wantsCancelled) {
+                // « Annulée » se lit sur cancelled_at, pas sur la colonne status :
+                // une facture annulée peut avoir conservé unpaid/partial/paid.
+                $paidStatuses = array_values(array_diff($statuses, ['cancelled']));
+
+                $q->where(function ($q) use ($paidStatuses, $wantsCancelled) {
+                    if ($paidStatuses !== []) {
+                        $q->where(fn ($q) => $q->whereIn('status', $paidStatuses)->whereNull('invoices.cancelled_at'));
+                    }
+
+                    if ($wantsCancelled) {
+                        $q->orWhereNotNull('invoices.cancelled_at');
+                    }
+                });
             })
             ->when($request->validation_status, function ($q, $s) {
                 $statuses = array_values(array_filter(array_map('trim', explode(',', (string) $s))));
@@ -192,7 +210,10 @@ class InvoiceController extends Controller
             ->when($request->commercial_id, fn ($q, $id) => $q->where('commercial_id', $id))
             ->when($request->from, fn ($q, $d) => $q->whereDate('invoice_date', '>=', $d))
             ->when($request->to, fn ($q, $d) => $q->whereDate('invoice_date', '<=', $d))
-            ->when(! $request->boolean('include_cancelled'), fn ($q) => $q->whereNull('invoices.cancelled_at'));
+            ->when(
+                ! $request->boolean('include_cancelled') && ! $wantsCancelled,
+                fn ($q) => $q->whereNull('invoices.cancelled_at')
+            );
 
         $totals = (clone $base)->selectRaw(
             'coalesce(sum(amount_paid), 0) as revenue, '
@@ -1050,14 +1071,24 @@ class InvoiceController extends Controller
 
     #[OA\Post(
         path: '/api/invoices/{invoice}/cancel',
-        summary: 'Annuler une facture (exclue des statistiques)',
+        summary: 'Annuler une facture (motif obligatoire, journalisé)',
         tags: ['Factures'],
         security: [['sanctum' => []]],
         parameters: [
             new OA\Parameter(name: 'invoice', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['cancellation_reason'],
+                properties: [
+                    new OA\Property(property: 'cancellation_reason', type: 'string', description: "Motif de l'annulation"),
+                ]
+            )
+        ),
         responses: [
             new OA\Response(response: 200, description: 'Facture annulée'),
+            new OA\Response(response: 422, description: 'Motif manquant'),
         ]
     )]
     public function cancel(Request $request, Invoice $invoice): JsonResponse
@@ -1074,6 +1105,18 @@ class InvoiceController extends Controller
             abort_if(in_array($invoice->validation_status, [Invoice::VALIDATION_VALIDATED], true), 422, 'Une facture validée ne peut plus être supprimée par son commercial.');
         }
 
+        // B8 : une annulation sans motif n'est pas traçable. Le motif est
+        // obligatoire et part dans le journal d'activité (qui a annulé, quand, pourquoi).
+        $reason = trim((string) $request->input('cancellation_reason', ''));
+
+        if ($reason === '') {
+            throw ValidationException::withMessages([
+                'cancellation_reason' => "Le motif de l'annulation est obligatoire.",
+            ]);
+        }
+
+        $statusBefore = $invoice->status;
+
         $invoice->update(['cancelled_at' => now()]);
         $invoice->refreshStatus();
         $invoice->save();
@@ -1081,7 +1124,15 @@ class InvoiceController extends Controller
         // Paiements, recettes comptables et commissions annulés avec la facture (B9).
         app(InvoiceCancellationService::class)->reverseFinancials($invoice, $request->user()->id);
 
-        $this->logger->log('cancelled', 'invoice', $invoice->id, "Facture {$invoice->number} annulée", agencyId: $invoice->agency_id);
+        $this->logger->log(
+            'cancelled',
+            'invoice',
+            $invoice->id,
+            "Facture {$invoice->number} annulée : {$reason}",
+            oldValues: ['cancelled_at' => null, 'status' => $statusBefore],
+            newValues: ['cancelled_at' => $invoice->cancelled_at?->toISOString(), 'status' => $invoice->status, 'cancellation_reason' => $reason],
+            agencyId: $invoice->agency_id,
+        );
 
         // Une facture de souscription annulée avant l'activation invalide la
         // souscription : on résilie le contrat encore en attente et sa prestation
