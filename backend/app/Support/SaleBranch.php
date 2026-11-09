@@ -12,10 +12,9 @@ use App\Models\Department;
  *
  * - package ou prestation : branche Agency, catégorie Agency du pack / de la
  *   prestation ;
- * - service ou produit du catalogue : catégorie du catalogue ; la branche est
- *   le type de département que nomme cette catégorie (« Academy », « Store »,
- *   « Studio », « Agency »), sinon Store, le catalogue de la boutique (Livre,
- *   Canva…) ;
+ * - service ou produit du catalogue (écran « Créer un service » / produits) :
+ *   branche Store, toujours ; sa catégorie (Livre, Canva…) est sa rubrique,
+ *   avec sa propre colonne au Bilan et en Comptabilité ;
  * - ligne libre d'une facture d'inscription : la formation, branche Academy ;
  * - autre ligne libre : « Sans catégorie », branche « other ».
  *
@@ -31,8 +30,8 @@ final class SaleBranch
 
     public const FORMATIONS = 'Formations';
 
-    /** Catégorie du catalogue qui ne nomme aucun type de département. */
-    public const DEFAULT_CATALOG_BRANCH = Department::TYPE_STORE;
+    /** Branche de tout article du catalogue (services, produits). */
+    public const CATALOG_BRANCH = Department::TYPE_STORE;
 
     public const BRANCHES = [
         Department::TYPE_ACADEMY,
@@ -70,22 +69,9 @@ final class SaleBranch
     {
         return "case
             when invoice_items.package_id is not null or invoice_items.prestation_id is not null then '".Department::TYPE_AGENCY."'
-            when invoice_items.service_id is not null or invoice_items.product_id is not null
-                then ".self::catalogBranchSql('coalesce(sb_service_categories.name, sb_product_categories.name)')."
+            when invoice_items.service_id is not null or invoice_items.product_id is not null then '".self::CATALOG_BRANCH."'
             when ".self::enrollmentExistsSql()." then '".Department::TYPE_ACADEMY."'
             else '".self::OTHER."' end";
-    }
-
-    /** Branche d'une catégorie du catalogue (nom SQL donné). */
-    public static function catalogBranchSql(string $categoryNameSql): string
-    {
-        $name = "lower(coalesce({$categoryNameSql}, ''))";
-        $whens = implode(' ', array_map(
-            fn (string $type) => "when {$name} = '{$type}' then '{$type}'",
-            [Department::TYPE_ACADEMY, Department::TYPE_AGENCY, Department::TYPE_STORE, Department::TYPE_STUDIO]
-        ));
-
-        return "(case {$whens} else '".self::DEFAULT_CATALOG_BRANCH."' end)";
     }
 
     private static function enrollmentExistsSql(): string

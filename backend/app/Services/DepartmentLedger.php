@@ -16,11 +16,9 @@ use Illuminate\Support\Facades\DB;
  * département de son agence :
  * - facture d'un contrat : le département du contrat (packages, prestations) ;
  * - facture d'inscription à une formation : le département Academy ;
- * - vente directe (ni contrat ni inscription) : le département dont le type
- *   correspond à la catégorie des articles vendus (« Store » → Store…). Une
- *   catégorie qui ne nomme aucun type de département (Livre, Canva…) relève
- *   du Store, le catalogue de la boutique. Une facture qui mélange plusieurs
- *   catégories va au département qui pèse le plus lourd dans son montant.
+ * - vente directe (ni contrat ni inscription) d'articles du catalogue
+ *   (services, produits, quelle que soit leur catégorie : Livre, Canva…) :
+ *   le département Store.
  *
  * Aucune facture n'est perdue : une vente sans article du catalogue (ligne
  * libre), ou dont l'agence n'a pas le département visé, revient au
@@ -32,8 +30,8 @@ class DepartmentLedger
     /** Repli : vente sans article du catalogue, ou département absent. */
     public const FALLBACK_TYPE = Department::TYPE_AGENCY;
 
-    /** Catégorie qui ne nomme aucun type de département : catalogue Store. */
-    public const DEFAULT_CATALOG_TYPE = SaleBranch::DEFAULT_CATALOG_BRANCH;
+    /** Vente d'articles du catalogue (services, produits) : département Store. */
+    public const CATALOG_TYPE = SaleBranch::CATALOG_BRANCH;
 
     public function departmentForInvoice(Invoice $invoice): ?string
     {
@@ -127,31 +125,20 @@ class DepartmentLedger
     }
 
     /**
-     * Type de département d'une vente directe, corrélé à `invoices.id` : celui
-     * des articles du catalogue (services, produits) qui pèsent le plus dans
-     * la facture ; null si elle n'a que des lignes libres.
+     * Type de département d'une vente directe, corrélé à `invoices.id` : Store
+     * dès qu'elle contient un article du catalogue (service ou produit), null
+     * si elle n'a que des lignes libres.
      *
      * @return array{0: string, 1: array<int, mixed>}
      */
     private function directSaleTypeSql(): array
     {
-        // Même correspondance catégorie → branche que partout ailleurs (SaleBranch).
-        $lineType = SaleBranch::catalogBranchSql('coalesce(service_categories.name, product_categories.name)');
-
-        $sub = DB::table('invoice_items')
-            ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')
-            ->leftJoin('categories as service_categories', 'service_categories.id', '=', 'services.category_id')
-            ->leftJoin('products', 'products.id', '=', 'invoice_items.product_id')
-            ->leftJoin('categories as product_categories', 'product_categories.id', '=', 'products.category_id')
-            ->whereColumn('invoice_items.invoice_id', 'invoices.id')
-            ->where(fn ($q) => $q->whereNotNull('invoice_items.service_id')->orWhereNotNull('invoice_items.product_id'))
-            ->selectRaw($lineType)
-            ->groupByRaw($lineType)
-            ->orderByRaw('sum(invoice_items.line_total) desc')
-            ->orderByRaw($lineType)
-            ->limit(1);
-
-        return [$sub->toSql(), $sub->getBindings()];
+        return [
+            "case when exists (select 1 from invoice_items catalog_items where catalog_items.invoice_id = invoices.id"
+            ." and (catalog_items.service_id is not null or catalog_items.product_id is not null))"
+            ." then '".self::CATALOG_TYPE."' end",
+            [],
+        ];
     }
 
     private function primaryDepartmentId(?string $agencyId, string $type): ?string

@@ -9,6 +9,7 @@ use App\Models\Department;
 use App\Models\TreasuryAccount;
 use App\Support\GroupCurrency;
 use App\Support\Period;
+use App\Support\SaleBranch;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -460,7 +461,7 @@ class BilanService
             ->whereNull('invoice_items.prestation_id')
             ->whereNull('formation_enrollments.id')
             ->selectRaw("
-                coalesce(categories.name, 'Autres') as category,
+                coalesce(categories.name, '".SaleBranch::UNCATEGORIZED."') as category,
                 coalesce(invoice_items.label, '') as label,
                 sum(invoice_items.quantity) as count,
                 sum(".$this->allocated().") as total
@@ -488,7 +489,7 @@ class BilanService
             ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
             ->whereNotNull('invoice_items.product_id')
             ->selectRaw("
-                coalesce(categories.name, 'Autres') as category,
+                coalesce(categories.name, '".SaleBranch::UNCATEGORIZED."') as category,
                 coalesce(invoice_items.label, '') as label,
                 sum(invoice_items.quantity) as count,
                 sum(".$this->allocated().") as total

@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AccountingTransaction;
+use App\Models\Category;
 use App\Models\TreasuryAccount;
 use App\Services\AccountingService;
 use App\Services\ActivityLogger;
 use App\Services\ScopeService;
 use App\Services\CatalogRevenueService;
+use App\Support\SaleBranch;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,8 +104,77 @@ class AccountingController extends Controller
                 'expense' => (float) $totals->expense,
                 'balance' => round((float) $totals->income - (float) $totals->expense, 2),
             ],
+            'income_by_rubric' => $this->incomeByRubric($base, (float) $totals->income),
         ]);
     }
+
+    /**
+     * Recettes du filtre ventilées par rubrique, avec la même règle que le Bilan
+     * et le tableau de bord (SaleBranch) : chaque versement est réparti sur les
+     * lignes de sa facture (Formations, catégories Agency, catégories du
+     * catalogue : Livre, Canva…). Toutes les catégories du catalogue sont
+     * listées, même sans recette. Une recette saisie à la main garde sa
+     * catégorie comptable.
+     *
+     * @return array<int, array{rubric: string, branch: string, total: float}>
+     */
+    private function incomeByRubric($base, float $income): array
+    {
+        $incomeIds = (clone $base)->where('type', 'income')->select('accounting_transactions.id')->toBase();
+
+        $lineSums = DB::table('invoice_items')
+            ->groupBy('invoice_id')
+            ->selectRaw('invoice_id, sum(line_total) as lines_total');
+
+        $rubricSql = "case when invoice_items.is_pass_through then '".self::PASS_THROUGH_RUBRIC."' else ".SaleBranch::categorySql().' end';
+        $branchSql = "case when invoice_items.is_pass_through then 'agency' else ".SaleBranch::branchSql().' end';
+
+        $lines = DB::table('accounting_transactions')
+            ->whereIn('accounting_transactions.id', $incomeIds)
+            ->join('invoice_items', 'invoice_items.invoice_id', '=', 'accounting_transactions.invoice_id')
+            ->joinSub($lineSums, 'line_sums', 'line_sums.invoice_id', '=', 'accounting_transactions.invoice_id')
+            ->where('line_sums.lines_total', '>', 0);
+
+        $rows = SaleBranch::joinCatalog($lines)
+            ->selectRaw("{$rubricSql} as rubric, {$branchSql} as branch, sum(accounting_transactions.amount * invoice_items.line_total / line_sums.lines_total) as total")
+            ->groupByRaw("{$rubricSql}, {$branchSql}")
+            ->get()
+            ->map(fn ($r) => ['rubric' => $r->rubric, 'branch' => $r->branch, 'total' => (float) $r->total]);
+
+        $manual = DB::table('accounting_transactions')
+            ->whereIn('accounting_transactions.id', $incomeIds)
+            ->whereNull('accounting_transactions.invoice_id')
+            ->leftJoin('accounting_categories', 'accounting_categories.id', '=', 'accounting_transactions.category_id')
+            ->selectRaw("coalesce(accounting_categories.name, 'Autres recettes') as rubric, sum(accounting_transactions.amount) as total")
+            ->groupByRaw("coalesce(accounting_categories.name, 'Autres recettes')")
+            ->get()
+            ->map(fn ($r) => ['rubric' => $r->rubric, 'branch' => SaleBranch::OTHER, 'total' => (float) $r->total]);
+
+        $byRubric = [];
+        foreach ($rows->concat($manual) as $row) {
+            $byRubric[$row['rubric']] ??= ['rubric' => $row['rubric'], 'branch' => $row['branch'], 'total' => 0.0];
+            $byRubric[$row['rubric']]['total'] += $row['total'];
+        }
+
+        // Écriture liée à une facture sans ligne : rien n'est perdu.
+        $rest = $income - array_sum(array_column($byRubric, 'total'));
+        if (abs($rest) >= 0.01) {
+            $byRubric[SaleBranch::UNCATEGORIZED] ??= ['rubric' => SaleBranch::UNCATEGORIZED, 'branch' => SaleBranch::OTHER, 'total' => 0.0];
+            $byRubric[SaleBranch::UNCATEGORIZED]['total'] += $rest;
+        }
+
+        foreach (Category::query()->pluck('name') as $name) {
+            $byRubric[$name] ??= ['rubric' => $name, 'branch' => SaleBranch::CATALOG_BRANCH, 'total' => 0.0];
+        }
+
+        return collect($byRubric)
+            ->map(fn (array $r) => [...$r, 'total' => round($r['total'], 2)])
+            ->sortBy([['total', 'desc'], ['rubric', 'asc']])
+            ->values()
+            ->all();
+    }
+
+    private const PASS_THROUGH_RUBRIC = 'Budget pub client';
 
     /**
      * Comptabilité par élément du catalogue (produits, prestations, formations,

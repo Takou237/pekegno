@@ -24,7 +24,7 @@ pas fait, **ne rien importer** : le SQL de ce dossier n'est utile qu'avec ce cod
 | 7 | **Clôture journalière de caisse** (solde compté, écart, justification) validée par le chef d'agence, en heure locale | §2 | Backend + Frontend |
 | 8 | **Dépense saisie en Comptabilité** : caisse obligatoire, l'argent sort de la caisse choisie | §2 | Backend + Frontend |
 | 9 | **Bilan du jour** : ventes d'un côté, caisses de l'autre ; total période = premier solde initial et dernier solde final ; solde initial consolidé = somme des soldes finaux de la veille, plus jamais réécrit | §2, B5, B6 | Backend + Frontend |
-| 10 | **Ventes par catégorie** : catégorie reprise de la ligne de facture, total égal au CA ; même branche (Academy / Agency / Store / Studio) sur toutes les pages, et ventes Store rattachées au département Store | B4, B24 | Backend + Frontend |
+| 10 | **Ventes par catégorie** : catégorie reprise de la ligne de facture, total égal au CA ; même branche (Academy / Agency / Store / Studio) sur toutes les pages. Tout article créé par « Créer un service » (ou produit) relève du **Store** ; sa catégorie (Livre, Canva…) est sa **rubrique** : une colonne au Bilan du jour (service ou produit confondus, même à zéro) et une ligne dans « Recettes par rubrique » en Comptabilité | B4, B24, §2 rubriques | Backend + Frontend |
 | 11 | **Aucune facture ne disparaît** : filtre « Annulée » de la liste réparé ; une facture retirée par le client est annulée (plus jamais supprimée) ; annulation via la suppression d'une inscription tracée au journal | B8 | Backend |
 | 12 | **Devises** : en vue multi-pays, montants XOF convertis dans la monnaie du groupe avant d'être additionnés (Bilan, Suivi des ventes) ; bouton de devise sur PEKEGNO Group | B14 | Backend + Frontend |
 | 13 | **Taux de recouvrement** : sa base est affichée sous la carte (encaissé sur les factures de la période ÷ CA) | B15 | Frontend |
@@ -62,7 +62,7 @@ Validé avant livraison :
   schéma identique à la prod (2026_11_04_000001), avec des caisses existantes : aucune erreur,
   aucun doublon, codes C / C2 / O / B / W attribués correctement ;
 - schéma obtenu **identique** à celui des migrations Laravel (comparaison `pg_dump`) ;
-- tests backend (image Docker PHP 8.3, SQLite mémoire) : **625 OK**. Aucun nouvel échec — les
+- tests backend (image Docker PHP 8.3, SQLite mémoire) : **626 OK**. Aucun nouvel échec — les
   37 échecs restants sont les échecs connus (cf. `CLAUDE.md`).
 
 ## 3. Déploiement (dans cet ordre)
@@ -94,7 +94,7 @@ Validé avant livraison :
    4. `php artisan treasury:reclassify-transfers` puis `--apply` — B13 : versements en banque saisis
       en dépense → transferts C → B. **Relire la liste** (filtre `--id=…` possible).
    5. `php artisan accounting:reassign-departments` puis `--apply` — recettes des ventes directes
-      rattachées au département de la catégorie vendue (livres, Canva → Store).
+      d'articles du catalogue (livres, Canva… quelle que soit la catégorie) rattachées au département Store.
 6. **Première clôture** de chaque caisse avec l'équipe : saisir le solde réellement compté ;
    les écarts historiques sont justifiés une seule fois.
 7. Les utilisateurs se **déconnectent / reconnectent**, puis **Ctrl+Maj+R**.
@@ -110,6 +110,7 @@ Validé avant livraison :
 | Clôture | Trésorerie → Clôtures | La caissière clôture C ; le chef d'agence valide |
 | Total période / solde consolidé | Bilan du jour, vue période et consolidée | Premier solde initial / dernier solde final ; solde initial du jour = somme des soldes finaux de la veille |
 | Ventes par catégorie | Tableau de bord | Total = carte CA ; plus de « Sans catégorie » géant |
+| Rubriques | Créer une catégorie « Goodies » | Nouvelle colonne au Bilan (période) et ligne à 0 dans Comptabilité → Recettes par rubrique |
 | Livre « Comment gagner de l'argent… » | Suivi des ventes + Tableau de bord | Store sur les deux pages |
 | Facture annulée | Factures → filtre « Annulée » | Visible |
 | Caissière | Trésorerie | Ne voit pas les soldes O / M / B |

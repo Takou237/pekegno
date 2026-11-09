@@ -113,7 +113,7 @@ class CorrectionsP1Test extends TestCase
         // Inscription (ligne libre) : 100 000 avec 10 000 de remise.
         $this->enroll($this->invoice($agency, 90000, [['line_total' => 100000]]));
         // Livre du catalogue Store.
-        $this->invoice($agency, 5000, [['service_id' => $this->service('Store')->id, 'line_total' => 5000]]);
+        $this->invoice($agency, 5000, [['service_id' => $this->service('Livre')->id, 'line_total' => 5000]]);
         // Ligne libre hors inscription + budget pub client (exclu du CA).
         $this->invoice($agency, 50000, [['line_total' => 20000], ['line_total' => 30000, 'is_pass_through' => true]]);
 
@@ -125,8 +125,8 @@ class CorrectionsP1Test extends TestCase
         $this->assertSame(115000.0, (float) $byCategory->sum('total'));
         $this->assertSame(90000.0, $byCategory['Formations']['total']);
         $this->assertSame('academy', $byCategory['Formations']['branch']);
-        $this->assertSame(5000.0, $byCategory['Store']['total']);
-        $this->assertSame('store', $byCategory['Store']['branch']);
+        $this->assertSame(5000.0, $byCategory['Livre']['total']);
+        $this->assertSame('store', $byCategory['Livre']['branch']);
         $this->assertSame(20000.0, $byCategory['Sans catégorie']['total']);
 
         // Même chiffre sur l'endpoint du tableau de bord.
@@ -137,7 +137,7 @@ class CorrectionsP1Test extends TestCase
     public function test_sales_tracking_classifies_a_book_as_store_like_the_dashboard(): void
     {
         $agency = $this->agency();
-        $this->invoice($agency, 5000, [['service_id' => $this->service('Store')->id, 'line_total' => 5000, 'label' => 'Livre']]);
+        $this->invoice($agency, 5000, [['service_id' => $this->service('Livre')->id, 'line_total' => 5000, 'label' => 'Livre']]);
         $this->enroll($this->invoice($agency, 50000, [['line_total' => 50000, 'label' => 'Formation']]));
 
         $rows = collect($this->getJson('/api/sales-tracking?from=2026-11-01&to=2026-11-03')->assertOk()->json('data'))->keyBy('activity');
@@ -147,6 +147,50 @@ class CorrectionsP1Test extends TestCase
 
         $store = $this->getJson('/api/sales-tracking?from=2026-11-01&to=2026-11-03&type=store')->assertOk()->json('data');
         $this->assertSame(['Livre'], collect($store)->pluck('activity')->all());
+    }
+
+    // --- Lot 3 : une rubrique par catégorie du catalogue -------------------------------
+
+    public function test_each_catalog_category_is_a_store_rubric_in_bilan_and_accounting(): void
+    {
+        $agency = $this->agency();
+        Category::firstOrCreate(['name' => 'Goodies']); // créée, encore jamais vendue
+        $pay = fn (Invoice $i, float $amount) => app(PaymentService::class)
+            ->applyPayment($i, $amount, 'cash', false, $this->admin->id, null, '2026-11-02 09:00:00');
+
+        $formation = $this->invoice($agency, 50000, [['line_total' => 50000]]);
+        $this->enroll($formation);
+        $pay($formation, 50000);
+        // Même facture : un livre et un abonnement Canva, payés en entier.
+        $store = $this->invoice($agency, 8000, [
+            ['service_id' => $this->service('Livre')->id, 'line_total' => 5000],
+            ['service_id' => $this->service('Canva')->id, 'line_total' => 3000],
+        ]);
+        $pay($store, 8000);
+
+        // Comptabilité : recettes par rubrique, total = recettes.
+        $res = $this->getJson('/api/accounting/transactions?from=2026-11-02&to=2026-11-02')->assertOk();
+        $rubrics = collect($res->json('income_by_rubric'))->keyBy('rubric');
+        $this->assertEqualsWithDelta(58000.0, (float) $res->json('totals.income'), 0.01);
+        $this->assertEqualsWithDelta(58000.0, $rubrics->sum('total'), 0.01);
+        $this->assertEqualsWithDelta(50000.0, $rubrics['Formations']['total'], 0.01);
+        $this->assertSame('academy', $rubrics['Formations']['branch']);
+        $this->assertEqualsWithDelta(5000.0, $rubrics['Livre']['total'], 0.01);
+        $this->assertSame('store', $rubrics['Livre']['branch']);
+        $this->assertEqualsWithDelta(3000.0, $rubrics['Canva']['total'], 0.01);
+        $this->assertSame('store', $rubrics['Canva']['branch']);
+        $this->assertSame(0.0, (float) $rubrics['Goodies']['total']);
+
+        // Bilan du jour : une ligne par catégorie, et chaque catégorie du
+        // catalogue fournie pour sa colonne (même à zéro).
+        $day = app(BilanService::class)->daily(Carbon::parse('2026-11-02'), $agency->id);
+        $byCategory = collect($day['services_by_category'])->groupBy('category')->map->sum('total');
+        $this->assertEqualsWithDelta(5000.0, $byCategory['Livre'], 0.01);
+        $this->assertEqualsWithDelta(3000.0, $byCategory['Canva'], 0.01);
+        $this->assertEqualsWithDelta(50000.0, $day['formation_total'], 0.01);
+
+        $period = app(BilanService::class)->period(Carbon::parse('2026-11-02'), Carbon::parse('2026-11-02'), $agency->id);
+        $this->assertContains('Goodies', $period['sale_categories']);
     }
 
     // --- B8 ------------------------------------------------------------------------
