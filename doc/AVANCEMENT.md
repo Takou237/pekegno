@@ -27,7 +27,7 @@
 | **Lot 1** | Socle financier unique | FAIT | `FinancialMetricsService`, `Money`, `Period`, `received_at`, `/api/metrics/*`, façade `RevenueService`, test d'invariant. Seul T1.6 (7 rubriques) est reporté à T3.6. |
 | **Lot 2** | Caisses, trésorerie, clôture | FAIT | Codes C/O/M/B, visibilité par rôle, transferts, `cash_closings`, écran de clôture. |
 | **Lot 3** | Administration pays, 7 rubriques, publicité | À FAIRE | Seule la vente inter-agences (T3.13) est couverte. |
-| **Lot 4** | Bugs P1 (B1–B16) | PARTIEL | ~13/16 faits ; restes B2 (caissier) et vérification B1 sur les exports. |
+| **Lot 4** | Bugs P1 (B1–B16) | FAIT | Les 16 bugs P1 sont corrigés ; reste la recette staging (Lot 11). |
 | **Lot 5** | Bugs P2 (B17–B26) | PARTIEL | B17/B18/B19/B22 faits ; B20/B21/B23/B24/B25/B26 restent. |
 | **Lot 6** | Bugs P3 (B27–B30) | PARTIEL | B27/B29/B30 faits ; B28 reste. |
 | **Lot 7** | Fonctions CdC manquantes | PARTIEL | Clôture, transferts et caisses obligatoires livrés via Lot 2 ; séances datées, certificats publics, contrats, cockpit, primes, import restent. |
@@ -44,8 +44,8 @@
 
 | Réf | Statut | Preuve / fichier | Reste à faire |
 |---|---|---|---|
-| **B1** CA unique | PARTIEL | `FinancialMetricsService` consommé par `StatsController`, `DashboardController`, `ReportController`, `CommercialController` ; `RevenueService` = façade. | Vérifier `ExportController` (et tout export) branché sur la même source. |
-| **B2** 7 cartes partout | PARTIEL | `FinancialKpiCards` sur Groupe, Pays, Agence, Département. | Ajouter les cartes sur `CashierDashboardPage`. |
+| **B1** CA unique | FAIT | `FinancialMetricsService` consommé par `StatsController`, `DashboardController`, `ReportController`, `CommercialController` ; `RevenueService` = façade. `ExportController` n'agrège aucun CA : bilan via `BilanService`, reporting via `CommercialReportService`, comptabilité via le grand livre. | — |
+| **B2** 7 cartes partout | FAIT | `FinancialKpiCards` sur Groupe, Pays, Agence, Département et `CashierDashboardPage` (cartes spécifiques caissier conservées en dessous). | — |
 | **B3** Tableau de bord = liste | FAIT | `InvoiceListQuery` partagé, bornes `Period` (commit). | — |
 | **B4** Ventes par catégorie | FAIT | `StatsController::salesByCategory` → `byCategory(..., 'collected')` ; `invoice_items.category_id` + backfill ; `SalesByCategoryTest`. | — |
 | **B5** Totaux de période | FAIT | `BilanService::period` renvoie `totals` (flux cumulés, solde initial/final). | Test dédié `BilanPeriodTotalsTest` optionnel. |
@@ -205,11 +205,10 @@
 
 ## 8. Prochaines étapes prioritaires
 
-1. **Vérifier la suite de tests** après le commit B4/B12/B18 et confirmer que la liste des échecs connus n'a pas bougé.
-2. **Clore le Lot 4** : `CashierDashboardPage` (B2) et contrôle des exports (B1).
-3. **Purger les P2/P3 rapides** : B21, B23, B24, B26, B28, B20. B25 attend T0.5.
-4. **Lot 3** dès validation de T0.3 (caisses CI) et T0.4 (mapping 7 rubriques) : Administration puis `sale_rubrics` (débloque T1.6), ensuite publicité.
-5. **Lot 7** : certificats publics et séances datées en priorité.
-6. **Lot 8** : contrôles de saisie.
-7. **Lot 9** : 2FA obligatoire puis centre de sécurité.
-8. **Staging (Lot 10) en parallèle**, recette (Lot 11) en dernier.
+1. **Vérifier la suite de tests** et confirmer que la liste des échecs connus n'a pas bougé.
+2. **Purger les P2/P3 rapides** : B21, B23, B24, B26, B28, B20. B25 attend T0.5.
+3. **Lot 3** dès validation de T0.3 (caisses CI) et T0.4 (mapping 7 rubriques) : Administration puis `sale_rubrics` (débloque T1.6), ensuite publicité.
+4. **Lot 7** : certificats publics et séances datées en priorité.
+5. **Lot 8** : contrôles de saisie.
+6. **Lot 9** : 2FA obligatoire puis centre de sécurité.
+7. **Staging (Lot 10) en parallèle**, recette (Lot 11) en dernier.

@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ClipboardCheck, Receipt, ShoppingCart, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { ArrowRight, ClipboardCheck, Receipt, ShoppingCart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { statsApi } from '@/api/stats.api';
 import { invoicesApi, type InvoiceIndexResponse } from '@/api/invoices.api';
+import { FinancialKpiCards } from '@/components/dashboard/FinancialKpiCards';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { currentLocale } from '@/i18n';
@@ -116,32 +117,15 @@ export default function CashierDashboardPage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
-        <StatCard
-          label={t('dashboard.cashier.todayRevenue')}
-          value={formatCurrency(stats?.revenue ?? 0)}
-          icon={<TrendingUp className="h-5 w-5" />}
-          tone="bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
-        />
+      <FinancialKpiCards kpis={stats} currency={stats?.currency_code} />
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <StatCard
           label={t('dashboard.cashier.todayInvoices')}
           value={String(stats?.invoices_total ?? 0)}
           icon={<Receipt className="h-5 w-5" />}
           tone="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"
           sub={`${stats?.invoices_paid ?? 0} ${t('dashboard.cashier.todayPaid')} · ${unpaidCount} ${t('dashboard.cashier.todayUnpaid')}`}
-        />
-        <StatCard
-          label={t('dashboard.cashier.todayCollections')}
-          value={formatCurrency(stats?.payments_total ?? 0)}
-          icon={<Wallet className="h-5 w-5" />}
-          tone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
-        />
-        <StatCard
-          label={t('dashboard.expensesTotal')}
-          value={formatCurrency(stats?.expenses_total ?? 0)}
-          icon={<TrendingDown className="h-5 w-5" />}
-          tone="bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
-          sub={stats?.net_cash != null ? `${t('dashboard.netCash')} : ${formatCurrency(stats.net_cash)}` : undefined}
         />
         <StatCard
           label={t('dashboard.cashier.pendingTitle')}
