@@ -13,12 +13,6 @@ import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import type { CashClosing, CashDayBreakdown, TreasuryAccount } from '@/types/treasury';
 
-const TYPE_ICONS: Record<string, string> = {
-  cash: '💵',
-  mobile_money: '📱',
-  bank: '🏦',
-};
-
 function signed(value: number): string {
   if (value === 0) return '—';
   return `${value > 0 ? '+' : '−'}${formatCurrency(Math.abs(value))}`;
@@ -138,6 +132,18 @@ export default function CashClosingsPage() {
 
   const closedAccountIds = new Set(closings.map((c) => c.treasury_account_id));
 
+  // Une caisse C, O, M… par agence : on regroupe les cartes sous le nom de l'agence.
+  const byAgency = accounts.reduce<{ key: string; name: string; accounts: TreasuryAccount[] }[]>((groups, account) => {
+    const key = account.agency_id ?? 'none';
+    let group = groups.find((g) => g.key === key);
+    if (!group) {
+      group = { key, name: account.agency?.name ?? t('treasury.noAgency'), accounts: [] };
+      groups.push(group);
+    }
+    group.accounts.push(account);
+    return groups;
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -158,19 +164,25 @@ export default function CashClosingsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="flex flex-col gap-5">
         {loading ? (
-          <div className="col-span-full flex justify-center py-8"><Spinner /></div>
+          <div className="flex justify-center py-8"><Spinner /></div>
         ) : accounts.length === 0 ? (
-          <p className="col-span-full text-sm text-gray-500 dark:text-gray-400">{t('treasury.noAccounts')}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('treasury.noAccounts')}</p>
         ) : (
-          accounts.map((account) => {
+          byAgency.map((group) => (
+          <section key={group.key} className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{group.name}</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {group.accounts.map((account) => {
             const closed = closedAccountIds.has(account.id);
             return (
               <div key={account.id} className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
                 <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                  <span>{TYPE_ICONS[account.type] ?? '💰'}</span>
-                  <span>{account.code ? `${account.code} · ` : ''}{account.name}</span>
+                  {account.code && (
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{account.code}</span>
+                  )}
+                  <span>{account.name}</span>
                 </div>
                 {days[account.id] ? (
                   <DayBreakdown day={days[account.id]} t={t} />
@@ -190,7 +202,10 @@ export default function CashClosingsPage() {
                 )}
               </div>
             );
-          })
+          })}
+            </div>
+          </section>
+          ))
         )}
       </div>
 
@@ -222,6 +237,9 @@ export default function CashClosingsPage() {
                   <tr key={closing.id}>
                     <td className="py-2 pr-3 text-gray-800 dark:text-gray-100">
                       {closing.account?.code ? `${closing.account.code} · ` : ''}{closing.account?.name ?? '—'}
+                      {closing.account?.agency?.name && (
+                        <span className="block text-xs text-gray-400">{closing.account.agency.name}</span>
+                      )}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{formatCurrency(closing.opening_balance)}</td>
                     <td className="py-2 pr-3 text-success-600">{closing.breakdown ? signed(closing.breakdown.in) : '—'}</td>
@@ -283,6 +301,7 @@ export default function CashClosingsPage() {
           {formError && <Alert variant="error">{formError}</Alert>}
           <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
             {closingAccount?.code ? `${closingAccount.code} · ` : ''}{closingAccount?.name}
+            {closingAccount?.agency?.name ? ` (${closingAccount.agency.name})` : ''}
             {' — '}
             {t('treasury.dayBreakdown')} {new Date(`${date}T12:00:00`).toLocaleDateString()}
           </p>

@@ -23,7 +23,7 @@ class CashClosingController extends Controller
             'treasury_account_id' => ['nullable', 'uuid'],
         ]);
 
-        $query = CashClosing::with(['account', 'closer', 'validator'])
+        $query = CashClosing::with(['account.agency:id,name', 'closer', 'validator'])
             ->visibleTo($request->user())
             ->orderByDesc('closing_date')
             ->orderByDesc('created_at');

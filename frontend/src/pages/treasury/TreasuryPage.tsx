@@ -16,11 +16,6 @@ import { Pagination } from '@/components/ui/Pagination';
 import type { TreasuryAccount, TreasuryAccountType, TreasuryDirection, TreasuryTransaction, TransferType } from '@/types/treasury';
 import type { PaginationMeta } from '@/types/agency';
 
-const TYPE_ICONS: Record<string, string> = {
-  cash: '💵',
-  mobile_money: '📱',
-  bank: '🏦',
-};
 
 /**
  * Transferts du cahier §2 (mêmes règles que le serveur, TreasuryService) :
@@ -179,7 +174,9 @@ export default function TreasuryPage() {
             {accounts.map((a) => (
               <div key={a.id} className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
                 <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                  <span>{TYPE_ICONS[a.type] ?? '💰'}</span>
+                  {a.code && (
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{a.code}</span>
+                  )}
                   <span>{a.name}</span>
                 </div>
                 <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">

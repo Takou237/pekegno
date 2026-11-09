@@ -2035,6 +2035,7 @@ export default {
     statusValidated: 'Validated',
     validate: 'Validate',
     noClosings: 'No closing for this date.',
+    noAgency: 'No agency',
     closeRequiredJustification: 'A non-zero difference must be justified.',
     typeCash: '💵 Cash',
     typeMobileMoney: '📱 Mobile Money',

@@ -2048,6 +2048,7 @@ export default {
     statusValidated: 'Validée',
     validate: 'Valider',
     noClosings: 'Aucune clôture pour cette date.',
+    noAgency: 'Sans agence',
     closeRequiredJustification: 'Un écart non nul doit être justifié.',
     typeCash: '💵 Caisse',
     typeMobileMoney: '📱 Mobile Money',
