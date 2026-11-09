@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
-import type { TreasuryAccount, TreasuryDirection, TreasuryTransaction, TransferType } from '@/types/treasury';
+import type { TreasuryAccount, TreasuryAccountType, TreasuryDirection, TreasuryTransaction, TransferType } from '@/types/treasury';
 import type { PaginationMeta } from '@/types/agency';
 
 const TYPE_ICONS: Record<string, string> = {
@@ -21,6 +21,24 @@ const TYPE_ICONS: Record<string, string> = {
   mobile_money: '📱',
   bank: '🏦',
 };
+
+/**
+ * Transferts du cahier §2 (mêmes règles que le serveur, TreasuryService) :
+ * O / M → B et C → B (versement en banque), O → C (retrait), C → administration
+ * (décaissement administratif). Un transfert n'est ni une vente ni une dépense.
+ */
+const TRANSFER_TYPES: { value: TransferType; label: string; hint: string; from: TreasuryAccountType[] | null; to: TreasuryAccountType[] | null }[] = [
+  { value: 'bank_deposit', label: 'treasury.transferBankDeposit', hint: 'treasury.transferBankDepositHint', from: ['cash', 'mobile_money'], to: ['bank'] },
+  { value: 'withdrawal', label: 'treasury.transferWithdrawal', hint: 'treasury.transferWithdrawalHint', from: ['mobile_money'], to: ['cash'] },
+  { value: 'admin_disbursement', label: 'treasury.transferAdminDisbursement', hint: 'treasury.transferAdminDisbursementHint', from: ['cash'], to: null },
+  { value: 'internal', label: 'treasury.transferInternal', hint: 'treasury.transferInternalHint', from: null, to: null },
+];
+
+const TRANSFER_LABELS: Record<string, string> = Object.fromEntries(TRANSFER_TYPES.map((tt) => [tt.value, tt.label]));
+
+function accountName(a: TreasuryAccount): string {
+  return `${a.code ? `${a.code} · ` : ''}${a.name}${a.agency?.name ? ` — ${a.agency.name}` : ''}`;
+}
 
 export default function TreasuryPage() {
   const { t } = useTranslation();
@@ -36,6 +54,7 @@ export default function TreasuryPage() {
 
   const [filterAccount, setFilterAccount] = useState('');
   const [filterDirection, setFilterDirection] = useState<TreasuryDirection | ''>('');
+  const [filterKind, setFilterKind] = useState<'' | 'transfer' | 'movement'>('');
   const [txPage, setTxPage] = useState(1);
 
   const [transferOpen, setTransferOpen] = useState(false);
@@ -43,7 +62,7 @@ export default function TreasuryPage() {
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferLabel, setTransferLabel] = useState('');
-  const [transferType, setTransferType] = useState<TransferType>('internal');
+  const [transferType, setTransferType] = useState<TransferType>('bank_deposit');
   const [transferErrors, setTransferErrors] = useState<Record<string, string>>({});
   const [transferSubmitting, setTransferSubmitting] = useState(false);
 
@@ -63,6 +82,7 @@ export default function TreasuryPage() {
     treasuryApi.listTransactions({
       treasury_account_id: filterAccount || undefined,
       direction: filterDirection || undefined,
+      kind: filterKind || undefined,
       page: txPage,
       per_page: 15,
     })
@@ -72,7 +92,7 @@ export default function TreasuryPage() {
       })
       .catch(() => {})
       .finally(() => setTxLoading(false));
-  }, [filterAccount, filterDirection, txPage]);
+  }, [filterAccount, filterDirection, filterKind, txPage]);
 
   useEffect(() => { loadAccounts(); }, [loadAccounts]);
   useEffect(() => { loadTransactions(); }, [loadTransactions]);
@@ -82,9 +102,20 @@ export default function TreasuryPage() {
     setTransferTo('');
     setTransferAmount('');
     setTransferLabel('');
-    setTransferType('internal');
+    setTransferType('bank_deposit');
     setTransferErrors({});
     setTransferOpen(true);
+  }
+
+  const route = TRANSFER_TYPES.find((tt) => tt.value === transferType) ?? TRANSFER_TYPES[TRANSFER_TYPES.length - 1];
+  const sourceAccounts = accounts.filter((a) => a.is_active && (route.from === null || route.from.includes(a.type)));
+  const targetAccounts = accounts.filter((a) => a.is_active && a.id !== transferFrom && (route.to === null || route.to.includes(a.type)));
+
+  function changeTransferType(value: TransferType) {
+    setTransferType(value);
+    setTransferFrom('');
+    setTransferTo('');
+    setTransferErrors({});
   }
 
   async function handleTransfer(e: FormEvent) {
@@ -191,6 +222,15 @@ export default function TreasuryPage() {
             <option value="in">{t('treasury.directionIn')}</option>
             <option value="out">{t('treasury.directionOut')}</option>
           </Select>
+          <Select
+            label={t('treasury.filterByKind')}
+            value={filterKind}
+            onChange={(e) => { setFilterKind(e.target.value as '' | 'transfer' | 'movement'); setTxPage(1); }}
+          >
+            <option value="">{t('treasury.kindAll')}</option>
+            <option value="transfer">{t('treasury.kindTransfer')}</option>
+            <option value="movement">{t('treasury.kindMovement')}</option>
+          </Select>
         </div>
 
         {txLoading ? (
@@ -226,9 +266,15 @@ export default function TreasuryPage() {
                       </span>
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {tx.account?.name ?? '—'}
+                      {tx.account ? accountName(tx.account) : '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-800 dark:text-gray-100">
+                      {tx.source_type === 'transfer' && (
+                        <span className="mr-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+                          <ArrowLeftRight className="h-3 w-3" />
+                          {t(TRANSFER_LABELS[tx.transfer_type ?? 'internal'] ?? 'treasury.transferBadge')}
+                        </span>
+                      )}
                       {tx.label}
                     </td>
                     <td className="py-2 pr-3 text-xs text-gray-400">
@@ -268,16 +314,44 @@ export default function TreasuryPage() {
       >
         <form onSubmit={handleTransfer} className="flex flex-col gap-4">
           {transferErrors.general && <Alert variant="error">{transferErrors.general}</Alert>}
+          <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+            {t('treasury.transferNotSale')}
+          </p>
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('treasury.transferType')}</span>
+            {TRANSFER_TYPES.map((tt) => (
+              <label
+                key={tt.value}
+                className={`flex cursor-pointer gap-3 rounded-lg border px-3 py-2 text-sm ${
+                  transferType === tt.value
+                    ? 'border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
+                    : 'border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="transfer_type"
+                  className="mt-1"
+                  checked={transferType === tt.value}
+                  onChange={() => changeTransferType(tt.value)}
+                />
+                <span>
+                  <span className="block font-medium text-gray-800 dark:text-gray-100">{t(tt.label)}</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">{t(tt.hint)}</span>
+                </span>
+              </label>
+            ))}
+          </div>
           <Select
             label={t('treasury.fromAccount')}
             required
             value={transferFrom}
-            onChange={(e) => setTransferFrom(e.target.value)}
-            error={transferErrors.from_account_id}
+            onChange={(e) => { setTransferFrom(e.target.value); if (e.target.value === transferTo) setTransferTo(''); }}
+            error={transferErrors.from_account_id ?? (sourceAccounts.length === 0 ? t('treasury.transferNoSource') : undefined)}
           >
             <option value="">{t('treasury.selectTreasuryAccount')}</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>
+            {sourceAccounts.map((a) => (
+              <option key={a.id} value={a.id}>{accountName(a)} ({formatCurrency(a.balance)})</option>
             ))}
           </Select>
           <Select
@@ -285,22 +359,12 @@ export default function TreasuryPage() {
             required
             value={transferTo}
             onChange={(e) => setTransferTo(e.target.value)}
-            error={transferErrors.to_account_id}
+            error={transferErrors.to_account_id ?? (transferFrom && targetAccounts.length === 0 ? t('treasury.transferNoTarget') : undefined)}
           >
             <option value="">{t('treasury.selectTreasuryAccount')}</option>
-            {accounts.filter((a) => a.id !== transferFrom).map((a) => (
-              <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>
+            {targetAccounts.map((a) => (
+              <option key={a.id} value={a.id}>{accountName(a)} ({formatCurrency(a.balance)})</option>
             ))}
-          </Select>
-          <Select
-            label={t('treasury.transferType')}
-            value={transferType}
-            onChange={(e) => setTransferType(e.target.value as TransferType)}
-          >
-            <option value="internal">{t('treasury.transferInternal')}</option>
-            <option value="bank_deposit">{t('treasury.transferBankDeposit')}</option>
-            <option value="withdrawal">{t('treasury.transferWithdrawal')}</option>
-            <option value="admin_disbursement">{t('treasury.transferAdminDisbursement')}</option>
           </Select>
           <Input
             label={t('treasury.amount')}

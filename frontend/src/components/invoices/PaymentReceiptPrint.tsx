@@ -30,7 +30,7 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
   // on départage alors par le numéro de reçu (séquentiel), jamais par l'id (UUID
   // aléatoire) — sinon l'ordre — donc le cumul affiché — change à chaque reçu.
   const payments = [...(invoice.payments ?? [])].sort((a, b) => {
-    const byDate = new Date(a.paid_at ?? 0).getTime() - new Date(b.paid_at ?? 0).getTime();
+    const byDate = new Date(a.received_at ?? a.paid_at ?? 0).getTime() - new Date(b.received_at ?? b.paid_at ?? 0).getTime();
     if (byDate !== 0) return byDate;
     return (a.receipt_number ?? '').localeCompare(b.receipt_number ?? '');
   });
@@ -66,7 +66,7 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
       <div className="mt-8 text-right">
         <p className="text-lg font-bold" style={{ color: BLUE }}>REÇU DE VERSEMENT {payment.receipt_number ?? ''}</p>
         <p className="text-xs">
-          {formatDateTimeFr(payment.paid_at)} — Facture {invoice.number}
+          {formatDateTimeFr(payment.received_at ?? payment.paid_at)} — Facture {invoice.number}
         </p>
       </div>
 
@@ -90,7 +90,8 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
       <table className="mt-4 w-full border-collapse border border-gray-800 text-xs">
         <tbody>
           {row('Ordre (#)', `#${order}`)}
-          {row('Date et heure', formatDateTimeFr(payment.paid_at))}
+          {row('Reçu le', formatDateTimeFr(payment.received_at ?? payment.paid_at))}
+          {payment.validated_at && row('Validé le', formatDateTimeFr(payment.validated_at))}
           {row('Mode de paiement', METHOD_LABELS[payment.payment_method] ?? payment.payment_method)}
           {payment.treasury_account?.name && row('Compte', payment.treasury_account.name)}
           {receiver && row('Encaissé par', receiver)}

@@ -33,6 +33,9 @@ pas fait, **ne rien importer** : le SQL de ce dossier n'est utile qu'avec ce cod
 | 16 | **Espace formateur « Mes réalisations »** (réalisations du pôle studio assignées) | — | Backend + Frontend |
 | 17 | **Vente d'un séminaire** : le même service peut revenir sur une autre ligne pour un autre niveau (2 Classique + 1 VIP) ; jamais deux lignes du même niveau | — | Frontend |
 | 18 | **Chaque versement prend la catégorie de sa rubrique** en Comptabilité (Academy, Agency, Séminaire, Livre, Canva…) au lieu d'une catégorie vide ; facture mixte = rubrique principale ; contre-passation dans la même rubrique | B4 | Backend |
+| 19 | **Journée de caisse détaillée** (Bilan, Clôtures) : solde initial, entrées, sorties, transferts reçus / envoyés, solde théorique = initial + entrées − sorties ± transferts ; une annulation de paiement est déduite des entrées (plus une sortie) | §2 | Backend + Frontend |
+| 20 | **Transferts guidés** : on choisit d'abord le type (versement en banque C/O/M → B, retrait O/M → C, décaissement administratif depuis C, interne) ; seules les caisses possibles sont proposées, le serveur refuse les autres sens ; badge « Transfert » et filtre dans les mouvements | §2, B13 | Backend + Frontend |
+| 21 | **Dates de validation visibles** : facture « Validée le … par … » ; chaque versement affiche « Reçu le » et « Validé le » (aussi sur le reçu) | §1, B11 | Backend + Frontend |
 
 | Partie | Action |
 |---|---|
@@ -64,7 +67,7 @@ Validé avant livraison :
   schéma identique à la prod (2026_11_04_000001), avec des caisses existantes : aucune erreur,
   aucun doublon, codes C / C2 / O / B / W attribués correctement ;
 - schéma obtenu **identique** à celui des migrations Laravel (comparaison `pg_dump`) ;
-- tests backend (image Docker PHP 8.3, SQLite mémoire) : **628 OK**. Aucun nouvel échec — les
+- tests backend (image Docker PHP 8.3, SQLite mémoire) : **630 OK**. Aucun nouvel échec — les
   37 échecs restants sont les échecs connus (cf. `CLAUDE.md`).
 
 ## 3. Déploiement (dans cet ordre)
@@ -111,8 +114,8 @@ Validé avant livraison :
 | CA identique partout | Tableau de bord groupe, Pays, Comparaison CA, Rapport clients | Même chiffre ; CA = Encaissé (hors recouvrements) + Impayés |
 | Paiement reçu la veille, validé le lendemain | Bilan du jour | Compté le jour de la preuve |
 | Caisse C de Douala | Bilan du jour (bloc Caisses) | Espèces seulement ; OM et MTN dans O et M |
-| Versement en banque | Trésorerie → Transfert | Pas dans les dépenses ; C diminue, B augmente |
-| Clôture | Trésorerie → Clôtures | La caissière clôture C ; le chef d'agence valide |
+| Versement en banque | Trésorerie → Transfert | Pas dans les dépenses ; C diminue, B augmente ; au Bilan, colonne « Transferts » et non « Sorties » ; un retrait B → C est refusé |
+| Clôture | Trésorerie → Clôtures | Chaque caisse affiche initial / entrées / sorties / transferts / théorique du jour ; la caissière clôture C ; le chef d'agence valide |
 | Total période / solde consolidé | Bilan du jour, vue période et consolidée | Premier solde initial / dernier solde final ; solde initial du jour = somme des soldes finaux de la veille |
 | Ventes par catégorie | Tableau de bord | Total = carte CA ; plus de « Sans catégorie » géant |
 | Catégorie des versements | Comptabilité → liste | Plus de « — » : chaque versement affiche sa rubrique (Livre, Séminaire, Academy…) |

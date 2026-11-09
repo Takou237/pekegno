@@ -422,6 +422,17 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
 }
 
 /** Caisses C / O / M / B… de la journée : solde initial, entrées, sorties, solde final et clôture. */
+// Transferts d'une caisse : reçus (+) et envoyés (−), ni vente ni dépense.
+function TransferCell({ transferIn, transferOut, currency }: { transferIn: number; transferOut: number; currency?: string | null }) {
+  if (transferIn === 0 && transferOut === 0) return <>—</>;
+  return (
+    <span className="flex flex-col items-end leading-tight">
+      {transferIn > 0 && <span>+{formatCurrency(transferIn, currency)}</span>}
+      {transferOut > 0 && <span>{formatSignedCurrency(-transferOut, currency)}</span>}
+    </span>
+  );
+}
+
 function TreasuryAccountsTable({ accounts, currency, t }: { accounts: BilanTreasuryAccount[]; currency?: string | null; t: (key: string) => string }) {
   const sum = (fn: (a: BilanTreasuryAccount) => number) => accounts.reduce((s, a) => s + fn(a), 0);
 
@@ -436,7 +447,8 @@ function TreasuryAccountsTable({ accounts, currency, t }: { accounts: BilanTreas
               <th className="px-4 py-3 text-right font-medium">{t('bilans.soldeInitial')}</th>
               <th className="px-4 py-3 text-right font-medium">{t('bilans.cashIn')}</th>
               <th className="px-4 py-3 text-right font-medium">{t('bilans.cashOut')}</th>
-              <th className="px-4 py-3 text-right font-medium">{t('bilans.soldeFinal')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('bilans.cashTransfers')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('bilans.cashTheoretical')}</th>
               <th className="px-4 py-3 text-right font-medium">{t('bilans.cashCounted')}</th>
             </tr>
           </thead>
@@ -450,6 +462,9 @@ function TreasuryAccountsTable({ accounts, currency, t }: { accounts: BilanTreas
                 <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-300">{formatSignedCurrency(a.opening, currency)}</td>
                 <td className="px-4 py-2.5 text-right text-success-600">{a.in > 0 ? formatCurrency(a.in, currency) : '—'}</td>
                 <td className="px-4 py-2.5 text-right text-red-600 dark:text-red-400">{a.out > 0 ? formatSignedCurrency(-a.out, currency) : '—'}</td>
+                <td className="px-4 py-2.5 text-right text-blue-600 dark:text-blue-400">
+                  <TransferCell transferIn={a.transfer_in ?? 0} transferOut={a.transfer_out ?? 0} currency={currency} />
+                </td>
                 <td className="px-4 py-2.5 text-right font-semibold text-gray-900 dark:text-white">{formatSignedCurrency(a.closing, currency)}</td>
                 <td className="px-4 py-2.5 text-right text-xs">
                   {a.counted === null ? (
@@ -468,6 +483,9 @@ function TreasuryAccountsTable({ accounts, currency, t }: { accounts: BilanTreas
               <td className="px-4 py-3 text-right">{formatSignedCurrency(sum((a) => a.opening), currency)}</td>
               <td className="px-4 py-3 text-right">{formatCurrency(sum((a) => a.in), currency)}</td>
               <td className="px-4 py-3 text-right">{formatSignedCurrency(-sum((a) => a.out), currency)}</td>
+              <td className="px-4 py-3 text-right">
+                <TransferCell transferIn={sum((a) => a.transfer_in ?? 0)} transferOut={sum((a) => a.transfer_out ?? 0)} currency={currency} />
+              </td>
               <td className="px-4 py-3 text-right">{formatSignedCurrency(sum((a) => a.closing), currency)}</td>
               <td />
             </tr>

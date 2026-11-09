@@ -10,6 +10,7 @@ use App\Models\TreasuryAccount;
 use App\Support\GroupCurrency;
 use App\Support\Period;
 use App\Support\SaleBranch;
+use App\Support\TreasuryFlows;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -326,30 +327,25 @@ class BilanService
             $rate = (float) ($rates[$agencyId] ?? 1.0);
             [$start, $end] = Period::dayBoundsUtc($date->toDateString(), $timezone);
 
+            [$flowSql, $bindings] = TreasuryFlows::selectSql();
             $flows = DB::table('treasury_transactions')
                 ->whereNull('deleted_at')
                 ->whereIn('treasury_account_id', $agencyAccounts->pluck('id'))
                 ->where('transacted_at', '<=', $end)
                 ->groupBy('treasury_account_id')
-                ->selectRaw("
-                    treasury_account_id,
-                    sum(case when transacted_at < ? then (case when direction = 'in' then amount else -amount end) else 0 end) as before_day,
-                    sum(case when transacted_at >= ? and direction = 'in' then amount else 0 end) as day_in,
-                    sum(case when transacted_at >= ? and direction = 'out' then amount else 0 end) as day_out
-                ", [$start, $start, $start])
+                ->selectRaw("treasury_account_id, {$flowSql}", array_fill(0, $bindings, $start))
                 ->get()
                 ->keyBy('treasury_account_id');
 
             foreach ($agencyAccounts as $account) {
-                $flow = $flows->get($account->id);
-                $accountOpening = round(((float) $account->opening_balance + (float) ($flow->before_day ?? 0)) * $rate, 2);
-                $in = round((float) ($flow->day_in ?? 0) * $rate, 2);
-                $out = round((float) ($flow->day_out ?? 0) * $rate, 2);
-                $accountClosing = round($accountOpening + $in - $out, 2);
+                $day = TreasuryFlows::fromRow($flows->get($account->id), (float) $account->opening_balance, $rate);
+                $accountOpening = $day['opening'];
+                $accountClosing = $day['closing'];
                 $cashClosing = $closings->get($account->id);
 
                 // Caisse désactivée et vide : rien à montrer.
-                if (! $account->is_active && $accountOpening == 0 && $in == 0 && $out == 0) {
+                if (! $account->is_active && $accountOpening == 0 && $accountClosing == 0
+                    && $day['in'] == 0 && $day['out'] == 0 && $day['transfer_in'] == 0 && $day['transfer_out'] == 0) {
                     continue;
                 }
 
@@ -363,8 +359,10 @@ class BilanService
                     'name' => $account->name,
                     'type' => $account->type,
                     'opening' => $accountOpening,
-                    'in' => $in,
-                    'out' => $out,
+                    'in' => $day['in'],
+                    'out' => $day['out'],
+                    'transfer_in' => $day['transfer_in'],
+                    'transfer_out' => $day['transfer_out'],
                     'closing' => $accountClosing,
                     'closing_status' => $cashClosing?->status,
                     'counted' => $cashClosing ? (float) $cashClosing->actual_balance : null,

@@ -28,6 +28,7 @@ export interface TreasuryTransaction {
   source_type: string | null;
   source_id: string | null;
   category: string | null;
+  transfer_type?: TransferType | null;
   label: string;
   reference: string | null;
   transacted_at: string;
@@ -54,6 +55,8 @@ export interface TreasuryAccountListParams {
 export interface TreasuryTransactionListParams {
   treasury_account_id?: string;
   direction?: TreasuryDirection;
+  /** transfer = transferts seulement ; movement = tout sauf transferts. */
+  kind?: 'transfer' | 'movement';
   from?: string;
   to?: string;
   page?: number;
@@ -68,6 +71,17 @@ export interface TransferPayload {
   amount: number;
   label?: string;
   transfer_type?: TransferType;
+}
+
+/** Journée d'une caisse (cahier §2). */
+export interface CashDayBreakdown {
+  opening: number;
+  in: number;
+  out: number;
+  transfer_in: number;
+  transfer_out: number;
+  /** Solde théorique = opening + in − out + transfer_in − transfer_out. */
+  closing: number;
 }
 
 export type CashClosingStatus = 'closed' | 'validated';
@@ -87,6 +101,7 @@ export interface CashClosing {
   validated_by: string | null;
   validated_at: string | null;
   account?: TreasuryAccount;
+  breakdown?: CashDayBreakdown | null;
   closer?: { id: string; name: string };
   validator?: { id: string; name: string };
   created_at: string;

@@ -244,6 +244,22 @@ class CorrectionsP1Test extends TestCase
         $this->assertSame(['Livre'], $category($store));
     }
 
+    public function test_invoice_detail_shows_validation_and_reception_dates(): void
+    {
+        $agency = $this->agency();
+        $invoice = $this->invoice($agency, 10000, [['line_total' => 10000]], [
+            'validated_by' => $this->admin->id, 'validated_at' => '2026-11-03 09:00:00',
+        ]);
+        app(PaymentService::class)->applyPayment($invoice, 10000, 'cash', false, $this->admin->id, null, '2026-11-02 18:00:00');
+
+        $json = $this->getJson("/api/invoices/{$invoice->id}")->assertOk()->json();
+
+        $this->assertSame($this->admin->id, $json['validator']['id']);
+        $this->assertStringStartsWith('2026-11-03', $json['validated_at']);
+        $this->assertStringStartsWith('2026-11-02', $json['payments'][0]['received_at']);
+        $this->assertNotNull($json['payments'][0]['validated_at']);
+    }
+
     // --- B8 ------------------------------------------------------------------------
 
     public function test_rejected_and_cancelled_invoices_stay_findable(): void

@@ -11,13 +11,43 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
-import type { CashClosing, TreasuryAccount } from '@/types/treasury';
+import type { CashClosing, CashDayBreakdown, TreasuryAccount } from '@/types/treasury';
 
 const TYPE_ICONS: Record<string, string> = {
   cash: '💵',
   mobile_money: '📱',
   bank: '🏦',
 };
+
+function signed(value: number): string {
+  if (value === 0) return '—';
+  return `${value > 0 ? '+' : '−'}${formatCurrency(Math.abs(value))}`;
+}
+
+/** Journée d'une caisse (cahier §2) : initial, entrées, sorties, transferts, théorique. */
+function DayBreakdown({ day, t }: { day: CashDayBreakdown; t: (key: string) => string }) {
+  const rows: [string, string, string][] = [
+    [t('treasury.openingBalance'), formatCurrency(day.opening), 'text-gray-700 dark:text-gray-200'],
+    [t('bilans.cashIn'), signed(day.in), 'text-success-600'],
+    [t('bilans.cashOut'), signed(-day.out), 'text-red-600 dark:text-red-400'],
+    [t('treasury.transfersIn'), signed(day.transfer_in), 'text-blue-600 dark:text-blue-400'],
+    [t('treasury.transfersOut'), signed(-day.transfer_out), 'text-blue-600 dark:text-blue-400'],
+  ];
+  return (
+    <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-xs">
+      {rows.map(([label, value, color]) => (
+        <div key={label} className="contents">
+          <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
+          <dd className={`text-right ${color}`}>{value}</dd>
+        </div>
+      ))}
+      <dt className="border-t border-gray-100 pt-1 font-medium text-gray-700 dark:border-gray-800 dark:text-gray-200" title={t('treasury.theoreticalFormula')}>
+        {t('treasury.theoreticalBalance')}
+      </dt>
+      <dd className="border-t border-gray-100 pt-1 text-right font-semibold text-gray-900 dark:border-gray-800 dark:text-white">{formatCurrency(day.closing)}</dd>
+    </dl>
+  );
+}
 
 export default function CashClosingsPage() {
   const { t } = useTranslation();
@@ -26,6 +56,7 @@ export default function CashClosingsPage() {
   const [date, setDate] = useState(todayLocal());
   const [accounts, setAccounts] = useState<TreasuryAccount[]>([]);
   const [closings, setClosings] = useState<CashClosing[]>([]);
+  const [days, setDays] = useState<Record<string, CashDayBreakdown>>({});
   const [loading, setLoading] = useState(true);
 
   const [closingAccount, setClosingAccount] = useState<TreasuryAccount | null>(null);
@@ -41,9 +72,14 @@ export default function CashClosingsPage() {
       treasuryApi.listAccounts(),
       treasuryApi.listClosings({ date }),
     ])
-      .then(([accountsData, closingsData]) => {
+      .then(async ([accountsData, closingsData]) => {
         setAccounts(accountsData);
         setClosings(closingsData);
+        // Journée de chaque caisse à la date choisie (pas le solde du moment).
+        const breakdowns = await Promise.all(
+          accountsData.map((a) => treasuryApi.closingDay({ treasury_account_id: a.id, date }).catch(() => null)),
+        );
+        setDays(Object.fromEntries(breakdowns.filter((d) => d !== null).map((d) => [d.treasury_account_id, d])));
       })
       .catch((error) => showToast(extractErrorMessage(error, t('common.error')), 'error'))
       .finally(() => setLoading(false));
@@ -53,7 +89,7 @@ export default function CashClosingsPage() {
 
   function openClosing(account: TreasuryAccount) {
     setClosingAccount(account);
-    setActualBalance(String(account.balance));
+    setActualBalance(String(days[account.id]?.closing ?? account.balance));
     setJustification('');
     setFormError('');
   }
@@ -136,7 +172,11 @@ export default function CashClosingsPage() {
                   <span>{TYPE_ICONS[account.type] ?? '💰'}</span>
                   <span>{account.code ? `${account.code} · ` : ''}{account.name}</span>
                 </div>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{formatCurrency(account.balance)}</p>
+                {days[account.id] ? (
+                  <DayBreakdown day={days[account.id]} t={t} />
+                ) : (
+                  <p className="text-2xl font-semibold text-gray-900 dark:text-white">{formatCurrency(account.balance)}</p>
+                )}
                 {closed ? (
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
                     <CheckCircle2 className="h-4 w-4" />
@@ -166,7 +206,10 @@ export default function CashClosingsPage() {
                 <tr>
                   <th className="py-2 pr-3 font-medium">{t('treasury.account')}</th>
                   <th className="py-2 pr-3 font-medium">{t('treasury.openingBalance')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('treasury.theoreticalBalance')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('bilans.cashIn')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('bilans.cashOut')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('treasury.transfers')}</th>
+                  <th className="py-2 pr-3 font-medium" title={t('treasury.theoreticalFormula')}>{t('treasury.theoreticalBalance')}</th>
                   <th className="py-2 pr-3 font-medium">{t('treasury.actualBalance')}</th>
                   <th className="py-2 pr-3 font-medium">{t('treasury.difference')}</th>
                   <th className="py-2 pr-3 font-medium">{t('treasury.justification')}</th>
@@ -181,6 +224,16 @@ export default function CashClosingsPage() {
                       {closing.account?.code ? `${closing.account.code} · ` : ''}{closing.account?.name ?? '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{formatCurrency(closing.opening_balance)}</td>
+                    <td className="py-2 pr-3 text-success-600">{closing.breakdown ? signed(closing.breakdown.in) : '—'}</td>
+                    <td className="py-2 pr-3 text-red-600 dark:text-red-400">{closing.breakdown ? signed(-closing.breakdown.out) : '—'}</td>
+                    <td className="py-2 pr-3 text-blue-600 dark:text-blue-400">
+                      {closing.breakdown && (closing.breakdown.transfer_in > 0 || closing.breakdown.transfer_out > 0) ? (
+                        <span className="flex flex-col leading-tight">
+                          {closing.breakdown.transfer_in > 0 && <span>{signed(closing.breakdown.transfer_in)}</span>}
+                          {closing.breakdown.transfer_out > 0 && <span>{signed(-closing.breakdown.transfer_out)}</span>}
+                        </span>
+                      ) : '—'}
+                    </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{formatCurrency(closing.theoretical_balance)}</td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{formatCurrency(closing.actual_balance)}</td>
                     <td className={`py-2 pr-3 font-medium ${
@@ -228,11 +281,16 @@ export default function CashClosingsPage() {
       >
         <form onSubmit={handleClose} className="flex flex-col gap-4">
           {formError && <Alert variant="error">{formError}</Alert>}
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
             {closingAccount?.code ? `${closingAccount.code} · ` : ''}{closingAccount?.name}
             {' — '}
-            {t('treasury.balance')} : {formatCurrency(closingAccount?.balance ?? 0)}
+            {t('treasury.dayBreakdown')} {new Date(`${date}T12:00:00`).toLocaleDateString()}
           </p>
+          {closingAccount && days[closingAccount.id] && (
+            <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
+              <DayBreakdown day={days[closingAccount.id]} t={t} />
+            </div>
+          )}
           <Input
             label={t('treasury.actualBalance')}
             type="number"

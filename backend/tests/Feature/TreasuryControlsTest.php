@@ -285,4 +285,66 @@ class TreasuryControlsTest extends TestCase
         $this->assertSame(550000.0, $summary['encaisse']);
         $this->assertSame(24000.0, $summary['depenses']);
     }
+
+    // --- Cahier §2 : journée de caisse détaillée, transferts à part --------------
+
+    public function test_cash_day_shows_in_out_and_transfers_separately(): void
+    {
+        $admin = $this->user('super-admin', false);
+        Sanctum::actingAs($admin);
+        Carbon::setTestNow('2026-11-02 15:00:00');
+        $c = $this->account('C');
+        $c->update(['opening_balance' => 260000]);
+
+        $pay = fn (Invoice $invoice, float $amount, string $method) => app(PaymentService::class)->applyPayment(
+            $invoice, $amount, $method, false, $admin->id, null, null, '2026-11-02 10:00:00');
+        $pay($this->invoice(['total_amount' => 145000]), 145000, 'cash');
+        $pay($this->invoice(['total_amount' => 300000]), 300000, 'om');
+        $pay($this->invoice(['total_amount' => 105000]), 105000, 'momo');
+        // Paiement espèces annulé le jour même : déduit des entrées, pas une sortie.
+        $cancelled = $this->invoice(['total_amount' => 10000]);
+        $pay($cancelled, 10000, 'cash');
+        $this->postJson("/api/invoices/{$cancelled->id}/cancel")->assertOk();
+
+        $this->postJson('/api/accounting/transactions', [
+            'type' => 'expense', 'label' => 'Dépenses du jour', 'amount' => 24000,
+            'treasury_account_id' => $c->id, 'transacted_at' => '2026-11-02 12:00:00',
+        ])->assertCreated();
+
+        $transfer = fn (string $from, string $to, float $amount, string $type) => $this->postJson('/api/treasury/transfer', [
+            'from_account_id' => $this->account($from)->id, 'to_account_id' => $this->account($to)->id,
+            'amount' => $amount, 'transfer_type' => $type,
+        ]);
+        $transfer('C', 'B', 250000, 'admin_disbursement')->assertOk();
+        $transfer('O', 'B', 100000, 'bank_deposit')->assertOk();
+        $transfer('M', 'C', 5000, 'withdrawal')->assertOk();
+
+        // Sens interdits par le cahier.
+        $transfer('B', 'C', 1000, 'withdrawal')->assertStatus(422);
+        $transfer('O', 'C', 1000, 'bank_deposit')->assertStatus(422);
+        $transfer('B', 'O', 1000, 'admin_disbursement')->assertStatus(422);
+
+        $expected = ['opening' => 260000.0, 'in' => 145000.0, 'out' => 24000.0, 'transfer_in' => 5000.0, 'transfer_out' => 250000.0, 'closing' => 136000.0];
+
+        // Clôture : même détail, et solde théorique = initial + entrées − sorties ± transferts.
+        $this->assertSame($expected, app(\App\Services\CashClosingService::class)->dayBreakdown($c->fresh(), '2026-11-02'));
+        $this->assertSame(136000.0, app(\App\Services\CashClosingService::class)->theoreticalBalance($c->fresh(), '2026-11-02'));
+        $day = $this->getJson("/api/treasury/closings/day?treasury_account_id={$c->id}&date=2026-11-02")->assertOk()->json();
+        foreach ($expected as $key => $value) {
+            $this->assertEquals($value, $day[$key], $key);
+        }
+
+        // Bilan du jour : mêmes colonnes par caisse.
+        $rows = collect(app(\App\Services\BilanService::class)->daily(Carbon::parse('2026-11-02'), $this->agency->id)['treasury_accounts'])->keyBy('code');
+        foreach ($expected as $key => $value) {
+            $this->assertEquals($value, $rows['C'][$key === 'closing' ? 'closing' : $key], "C {$key}");
+        }
+        $this->assertEquals(350000, $rows['B']['transfer_in']);
+        $this->assertEquals(300000, $rows['O']['in']);
+        $this->assertEquals(100000, $rows['O']['transfer_out']);
+        $this->assertEquals(5000, $rows['M']['transfer_out']);
+
+        // Liste des mouvements : filtre « transferts seulement ».
+        $this->assertSame(6, $this->getJson('/api/treasury/transactions?kind=transfer')->assertOk()->json('total'));
+    }
 }

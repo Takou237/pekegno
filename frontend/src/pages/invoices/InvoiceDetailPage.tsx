@@ -644,7 +644,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   // (séquentiel) plutôt que par l'id (UUID aléatoire) — sinon l'ordre et la
   // numérotation changent à chaque rechargement.
   const sortedPayments = [...(invoice.payments ?? [])].sort((a, b) => {
-    const byDate = new Date(a.paid_at ?? 0).getTime() - new Date(b.paid_at ?? 0).getTime();
+    const byDate = new Date(a.received_at ?? a.paid_at ?? 0).getTime() - new Date(b.received_at ?? b.paid_at ?? 0).getTime();
     if (byDate !== 0) return byDate;
     return (a.receipt_number ?? '').localeCompare(b.receipt_number ?? '');
   });
@@ -745,6 +745,18 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           <p className="text-xs text-gray-400">
             {new Date(invoice.invoice_date).toLocaleString(currentLocale())}
           </p>
+          <p className={`mt-2 text-xs ${invoice.validated_at ? 'text-success-600' : 'text-gray-400'}`}>
+            {invoice.validated_at ? (
+              <>
+                {t('invoices.validatedOn', { date: formatDateTimeFr(invoice.validated_at) })}
+                {invoice.validator && (
+                  <> {t('invoices.validatedBy', { name: [invoice.validator.first_name, invoice.validator.last_name].filter(Boolean).join(' ') || invoice.validator.email })}</>
+                )}
+              </>
+            ) : (
+              t('invoices.notValidatedYet')
+            )}
+          </p>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.clientLabel')}</p>
@@ -818,7 +830,8 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
                   <th className="py-2 pr-3 font-medium">{t('invoices.paymentOrder')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('invoices.paymentDate')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.paymentReceivedAt')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.paymentValidatedAt')}</th>
                   <th className="py-2 pr-3 font-medium">{t('invoices.paymentMethod')}</th>
                   <th className="py-2 pr-3 font-medium">{t('invoices.treasuryAccount')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('invoices.paymentAmount')}</th>
@@ -831,7 +844,10 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                   <tr key={p.id}>
                     <td className="py-2 pr-3 font-medium text-gray-800 dark:text-gray-100">#{index + 1}</td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {formatDateTimeFr(p.paid_at)}
+                      {formatDateTimeFr(p.received_at ?? p.paid_at)}
+                    </td>
+                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
+                      {p.validated_at ? formatDateTimeFr(p.validated_at) : '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
                       {p.payment_method === 'cash' ? t('invoices.paymentCash') : p.payment_method === 'om' ? t('invoices.paymentOm') : p.payment_method === 'momo' ? t('invoices.paymentMomo') : p.payment_method === 'wave' ? t('invoices.paymentWave') : t('invoices.paymentMobile')}

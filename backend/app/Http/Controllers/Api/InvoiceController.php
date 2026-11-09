@@ -536,6 +536,8 @@ class InvoiceController extends Controller
             'payments' => fn ($q) => $q->with(['receiver:id,first_name,last_name,email', 'treasuryAccount:id,name,type'])
                 ->orderBy('paid_at')->orderBy('created_at'),
             'commissionPayments',
+            // Cahier §1 : date de validation affichée avec son auteur.
+            'validator:id,first_name,last_name,email',
             'client',
             'commercial',
             'agency',

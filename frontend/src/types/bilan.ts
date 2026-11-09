@@ -25,6 +25,9 @@ export interface BilanTreasuryAccount {
   opening: number;
   in: number;
   out: number;
+  transfer_in: number;
+  transfer_out: number;
+  /** Solde théorique : opening + in − out + transfer_in − transfer_out. */
   closing: number;
   /** Clôture du jour, si elle a été faite. */
   closing_status: 'closed' | 'validated' | null;
