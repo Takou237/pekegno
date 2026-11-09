@@ -31,6 +31,7 @@ pas fait, **ne rien importer** : le SQL de ce dossier n'est utile qu'avec ce cod
 | 14 | **CA d'un commercial dans l'agence de la facture** (classements, filtres) | B16 | Backend |
 | 15 | **Revenus potentiels Académie** = somme des prix des inscriptions | B7 | Backend |
 | 16 | **Espace formateur « Mes réalisations »** (réalisations du pôle studio assignées) | — | Backend + Frontend |
+| 17 | **Vente d'un séminaire** : le même service peut revenir sur une autre ligne pour un autre niveau (2 Classique + 1 VIP) ; jamais deux lignes du même niveau | — | Frontend |
 
 | Partie | Action |
 |---|---|
@@ -62,7 +63,7 @@ Validé avant livraison :
   schéma identique à la prod (2026_11_04_000001), avec des caisses existantes : aucune erreur,
   aucun doublon, codes C / C2 / O / B / W attribués correctement ;
 - schéma obtenu **identique** à celui des migrations Laravel (comparaison `pg_dump`) ;
-- tests backend (image Docker PHP 8.3, SQLite mémoire) : **626 OK**. Aucun nouvel échec — les
+- tests backend (image Docker PHP 8.3, SQLite mémoire) : **627 OK**. Aucun nouvel échec — les
   37 échecs restants sont les échecs connus (cf. `CLAUDE.md`).
 
 ## 3. Déploiement (dans cet ordre)

@@ -1608,6 +1608,7 @@ export default {
     vatHint: 'Taux de TVA appliqué après remise.',
     vatAmount: 'TVA',
     duplicateService: 'Ce service est déjà présent sur une autre ligne. Modifiez plutôt la quantité.',
+    duplicateSeminarTier: 'Tous les niveaux de ce séminaire sont déjà sur la facture. Modifiez plutôt la quantité d\'une ligne.',
     totalAfterDiscount: 'Sous-total',
     totalTtc: 'Total (TTC)',
     totalAmount: 'Total',

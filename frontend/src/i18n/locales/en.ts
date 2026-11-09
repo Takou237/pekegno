@@ -1595,6 +1595,7 @@ export default {
     vatHint: 'VAT rate applied after discount.',
     vatAmount: 'VAT',
     duplicateService: 'This service is already on another line. Increase its quantity instead.',
+    duplicateSeminarTier: 'Every level of this seminar is already on the invoice. Increase the quantity of a line instead.',
     totalAfterDiscount: 'Subtotal',
     totalTtc: 'Total (TTC)',
     totalAmount: 'Total',
