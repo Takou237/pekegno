@@ -228,6 +228,20 @@ class ContractService
         return $count;
     }
 
+    /**
+     * B20 : recalcule les statuts des contrats ouverts (expirations puis
+     * échéances proches). Idempotent, utilisé par la commande planifiée.
+     *
+     * @return array{expired: int, due_soon: int}
+     */
+    public function refreshStatuses(): array
+    {
+        return [
+            'expired' => $this->markExpired(),
+            'due_soon' => $this->markDueSoon(),
+        ];
+    }
+
     public function markExpired(): int
     {
         $contracts = Contract::whereIn('status', [Contract::STATUS_ACTIVE, Contract::STATUS_DUE_SOON])

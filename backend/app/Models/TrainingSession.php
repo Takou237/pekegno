@@ -13,6 +13,11 @@ class TrainingSession extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
 
+    public const STATUS_PLANNED = 'planned';
+    public const STATUS_ONGOING = 'ongoing';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+
     protected $fillable = [
         'course_id',
         'module_id',
@@ -43,6 +48,32 @@ class TrainingSession extends Model
             'max_capacity' => 'integer',
             'price' => 'decimal:2',
         ];
+    }
+
+    /**
+     * B20 : le statut est calculé depuis les dates. Un statut terminal saisi
+     * explicitement (annulée, terminée) est conservé ; sinon la session est
+     * planifiée avant son début, en cours pendant, terminée après.
+     */
+    public function getStatusAttribute(?string $value): string
+    {
+        if (in_array($value, [self::STATUS_CANCELLED, self::STATUS_COMPLETED], true)) {
+            return $value;
+        }
+
+        if ($this->start_at && now()->lt($this->start_at)) {
+            return self::STATUS_PLANNED;
+        }
+
+        if ($this->end_at && now()->gt($this->end_at)) {
+            return self::STATUS_COMPLETED;
+        }
+
+        if ($this->start_at && now()->gte($this->start_at)) {
+            return self::STATUS_ONGOING;
+        }
+
+        return $value ?: self::STATUS_PLANNED;
     }
 
     public function course(): BelongsTo
