@@ -18,8 +18,8 @@ class StoreTrainingSessionRequest extends FormRequest
     {
         return [
             'course_id' => ['required', 'string', 'exists:courses,id'],
-            'trainer_id' => ['sometimes', 'nullable', 'string', Rule::exists('trainers', 'id')->whereNull('deleted_at')],
-            'trainer_user_id' => ['sometimes', 'nullable', 'string', Rule::exists('users', 'id')],
+            'trainer_id' => ['required_without:trainer_user_id', 'nullable', 'string', Rule::exists('trainers', 'id')->whereNull('deleted_at')],
+            'trainer_user_id' => ['required_without:trainer_id', 'nullable', 'string', Rule::exists('users', 'id')],
             'agency_id' => ['sometimes', 'nullable', 'string', Rule::exists('agencies', 'id')->whereNull('deleted_at')],
             'start_at' => ['required', 'date'],
             'end_at' => ['sometimes', 'nullable', 'date', 'after:start_at'],
@@ -27,6 +27,14 @@ class StoreTrainingSessionRequest extends FormRequest
             'price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'duration_type' => ['sometimes', 'string', Rule::in(['limited', 'unlimited'])],
             'status' => ['sometimes', 'string', Rule::in(['planned', 'ongoing', 'completed', 'cancelled'])],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'trainer_id.required_without' => 'Un formateur est obligatoire pour créer une session.',
+            'trainer_user_id.required_without' => 'Un formateur est obligatoire pour créer une session.',
         ];
     }
 

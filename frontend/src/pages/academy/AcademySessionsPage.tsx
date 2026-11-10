@@ -217,6 +217,13 @@ export default function AcademySessionsPage() {
     if (!agencyId) return;
     setFormError(null);
     setFieldErrors({});
+    if (!editing && !form.trainer_ref) {
+      setFieldErrors({
+        trainer_user_id: t('academy.trainerRequired'),
+        trainer_id: t('academy.trainerRequired'),
+      });
+      return;
+    }
     setIsSubmitting(true);
 
     const trainer = parseTrainerRef(form.trainer_ref);

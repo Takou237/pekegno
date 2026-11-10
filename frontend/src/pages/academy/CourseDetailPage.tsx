@@ -379,6 +379,10 @@ export default function CourseDetailPage() {
     if (!courseId || !agencyId) return;
     setSessionError(null);
     setSessionFieldErrors({});
+    if (!sessionForm.trainer_id) {
+      setSessionFieldErrors({ trainer_id: t('academy.trainerRequired') });
+      return;
+    }
     setSessionSubmitting(true);
     try {
       const saved = await academyApi.createSession({

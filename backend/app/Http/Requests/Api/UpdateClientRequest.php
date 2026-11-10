@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\ValidPhoneNumber;
 
 class UpdateClientRequest extends FormRequest
 {
@@ -18,7 +19,7 @@ class UpdateClientRequest extends FormRequest
             'first_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'last_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->route('client'))],
-            'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:50', new ValidPhoneNumber($this->input('country_id'), $this->input('country'))],
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
             'city' => ['sometimes', 'nullable', 'string', 'max:100'],
             'country' => ['sometimes', 'nullable', 'string', 'max:100'],

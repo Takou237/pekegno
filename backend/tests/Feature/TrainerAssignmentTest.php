@@ -221,14 +221,24 @@ class TrainerAssignmentTest extends TestCase
         $agency = Agency::first();
         $course = $this->course($agency);
         $commercial = $this->userWithRole('commercial', $agency);
+        $trainerUser = $this->userWithRole('formateur', $agency);
+        $trainer = Trainer::create([
+            'user_id' => $trainerUser->id,
+            'first_name' => $trainerUser->first_name,
+            'last_name' => $trainerUser->last_name,
+            'email' => $trainerUser->email,
+            'phone' => $trainerUser->phone,
+            'is_active' => true,
+        ]);
 
         $created = $this->postJson('/api/training-sessions', [
             'course_id' => $course->id,
             'agency_id' => $agency?->id,
             'start_at' => now()->addDays(3)->toISOString(),
+            'trainer_id' => $trainer->id,
         ])->assertStatus(201);
 
-        $this->assertNull($created->json('trainer.id'));
+        $this->assertSame($trainer->id, $created->json('trainer.id'));
 
         $updated = $this->putJson("/api/training-sessions/{$created->json('id')}", [
             'trainer_user_id' => $commercial->id,

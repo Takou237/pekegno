@@ -2711,6 +2711,7 @@ export default {
     commercial: 'Salesperson',
     employee: 'Employee',
     trainer: 'Trainer',
+    trainerRequired: 'Select a trainer to create the session.',
     planningSubtitle: 'Overview of formations and sessions on the calendar.',
     today: 'Today',
     previousMonth: 'Previous month',

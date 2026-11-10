@@ -17,6 +17,7 @@ use Tests\TestCase;
 class TrainingSessionAgencyTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\InjectsSessionTrainer;
 
     protected function setUp(): void
     {

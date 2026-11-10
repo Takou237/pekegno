@@ -2724,6 +2724,7 @@ export default {
     commercial: 'Commercial',
     employee: 'Employé',
     trainer: 'Formateur',
+    trainerRequired: 'Sélectionnez un formateur pour créer la session.',
     planningSubtitle: 'Vue d\'ensemble des formations et sessions sur le calendrier.',
     today: 'Aujourd\'hui',
     previousMonth: 'Mois précédent',

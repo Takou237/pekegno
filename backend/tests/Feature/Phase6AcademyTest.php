@@ -29,6 +29,7 @@ use Tests\TestCase;
 class Phase6AcademyTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\InjectsSessionTrainer;
 
     protected function setUp(): void
     {
