@@ -36,7 +36,7 @@ class ReportController extends Controller
     )]
     public function subscriptions(Request $request): JsonResponse
     {
-        $from = Period::from($request, Carbon::now()->startOfYear());
+        $from = Period::from($request, Period::businessToday()->startOfYear());
         $to = Period::to($request);
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
@@ -147,7 +147,7 @@ class ReportController extends Controller
     )]
     public function customers(Request $request): JsonResponse
     {
-        $from = Period::from($request, Carbon::now()->startOfYear());
+        $from = Period::from($request, Period::businessToday()->startOfYear());
         $to = Period::to($request);
         $limit = min(max($request->integer('limit', 10), 1), 50);
 
@@ -296,7 +296,7 @@ class ReportController extends Controller
         $dimension = $request->string('dimension', 'agency')->lower()->toString();
         abort_unless(in_array($dimension, ['country', 'city', 'agency'], true), 422, 'Dimension invalide.');
 
-        $from = Period::from($request, Carbon::now()->startOfYear());
+        $from = Period::from($request, Period::businessToday()->startOfYear());
         $to = Period::to($request);
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());

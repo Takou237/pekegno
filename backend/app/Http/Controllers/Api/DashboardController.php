@@ -57,7 +57,7 @@ class DashboardController extends Controller
     )]
     public function __invoke(Request $request): JsonResponse
     {
-        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $from = Period::from($request, Period::businessToday()->startOfMonth());
         $to = Period::to($request);
 
         $user = $request->user();

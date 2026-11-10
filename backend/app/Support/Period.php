@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
  */
 class Period
 {
-    private static function businessTimezone(): string
+    public static function businessTimezone(): string
     {
         return (string) config('app.business_timezone', 'Africa/Douala');
     }
@@ -59,7 +59,13 @@ class Period
             return Carbon::parse($from, self::businessTimezone())->startOfDay()->utc();
         }
 
-        return $request->date('from')?->startOfDay() ?? ($default ?? Carbon::now()->startOfMonth());
+        // B29 : borne par défaut au début du jour en heure métier (Douala), pas
+        // en UTC (« Cette année » finissait le lendemain à l'affichage).
+        $default = $default
+            ? Carbon::parse($default->toDateString(), self::businessTimezone())->startOfDay()->utc()
+            : Carbon::now(self::businessTimezone())->startOfMonth()->utc();
+
+        return $request->date('from')?->startOfDay() ?? $default;
     }
 
     public static function to(Request $request, ?Carbon $default = null): Carbon
@@ -69,6 +75,12 @@ class Period
             return Carbon::parse($to, self::businessTimezone())->endOfDay()->utc();
         }
 
-        return $request->date('to')?->endOfDay() ?? ($default ?? Carbon::now()->endOfDay());
+        // B29 : fin du jour métier (23:59:59 à Douala), pas 23:59:59 UTC qui
+        // s'affichait comme le lendemain.
+        $default = $default
+            ? Carbon::parse($default->toDateString(), self::businessTimezone())->endOfDay()->utc()
+            : Carbon::now(self::businessTimezone())->endOfDay()->utc();
+
+        return $request->date('to')?->endOfDay() ?? $default;
     }
 }

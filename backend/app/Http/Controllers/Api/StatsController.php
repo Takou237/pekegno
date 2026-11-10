@@ -39,7 +39,7 @@ class StatsController extends Controller
     )]
     public function overview(Request $request): JsonResponse
     {
-        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $from = Period::from($request, Period::businessToday()->startOfMonth());
         $to = Period::to($request);
 
         $scope = app(ScopeService::class);
@@ -137,7 +137,7 @@ class StatsController extends Controller
             abort(403, 'Cette agence est hors de votre périmètre.');
         }
 
-        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $from = Period::from($request, Period::businessToday()->startOfMonth());
         $to = Period::to($request);
 
         $invoices = Invoice::where('agency_id', $agency->id)
@@ -281,7 +281,7 @@ class StatsController extends Controller
     {
         $limit = min(max($request->integer('limit', 5), 1), 50);
 
-        $from = Period::from($request, Carbon::now()->startOfYear());
+        $from = Period::from($request, Period::businessToday()->startOfYear());
         $to = Period::to($request);
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
@@ -338,7 +338,7 @@ class StatsController extends Controller
     )]
     public function salesByCategory(Request $request): JsonResponse
     {
-        $from = Period::from($request, Carbon::now()->startOfYear());
+        $from = Period::from($request, Period::businessToday()->startOfYear());
         $to = Period::to($request);
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
@@ -369,7 +369,7 @@ class StatsController extends Controller
     )]
     public function paymentMethods(Request $request): JsonResponse
     {
-        $from = Period::from($request, Carbon::now()->startOfYear());
+        $from = Period::from($request, Period::businessToday()->startOfYear());
         $to = Period::to($request);
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
@@ -394,7 +394,7 @@ class StatsController extends Controller
     public function topProducts(Request $request): JsonResponse
     {
         $limit = min(max($request->integer('limit', 5), 1), 50);
-        $from = Period::from($request, Carbon::now()->startOfYear());
+        $from = Period::from($request, Period::businessToday()->startOfYear());
         $to = Period::to($request);
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
@@ -427,7 +427,7 @@ class StatsController extends Controller
     public function topAgencies(Request $request): JsonResponse
     {
         $limit = min(max($request->integer('limit', 5), 1), 50);
-        $from = Period::from($request, Carbon::now()->startOfYear());
+        $from = Period::from($request, Period::businessToday()->startOfYear());
         $to = Period::to($request);
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
@@ -474,7 +474,7 @@ class StatsController extends Controller
      */
     public function group(Request $request): JsonResponse
     {
-        $from = Period::from($request, Carbon::now()->startOfYear());
+        $from = Period::from($request, Period::businessToday()->startOfYear());
         $to = Period::to($request);
 
         $scope = app(ScopeService::class);
@@ -579,7 +579,7 @@ class StatsController extends Controller
             $countryAgencyIds = array_values($allowed);
         }
 
-        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $from = Period::from($request, Period::businessToday()->startOfMonth());
         $to = Period::to($request);
 
         $invoices = Invoice::whereIn('agency_id', $countryAgencyIds)

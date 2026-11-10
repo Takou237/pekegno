@@ -96,7 +96,7 @@ class CommercialReportController extends Controller
     )]
     public function report(Request $request): JsonResponse
     {
-        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $from = Period::from($request, Period::businessToday()->startOfMonth());
         $to = Period::to($request);
 
         if ($from->gt($to)) {
@@ -170,7 +170,7 @@ class CommercialReportController extends Controller
             return response()->json(['message' => 'Aucun profil commercial trouvé pour ce compte.'], 404);
         }
 
-        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $from = Period::from($request, Period::businessToday()->startOfMonth());
         $to = Period::to($request);
 
         if ($from->gt($to)) {

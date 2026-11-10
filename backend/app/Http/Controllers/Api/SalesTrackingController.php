@@ -52,7 +52,7 @@ class SalesTrackingController extends Controller
     {
         $user = $request->user();
 
-        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $from = Period::from($request, Period::businessToday()->startOfMonth());
         $to = Period::to($request);
 
         if ($from->gt($to)) {

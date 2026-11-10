@@ -560,7 +560,7 @@ class ExportController extends Controller
     {
         abort_unless($this->canExport($request), 403);
 
-        $from = Period::from($request, Carbon::now()->startOfMonth());
+        $from = Period::from($request, Period::businessToday()->startOfMonth());
         $to = Period::to($request);
 
         $report = $this->commercialReportService->report(
@@ -603,7 +603,8 @@ class ExportController extends Controller
         ]);
 
         return $this->stream(
-            'reporting-commercial-'.$from->format('Y-m-d').'-'.$to->format('Y-m-d').'.csv',
+            // Dates du jour métier (bornes stockées en UTC, B29).
+            'reporting-commercial-'.$from->copy()->timezone(\App\Support\Period::businessTimezone())->format('Y-m-d').'-'.$to->copy()->timezone(\App\Support\Period::businessTimezone())->format('Y-m-d').'.csv',
             ['Commercial', 'Agence', 'Type', 'Ventes', 'CA facturé', 'CA encaissé', 'Tranches', 'Commissions', 'Points', 'Prospects', 'Clients convertis', 'Taux conversion %'],
             $rows
         );
