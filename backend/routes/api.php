@@ -73,6 +73,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\ProspectController;
 use App\Http\Controllers\Api\Public\PublicCatalogController;
+use App\Http\Controllers\Api\Public\PublicCertificateController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SalesTrackingController;
@@ -107,6 +108,7 @@ Route::prefix('public')->group(function () {
     Route::get('/packages/{package}', [PublicCatalogController::class, 'package'])->middleware('cache.response:data,600');
     Route::get('/offers', [PublicCatalogController::class, 'offers'])->middleware('cache.response:data,600');
     Route::get('/agencies/{agency}/payment-methods', [PublicCatalogController::class, 'agencyPaymentMethods'])->middleware('cache.response:reference,3600');
+    Route::get('/certificates/{serial}/verify', [PublicCertificateController::class, 'verify']);
 });
 
 Route::post('/auth/login', LoginController::class);

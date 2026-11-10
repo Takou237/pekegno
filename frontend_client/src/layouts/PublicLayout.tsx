@@ -92,7 +92,10 @@ export default function PublicLayout() {
       </main>
 
       <footer className="bg-gray-900 text-gray-400 py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm">
+        <div className="max-w-7xl mx-auto px-4 text-center text-sm space-y-2">
+          <p>
+            <Link to="/verifier-certificat" className="hover:text-white transition-colors">{t('certificate.verifyLink')}</Link>
+          </p>
           <p>&copy; {new Date().getFullYear()} PEKEGNO. {t('footer.rights')}.</p>
         </div>
       </footer>

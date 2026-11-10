@@ -30,7 +30,7 @@
 | **Lot 4** | Bugs P1 (B1–B16) | FAIT | Les 16 bugs P1 sont corrigés ; reste la recette staging (Lot 11). |
 | **Lot 5** | Bugs P2 (B17–B26) | PARTIEL | B17/B18/B19/B20/B21/B22/B23/B24/B26 faits ; B25 attend T0.5. |
 | **Lot 6** | Bugs P3 (B27–B30) | FAIT | B27/B28/B29/B30 faits. |
-| **Lot 7** | Fonctions CdC manquantes | PARTIEL | Clôture, transferts et caisses obligatoires livrés via Lot 2 ; séances datées, certificats publics, contrats, cockpit, primes, import restent. |
+| **Lot 7** | Fonctions CdC manquantes | PARTIEL | Clôture, transferts, caisses obligatoires (Lot 2) et certificats vérifiables faits ; séances datées, contrats, cockpit, primes, import restent. |
 | **Lot 8** | Contrôles de saisie | À FAIRE | Quasi rien : ni commercial/catégorie obligatoires, ni détection de doublons. |
 | **Lot 9** | Sécurité | PARTIEL | 2FA existe mais non imposée ; centre de sécurité et audit de comptes absents. |
 | **Lot 10** | Staging / exploitation | À FAIRE | Non démontrable depuis le dépôt. |
@@ -117,7 +117,7 @@
 | Caisses de trésorerie obligatoires | FAIT | Lot 2 (`TreasuryAccountProvisioner`, contrôle 422). |
 | Entité Administration | À FAIRE | Voir Lot 3. |
 | Présences par séance | À FAIRE | Pas de `session_occurrences` ; le lien « Présences » ouvre les sessions. |
-| Certificats vérifiables | À FAIRE | Pas de route publique de vérification. |
+| Certificats vérifiables | FAIT | `GET /api/public/certificates/{serial}/verify` (sans auth, numéro `CERT-xxxxx`, motif si révoqué) + page publique `/verifier-certificat` (`frontend_client`) ; test `PublicCertificateVerificationTest`. |
 | Contrats Agency (circuit + alertes) | PARTIEL | `ContractService` et alertes existent, circuit/commande à finaliser. |
 | CRM | PARTIEL | Pipeline présent ; visibilité/permissions/relances à vérifier. |
 | Dépenses (circuit visible) | PARTIEL | Circuit présent ; stepper + justificatif photo obligatoire à vérifier. |
@@ -171,26 +171,28 @@
 
 `FinancialMetricsConsistencyTest`, `BilanEqualsAccountingTest`, `SalesByCategoryTest`,
 `InvoiceAlwaysVisibleTest`, `AttendanceRateConsistencyTest`, `TreasuryCashClosingTest`,
-`PaymentTreasuryRoutingTest`, `TreasuryControlsTest`, `InterAgencySaleTest`.
+`PaymentTreasuryRoutingTest`, `TreasuryControlsTest`, `InterAgencySaleTest`,
+`StatusAutoRefreshTest`, `DepartmentAcademyScopeTest`, `SessionLifetimeByRoleTest`,
+`ProductBranchTest`, `ActiveContractsCardTest`, `PublicCertificateVerificationTest`.
 
 ### Tests attendus au plan et absents (nommage exact)
 
 `BilanPeriodTotalsTest`, `BilanOpeningBalanceTest`, `BankDepositIsTransferTest`, `CashClosingTest`,
 `TreasuryVisibilityTest`, `AcademyPotentialRevenueTest`, `InvoiceCancellationCascadeTest`,
 `AccountingPaginationTest`, `PaymentReceivedDateTest`, `PaymentProofColumnsTest`,
-`StatusAutoRefreshTest`, `DepartmentAcademyScopeTest`, `SessionLifetimeByRoleTest`,
-`PublicCertificateVerificationTest`, `AdCampaignAllocationTest`, `AdminEntityTest`.
+`AdCampaignAllocationTest`, `AdminEntityTest`.
 
 > Plusieurs comportements sont déjà couverts par les tests présents ; ces fichiers manquent surtout
 > pour verrouiller la non-régression des bugs corrigés.
 
 ### Échecs connus (CLAUDE.md)
 
-- ~31 tests : `GD extension is not installed` (image Docker locale).
+- ~31 tests : `GD extension is not installed` — ne se produisent pas sur PHP 8.3 hôte (GD présent).
 - 5 tests : preuve de paiement obligatoire pour `responsable-agence`.
 - 1 test : `ClientPackageSubscriptionTest` (avance plafonnée).
+- 1 test préexistant : `Phase5CommercialValidationTest::test_commercial_stats_rise_after_validation_and_collection` (vérifié sur HEAD, sans lien avec les corrections).
 
-**Commande** : `docker exec pekegno-server php artisan test`.
+**Commande** : `php artisan test` depuis `backend/` (PHP 8.3 hôte) ; alternative conteneur `docker exec pekegno-server php artisan test`.
 
 ---
 
@@ -208,7 +210,7 @@
 1. **Vérifier la suite de tests** et confirmer que la liste des échecs connus n'a pas bougé.
 2. **B25** dès décision T0.5 ; les autres P2/P3 sont faits.
 3. **Lot 3** dès validation de T0.3 (caisses CI) et T0.4 (mapping 7 rubriques) : Administration puis `sale_rubrics` (débloque T1.6), ensuite publicité.
-4. **Lot 7** : certificats publics et séances datées en priorité.
+4. **Lot 7** : séances datées en priorité, puis contrats Agency, cockpit par employé, primes et import historique.
 5. **Lot 8** : contrôles de saisie.
 6. **Lot 9** : 2FA obligatoire puis centre de sécurité.
 7. **Staging (Lot 10) en parallèle**, recette (Lot 11) en dernier.

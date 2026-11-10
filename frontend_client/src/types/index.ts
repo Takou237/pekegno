@@ -450,3 +450,16 @@ export interface PublicPackage {
   agencies: PublicPackageAgency[];
   agency_count: number;
 }
+
+/** Reponse de la verification publique d'un certificat (Lot 7). */
+export interface CertificateVerification {
+  valid: boolean;
+  status?: 'issued' | 'revoked';
+  number?: string;
+  issued_on?: string | null;
+  mention?: string | null;
+  revoked_reason?: string | null;
+  learner?: string | null;
+  course?: string | null;
+  message?: string;
+}
