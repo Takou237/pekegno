@@ -28,12 +28,13 @@ final class AttendanceStats
 {
     /**
      * @param  Collection<int, TrainingSession>  $sessions  séances du périmètre
-     * @param  callable(TrainingSession): array<int, string>  $expectedLearners  apprenants attendus d'une séance
+     * @param  (callable(TrainingSession): array<int, string>)|null  $expectedLearners  apprenants attendus d'une séance (défaut : règle unique, cf. expectedLearners())
      * @return array{expected: int, present: int, marked: int, rate: float}
      */
-    public static function compute(Collection $sessions, callable $expectedLearners, ?Carbon $now = null): array
+    public static function compute(Collection $sessions, ?callable $expectedLearners = null, ?Carbon $now = null): array
     {
         $now ??= now();
+        $expectedLearners ??= self::expectedLearners($sessions);
 
         $past = $sessions
             ->filter(function (TrainingSession $session) use ($now) {
@@ -86,5 +87,40 @@ final class AttendanceStats
             // de donnée » plutôt que « 0 % de présence ».
             'rate' => $expected > 0 ? min(100.0, round($present / $expected * 100, 1)) : 0.0,
         ];
+    }
+
+    /**
+     * Apprenants attendus d'une séance — une seule définition pour tous les
+     * écrans (B22) : les participants non annulés de la session ; à défaut
+     * (session sans participants), les inscrits actifs de sa formation. Un
+     * apprenant n'est donc jamais attendu dans une session d'une autre cohorte
+     * de la même formation.
+     *
+     * @param  Collection<int, TrainingSession>  $sessions
+     * @return \Closure(TrainingSession): array<int, string>
+     */
+    public static function expectedLearners(Collection $sessions): \Closure
+    {
+        $ids = $sessions->pluck('id')->filter()->values();
+        $courseIds = $sessions->pluck('course_id')->filter()->unique()->values();
+
+        $bySession = $ids->isEmpty() ? [] : \Illuminate\Support\Facades\DB::table('session_participants')
+            ->join('formation_enrollments', 'formation_enrollments.id', '=', 'session_participants.formation_enrollment_id')
+            ->whereIn('session_participants.training_session_id', $ids)
+            ->where('session_participants.status', '!=', 'cancelled')
+            ->get(['session_participants.training_session_id', 'formation_enrollments.learner_user_id'])
+            ->groupBy('training_session_id')
+            ->map(fn ($rows) => $rows->pluck('learner_user_id')->filter()->unique()->values()->all())
+            ->all();
+
+        $byCourse = $courseIds->isEmpty() ? [] : \App\Models\FormationEnrollment::query()
+            ->whereIn('course_id', $courseIds)
+            ->active()
+            ->get(['course_id', 'learner_user_id'])
+            ->groupBy('course_id')
+            ->map(fn ($rows) => $rows->pluck('learner_user_id')->filter()->unique()->values()->all())
+            ->all();
+
+        return fn (TrainingSession $session) => $bySession[$session->id] ?? $byCourse[$session->course_id] ?? [];
     }
 }

@@ -290,10 +290,9 @@ class TrainingSessionController extends Controller
             $enrolled = $activeEnrollments->count();
             $completed = $activeEnrollments->where('status', 'completed')->count();
 
-            // B22 : présents / attendus sur les séances passées (formule unique
-            // dans App\Support\AttendanceStats, partagée avec les deux autres écrans).
-            $learners = $activeEnrollments->pluck('learner_user_id')->filter()->unique()->values()->all();
-            $attendance = AttendanceStats::compute($sessions, fn () => $learners);
+            // B22 : présents / attendus sur les séances passées, formule et
+            // attendus uniques (AttendanceStats), comme les deux autres écrans.
+            $attendance = AttendanceStats::compute($sessions);
 
             $attendancePresent += $attendance['present'];
             $attendanceExpected += $attendance['expected'];

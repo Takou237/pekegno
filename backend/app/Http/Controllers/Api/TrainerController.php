@@ -442,23 +442,7 @@ class TrainerController extends Controller
         // App\Support\AttendanceStats, identique aux deux autres écrans).
         // « Attendus » d'une séance = ses participants non annulés ; à défaut, les
         // inscrits actifs de sa formation (session sans participants explicites).
-        $expectedBySession = $participants
-            ->groupBy('training_session_id')
-            ->map(fn ($rows) => $enrollments
-                ->whereIn('id', $rows->pluck('formation_enrollment_id'))
-                ->pluck('learner_user_id')->filter()->unique()->values()->all())
-            ->all();
-
-        $activeLearnersByCourse = $enrollments
-            ->filter(fn ($enrollment) => in_array($enrollment->status, FormationEnrollment::ACTIVE_STATUSES, true))
-            ->groupBy('course_id')
-            ->map(fn ($rows) => $rows->pluck('learner_user_id')->filter()->unique()->values()->all())
-            ->all();
-
-        $attendance = AttendanceStats::compute(
-            $sessions,
-            fn ($session) => $expectedBySession[$session->id] ?? $activeLearnersByCourse[$session->course_id] ?? [],
-        );
+        $attendance = AttendanceStats::compute($sessions);
 
         // Revenus potentiels : participants (non annulés) de chaque session × son prix effectif.
         $revenue = $sessions->sum(function ($session) use ($participants) {

@@ -59,11 +59,9 @@ class AcademyReportService
 
             $enrolled = $activeEnrollments->count();
 
-            // B22 : présents / attendus sur les séances passées, formule unique
-            // partagée avec le rapport des sessions et l'espace formateur. Les
-            // apprenants attendus d'une séance sont les inscrits actifs du cours.
-            $learners = $activeEnrollments->pluck('learner_user_id')->filter()->unique()->values()->all();
-            $attendance = AttendanceStats::compute($courseSessions, fn () => $learners);
+            // B22 : présents / attendus sur les séances passées, formule et
+            // attendus uniques (AttendanceStats), comme les deux autres écrans.
+            $attendance = AttendanceStats::compute($courseSessions);
 
             $revenue = self::enrollmentsRevenue($activeEnrollments, $course);
 

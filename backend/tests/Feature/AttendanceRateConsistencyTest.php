@@ -177,6 +177,43 @@ class AttendanceRateConsistencyTest extends TestCase
             ->assertJsonPath('training.avg_attendance', 75);
     }
 
+    public function test_a_learner_is_only_expected_in_the_session_of_his_cohort(): void
+    {
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'super-admin')->value('id'),
+        ]));
+
+        $agency = Agency::factory()->create();
+        $trainer = Trainer::create(['agency_id' => $agency->id, 'first_name' => 'Awa', 'last_name' => 'N', 'email' => 'awa2@example.com', 'is_active' => true]);
+        $course = Course::factory()->create(['agency_id' => $agency->id]);
+
+        // Deux cohortes de la même formation : A dans la session d'octobre,
+        // B dans celle de novembre. Tous deux présents à leur séance.
+        $learnerA = $this->learner();
+        $learnerB = $this->learner();
+        $october = $this->makeSession($course, $trainer, $agency, '2026-10-20', 'completed');
+        $november = $this->makeSession($course, $trainer, $agency, '2026-11-05', 'completed');
+        $this->participate($october, $this->enroll($course, $learnerA));
+        $this->participate($november, $this->enroll($course, $learnerB));
+        $this->attend($october, $learnerA, null, Attendance::STATUS_PRESENT);
+        $this->attend($november, $learnerB, null, Attendance::STATUS_PRESENT);
+
+        // Attendus = 2 (pas 4) ; présents = 2 → 100 % sur chaque écran.
+        $row = collect(app(AcademyReportService::class)->groupStats(null)['by_formation'])->firstWhere('id', $course->id);
+        $this->assertSame(2, $row['attendance_expected']);
+        $this->assertSame(100.0, $row['attendance_rate']);
+
+        $this->getJson('/api/reports/training')
+            ->assertOk()
+            ->assertJsonPath('data.0.report.attendance_expected', 2)
+            ->assertJsonPath('data.0.report.attendance_rate', 100);
+
+        $this->getJson("/api/trainers/{$trainer->id}/stats")
+            ->assertOk()
+            ->assertJsonPath('stats.attendance_expected', 2)
+            ->assertJsonPath('stats.attendance_rate', 100);
+    }
+
     public function test_rate_stays_zero_when_no_session_has_happened_yet(): void
     {
         Sanctum::actingAs(User::factory()->create([
