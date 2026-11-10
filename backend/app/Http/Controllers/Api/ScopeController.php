@@ -80,7 +80,7 @@ class ScopeController extends Controller
             }])
             ->orderBy('name');
 
-        $agencies = $agenciesQuery->get(['id', 'name', 'code', 'type', 'country_id', 'city_id'])
+        $agencies = $agenciesQuery->get(['id', 'name', 'code', 'type', 'country_id', 'city_id', 'city'])
             ->map(fn (Agency $a) => [
                 'id' => $a->id,
                 'name' => $a->name,
@@ -88,6 +88,7 @@ class ScopeController extends Controller
                 'type' => $a->type,
                 'country_id' => $a->country_id,
                 'city_id' => $a->city_id,
+                'city' => $a->city,
                 'departments' => $a->departments->map(fn (Department $d) => [
                     'id' => $d->id,
                     'name' => $d->name,

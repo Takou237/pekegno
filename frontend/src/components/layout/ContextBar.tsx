@@ -347,7 +347,10 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
             .filter((a) => !selection.agencyId || a.id === selection.agencyId)
             .map((a) => ({
               label: `${a.name} · ${c.name}`,
-              options: a.departments.map((d) => ({ value: d.id, label: d.name })),
+              options: a.departments.map((d) => ({
+                value: d.id,
+                label: a.city ? `${d.name} - ${a.city}` : d.name,
+              })),
             })),
         ),
     [countries, selection.countryId, selection.agencyId],

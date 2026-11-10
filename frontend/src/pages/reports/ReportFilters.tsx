@@ -51,7 +51,9 @@ export function GeoFilters({
         >
           <option value="">{t('dashboard.allAgencies')}</option>
           {agencies.map((a) => (
-            <option key={a.id} value={a.id}>{a.name}</option>
+            <option key={a.id} value={a.id}>
+              {a.city ? `${a.name} - ${a.city}` : a.name}
+            </option>
           ))}
         </Select>
       </div>

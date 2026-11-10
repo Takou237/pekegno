@@ -231,7 +231,7 @@ export default function ActivityLogPage() {
           value={userFilter}
           onChange={(e) => setUserFilter(e.target.value)}
         >
-          <option value="all">{t('audit.allEntities')}</option>
+          <option value="all">{t('audit.allUsers')}</option>
           {users.map((u) => (
             <option key={u.id} value={u.id}>
               {[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}
