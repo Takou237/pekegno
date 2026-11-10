@@ -5,7 +5,7 @@
 -- État prod de départ : lot `04_11(2)/` appliqué + correctifs master
 --   20a2abe et d923245 (dernière migration en prod : 2026_11_04_000001).
 --
--- Contenu : 8 migrations Laravel + 1 droit :
+-- Contenu : 9 migrations Laravel (dont le droit trésorerie de la caissière, section G) :
 --   A. 2026_11_05_000001  invoice_payments.cancelled_at
 --      Paiement annulé avec sa facture (B9).
 --   B. 2026_11_06_000001  invoice_payments.received_at / validated_at / validation_status
@@ -19,7 +19,7 @@
 --      Clôture journalière de chaque caisse.
 --   F. 2026_11_07_000001  accounting_transactions.treasury_account_id / is_transfer
 --      Caisse obligatoire sur les dépenses ; versement en banque = transfert (B13).
---   G. Droit : caissier → tresories.consulter et tresories.modifier
+--   G. 2026_11_10_000002  Droit : caissier → tresories.consulter et tresories.modifier
 --      (RoleSeeder : la caissière voit et clôture sa caisse C).
 --   I. 2026_11_09_000001  invoice_items.category_id
 --      Catégorie portée par la ligne de facture (B4), reprise du service.
@@ -179,7 +179,8 @@ FROM (VALUES
   ('2026_11_06_000004_create_cash_closings_table'),
   ('2026_11_07_000001_add_treasury_and_transfer_to_accounting_transactions'),
   ('2026_11_09_000001_add_category_id_to_invoice_items'),
-  ('2026_11_10_000001_add_branch_to_products_and_services')
+  ('2026_11_10_000001_add_branch_to_products_and_services'),
+  ('2026_11_10_000002_grant_treasury_permissions_to_cashier')
 ) AS v(m)
 WHERE NOT EXISTS (SELECT 1 FROM migrations WHERE migration = v.m);
 
@@ -187,7 +188,7 @@ COMMIT;
 
 -- ------------------------------------------------------------
 -- Contrôles (boîte SQL → SELECT uniquement) :
--- SELECT migration FROM migrations WHERE migration > '2026_11_04_000001' ORDER BY migration;  -- 8 lignes
+-- SELECT migration FROM migrations WHERE migration > '2026_11_04_000001' ORDER BY migration;  -- 9 lignes
 -- SELECT agency_id, code, type, provider FROM treasury_accounts ORDER BY agency_id, code;    -- aucun code vide
 -- SELECT COUNT(*) FROM invoice_payments WHERE received_at IS NULL;                            -- 0
 -- SELECT p.name FROM role_permission rp JOIN roles r ON r.id = rp.role_id

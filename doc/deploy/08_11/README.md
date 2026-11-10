@@ -79,7 +79,7 @@ Validé avant livraison :
 2. **Base (immédiatement)** : phpPgAdmin → base `sc1fopa5058_pekegno` → onglet **Importer** →
    `migration-2026-11-08.sql`. Contrôle (boîte SQL, SELECT seul) :
    `SELECT migration FROM migrations WHERE migration > '2026_11_04_000001' ORDER BY migration;`
-   → 8 lignes.
+   → 9 lignes.
 3. **Caches** — SSH depuis `~/repositories/pekegno/backend` :
    `php artisan route:clear && php artisan config:clear && php artisan view:clear && php artisan cache:clear`
    puis **vider l'OPcache** : uploader `doc/deploy/reset-opcache.php` dans `backend/public/`,
