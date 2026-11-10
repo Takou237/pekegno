@@ -28,8 +28,8 @@
 | **Lot 2** | Caisses, trésorerie, clôture | FAIT | Codes C/O/M/B, visibilité par rôle, transferts, `cash_closings`, écran de clôture. |
 | **Lot 3** | Administration pays, 7 rubriques, publicité | À FAIRE | Seule la vente inter-agences (T3.13) est couverte. |
 | **Lot 4** | Bugs P1 (B1–B16) | FAIT | Les 16 bugs P1 sont corrigés ; reste la recette staging (Lot 11). |
-| **Lot 5** | Bugs P2 (B17–B26) | PARTIEL | B17/B18/B19/B22 faits ; B20/B21/B23/B24/B25/B26 restent. |
-| **Lot 6** | Bugs P3 (B27–B30) | PARTIEL | B27/B29/B30 faits ; B28 reste. |
+| **Lot 5** | Bugs P2 (B17–B26) | PARTIEL | B17/B18/B19/B20/B21/B22/B23/B24/B26 faits ; B25 attend T0.5. |
+| **Lot 6** | Bugs P3 (B27–B30) | FAIT | B27/B28/B29/B30 faits. |
 | **Lot 7** | Fonctions CdC manquantes | PARTIEL | Clôture, transferts et caisses obligatoires livrés via Lot 2 ; séances datées, certificats publics, contrats, cockpit, primes, import restent. |
 | **Lot 8** | Contrôles de saisie | À FAIRE | Quasi rien : ni commercial/catégorie obligatoires, ni détection de doublons. |
 | **Lot 9** | Sécurité | PARTIEL | 2FA existe mais non imposée ; centre de sécurité et audit de comptes absents. |
@@ -68,20 +68,20 @@
 | **B17** Panier moyen | FAIT | `panier_moyen = ca ÷ nb factures validées`. | — |
 | **B18** Arrondi au franc | FAIT | `Money::franc` + `formatCurrency` arrondit (commit). | — |
 | **B19** Colonnes preuves | FAIT | Réponse expose `invoice.client_name` + `amount` ; `PaymentProofsPage` les affiche. | Test dédié `PaymentProofColumnsTest` optionnel. |
-| **B20** Statuts session/contrat | À FAIRE | Pas d'accessor calculé ni de commande `contracts:refresh-status`. | Accessor `TrainingSession` + commande planifiée. |
-| **B21** Abonnements actifs | À FAIRE | `StatsController` compte encore `Subscription` (`status = active`). | Compter les contrats `active` + `due_soon`. |
+| **B20** Statuts session/contrat | FAIT | `TrainingSession::getStatusAttribute` (statut calculé depuis les dates, annulée/terminée conservées) ; commande `contracts:refresh-status` (`ContractService::refreshStatuses`) planifiée 06:30. `StatusAutoRefreshTest`. | — |
+| **B21** Abonnements actifs | FAIT | `StatsController` et `ReportController::subscriptions` comptent `Contract::open()` (active + due_soon) ; carte « Contrats actifs ». `ActiveContractsCardTest` (8). | — |
 | **B22** Taux de présence | FAIT | `AttendanceStats` (présents / attendus sur séances passées), commit. | — |
-| **B23** Cours globaux hors département | À FAIRE | `AcademyReportService` inclut encore `orWhereNull('agency_id')`. | Filtrer strictement sur les agences du département. |
-| **B24** Branche produit/service | À FAIRE | Aucun champ `branch`, aucune migration. | Migration + modèle + source unique Store/Suivi des ventes. |
+| **B23** Cours globaux hors département | FAIT | `AcademyReportService::groupStats` filtre strictement sur les agences demandées. `DepartmentAcademyScopeTest` (14 / 11). | — |
+| **B24** Branche produit/service | FAIT | Migration `add_branch_to_products_and_services` (backfill) ; `branch` sur `Product`/`Service` + ressources/requests ; `CatalogRevenueService` expose `branch` et `totals.by_branch` ; `SalesTrackingController` et `DepartmentLedger` utilisent la branche de l'article. `ProductBranchTest`. | Formulaire produit dédié absent côté front ; le champ est exposé par l'API. |
 | **B25** « Date échue » | BLOQUÉ | Aucune occurrence dans le code. | Décision T0.5 (automatique ou manuelle), puis badge/journal ou liste de motifs. |
-| **B26** Durée de session par rôle | À FAIRE | `InactivityLogout` utilise `session.lifetime` global. | DG 12 h / autres 2 h + rafraîchissement `last_activity_at`. |
+| **B26** Durée de session par rôle | FAIT | `InactivityLogout` : DG 12 h, autres 2 h, réglage `session_lifetime_minutes` (scalaire ou par rôle). `SessionLifetimeByRoleTest`. | — |
 
 ### Lot 6 — P3
 
 | Réf | Statut | Preuve / fichier | Reste à faire |
 |---|---|---|---|
 | **B27** Classements clients | FAIT | `ReportController::customers` renvoie `by_country` et `by_city`. | — |
-| **B28** Libellés de filtres / Journal | À FAIRE | `ReportFilters.tsx` reste générique. | « Academy — Douala », « Tous les utilisateurs ». |
+| **B28** Libellés de filtres / Journal | FAIT | `ReportFilters` / `ContextBar` : « Academy — Douala » ; `ActivityLogPage` : « Tous les utilisateurs » (i18n). | Le `AgencyDepartmentController` cité par le plan n'existe pas dans le dépôt. |
 | **B29** Bornes « cette année » | FAIT | `Period` / `period.ts` en jour métier. | — |
 | **B30** Prospects DG | FAIT | `ProspectController::scopeByRole` : DG/super-admin voient tout. | — |
 
@@ -206,7 +206,7 @@
 ## 8. Prochaines étapes prioritaires
 
 1. **Vérifier la suite de tests** et confirmer que la liste des échecs connus n'a pas bougé.
-2. **Purger les P2/P3 rapides** : B21, B23, B24, B26, B28, B20. B25 attend T0.5.
+2. **B25** dès décision T0.5 ; les autres P2/P3 sont faits.
 3. **Lot 3** dès validation de T0.3 (caisses CI) et T0.4 (mapping 7 rubriques) : Administration puis `sale_rubrics` (débloque T1.6), ensuite publicité.
 4. **Lot 7** : certificats publics et séances datées en priorité.
 5. **Lot 8** : contrôles de saisie.
