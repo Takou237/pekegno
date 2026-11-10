@@ -28,7 +28,10 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   pendingTwoFactorToken: string | null;
   pendingTwoFactorChannel: TwoFactorChannel;
-  login: (credentials: LoginCredentials) => Promise<{ requiresTwoFactor: boolean }>;
+  login: (credentials: LoginCredentials) => Promise<{
+    requiresTwoFactor: boolean;
+    twoFactorSetupRequired?: boolean;
+  }>;
   verifyTwoFactor: (code: string) => Promise<void>;
   cancelTwoFactorChallenge: () => void;
   logout: () => Promise<void>;
@@ -103,7 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setStoredToken(response.token);
     setUser(response.user);
-    return { requiresTwoFactor: false };
+    return {
+      requiresTwoFactor: false,
+      twoFactorSetupRequired: response.two_factor_setup_required === true,
+    };
   }, []);
 
   const verifyTwoFactor = useCallback(

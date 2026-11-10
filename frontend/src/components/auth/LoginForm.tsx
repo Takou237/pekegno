@@ -32,6 +32,8 @@ export function LoginForm() {
       // avec un "insertBefore ... not a child of this node".
       if (result.requiresTwoFactor) {
         navigate('/two-factor', { replace: true });
+      } else if (result.twoFactorSetupRequired) {
+        navigate('/profile/settings', { replace: true });
       }
     } catch (error) {
       setFormError(extractErrorMessage(error, t('auth.loginFailed')));

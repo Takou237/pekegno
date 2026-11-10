@@ -4,7 +4,7 @@
 > 6 exigences de sécurité, checklist de réception).
 > **Décision CA** : `doc/DECISION_CA_T0.2.md`.
 > **Méthode** : confrontation du plan au code réel (services, contrôleurs, migrations, routes, tests, frontend).
-> **Date de mise à jour** : 10 novembre 2026 (Lot 8 : T8.2 à T8.5).
+> **Date de mise à jour** : 10 novembre 2026 (Lot 8 : T8.2 à T8.5 ; Lot 9 : audit des comptes, 2FA obligatoire, centre de sécurité).
 
 ## Légende
 
@@ -32,7 +32,7 @@
 | **Lot 6** | Bugs P3 (B27–B30) | FAIT | B27/B28/B29/B30 faits. |
 | **Lot 7** | Fonctions CdC manquantes | PARTIEL | Clôture, transferts, caisses obligatoires (Lot 2) et certificats vérifiables faits ; séances datées, contrats, cockpit, primes, import restent. |
 | **Lot 8** | Contrôles de saisie | PARTIEL | T8.2 doublons de facture, T8.3 client existant, T8.4 formats et T8.5 formateur obligatoire faits ; reste T8.1 commercial/catégorie obligatoires. |
-| **Lot 9** | Sécurité | PARTIEL | 2FA existe mais non imposée ; centre de sécurité et audit de comptes absents. |
+| **Lot 9** | Sécurité | PARTIEL | Audit des comptes, 2FA obligatoire et centre de sécurité faits ; matrice caissier à valider avec le client, environnements/preuves au Lot 10. |
 | **Lot 10** | Staging / exploitation | À FAIRE | Non démontrable depuis le dépôt. |
 | **Lot 11** | Tests / recette 18 points | À FAIRE | Aucun point de réception coché en staging. |
 
@@ -144,10 +144,10 @@
 
 | Exigence | Statut |
 |---|---|
-| Comptes nominatifs / audit des comptes | À FAIRE (pas de commande `security:audit-accounts`). |
-| 2FA obligatoire par rôle | PARTIEL (`TwoFactorService` existe, non imposé). |
-| Droits du rôle Caissier | À FAIRE (matrice à revoir avec le client). |
-| Centre de sécurité Super Admin | À FAIRE. |
+| Comptes nominatifs / audit des comptes | FAIT — `security:audit-accounts` détecte les comptes génériques/partagés et désactive avec `--fix` (super-admin conservé) ; `SecurityAuditAccountsTest`. |
+| 2FA obligatoire par rôle | FAIT — rôles super-admin, direction générale, comptable et caissier : session restreinte + écran d'activation forcée (`/profile/settings`), middleware `two_factor.enrolled` ; activable via `SECURITY_ENFORCE_2FA` ; `TwoFactorEnforcementTest`. |
+| Droits du rôle Caissier | BLOQUÉ — matrice à valider avec le client (T0.x). |
+| Centre de sécurité Super Admin | FAIT — `GET /api/security/center` + page `/security` : sessions actives, comptes privilégiés, accès développeurs (`SECURITY_DEVELOPER_EMAILS`), alertes et événements récents ; `SecurityCenterTest`. |
 | Environnements séparés | À FAIRE. |
 | Sauvegardes / export / code / NDA | À FAIRE (preuves écrites). |
 
@@ -173,7 +173,10 @@
 `InvoiceAlwaysVisibleTest`, `AttendanceRateConsistencyTest`, `TreasuryCashClosingTest`,
 `PaymentTreasuryRoutingTest`, `TreasuryControlsTest`, `InterAgencySaleTest`,
 `StatusAutoRefreshTest`, `DepartmentAcademyScopeTest`, `SessionLifetimeByRoleTest`,
-`ProductBranchTest`, `ActiveContractsCardTest`, `PublicCertificateVerificationTest`.
+`ProductBranchTest`, `ActiveContractsCardTest`, `PublicCertificateVerificationTest`,
+`InvoiceDuplicateWarningTest`, `ClientDuplicateWarningTest`, `ClientContactValidationTest`,
+`SessionRequiresTrainerTest`, `SecurityAuditAccountsTest`, `SecurityCenterTest`,
+`TwoFactorEnforcementTest`.
 
 ### Tests attendus au plan et absents (nommage exact)
 
@@ -211,6 +214,6 @@
 2. **B25** dès décision T0.5 ; les autres P2/P3 sont faits.
 3. **Lot 3** dès validation de T0.3 (caisses CI) et T0.4 (mapping 7 rubriques) : Administration puis `sale_rubrics` (débloque T1.6), ensuite publicité.
 4. **Lot 7** : séances datées en priorité, puis contrats Agency, cockpit par employé, primes et import historique.
-5. **Lot 8** : contrôles de saisie.
-6. **Lot 9** : 2FA obligatoire puis centre de sécurité.
+5. **Lot 8** : reste T8.1 (commercial/catégorie obligatoires), repoussé en dernier.
+6. **Lot 9** : matrice des droits caissier à valider ; le reste est livré.
 7. **Staging (Lot 10) en parallèle**, recette (Lot 11) en dernier.

@@ -12,7 +12,7 @@ import { useDisplayCurrencySync } from '@/hooks/useDisplayCurrencySync';
  */
 export function ProtectedRoute() {
   const { t } = useTranslation();
-  const { isAuthenticated, isInitializing } = useAuth();
+  const { isAuthenticated, isInitializing, user } = useAuth();
   const location = useLocation();
 
   useInactivityLogout();
@@ -31,6 +31,19 @@ export function ProtectedRoute() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Lot 9 : 2FA obligatoire pour les rôles sensibles. L'utilisateur est
+  // redirigé vers ses paramètres tant qu'il n'a pas activé la double
+  // authentification (l'API bloque aussi les routes métier).
+  const twoFactorRequired =
+    !user?.two_factor_enabled &&
+    ['super-admin', 'direction-generale', 'comptable', 'caissier'].includes(
+      user?.role?.name ?? ''
+    );
+
+  if (twoFactorRequired && !location.pathname.startsWith('/profile/settings')) {
+    return <Navigate to="/profile/settings" replace />;
   }
 
   return <Outlet />;

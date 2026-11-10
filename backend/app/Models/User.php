@@ -81,6 +81,20 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+    /**
+     * Rôles sensibles pour lesquels la double authentification est obligatoire
+     * (Lot 9) : super-admin, direction générale, comptable et caissiers.
+     */
+    public function requiresTwoFactor(): bool
+    {
+        return in_array($this->role?->name, [
+            'super-admin',
+            'direction-generale',
+            'comptable',
+            'caissier',
+        ], true);
+    }
+
     public function clientCategory(): BelongsTo
     {
         return $this->belongsTo(ClientCategory::class);

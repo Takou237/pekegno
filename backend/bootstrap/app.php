@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsurePortal;
 use App\Http\Middleware\EnsureSingleSession;
 use App\Http\Middleware\EnsureSubscriptionsWritable;
 use App\Http\Middleware\EnsureTrainer;
+use App\Http\Middleware\EnsureTwoFactorEnrollment;
 use App\Http\Middleware\InactivityLogout;
 use App\Http\Middleware\InvalidateApiCache;
 use App\Http\Middleware\UpdateLastActivity;
@@ -38,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'subscriptions.writable' => EnsureSubscriptionsWritable::class,
             'cache.response' => CacheApiResponse::class,
             'trainer' => EnsureTrainer::class,
+            'two_factor.enrolled' => EnsureTwoFactorEnrollment::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

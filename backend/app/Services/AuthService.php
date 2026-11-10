@@ -99,6 +99,40 @@ class AuthService
             }
         }
 
+        // Lot 9 : 2FA obligatoire pour les rôles sensibles. Tant qu'elle n'est
+        // pas activée, on ouvre une session restreinte et on signale au front
+        // qu'il doit afficher l'écran d'activation forcée.
+        if (
+            config('security.enforce_two_factor')
+            && ! $user->two_factor_enabled
+            && $user->requiresTwoFactor()
+        ) {
+            $accessToken = $user->createToken($tokenName);
+
+            $this->log(
+                user: $user,
+                action: '2fa_setup_required',
+                ip: $ip,
+                userAgent: $userAgent,
+                reason: 'Rôle sensible sans double authentification',
+            );
+
+            $user->update([
+                'active_session_id' => $accessToken->accessToken->id,
+                'last_login_at' => now(),
+                'last_login_ip' => $ip,
+                'last_activity_at' => now(),
+                'failed_attempts' => 0,
+                'locked_until' => null,
+            ]);
+
+            return [
+                'user' => new UserResource($user->load('role.permissions', 'assignments', 'trainerProfile')),
+                'token' => $accessToken->plainTextToken,
+                'two_factor_setup_required' => true,
+            ];
+        }
+
         if ($user->two_factor_enabled && $user->two_factor_secret) {
             $tempToken = Str::random(64);
 

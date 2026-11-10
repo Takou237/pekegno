@@ -61,6 +61,8 @@ export interface LoginCredentials {
 export interface AuthSuccessResponse {
   user: User;
   token: string;
+  /** Rôle sensible sans 2FA : le front doit forcer l'activation (Lot 9). */
+  two_factor_setup_required?: boolean;
 }
 
 /**

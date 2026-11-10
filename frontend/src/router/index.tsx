@@ -106,6 +106,7 @@ const AgencyEmployeeDetailPage = lazyWithRetry(() => import('@/pages/employees/A
 const AgencyEmployeeReportPage = lazyWithRetry(() => import('@/pages/employees/AgencyEmployeeReportPage'));
 const CountryEmployeeListPage = lazyWithRetry(() => import('@/pages/employees/CountryEmployeeListPage'));
 const ActivityLogPage = lazyWithRetry(() => import('@/pages/audit/ActivityLogPage'));
+const SecurityCenterPage = lazyWithRetry(() => import('@/pages/security/SecurityCenterPage'));
 const SettingsPage = lazyWithRetry(() => import('@/pages/settings/SettingsPage'));
 const CountryListPage = lazyWithRetry(() => import('@/pages/CountryListPage'));
 const AcademyCoursesPage = lazyWithRetry(() => import('@/pages/academy/AcademyCoursesPage'));
@@ -319,6 +320,7 @@ export const router = createBrowserRouter([
           { path: '/invoices/quick', element: page(<QuickSalePage />, form) },
           { path: '/invoices/:id', element: page(<InvoiceDetailPage />, detail) },
           { path: '/audit', element: page(<ActivityLogPage />, table) },
+          { path: '/security', element: page(<SecurityCenterPage />, dashboard) },
           { path: '/academy', element: page(<AcademyDashboardPage />, dashboard) },
           { path: '/settings', element: page(<SettingsPage />, detail) },
           { path: '/catalog', element: <Navigate to="/catalog/services" replace /> },
