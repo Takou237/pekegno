@@ -22,6 +22,7 @@ class UpdateServiceRequest extends FormRequest
             // (le JSON de la ligne), ce qui corrompt la règle unique.
             'code' => ['sometimes', 'nullable', 'string', 'max:50', Rule::unique('services', 'code')->ignore($this->route('service'))],
             'category_id' => ['sometimes', 'required', 'uuid', 'exists:categories,id'],
+            'branch' => ['sometimes', 'nullable', 'string', 'in:academy,agency,store,studio'],
             'agency_id' => ['sometimes', 'required', 'uuid', 'exists:agencies,id'],
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],

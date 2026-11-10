@@ -5,6 +5,7 @@ export interface ProductSearchItem {
   id: string;
   sku: string;
   name: string;
+  branch?: 'academy' | 'agency' | 'store' | 'studio' | null;
   brand?: string | null;
   selling_price: number | string;
   price_with_tax?: number | string | null;
@@ -18,6 +19,7 @@ export interface ProductPayload {
   selling_price: number;
   sku?: string;
   category_id?: string | null;
+  branch?: 'academy' | 'agency' | 'store' | 'studio' | null;
   brand?: string | null;
   purchase_price?: number | null;
   tax_rate?: number | null;

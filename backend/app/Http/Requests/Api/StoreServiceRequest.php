@@ -18,6 +18,7 @@ class StoreServiceRequest extends FormRequest
         return [
             'code' => ['sometimes', 'nullable', 'string', 'max:50', 'unique:services,code'],
             'category_id' => ['required', 'uuid', 'exists:categories,id'],
+            'branch' => ['sometimes', 'nullable', 'string', 'in:academy,agency,store,studio'],
             // L'agence n'est plus choisie dans le formulaire : le service est créé
             // dans les agences des pays cochés (plus l'agence de la page, si fournie).
             'agency_id' => ['required_without:target_country_ids', 'nullable', 'uuid', 'exists:agencies,id'],

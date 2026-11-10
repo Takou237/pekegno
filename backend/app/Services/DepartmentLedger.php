@@ -137,7 +137,9 @@ class DepartmentLedger
         $category = "lower(coalesce(service_categories.name, product_categories.name, ''))";
         $types = [Department::TYPE_ACADEMY, Department::TYPE_AGENCY, Department::TYPE_STORE, Department::TYPE_STUDIO];
         $whens = implode(' ', array_map(fn ($type) => "when {$category} = '{$type}' then '{$type}'", $types));
-        $lineType = "case {$whens} else '".self::DEFAULT_CATALOG_TYPE."' end";
+        // B24 : la branche saisie sur l'article prime sur le nom de la catégorie.
+        $storedBranch = "coalesce(nullif(services.branch, ''), nullif(products.branch, ''))";
+        $lineType = "coalesce({$storedBranch}, case {$whens} else '".self::DEFAULT_CATALOG_TYPE."' end)";
 
         $sub = DB::table('invoice_items')
             ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')

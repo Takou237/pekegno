@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Product;
+use App\Models\Service;
 use App\Support\Period;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -164,7 +166,17 @@ class SalesTrackingController extends Controller
             ->selectRaw('invoice_id, coalesce(sum(line_total), 0) as lines_total')
             ->pluck('lines_total', 'invoice_id');
 
-        $data = collect($paginator->items())->map(function (InvoiceItem $item) use ($linesTotals): array {
+        // B24 : la branche vient de l'article du catalogue (produit/service),
+        // source unique avec le Store et la comptabilité par élément.
+        $pageItems = collect($paginator->items());
+        $productBranches = Product::query()
+            ->whereIn('id', $pageItems->pluck('product_id')->filter()->unique())
+            ->pluck('branch', 'id');
+        $serviceBranches = Service::query()
+            ->whereIn('id', $pageItems->pluck('service_id')->filter()->unique())
+            ->pluck('branch', 'id');
+
+        $data = collect($paginator->items())->map(function (InvoiceItem $item) use ($linesTotals, $productBranches, $serviceBranches): array {
             $invoice = $item->invoice;
             $total = (float) ($invoice?->total_amount ?? 0);
             $paidTotal = (float) ($invoice?->amount_paid ?? 0);
@@ -194,6 +206,7 @@ class SalesTrackingController extends Controller
                 'city' => $client?->city ?: ($invoice?->agency?->city ?: '—'),
                 'activity' => $item->label ?: '—',
                 'type' => ($item->package_id || $item->prestation_id) ? 'agency' : 'academy',
+                'branch' => $this->lineBranch($item, $productBranches, $serviceBranches),
                 'quantity' => (int) $item->quantity,
                 'billed' => round($billedLine, 2),
                 'paid' => round($paidLine, 2),
@@ -238,5 +251,22 @@ class SalesTrackingController extends Controller
         } elseif ($type === 'agency') {
             $query->where(fn ($w) => $w->whereNotNull('package_id')->orWhereNotNull('prestation_id'));
         }
+    }
+
+    /**
+     * Branche d'une ligne : celle de l'article du catalogue, sinon le repli
+     * historique (package/prestation -> Agency, inscription -> Academy).
+     */
+    private function lineBranch(InvoiceItem $item, $productBranches, $serviceBranches): string
+    {
+        if ($item->product_id) {
+            return $productBranches[$item->product_id] ?: Product::DEFAULT_BRANCH;
+        }
+
+        if ($item->service_id) {
+            return $serviceBranches[$item->service_id] ?: Service::DEFAULT_BRANCH;
+        }
+
+        return ($item->package_id || $item->prestation_id) ? 'agency' : 'academy';
     }
 }

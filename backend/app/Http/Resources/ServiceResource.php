@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,7 @@ class ServiceResource extends JsonResource
             'code' => $this->code,
             'agency_id' => $this->agency_id,
             'category_id' => $this->category_id,
+            'branch' => $this->branch ?? Service::DEFAULT_BRANCH,
             'name' => $this->name,
             'description' => $this->description,
             'price' => (string) $this->price,

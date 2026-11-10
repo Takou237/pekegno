@@ -17,11 +17,12 @@ import { CountryDeployPicker } from '@/components/countries/CountryDeployPicker'
 import type { Category } from '@/types/category';
 import type { Agency } from '@/types/agency';
 import type { CountryStat } from '@/types/stats';
-import type { Service, ServicePayload, ServiceCommissionType } from '@/types/service';
+import type { Service, ServicePayload, ServiceCommissionType, Branch } from '@/types/service';
 
 interface ServiceFormState {
   name: string;
   category_id: string;
+  branch: Branch | '';
   agency_id: string;
   price: string;
   bonus_fixed: string;
@@ -39,6 +40,7 @@ function emptyForm(categoryId: string, agencyId = ''): ServiceFormState {
   return {
     name: '',
     category_id: categoryId,
+    branch: '',
     agency_id: agencyId,
     price: '',
     bonus_fixed: '',
@@ -136,6 +138,7 @@ export function ServiceFormModal({
           ? {
               name: source.name,
               category_id: source.category_id,
+              branch: (source.branch as Branch | null) ?? '',
               agency_id: source.agency_id,
               price: source.price,
               bonus_fixed: source.bonus_fixed ?? '',
@@ -185,6 +188,7 @@ export function ServiceFormModal({
     return {
       name: form.name.trim(),
       category_id: form.category_id,
+      branch: form.branch || null,
       // En création, pas de choix d'agence : seule l'agence de la page (si on
       // est sur une agence) est ajoutée aux agences des pays cochés.
       agency_id: isEditing ? form.agency_id : agencyId || undefined,
@@ -271,6 +275,18 @@ export function ServiceFormModal({
                 {category.name}
               </option>
             ))}
+          </Select>
+          <Select
+            label={t('services.branch')}
+            value={form.branch}
+            onChange={(e) => update('branch', e.target.value as Branch | '')}
+            error={fieldErrors.branch}
+          >
+            <option value="">{t('services.branchAuto')}</option>
+            <option value="academy">{t('services.branchAcademy')}</option>
+            <option value="agency">{t('services.branchAgency')}</option>
+            <option value="store">{t('services.branchStore')}</option>
+            <option value="studio">{t('services.branchStudio')}</option>
           </Select>
         </div>
 

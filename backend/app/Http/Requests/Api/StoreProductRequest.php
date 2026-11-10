@@ -19,6 +19,7 @@ class StoreProductRequest extends FormRequest
             'name' => ['required', 'string', 'max:150'],
             'description' => ['sometimes', 'nullable', 'string'],
             'category_id' => ['sometimes', 'nullable', 'string', 'exists:categories,id'],
+            'branch' => ['sometimes', 'nullable', 'string', 'in:academy,agency,store,studio'],
             'brand' => ['sometimes', 'nullable', 'string', 'max:100'],
             'purchase_price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'selling_price' => ['required', 'numeric', 'min:0'],

@@ -29,10 +29,14 @@ export interface SeminarTier {
 
 export type ServiceCommissionType = 'none' | 'percent' | 'fixed';
 
+/** B24 — branche métier de l'article (Academy/Agency/Store/Studio). */
+export type Branch = 'academy' | 'agency' | 'store' | 'studio';
+
 export interface Service {
   id: string;
   agency_id: string;
   category_id: string;
+  branch: Branch | null;
   name: string;
   description: string | null;
   price: string;
@@ -68,6 +72,7 @@ export interface ServiceSearchItem {
 export interface ServicePayload {
   name: string;
   category_id: string;
+  branch?: Branch | null;
   /** Facultatif à la création : le service est créé dans les agences des pays cochés. */
   agency_id?: string;
   price: number | string;

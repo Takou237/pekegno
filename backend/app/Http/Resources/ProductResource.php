@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,7 @@ class ProductResource extends JsonResource
             'sku' => $this->sku,
             'name' => $this->name,
             'description' => $this->description,
+            'branch' => $this->branch ?? Product::DEFAULT_BRANCH,
             'brand' => $this->brand,
             'category' => $this->whenLoaded('category', fn () => [
                 'id' => $this->category?->id,

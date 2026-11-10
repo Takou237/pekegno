@@ -91,6 +91,7 @@ export interface CatalogRevenueRow {
   id: string | null;
   name: string;
   category: string | null;
+  branch: 'academy' | 'agency' | 'store' | 'studio' | null;
   quantity: number;
   billed: number;
   collected: number;
@@ -99,5 +100,11 @@ export interface CatalogRevenueRow {
 
 export interface CatalogRevenueReport {
   rows: CatalogRevenueRow[];
-  totals: { quantity: number; billed: number; collected: number; by_mode: Record<PaymentMode, number> };
+  totals: {
+    quantity: number;
+    billed: number;
+    collected: number;
+    by_mode: Record<PaymentMode, number>;
+    by_branch: Record<string, { quantity: number; billed: number; collected: number }>;
+  };
 }

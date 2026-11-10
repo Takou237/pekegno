@@ -17,10 +17,15 @@ class Service extends Model
 
     public const COMMISSION_TYPES = ['none', 'percent', 'fixed'];
 
+    /** B24 — branches métier communes au catalogue et aux départements. */
+    public const BRANCHES = ['academy', 'agency', 'store', 'studio'];
+    public const DEFAULT_BRANCH = 'store';
+
     protected $fillable = [
         'code',
         'agency_id',
         'category_id',
+        'branch',
         'name',
         'description',
         'price',
@@ -43,6 +48,22 @@ class Service extends Model
             'is_seminar' => 'boolean',
             'is_public' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Service $service) {
+            if (! $service->branch) {
+                $service->branch = self::branchForCategory($service->category_id, self::DEFAULT_BRANCH);
+            }
+        });
+    }
+
+    public static function branchForCategory(?string $categoryId, string $fallback = self::DEFAULT_BRANCH): string
+    {
+        $name = $categoryId ? strtolower((string) Category::whereKey($categoryId)->value('name')) : '';
+
+        return in_array($name, self::BRANCHES, true) ? $name : $fallback;
     }
 
     public function category(): BelongsTo

@@ -37,7 +37,7 @@ class CatalogRevenueService
             $rows[$key] += $empty();
         }
 
-        $other = ['key' => 'other', 'kind' => 'other', 'id' => null, 'name' => 'Autres (libellés libres)', 'category' => null] + $empty();
+        $other = ['key' => 'other', 'kind' => 'other', 'id' => null, 'name' => 'Autres (libellés libres)', 'category' => null, 'branch' => null] + $empty();
 
         $this->addSales($rows, $other, $from, $to, $agencyIds);
         $this->addCollections($rows, $other, $from, $to, $agencyIds);
@@ -56,10 +56,25 @@ class CatalogRevenueService
             ->values();
 
         $byMode = array_fill_keys(RevenueService::MODES, 0.0);
+        $byBranch = [];
         foreach ($rows as $r) {
             foreach ($r['by_mode'] as $mode => $value) {
                 $byMode[$mode] += $value;
             }
+
+            $branch = $r['branch'] ?? 'other';
+            $byBranch[$branch] ??= ['quantity' => 0, 'billed' => 0.0, 'collected' => 0.0];
+            $byBranch[$branch]['quantity'] += $r['quantity'];
+            $byBranch[$branch]['billed'] += $r['billed'];
+            $byBranch[$branch]['collected'] += $r['collected'];
+        }
+
+        foreach ($byBranch as $branch => $values) {
+            $byBranch[$branch] = [
+                'quantity' => $values['quantity'],
+                'billed' => round($values['billed'], 2),
+                'collected' => round($values['collected'], 2),
+            ];
         }
 
         return [
@@ -69,6 +84,7 @@ class CatalogRevenueService
                 'billed' => round($rows->sum('billed'), 2),
                 'collected' => round($rows->sum('collected'), 2),
                 'by_mode' => array_map(fn ($v) => round($v, 2), $byMode),
+                'by_branch' => $byBranch,
             ],
         ];
     }
@@ -84,16 +100,16 @@ class CatalogRevenueService
         $rows = [];
 
         foreach ($inScope(Product::query()->with('category:id,name'))->orderBy('name')->get() as $p) {
-            $rows["product:{$p->id}"] = ['key' => "product:{$p->id}", 'kind' => 'product', 'id' => $p->id, 'name' => $p->name, 'category' => $p->category?->name];
+            $rows["product:{$p->id}"] = ['key' => "product:{$p->id}", 'kind' => 'product', 'id' => $p->id, 'name' => $p->name, 'category' => $p->category?->name, 'branch' => $p->branch ?: Product::DEFAULT_BRANCH];
         }
         foreach ($inScope(Service::query()->with('category:id,name'))->orderBy('name')->get() as $s) {
-            $rows["service:{$s->id}"] = ['key' => "service:{$s->id}", 'kind' => 'service', 'id' => $s->id, 'name' => $s->name, 'category' => $s->category?->name];
+            $rows["service:{$s->id}"] = ['key' => "service:{$s->id}", 'kind' => 'service', 'id' => $s->id, 'name' => $s->name, 'category' => $s->category?->name, 'branch' => $s->branch ?: Service::DEFAULT_BRANCH];
         }
         foreach ($inScope(Course::query()->with('categories:id,name'))->orderBy('name')->get() as $c) {
-            $rows["course:{$c->id}"] = ['key' => "course:{$c->id}", 'kind' => 'course', 'id' => $c->id, 'name' => $c->name, 'category' => $c->categories->pluck('name')->implode(', ') ?: null];
+            $rows["course:{$c->id}"] = ['key' => "course:{$c->id}", 'kind' => 'course', 'id' => $c->id, 'name' => $c->name, 'category' => $c->categories->pluck('name')->implode(', ') ?: null, 'branch' => 'academy'];
         }
         foreach ($inScope(SubscriptionPack::query()->with('category:id,name'))->orderBy('name')->get() as $pk) {
-            $rows["package:{$pk->id}"] = ['key' => "package:{$pk->id}", 'kind' => 'package', 'id' => $pk->id, 'name' => $pk->name, 'category' => $pk->category?->name];
+            $rows["package:{$pk->id}"] = ['key' => "package:{$pk->id}", 'kind' => 'package', 'id' => $pk->id, 'name' => $pk->name, 'category' => $pk->category?->name, 'branch' => 'agency'];
         }
 
         return $rows;
