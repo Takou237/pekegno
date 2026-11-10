@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
-import type { CashClosing, CashDayBreakdown, TreasuryAccount } from '@/types/treasury';
+import type { CashClosing, CashDayBreakdown, CashJourney, TreasuryAccount } from '@/types/treasury';
 
 function signed(value: number): string {
   if (value === 0) return '—';
@@ -50,7 +50,8 @@ export default function CashClosingsPage() {
   const [date, setDate] = useState(todayLocal());
   const [accounts, setAccounts] = useState<TreasuryAccount[]>([]);
   const [closings, setClosings] = useState<CashClosing[]>([]);
-  const [days, setDays] = useState<Record<string, CashDayBreakdown>>({});
+  const [days, setDays] = useState<Record<string, CashJourney>>({});
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [closingAccount, setClosingAccount] = useState<TreasuryAccount | null>(null);
@@ -71,7 +72,7 @@ export default function CashClosingsPage() {
         setClosings(closingsData);
         // Journée de chaque caisse à la date choisie (pas le solde du moment).
         const breakdowns = await Promise.all(
-          accountsData.map((a) => treasuryApi.closingDay({ treasury_account_id: a.id, date }).catch(() => null)),
+          accountsData.map((a) => treasuryApi.closingDay({ treasury_account_id: a.id }).catch(() => null)),
         );
         setDays(Object.fromEntries(breakdowns.filter((d) => d !== null).map((d) => [d.treasury_account_id, d])));
       })
@@ -103,7 +104,6 @@ export default function CashClosingsPage() {
     try {
       await treasuryApi.closeCash({
         treasury_account_id: closingAccount.id,
-        closing_date: date,
         actual_balance: actual,
         justification: justification || undefined,
       });
@@ -130,7 +130,20 @@ export default function CashClosingsPage() {
     }
   }
 
-  const closedAccountIds = new Set(closings.map((c) => c.treasury_account_id));
+  async function handleReopen(account: TreasuryAccount) {
+    setReopeningId(account.id);
+    try {
+      await treasuryApi.reopenCash(account.id);
+      showToast(t('treasury.reopenSuccess'), 'success');
+      load();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('common.error')), 'error');
+    } finally {
+      setReopeningId(null);
+    }
+  }
+
+  const when = (iso: string | null) => (iso ? formatDateTimeFr(iso) : null);
 
   // Une caisse C, O, M… par agence : on regroupe les cartes sous le nom de l'agence.
   const byAgency = accounts.reduce<{ key: string; name: string; accounts: TreasuryAccount[] }[]>((groups, account) => {
@@ -175,7 +188,8 @@ export default function CashClosingsPage() {
             <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{group.name}</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {group.accounts.map((account) => {
-            const closed = closedAccountIds.has(account.id);
+            const journey = days[account.id];
+            const closed = journey?.is_closed ?? false;
             return (
               <div key={account.id} className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
                 <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -184,16 +198,25 @@ export default function CashClosingsPage() {
                   )}
                   <span>{account.name}</span>
                 </div>
-                {days[account.id] ? (
-                  <DayBreakdown day={days[account.id]} t={t} />
+                {journey && (
+                  <p className={`text-xs ${closed ? 'font-medium text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {closed
+                      ? t('treasury.closedSince', { date: when(journey.closed_at) })
+                      : journey.since
+                        ? t('treasury.openSince', { date: when(journey.since) })
+                        : t('treasury.neverClosed')}
+                  </p>
+                )}
+                {journey ? (
+                  <DayBreakdown day={journey} t={t} />
                 ) : (
                   <p className="text-2xl font-semibold text-gray-900 dark:text-white">{formatCurrency(account.balance)}</p>
                 )}
                 {closed ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+                  <Button variant="outline" onClick={() => handleReopen(account)} isLoading={reopeningId === account.id}>
                     <CheckCircle2 className="h-4 w-4" />
-                    {t('treasury.statusClosed')}
-                  </span>
+                    {t('treasury.reopenCash')}
+                  </Button>
                 ) : (
                   <Button variant="outline" onClick={() => openClosing(account)}>
                     <Lock className="h-4 w-4" />
@@ -303,8 +326,11 @@ export default function CashClosingsPage() {
             {closingAccount?.code ? `${closingAccount.code} · ` : ''}{closingAccount?.name}
             {closingAccount?.agency?.name ? ` (${closingAccount.agency.name})` : ''}
             {' — '}
-            {t('treasury.dayBreakdown')} {new Date(`${date}T12:00:00`).toLocaleDateString()}
+            {closingAccount && days[closingAccount.id]?.since
+              ? t('treasury.openSince', { date: when(days[closingAccount.id].since) })
+              : t('treasury.neverClosed')}
           </p>
+          <Alert variant="info">{t('treasury.closeCashWarning')}</Alert>
           {closingAccount && days[closingAccount.id] && (
             <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
               <DayBreakdown day={days[closingAccount.id]} t={t} />

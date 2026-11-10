@@ -41,6 +41,38 @@ class TreasuryTransaction extends Model
         'created_by',
     ];
 
+    /**
+     * Clôture de caisse : une caisse clôturée ne reçoit ni n'émet plus rien
+     * jusqu'à sa réouverture, et une journée clôturée ne bouge plus (un
+     * mouvement daté d'avant la clôture est porté sur la journée en cours).
+     * Les commandes de rattrapage de l'historique désactivent ce contrôle.
+     */
+    public static bool $enforceCashClosing = true;
+
+    protected static function booted(): void
+    {
+        static::creating(function (TreasuryTransaction $transaction) {
+            if (! self::$enforceCashClosing || ! $transaction->treasury_account_id) {
+                return;
+            }
+
+            $open = CashClosing::openFor($transaction->treasury_account_id);
+            if ($open) {
+                $account = TreasuryAccount::find($transaction->treasury_account_id);
+                abort(422, sprintf(
+                    'La caisse « %s » est clôturée depuis le %s : rien n\'y entre ni n\'en sort avant sa réouverture.',
+                    trim(($account?->code ? $account->code.' · ' : '').($account?->name ?? '')),
+                    $open->closed_at?->timezone(config('app.business_timezone', 'Africa/Douala'))->format('d/m/Y à H:i') ?? '?',
+                ));
+            }
+
+            $lastClosedAt = CashClosing::lastClosedAt($transaction->treasury_account_id);
+            if ($lastClosedAt && (! $transaction->transacted_at || $transaction->transacted_at->lte($lastClosedAt))) {
+                $transaction->transacted_at = now()->max($lastClosedAt->copy()->addSecond());
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [

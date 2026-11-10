@@ -79,7 +79,7 @@ Validé avant livraison :
 2. **Base (immédiatement)** : phpPgAdmin → base `sc1fopa5058_pekegno` → onglet **Importer** →
    `migration-2026-11-08.sql`. Contrôle (boîte SQL, SELECT seul) :
    `SELECT migration FROM migrations WHERE migration > '2026_11_04_000001' ORDER BY migration;`
-   → 9 lignes.
+   → 10 lignes.
 3. **Caches** — SSH depuis `~/repositories/pekegno/backend` :
    `php artisan route:clear && php artisan config:clear && php artisan view:clear && php artisan cache:clear`
    puis **vider l'OPcache** : uploader `doc/deploy/reset-opcache.php` dans `backend/public/`,
@@ -115,7 +115,7 @@ Validé avant livraison :
 | Paiement reçu la veille, validé le lendemain | Bilan du jour | Compté le jour de la preuve |
 | Caisse C de Douala | Bilan du jour (bloc Caisses) | Espèces seulement ; OM et MTN dans O et M |
 | Versement en banque | Trésorerie → Transfert | Pas dans les dépenses ; C diminue, B augmente ; au Bilan, colonne « Transferts » et non « Sorties » ; un retrait B → C est refusé |
-| Clôture | Trésorerie → Clôtures | Chaque caisse affiche initial / entrées / sorties / transferts / théorique du jour ; la caissière clôture C ; le chef d'agence valide |
+| Clôture | Trésorerie → Clôtures | La caissière clôture C quand sa journée est finie : ensuite aucun paiement de l'agence n'est validé (message « caisse clôturée »), les factures restent en attente ; « Rouvrir la caisse » démarre une nouvelle journée au solde final de la clôture ; le chef d'agence valide la clôture |
 | Total période / solde consolidé | Bilan du jour, vue période et consolidée | Premier solde initial / dernier solde final ; solde initial du jour = somme des soldes finaux de la veille |
 | Ventes par catégorie | Tableau de bord | Total = carte CA ; plus de « Sans catégorie » géant |
 | Catégorie des versements | Comptabilité → liste | Plus de « — » : chaque versement affiche sa rubrique (Livre, Séminaire, Academy…) |

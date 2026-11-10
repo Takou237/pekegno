@@ -360,6 +360,10 @@ class PaymentProofController extends Controller
     private function review(Request $request, PaymentProof $proof, string $status): JsonResponse
     {
         abort_if($proof->status !== PaymentProof::STATUS_PENDING, 422, 'Cette preuve a déjà été traitée.');
+        if ($status === PaymentProof::STATUS_ACCEPTED) {
+            // Caisse de l'agence clôturée : la preuve attend la réouverture.
+            app(\App\Services\CashClosingService::class)->assertAgencyOpen(Invoice::whereKey($proof->invoice_id)->value('agency_id'));
+        }
 
         DB::transaction(function () use ($request, $proof, $status) {
             $proof->update([

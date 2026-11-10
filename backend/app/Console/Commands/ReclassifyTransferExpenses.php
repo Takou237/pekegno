@@ -32,6 +32,9 @@ class ReclassifyTransferExpenses extends Command
 
     public function handle(TreasuryAccountProvisioner $provisioner): int
     {
+        // Rattrapage de l'historique : les journées déjà clôturées gardent leurs dates.
+        \App\Models\TreasuryTransaction::$enforceCashClosing = false;
+
         $apply = (bool) $this->option('apply');
         $ids = (array) $this->option('id');
 

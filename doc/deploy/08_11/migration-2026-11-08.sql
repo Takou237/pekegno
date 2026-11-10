@@ -5,7 +5,7 @@
 -- État prod de départ : lot `04_11(2)/` appliqué + correctifs master
 --   20a2abe et d923245 (dernière migration en prod : 2026_11_04_000001).
 --
--- Contenu : 9 migrations Laravel (dont le droit trésorerie de la caissière, section G) :
+-- Contenu : 10 migrations Laravel (dont le droit trésorerie de la caissière, section G) :
 --   A. 2026_11_05_000001  invoice_payments.cancelled_at
 --      Paiement annulé avec sa facture (B9).
 --   B. 2026_11_06_000001  invoice_payments.received_at / validated_at / validation_status
@@ -24,6 +24,7 @@
 --   I. 2026_11_09_000001  invoice_items.category_id
 --      Catégorie portée par la ligne de facture (B4), reprise du service.
 --   J. 2026_11_10_000001  products.branch / services.branch
+--   K. 2026_11_10_000003  cash_closings : ouverture / clôture / réouverture de la caisse
 --      Branche de l'article (B24), affichée dans le catalogue de la Comptabilité.
 --
 -- ⚠ Le code de `corrections` lit ces colonnes sur les factures, paiements,
@@ -167,6 +168,20 @@ UPDATE services SET branch = COALESCE((SELECT lower(categories.name) FROM catego
 WHERE branch IS NULL;
 
 -- ------------------------------------------------------------
+-- K. Clôture = fermeture de la caisse — 2026_11_10_000003
+--    La caissière clôture quand sa journée est finie ; la caisse reste
+--    fermée jusqu'à sa réouverture. Plusieurs clôtures par jour possibles.
+-- ------------------------------------------------------------
+ALTER TABLE cash_closings ADD COLUMN IF NOT EXISTS opened_at timestamp(0) without time zone NULL;
+ALTER TABLE cash_closings ADD COLUMN IF NOT EXISTS closed_at timestamp(0) without time zone NULL;
+ALTER TABLE cash_closings ADD COLUMN IF NOT EXISTS reopened_at timestamp(0) without time zone NULL;
+ALTER TABLE cash_closings ADD COLUMN IF NOT EXISTS reopened_by uuid NULL;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'cash_closings_reopened_by_foreign') THEN ALTER TABLE cash_closings ADD CONSTRAINT cash_closings_reopened_by_foreign FOREIGN KEY (reopened_by) REFERENCES users(id) ON DELETE SET NULL; END IF; END $$;
+CREATE INDEX IF NOT EXISTS cash_closings_treasury_account_id_reopened_at_index ON cash_closings (treasury_account_id, reopened_at);
+UPDATE cash_closings SET closed_at = created_at, reopened_at = created_at WHERE closed_at IS NULL;
+ALTER TABLE cash_closings DROP CONSTRAINT IF EXISTS cash_closings_treasury_account_id_closing_date_unique;
+
+-- ------------------------------------------------------------
 -- H. Marque les migrations comme exécutées (évite tout rejeu via artisan)
 -- ------------------------------------------------------------
 INSERT INTO migrations (migration, batch)
@@ -180,7 +195,8 @@ FROM (VALUES
   ('2026_11_07_000001_add_treasury_and_transfer_to_accounting_transactions'),
   ('2026_11_09_000001_add_category_id_to_invoice_items'),
   ('2026_11_10_000001_add_branch_to_products_and_services'),
-  ('2026_11_10_000002_grant_treasury_permissions_to_cashier')
+  ('2026_11_10_000002_grant_treasury_permissions_to_cashier'),
+  ('2026_11_10_000003_make_cash_closings_open_and_close_the_cash_box')
 ) AS v(m)
 WHERE NOT EXISTS (SELECT 1 FROM migrations WHERE migration = v.m);
 
@@ -188,7 +204,7 @@ COMMIT;
 
 -- ------------------------------------------------------------
 -- Contrôles (boîte SQL → SELECT uniquement) :
--- SELECT migration FROM migrations WHERE migration > '2026_11_04_000001' ORDER BY migration;  -- 9 lignes
+-- SELECT migration FROM migrations WHERE migration > '2026_11_04_000001' ORDER BY migration;  -- 10 lignes
 -- SELECT agency_id, code, type, provider FROM treasury_accounts ORDER BY agency_id, code;    -- aucun code vide
 -- SELECT COUNT(*) FROM invoice_payments WHERE received_at IS NULL;                            -- 0
 -- SELECT p.name FROM role_permission rp JOIN roles r ON r.id = rp.role_id

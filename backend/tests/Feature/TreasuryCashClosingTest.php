@@ -141,13 +141,11 @@ class TreasuryCashClosingTest extends TestCase
 
         $this->postJson('/api/treasury/closings', [
             'treasury_account_id' => $cash->id,
-            'closing_date' => now()->toDateString(),
             'actual_balance' => 9000,
         ])->assertStatus(422);
 
         $closing = $this->postJson('/api/treasury/closings', [
             'treasury_account_id' => $cash->id,
-            'closing_date' => now()->toDateString(),
             'actual_balance' => 9000,
             'justification' => 'Billet manquant',
         ])->assertStatus(201)->json();
@@ -167,7 +165,6 @@ class TreasuryCashClosingTest extends TestCase
 
         $closing = $this->postJson('/api/treasury/closings', [
             'treasury_account_id' => $cash->id,
-            'closing_date' => now()->toDateString(),
             'actual_balance' => 7500,
         ])->assertStatus(201)->json();
 
@@ -213,18 +210,17 @@ class TreasuryCashClosingTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_a_cash_can_only_be_closed_once_per_day(): void
+    public function test_a_closed_cash_must_be_reopened_before_closing_again(): void
     {
         $cash = $this->account('C', 'cash');
         Sanctum::actingAs($this->userWithRole('caissier'));
 
-        $payload = [
-            'treasury_account_id' => $cash->id,
-            'closing_date' => now()->toDateString(),
-            'actual_balance' => 0,
-        ];
+        $payload = ['treasury_account_id' => $cash->id, 'actual_balance' => 0];
 
         $this->postJson('/api/treasury/closings', $payload)->assertStatus(201);
         $this->postJson('/api/treasury/closings', $payload)->assertStatus(422);
+        $this->postJson("/api/treasury/accounts/{$cash->id}/reopen")->assertOk();
+        // Nouvelle journée : une seconde clôture le même jour est permise.
+        $this->postJson('/api/treasury/closings', $payload)->assertStatus(201);
     }
 }

@@ -28,6 +28,10 @@ class PaymentService
         \DateTimeInterface|string|null $paidAt = null,
         \DateTimeInterface|string|null $receivedAt = null,
     ): void {
+        // Caisse de l'agence clôturée par la caissière : rien n'est encaissé
+        // avant sa réouverture (la facture reste en attente).
+        app(CashClosingService::class)->assertAgencyOpen($invoice->agency_id);
+
         // Déterminer le compte de trésorerie
         $account = $this->resolveAccount($treasuryAccountId, $invoice, $method);
 

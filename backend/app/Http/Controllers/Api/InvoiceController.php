@@ -957,6 +957,8 @@ class InvoiceController extends Controller
     public function validateInvoice(Request $request, Invoice $invoice): JsonResponse
     {
         $this->ensureInvoiceInScope($invoice, $request->user());
+        // Caisse clôturée : la validation attend la réouverture (rien n'est modifié).
+        app(\App\Services\CashClosingService::class)->assertAgencyOpen($invoice->agency_id);
         abort_if($invoice->validation_status === Invoice::VALIDATION_VALIDATED, 422, 'Cette facture est déjà validée.');
         abort_if($invoice->validation_status !== Invoice::VALIDATION_PENDING, 422, 'Seule une facture en attente peut être validée.');
 

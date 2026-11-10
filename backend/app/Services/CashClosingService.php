@@ -13,10 +13,11 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * T2.8 / T2.9 — clôture journalière d'une caisse.
+ * T2.8 / T2.9 — clôture d'une caisse.
  *
- * Le solde théorique est le solde comptable à la fin de la journée ; la
- * caissière saisit le solde physique constaté. Tout écart non nul exige une
+ * La caissière clôture sa caisse quand sa journée de travail est finie : la
+ * caisse se ferme jusqu'à sa réouverture. Le solde théorique est le solde
+ * comptable à la clôture ; la caissière saisit le solde physique constaté. Tout écart non nul exige une
  * justification (T2.9) et déclenche une alerte au chef d'agence (T2.10).
  */
 class CashClosingService
@@ -76,22 +77,76 @@ class CashClosingService
         );
     }
 
+    /**
+     * Journée en cours d'une caisse : depuis sa dernière clôture (ou depuis
+     * toujours) jusqu'à maintenant. Une journée n'est pas un jour du
+     * calendrier : elle commence à la réouverture et finit à la clôture.
+     *
+     * @return array{opening: float, in: float, out: float, transfer_in: float, transfer_out: float, closing: float, is_closed: bool, since: ?string, closed_at: ?string, open_closing_id: ?string}
+     */
+    public function currentJourney(TreasuryAccount $account): array
+    {
+        $open = CashClosing::openFor($account->id);
+        if ($open) {
+            // Caisse fermée : on montre la journée clôturée, figée.
+            return $this->between($account, $open->opened_at, $open->closed_at) + [
+                'is_closed' => true,
+                'since' => $open->opened_at?->toIso8601String(),
+                'closed_at' => $open->closed_at?->toIso8601String(),
+                'open_closing_id' => $open->id,
+            ];
+        }
+
+        $since = CashClosing::lastClosedAt($account->id);
+
+        return $this->between($account, $since, now()) + [
+            'is_closed' => false,
+            'since' => $since?->toIso8601String(),
+            'closed_at' => null,
+            'open_closing_id' => null,
+        ];
+    }
+
+    /**
+     * Détail d'une journée (cahier §2) entre deux instants : solde initial,
+     * entrées, sorties, transferts reçus / envoyés, solde théorique.
+     *
+     * @return array{opening: float, in: float, out: float, transfer_in: float, transfer_out: float, closing: float}
+     */
+    public function between(TreasuryAccount $account, ?\DateTimeInterface $from, ?\DateTimeInterface $to): array
+    {
+        [$flowSql, $bindings] = TreasuryFlows::selectSql();
+        // Un mouvement à l'instant exact de la clôture appartient à la journée close.
+        $start = $from ? Carbon::instance($from)->addSecond() : Carbon::create(1970);
+
+        $row = DB::table('treasury_transactions')
+            ->whereNull('deleted_at')
+            ->where('treasury_account_id', $account->id)
+            ->where('transacted_at', '<=', $to ?? now())
+            ->selectRaw($flowSql, array_fill(0, $bindings, $start))
+            ->first();
+
+        return TreasuryFlows::fromRow($row, (float) $account->opening_balance);
+    }
+
+    /**
+     * Clôture = fin de la journée de travail, décidée par la caissière. La
+     * caisse se ferme : rien n'y entre ni n'en sort, et les paiements de
+     * l'agence attendent sa réouverture. Le solde final calculé devient le
+     * solde initial de la journée suivante.
+     */
     public function close(
         User $user,
         TreasuryAccount $account,
-        string $closingDate,
         float $actualBalance,
         ?string $justification = null,
     ): CashClosing {
-        $date = Carbon::parse($closingDate)->toDateString();
+        abort_if(CashClosing::openFor($account->id) !== null, 422, 'Cette caisse est déjà clôturée : rouvrez-la pour commencer une nouvelle journée.');
 
-        abort_if(
-            CashClosing::where('treasury_account_id', $account->id)->whereDate('closing_date', $date)->exists(),
-            422,
-            'Cette caisse est déjà clôturée pour cette date.'
-        );
-
-        $theoretical = $this->theoreticalBalance($account, $date);
+        $now = now();
+        $since = CashClosing::lastClosedAt($account->id);
+        $journey = $this->between($account, $since, $now);
+        $theoretical = Money::round($journey['closing'], 2);
         $difference = Money::round($actualBalance - $theoretical, 2);
         $justification = trim((string) $justification);
 
@@ -104,8 +159,10 @@ class CashClosingService
         $closing = CashClosing::create([
             'agency_id' => $account->agency_id,
             'treasury_account_id' => $account->id,
-            'closing_date' => $date,
-            'opening_balance' => $this->openingBalance($account, $date),
+            'closing_date' => $now->copy()->timezone(Period::timezoneForAgency($account->agency))->toDateString(),
+            'opened_at' => $since,
+            'closed_at' => $now,
+            'opening_balance' => Money::round($journey['opening'], 2),
             'theoretical_balance' => $theoretical,
             'actual_balance' => Money::round($actualBalance, 2),
             'difference' => $difference,
@@ -119,6 +176,41 @@ class CashClosingService
         }
 
         return $closing->load('account');
+    }
+
+    /** Réouverture : une nouvelle journée commence, au solde final de la clôture. */
+    public function reopen(User $user, TreasuryAccount $account): CashClosing
+    {
+        $open = CashClosing::openFor($account->id);
+        abort_if($open === null, 422, 'Cette caisse est déjà ouverte.');
+
+        $open->update(['reopened_at' => now(), 'reopened_by' => $user->id]);
+
+        return $open->load('account');
+    }
+
+    /**
+     * Toute validation de paiement de l'agence attend la réouverture de sa
+     * caisse espèces quand la caissière l'a clôturée.
+     */
+    public function assertAgencyOpen(?string $agencyId): void
+    {
+        if (! $agencyId) {
+            return;
+        }
+
+        $open = CashClosing::query()
+            ->whereNull('reopened_at')
+            ->whereHas('account', fn ($q) => $q->where('agency_id', $agencyId)->where('type', 'cash'))
+            ->with('account')
+            ->latest('closed_at')
+            ->first();
+
+        abort_if($open !== null, 422, sprintf(
+            'La caisse %s de l\'agence est clôturée depuis le %s : les encaissements et validations attendent sa réouverture.',
+            $open?->account?->code ?? 'C',
+            $open?->closed_at?->timezone(Period::timezoneForAgency($open?->account?->agency))->format('d/m/Y à H:i') ?? '?',
+        ));
     }
 
     /**

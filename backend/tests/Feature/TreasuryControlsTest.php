@@ -193,25 +193,50 @@ class TreasuryControlsTest extends TestCase
 
     // --- T2.9 / T2.10 : clôture ---------------------------------------------------
 
-    public function test_closing_uses_the_local_business_day(): void
+    public function test_closing_ends_the_working_day_and_locks_the_cash_box(): void
     {
+        $admin = $this->user('super-admin', false);
         $cash = $this->account('C');
-        // 01/11 23:30 UTC = 02/11 00:30 à Douala : appartient à la journée du 02/11.
-        app(TreasuryService::class)->recordMovement($cash, 'in', 10000, 'Vente nocturne', transactedAt: '2026-11-01 23:30:00');
+        Carbon::setTestNow('2026-11-02 08:00:00');
+        app(TreasuryService::class)->recordMovement($cash, 'in', 10000, 'Vente du matin');
 
-        Sanctum::actingAs($this->user('caissier'));
+        // 17:00 : la caissière finit sa journée.
+        Carbon::setTestNow('2026-11-02 17:00:00');
+        $cashier = $this->user('caissier');
+        Sanctum::actingAs($cashier);
         $closing = $this->postJson('/api/treasury/closings', [
             'treasury_account_id' => $cash->id,
-            'closing_date' => '2026-11-01',
-            'actual_balance' => 0,
-        ])->assertCreated()->json();
-
-        $this->assertEquals(0, $closing['theoretical_balance']);
-        $this->assertEquals(10000, $this->postJson('/api/treasury/closings', [
-            'treasury_account_id' => $cash->id,
-            'closing_date' => '2026-11-02',
             'actual_balance' => 10000,
-        ])->assertCreated()->json('theoretical_balance'));
+        ])->assertCreated()->json();
+        $this->assertEquals(10000, $closing['theoretical_balance']);
+        $this->assertTrue($this->getJson("/api/treasury/closings/day?treasury_account_id={$cash->id}")->json('is_closed'));
+
+        // Caisse fermée : rien n'est encaissé, la facture reste en attente.
+        Carbon::setTestNow('2026-11-02 18:00:00');
+        $pending = $this->invoice(['validation_status' => Invoice::VALIDATION_PENDING, 'declared_advance' => 5000, 'payment_type' => 'cash']);
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/invoices/{$pending->id}/validate")->assertStatus(422);
+        $this->assertSame(Invoice::VALIDATION_PENDING, $pending->fresh()->validation_status);
+        try {
+            app(PaymentService::class)->applyPayment($this->invoice(), 2000, 'cash', false, $admin->id);
+            $this->fail('Un paiement ne doit pas entrer dans une caisse clôturée.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(422, $e->getStatusCode());
+        }
+        $this->assertSame(10000.0, (float) $cash->fresh()->computed_balance);
+
+        // Réouverture le lendemain : nouvelle journée, solde initial = solde final.
+        Carbon::setTestNow('2026-11-03 08:00:00');
+        Sanctum::actingAs($cashier);
+        $this->postJson("/api/treasury/accounts/{$cash->id}/reopen")->assertOk();
+        // Paiement reçu la veille (avant la clôture) : il entre dans la journée en cours.
+        app(PaymentService::class)->applyPayment($this->invoice(), 3000, 'cash', false, $admin->id, null, null, '2026-11-02 16:00:00');
+
+        $day = $this->getJson("/api/treasury/closings/day?treasury_account_id={$cash->id}")->assertOk()->json();
+        $this->assertFalse($day['is_closed']);
+        $this->assertEquals(10000, $day['opening']);
+        $this->assertEquals(3000, $day['in']);
+        $this->assertEquals(13000, $day['closing']);
     }
 
     public function test_only_the_agency_chief_validates_a_closing(): void
@@ -331,7 +356,8 @@ class TreasuryControlsTest extends TestCase
         // Clôture : même détail, et solde théorique = initial + entrées − sorties ± transferts.
         $this->assertSame($expected, app(\App\Services\CashClosingService::class)->dayBreakdown($c->fresh(), '2026-11-02'));
         $this->assertSame(136000.0, app(\App\Services\CashClosingService::class)->theoreticalBalance($c->fresh(), '2026-11-02'));
-        $day = $this->getJson("/api/treasury/closings/day?treasury_account_id={$c->id}&date=2026-11-02")->assertOk()->json();
+        // Écran Clôtures : journée en cours (aucune clôture encore) = même détail.
+        $day = $this->getJson("/api/treasury/closings/day?treasury_account_id={$c->id}")->assertOk()->json();
         foreach ($expected as $key => $value) {
             $this->assertEquals($value, $day[$key], $key);
         }

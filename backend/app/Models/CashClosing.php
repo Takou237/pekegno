@@ -19,6 +19,10 @@ class CashClosing extends Model
         'agency_id',
         'treasury_account_id',
         'closing_date',
+        'opened_at',
+        'closed_at',
+        'reopened_at',
+        'reopened_by',
         'opening_balance',
         'theoretical_balance',
         'actual_balance',
@@ -39,6 +43,9 @@ class CashClosing extends Model
             'actual_balance' => 'decimal:2',
             'difference' => 'decimal:2',
             'validated_at' => 'datetime',
+            'opened_at' => 'datetime',
+            'closed_at' => 'datetime',
+            'reopened_at' => 'datetime',
         ];
     }
 
@@ -60,6 +67,25 @@ class CashClosing extends Model
     public function validator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'validated_by');
+    }
+
+    public function reopener(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reopened_by');
+    }
+
+    /** Clôture en cours (caisse fermée, pas encore rouverte) d'une caisse. */
+    public static function openFor(string $accountId): ?self
+    {
+        return static::where('treasury_account_id', $accountId)->whereNull('reopened_at')->latest('closed_at')->first();
+    }
+
+    /** Fin de la dernière journée clôturée d'une caisse (null : jamais clôturée). */
+    public static function lastClosedAt(string $accountId): ?\Illuminate\Support\Carbon
+    {
+        $value = static::where('treasury_account_id', $accountId)->max('closed_at');
+
+        return $value ? \Illuminate\Support\Carbon::parse($value) : null;
     }
 
     public function hasDifference(): bool

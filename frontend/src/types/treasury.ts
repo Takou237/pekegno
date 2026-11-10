@@ -84,6 +84,17 @@ export interface CashDayBreakdown {
   closing: number;
 }
 
+/** Journée de travail d'une caisse : de la réouverture à la clôture. */
+export interface CashJourney extends CashDayBreakdown {
+  treasury_account_id: string;
+  /** Caisse fermée par la caissière : rien n'y entre ni n'en sort. */
+  is_closed: boolean;
+  /** Début de la journée (dernière clôture), null si jamais clôturée. */
+  since: string | null;
+  closed_at: string | null;
+  open_closing_id: string | null;
+}
+
 export type CashClosingStatus = 'closed' | 'validated';
 
 export interface CashClosing {
@@ -116,7 +127,6 @@ export interface CashClosingListParams {
 
 export interface CloseCashPayload {
   treasury_account_id: string;
-  closing_date: string;
   actual_balance: number;
   justification?: string;
 }

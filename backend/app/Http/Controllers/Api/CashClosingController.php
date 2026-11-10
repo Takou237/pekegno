@@ -40,10 +40,12 @@ class CashClosingController extends Controller
             $query->where('treasury_account_id', $data['treasury_account_id']);
         }
 
-        // Détail du jour (entrées, sorties, transferts) à côté des soldes enregistrés.
+        // Détail de la journée clôturée (entrées, sorties, transferts).
         return $query->get()->map(fn (CashClosing $closing) => array_merge($closing->toArray(), [
             'breakdown' => $closing->account
-                ? $service->dayBreakdown($closing->account, Carbon::parse($closing->closing_date)->toDateString())
+                ? ($closing->closed_at && ! $closing->reopened_at?->equalTo($closing->created_at)
+                    ? $service->between($closing->account, $closing->opened_at, $closing->closed_at)
+                    : $service->dayBreakdown($closing->account, Carbon::parse($closing->closing_date)->toDateString()))
                 : null,
         ]));
     }
@@ -56,7 +58,6 @@ class CashClosingController extends Controller
     {
         $data = $request->validate([
             'treasury_account_id' => ['required', 'uuid'],
-            'date' => ['required', 'date'],
         ]);
 
         $account = TreasuryAccount::with('agency')->findOrFail($data['treasury_account_id']);
@@ -69,11 +70,10 @@ class CashClosingController extends Controller
             'Cette caisse est hors de votre périmètre.'
         );
 
-        $date = Carbon::parse($data['date'])->toDateString();
-
+        // Journée en cours (depuis la dernière clôture) ou journée clôturée.
         return response()->json(array_merge(
-            ['treasury_account_id' => $account->id, 'date' => $date],
-            $service->dayBreakdown($account, $date),
+            ['treasury_account_id' => $account->id],
+            $service->currentJourney($account),
         ));
     }
 
@@ -81,7 +81,6 @@ class CashClosingController extends Controller
     {
         $data = $request->validate([
             'treasury_account_id' => ['required', 'uuid'],
-            'closing_date' => ['required', 'date'],
             'actual_balance' => ['required', 'numeric', 'min:0'],
             'justification' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -100,12 +99,26 @@ class CashClosingController extends Controller
             $service->close(
                 $request->user(),
                 $account,
-                $data['closing_date'],
                 (float) $data['actual_balance'],
                 $data['justification'] ?? null,
             ),
             201
         );
+    }
+
+    /** Réouverture de la caisse : une nouvelle journée commence. */
+    public function reopen(Request $request, TreasuryAccount $account, CashClosingService $service, ScopeService $scope)
+    {
+        $this->authorize('view', $account);
+
+        $scopeIds = $scope->agencyIds($request->user());
+        abort_if(
+            $scopeIds !== null && $account->agency_id !== null && ! in_array($account->agency_id, $scopeIds, true),
+            403,
+            'Cette caisse est hors de votre périmètre.'
+        );
+
+        return response()->json($service->reopen($request->user(), $account));
     }
 
     public function validateClosing(Request $request, CashClosing $closing, CashClosingService $service, ScopeService $scope)

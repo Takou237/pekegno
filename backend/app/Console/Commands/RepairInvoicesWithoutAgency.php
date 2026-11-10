@@ -26,6 +26,9 @@ class RepairInvoicesWithoutAgency extends Command
 
     public function handle(SaleAgencyResolver $resolver): int
     {
+        // Rattrapage de l'historique : les journées déjà clôturées gardent leurs dates.
+        \App\Models\TreasuryTransaction::$enforceCashClosing = false;
+
         $invoices = Invoice::whereNull('agency_id')->orderBy('created_at')->get();
 
         if ($invoices->isEmpty()) {

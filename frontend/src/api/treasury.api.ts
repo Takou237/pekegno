@@ -1,7 +1,7 @@
 import { client } from './client';
 import type {
   CashClosing,
-  CashDayBreakdown,
+  CashJourney,
   CashClosingListParams,
   CloseCashPayload,
   TreasuryAccount,
@@ -39,8 +39,14 @@ export const treasuryApi = {
   },
 
   /** Journée d'une caisse avant clôture : solde initial, entrées, sorties, transferts, théorique. */
-  closingDay(params: { treasury_account_id: string; date: string }): Promise<CashDayBreakdown & { treasury_account_id: string; date: string }> {
+  /** Journée en cours de la caisse (depuis sa dernière clôture), ou journée clôturée si elle est fermée. */
+  closingDay(params: { treasury_account_id: string }): Promise<CashJourney> {
     return client.get('/treasury/closings/day', { params }).then((r) => r.data);
+  },
+
+  /** Rouvre la caisse : une nouvelle journée commence au solde final de la clôture. */
+  reopenCash(accountId: string): Promise<CashClosing> {
+    return client.post(`/treasury/accounts/${accountId}/reopen`).then((r) => r.data);
   },
 
   closeCash(payload: CloseCashPayload): Promise<CashClosing> {
