@@ -34,8 +34,9 @@ class TrainingSessionResource extends JsonResource
             'start_at' => $this->start_at?->toISOString(),
             'end_at' => $this->end_at?->toISOString(),
             'max_capacity' => $this->max_capacity,
-            'price' => $this->price !== null ? (float) $this->price : null,
-            'effective_price' => $this->effective_price,
+            // Cahier §5 : un formateur ne voit pas les montants.
+            'price' => $request->user()?->role?->name === 'formateur' ? null : ($this->price !== null ? (float) $this->price : null),
+            'effective_price' => $request->user()?->role?->name === 'formateur' ? null : $this->effective_price,
             'duration_type' => $this->duration_type,
             'status' => $this->status,
             'enrollments_count' => $this->enrollments_count ?? null,

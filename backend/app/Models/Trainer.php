@@ -63,4 +63,44 @@ class Trainer extends Model
         return trim(($this->first_name ?? '').' '.($this->last_name ?? ''))
             ?: ($this->email ?? '');
     }
+
+    public function modules(): HasMany
+    {
+        return $this->hasMany(CourseModule::class);
+    }
+
+    /** Profil formateur du compte connecté (null : pas formateur). */
+    public static function forUser(?User $user): ?self
+    {
+        return $user ? static::where('user_id', $user->id)->first() : null;
+    }
+
+    /** Modules de la formation confiés à ce formateur. */
+    public function moduleIdsForCourse(?string $courseId): array
+    {
+        return $courseId ? $this->modules()->where('course_id', $courseId)->pluck('id')->all() : [];
+    }
+
+    /** Formateur principal de la session (il voit toute la session). */
+    public function isMainTrainerOf(TrainingSession $session): bool
+    {
+        return $session->trainer_id !== null && $session->trainer_id === $this->id;
+    }
+
+    /**
+     * Sessions accessibles : celles qu'il anime, et celles des formations dont
+     * un module lui est confié (il n'y voit que son module).
+     *
+     * @return array<int, string>
+     */
+    public function accessibleSessionIds(): array
+    {
+        $moduleCourses = $this->modules()->pluck('course_id')->unique()->all();
+
+        return TrainingSession::query()
+            ->where(fn ($q) => $q->where('trainer_id', $this->id)
+                ->when($moduleCourses !== [], fn ($q) => $q->orWhereIn('course_id', $moduleCourses)))
+            ->pluck('id')
+            ->all();
+    }
 }

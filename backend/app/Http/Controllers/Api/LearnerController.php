@@ -61,9 +61,11 @@ class LearnerController extends Controller
             return null;
         }
 
-        $trainer = Trainer::where('user_id', $request->user()?->id)->first();
+        $trainer = Trainer::forUser($request->user());
 
-        return $trainer ? $trainer->sessions()->pluck('id')->all() : [];
+        // Ses apprenants seulement : ceux des sessions qu'il anime et des
+        // sessions des formations dont un module lui est confié.
+        return $trainer ? $trainer->accessibleSessionIds() : [];
     }
 
     /**

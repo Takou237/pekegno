@@ -2590,6 +2590,7 @@ export default {
   },
 
   academy: {
+    myModulesOnly: 'Votre module : {{modules}}',
     title: 'Formations',
     subtitle: 'Ligne Academy de l\'agence : formations, formateurs et apprenants.',
     loadFailed: 'Impossible de charger les données Academy.',

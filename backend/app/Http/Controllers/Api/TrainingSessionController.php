@@ -32,6 +32,14 @@ class TrainingSessionController extends Controller
     /** Réduit la requête au périmètre organisationnel : sessions des agences autorisées (une session hérite de l'agence de son cours sinon de la sienne). */
     private function scopeQuery(Request $request, $query)
     {
+        // Formateur : seulement ses sessions (animées, ou d'une formation dont
+        // un module lui est confié), quelle que soit l'agence.
+        if ($request->user()?->role?->name === 'formateur') {
+            $trainer = \App\Models\Trainer::forUser($request->user());
+
+            return $query->whereIn('training_sessions.id', $trainer ? $trainer->accessibleSessionIds() : []);
+        }
+
         // Les sessions sont demandées pour une formation précise (course_id) :
         // le périmètre est déjà porté par ce choix, on n'applique pas le scope
         // d'agence (indispensable pour une formation d'un autre pays).
@@ -164,8 +172,13 @@ class TrainingSessionController extends Controller
             new OA\Response(response: 404, description: 'Session non trouvée'),
         ]
     )]
-    public function show(TrainingSession $trainingSession): TrainingSessionResource
+    public function show(Request $request, TrainingSession $trainingSession): TrainingSessionResource
     {
+        if ($request->user()?->role?->name === 'formateur') {
+            $trainer = \App\Models\Trainer::forUser($request->user());
+            abort_unless($trainer && in_array($trainingSession->id, $trainer->accessibleSessionIds(), true), 404);
+        }
+
         return new TrainingSessionResource(
             $trainingSession
                 ->load(['course', 'trainer', 'agency'])

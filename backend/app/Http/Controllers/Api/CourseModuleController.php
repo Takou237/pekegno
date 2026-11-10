@@ -14,6 +14,16 @@ class CourseModuleController extends Controller
     {
         $modules = $course->modules()->with('trainer')->get();
 
+        // Formateur d'un module seulement (il n'anime aucune session de la
+        // formation) : il ne voit que les modules qui lui sont confiés.
+        if ($request->user()?->role?->name === 'formateur') {
+            $trainer = \App\Models\Trainer::forUser($request->user());
+            $animates = $trainer && $course->sessions()->where('trainer_id', $trainer->id)->exists();
+            if (! $animates) {
+                $modules = $modules->where('trainer_id', $trainer?->id)->values();
+            }
+        }
+
         return response()->json($modules);
     }
 

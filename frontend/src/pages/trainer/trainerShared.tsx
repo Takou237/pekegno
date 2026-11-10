@@ -87,6 +87,11 @@ export function TrainerSessionsTable({
                 <tr key={session.id}>
                   <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-100">
                     {session.course?.name ?? '—'}
+                    {session.is_main_trainer === false && (session.my_modules ?? []).length > 0 && (
+                      <span className="mt-0.5 block text-xs font-normal text-brand-600 dark:text-brand-400">
+                        {t('academy.myModulesOnly', { modules: (session.my_modules ?? []).map((m) => m.name).join(', ') })}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                     {new Date(session.start_at).toLocaleString(currentLocale(), {

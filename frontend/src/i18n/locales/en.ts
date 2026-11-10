@@ -2577,6 +2577,7 @@ export default {
   },
 
   academy: {
+    myModulesOnly: 'Your module: {{modules}}',
     title: 'Training',
     subtitle: 'Agency Academy line: courses, trainers and learners.',
     loadFailed: 'Unable to load Academy data.',

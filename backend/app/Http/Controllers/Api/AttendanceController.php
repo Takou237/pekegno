@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
+use App\Models\Trainer;
 use App\Models\TrainingSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class AttendanceController extends Controller
     public function index(TrainingSession $session, Request $request): JsonResponse
     {
         $moduleId = $request->input('course_module_id');
+        $this->assertTrainerScope($request, $session, $moduleId);
 
         return response()->json(['attendances' => $this->roster($session, $moduleId)]);
     }
@@ -25,14 +27,16 @@ class AttendanceController extends Controller
     public function bulkUpdate(Request $request, TrainingSession $session): JsonResponse
     {
         $caller = $request->user();
-        $isSessionTrainer = $session->trainer_id !== null
-            && $session->trainer()->where('user_id', $caller->id)->exists();
+        $trainer = Trainer::forUser($caller);
+        $isSessionTrainer = $trainer?->isMainTrainerOf($session) ?? false;
+        $isModuleTrainer = $trainer && $trainer->moduleIdsForCourse($session->course_id) !== [];
 
         abort_unless(
-            $caller->hasPermission('presences.modifier') || $isSessionTrainer,
+            $caller->hasPermission('presences.modifier') || $isSessionTrainer || $isModuleTrainer,
             403,
             'Seul le formateur de la session ou un responsable peut saisir les présences.'
         );
+        $this->assertTrainerScope($request, $session, $request->input('course_module_id'));
 
         $data = $request->validate([
             'attendances' => ['required', 'array'],
@@ -62,6 +66,35 @@ class AttendanceController extends Controller
         });
 
         return response()->json(['attendances' => $this->roster($session, $moduleId)]);
+    }
+
+    /**
+     * Un formateur ne pointe que dans son périmètre : toute la session s'il en
+     * est le formateur principal ; sinon seulement le module qui lui est confié
+     * dans cette formation. Les responsables (hors formateurs) ne sont pas
+     * concernés.
+     */
+    private function assertTrainerScope(Request $request, TrainingSession $session, ?string $moduleId): void
+    {
+        $user = $request->user();
+        if (! $user || $user->role?->name !== 'formateur') {
+            return;
+        }
+
+        $trainer = Trainer::forUser($user);
+        abort_if($trainer === null, 403, 'Aucun profil formateur lié à ce compte.');
+
+        if ($trainer->isMainTrainerOf($session)) {
+            return;
+        }
+
+        $myModules = $trainer->moduleIdsForCourse($session->course_id);
+        abort_if($myModules === [], 403, 'Cette session ne fait pas partie de vos formations.');
+        abort_unless(
+            $moduleId !== null && in_array($moduleId, $myModules, true),
+            403,
+            'Vous ne pouvez faire l\'appel que pour le module qui vous est confié.'
+        );
     }
 
     /**

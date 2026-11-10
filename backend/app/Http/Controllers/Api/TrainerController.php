@@ -339,7 +339,9 @@ class TrainerController extends Controller
         // sessions peuvent être rattachées à une autre agence (ou à aucune),
         // et le filtre d'agence les masquait alors toutes.
         if ($user && $trainer->user_id && $user->id === $trainer->user_id) {
-            return $query;
+            // Son espace : les sessions qu'il anime et celles des formations dont
+            // un module lui est confié (il n'y voit que son module).
+            return \App\Models\TrainingSession::query()->whereIn('id', $trainer->accessibleSessionIds());
         }
 
         $agencyIds = $this->scopeService->agencyIds($user);
@@ -445,7 +447,8 @@ class TrainerController extends Controller
         $attendance = AttendanceStats::compute($sessions);
 
         // Revenus potentiels : participants (non annulés) de chaque session × son prix effectif.
-        $revenue = $sessions->sum(function ($session) use ($participants) {
+        // Revenus : seulement les sessions qu'il anime (pas celles où il n'a qu'un module).
+        $revenue = $sessions->where('trainer_id', $trainer->id)->sum(function ($session) use ($participants) {
             return $participants->where('training_session_id', $session->id)->count() * $session->effective_price;
         });
 
@@ -678,10 +681,10 @@ class TrainerController extends Controller
                     'status' => $invoice->status,
                 ])
                 ->all(),
-            'recent_sessions' => $recentSessions->map(fn ($s) => $this->formatSession($s))->values(),
-            'upcoming_sessions' => $upcomingSessions->map(fn ($s) => $this->formatSession($s))->values(),
-            'all_sessions' => $allSessions->map(fn ($s) => $this->formatSession($s))->values(),
-            'all_upcoming_sessions' => $allUpcomingSessions->map(fn ($s) => $this->formatSession($s))->values(),
+            'recent_sessions' => $recentSessions->map(fn ($s) => $this->formatSession($s, $trainer))->values(),
+            'upcoming_sessions' => $upcomingSessions->map(fn ($s) => $this->formatSession($s, $trainer))->values(),
+            'all_sessions' => $allSessions->map(fn ($s) => $this->formatSession($s, $trainer))->values(),
+            'all_upcoming_sessions' => $allUpcomingSessions->map(fn ($s) => $this->formatSession($s, $trainer))->values(),
             'assigned_modules' => $assignedModules->map(fn ($m) => [
                 'id' => $m->id,
                 'name' => $m->name,
@@ -691,9 +694,19 @@ class TrainerController extends Controller
         ]);
     }
 
-    private function formatSession(\App\Models\TrainingSession $session): array
+    private function formatSession(\App\Models\TrainingSession $session, ?Trainer $trainer = null): array
     {
+        $isMain = $trainer === null || $session->trainer_id === $trainer->id;
+
         return [
+            // Formateur principal : toute la session ; sinon seulement ses modules.
+            'is_main_trainer' => $isMain,
+            'my_modules' => $isMain || ! $trainer ? [] : CourseModule::where('trainer_id', $trainer->id)
+                ->where('course_id', $session->course_id)
+                ->orderBy('order_index')
+                ->get(['id', 'name'])
+                ->map(fn ($m) => ['id' => $m->id, 'name' => $m->name])
+                ->all(),
             'id' => $session->id,
             'course' => [
                 'id' => $session->course?->id,

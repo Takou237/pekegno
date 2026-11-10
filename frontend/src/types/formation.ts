@@ -354,6 +354,9 @@ export interface TrainerSessionItem {
   start_at: string;
   status: SessionStatus;
   enrollments_count: number;
+  /** Formateur principal (toute la session) ou seulement formateur de modules. */
+  is_main_trainer?: boolean;
+  my_modules?: { id: string; name: string }[];
 }
 
 export interface TrainerStats {
