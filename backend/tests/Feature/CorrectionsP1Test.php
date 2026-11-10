@@ -280,6 +280,27 @@ class CorrectionsP1Test extends TestCase
         $this->assertEquals(40000, $row['invoice']['declared_advance']);
     }
 
+    public function test_potential_revenue_counts_each_enrollment_share_once(): void
+    {
+        $agency = $this->agency();
+        $course = Course::factory()->create(['agency_id' => $agency->id, 'price' => 189000]);
+        $enroll = fn (Invoice $invoice) => FormationEnrollment::create([
+            'course_id' => $course->id, 'learner_user_id' => User::factory()->create()->id,
+            'invoice_id' => $invoice->id, 'enrolled_at' => now(), 'status' => 'enrolled',
+        ]);
+
+        // Une facture pour deux inscriptions (378 000), une autre avec un livre en plus.
+        $shared = $this->invoice($agency, 378000, [['line_total' => 378000]]);
+        $enroll($shared);
+        $enroll($shared);
+        $mixed = $this->invoice($agency, 194000, [['line_total' => 189000], ['service_id' => $this->service('Livre')->id, 'line_total' => 5000]]);
+        $enroll($mixed);
+
+        // 3 inscriptions × 189 000 = 567 000 (jamais 378 000 × 2 + 194 000).
+        $row = collect(app(\App\Services\AcademyReportService::class)->groupStats(null)['by_formation'])->firstWhere('id', $course->id);
+        $this->assertEqualsWithDelta(567000, $row['potential_revenue'], 0.01);
+    }
+
     // --- B8 ------------------------------------------------------------------------
 
     public function test_rejected_and_cancelled_invoices_stay_findable(): void

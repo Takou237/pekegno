@@ -324,9 +324,32 @@ class AcademyReportService
     {
         $price = (float) ($course->effective_price ?? $course->price ?? 0);
 
-        return round((float) $enrollments->sum(function (FormationEnrollment $e) use ($price) {
+        // B7 : chaque inscription compte pour SA part de la facture : la part
+        // « formation » (lignes libres, hors articles du catalogue, packages,
+        // prestations) répartie entre les inscriptions de cette facture. Une
+        // facture de plusieurs inscriptions, ou avec un livre en plus, n'est
+        // donc jamais comptée en entier pour chaque inscription.
+        $invoiceIds = $enrollments->pluck('invoice_id')->filter()->unique()->values();
+        $lines = $invoiceIds->isEmpty() ? collect() : \Illuminate\Support\Facades\DB::table('invoice_items')
+            ->whereIn('invoice_id', $invoiceIds)
+            ->groupBy('invoice_id')
+            ->selectRaw('invoice_id, sum(line_total) as all_lines, sum(case when service_id is null and product_id is null and package_id is null and prestation_id is null then line_total else 0 end) as formation_lines')
+            ->get()
+            ->keyBy('invoice_id');
+        $perInvoice = $invoiceIds->isEmpty() ? collect() : FormationEnrollment::query()
+            ->whereIn('invoice_id', $invoiceIds)
+            ->selectRaw('invoice_id, count(*) as total')
+            ->groupBy('invoice_id')
+            ->pluck('total', 'invoice_id');
+
+        return round((float) $enrollments->sum(function (FormationEnrollment $e) use ($price, $lines, $perInvoice) {
             if ($e->invoice && $e->invoice->cancelled_at === null) {
-                return (float) $e->invoice->total_amount;
+                $line = $lines->get($e->invoice_id);
+                $share = ($line && (float) $line->all_lines > 0)
+                    ? (float) $line->formation_lines / (float) $line->all_lines
+                    : 1.0;
+
+                return (float) $e->invoice->total_amount * $share / max(1, (int) ($perInvoice[$e->invoice_id] ?? 1));
             }
 
             return $e->invoice_id ? 0.0 : $price;
