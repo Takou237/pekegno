@@ -4,7 +4,7 @@
 > 6 exigences de sécurité, checklist de réception).
 > **Décision CA** : `doc/DECISION_CA_T0.2.md`.
 > **Méthode** : confrontation du plan au code réel (services, contrôleurs, migrations, routes, tests, frontend).
-> **Date de mise à jour** : 9 novembre 2026.
+> **Date de mise à jour** : 10 novembre 2026 (Lot 8 : T8.2/T8.3).
 
 ## Légende
 
@@ -31,7 +31,7 @@
 | **Lot 5** | Bugs P2 (B17–B26) | PARTIEL | B17/B18/B19/B20/B21/B22/B23/B24/B26 faits ; B25 attend T0.5. |
 | **Lot 6** | Bugs P3 (B27–B30) | FAIT | B27/B28/B29/B30 faits. |
 | **Lot 7** | Fonctions CdC manquantes | PARTIEL | Clôture, transferts, caisses obligatoires (Lot 2) et certificats vérifiables faits ; séances datées, contrats, cockpit, primes, import restent. |
-| **Lot 8** | Contrôles de saisie | À FAIRE | Quasi rien : ni commercial/catégorie obligatoires, ni détection de doublons. |
+| **Lot 8** | Contrôles de saisie | PARTIEL | T8.2 doublons de facture et T8.3 client existant faits ; T8.1 commercial/catégorie, T8.4 formats et T8.5 formateur obligatoire restent. |
 | **Lot 9** | Sécurité | PARTIEL | 2FA existe mais non imposée ; centre de sécurité et audit de comptes absents. |
 | **Lot 10** | Staging / exploitation | À FAIRE | Non démontrable depuis le dépôt. |
 | **Lot 11** | Tests / recette 18 points | À FAIRE | Aucun point de réception coché en staging. |
@@ -135,8 +135,8 @@
 | Tâche | Statut |
 |---|---|
 | T8.1 Commercial + catégorie obligatoires | À FAIRE (`commercial_id` nullable, catégorie non imposée). |
-| T8.2 Alerte doublon facture | À FAIRE |
-| T8.3 Alerte client existant (nom/téléphone) | À FAIRE |
+| T8.2 Alerte doublon facture | FAIT — `DuplicateInvoiceDetector` : même client, même montant, `invoice_date` sur 7 jours, factures annulées exclues ; `duplicate_warning` ajouté à la réponse de création sans bloquer ; alerte toast dans les écrans de vente ; `InvoiceDuplicateWarningTest`. |
+| T8.3 Alerte client existant (nom/téléphone) | FAIT — `POST /api/clients` renvoie 409 `{duplicate, clients[]}` si nom complet ou téléphone déjà présent (insensible à la casse) ; `allow_duplicate=true` confirme ; `ClientListPage` affiche les clients similaires et permet de créer quand même ; `ClientDuplicateWarningTest`. |
 | T8.4 Format email/téléphone par pays | À FAIRE |
 | T8.5 Formateur obligatoire pour une session | PARTIEL (validations formateur présentes, caractère obligatoire à confirmer). |
 

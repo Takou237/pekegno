@@ -24,6 +24,7 @@ use App\Services\ActivityLogger;
 use App\Services\CommercialProfileService;
 use App\Services\CommissionService;
 use App\Services\ContractService;
+use App\Services\DuplicateInvoiceDetector;
 use App\Services\FormationEnrollmentActivator;
 use App\Services\InvoiceNumberGenerator;
 use App\Services\InvoiceRejectionNotifier;
@@ -60,6 +61,7 @@ class InvoiceController extends Controller
         private readonly ContractService $contracts,
         private readonly InvoiceClientCleanupService $clientCleanup,
         private readonly FormationEnrollmentActivator $enrollmentActivator,
+        private readonly DuplicateInvoiceDetector $duplicates,
     ) {}
 
     private function scopeByRole($query, ?User $user)
@@ -531,7 +533,9 @@ class InvoiceController extends Controller
             $this->pendingNotifier->notify($invoice);
         }
 
-        return response()->json($invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency', 'seller']), 201);
+        return response()->json($this->withDuplicateWarning(
+            $invoice->fresh()->load(['items', 'payments', 'client', 'commercial', 'agency', 'seller'])
+        ), 201);
     }
 
     #[OA\Get(
@@ -1161,6 +1165,22 @@ class InvoiceController extends Controller
     private function applyPayment(Invoice $invoice, float $amount, string $method, bool $isAdvance, string $userId): void
     {
         $this->paymentService->applyPayment($invoice, $amount, $method, $isAdvance, $userId);
+    }
+
+    /**
+     * Ajoute, sans changer la forme de la réponse, l'alerte T8.2 quand le même
+     * client a déjà une facture du même montant sur les 7 derniers jours.
+     */
+    private function withDuplicateWarning(Invoice $invoice): array
+    {
+        $payload = $invoice->toArray();
+        $warning = $this->duplicates->warning($invoice);
+
+        if ($warning) {
+            $payload['duplicate_warning'] = $warning;
+        }
+
+        return $payload;
     }
 
     /**

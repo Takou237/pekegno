@@ -14,8 +14,11 @@ export const clientsApi = {
     return data;
   },
 
-  async create(payload: ClientPayload): Promise<ClientListItem> {
-    const { data } = await client.post<ClientListItem>('/clients', payload);
+  async create(payload: ClientPayload, options: { allowDuplicate?: boolean } = {}): Promise<ClientListItem> {
+    const { data } = await client.post<ClientListItem>('/clients', {
+      ...payload,
+      ...(options.allowDuplicate ? { allow_duplicate: true } : {}),
+    });
     return data;
   },
 

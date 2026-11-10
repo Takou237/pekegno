@@ -377,10 +377,17 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
           pass_tier: l.kind === 'service' ? l.pass_tier || undefined : undefined,
         })),
       };
-      if (proofFile) {
-        await invoicesApi.createWithProof(payload, proofFile);
-      } else {
-        await invoicesApi.create(payload);
+      const created = proofFile
+        ? await invoicesApi.createWithProof(payload, proofFile)
+        : await invoicesApi.create(payload);
+      if (created.duplicate_warning) {
+        showToast(
+          t('invoices.duplicateWarning', {
+            number: created.duplicate_warning.number,
+            amount: formatCurrency(created.duplicate_warning.total_amount, currency),
+          }),
+          'warning'
+        );
       }
       showToast(t('invoices.created'), 'success');
       handleClose();

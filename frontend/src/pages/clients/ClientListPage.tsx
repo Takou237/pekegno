@@ -36,6 +36,24 @@ interface ClientForm {
   is_active: boolean;
 }
 
+interface DuplicateClient {
+  id: string;
+  client_number: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  email: string;
+}
+
+function extractDuplicateClients(error: unknown): DuplicateClient[] | null {
+  const response = (error as { response?: { status?: number; data?: { duplicate?: boolean; clients?: DuplicateClient[] } } })
+    .response;
+  if (response?.status === 409 && response.data?.duplicate) {
+    return response.data.clients ?? [];
+  }
+  return null;
+}
+
 const EMPTY_FORM: ClientForm = {
   first_name: '',
   last_name: '',
@@ -77,6 +95,8 @@ export default function ClientListPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<ClientListItem | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [duplicateClients, setDuplicateClients] = useState<DuplicateClient[] | null>(null);
+  const [duplicateSubmitting, setDuplicateSubmitting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   // Actions visibles pour tous les rôles : « Voir » pour tous, les autres
@@ -191,11 +211,50 @@ export default function ClientListPage() {
       setFormOpen(false);
       fetchClients();
     } catch (error) {
+      const duplicates = extractDuplicateClients(error);
+      if (duplicates) {
+        setDuplicateClients(duplicates);
+        return;
+      }
       setFormErrors(extractFieldErrors(error));
       const msg = extractErrorMessage(error, t('clients.saveFailed'));
       if (msg) showToast(msg, 'error');
     } finally {
       setFormSubmitting(false);
+    }
+  }
+
+  async function handleCreateAnyway() {
+    setDuplicateSubmitting(true);
+    try {
+      const pwd = form.password || '12345678';
+      await clientsApi.create(
+        {
+          first_name: form.first_name,
+          last_name: form.last_name,
+          email: form.email,
+          phone: form.phone,
+          city: form.city,
+          country: form.country,
+          address: form.address,
+          nationality: form.nationality,
+          quartier: form.quartier,
+          occupation: form.occupation,
+          password: pwd,
+          password_confirmation: pwd,
+          is_active: form.is_active,
+        },
+        { allowDuplicate: true }
+      );
+      setDuplicateClients(null);
+      setFormOpen(false);
+      showToast(t('clients.created'), 'success');
+      fetchClients();
+    } catch (error) {
+      setDuplicateClients(null);
+      showToast(extractErrorMessage(error, t('clients.saveFailed')), 'error');
+    } finally {
+      setDuplicateSubmitting(false);
     }
   }
 
@@ -566,6 +625,25 @@ export default function ClientListPage() {
         isLoading={deleteSubmitting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(duplicateClients)}
+        title={t('clients.duplicateTitle')}
+        message={
+          duplicateClients
+            ? t('clients.duplicateMessage', {
+                clients: duplicateClients
+                  .map((c) => `${c.first_name ?? ''} ${c.last_name ?? ''} (${c.phone || c.email})`.trim())
+                  .join(', '),
+              })
+            : ''
+        }
+        confirmLabel={t('clients.duplicateConfirm')}
+        variant="primary"
+        isLoading={duplicateSubmitting}
+        onConfirm={handleCreateAnyway}
+        onCancel={() => setDuplicateClients(null)}
       />
     </div>
   );

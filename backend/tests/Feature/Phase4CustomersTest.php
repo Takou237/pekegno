@@ -100,6 +100,8 @@ class Phase4CustomersTest extends TestCase
             'email' => 'jean.dupont'.uniqid().'@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
+            // Plusieurs clients homonymes sont créés dans un même test.
+            'allow_duplicate' => true,
         ], $overrides);
 
         return $this->postJson('/api/clients', $payload)->assertStatus(201)->json();

@@ -197,6 +197,16 @@ export default function QuickSalePage() {
         proofFile as File,
       );
 
+      if (invoice.duplicate_warning) {
+        showToast(
+          t('invoices.duplicateWarning', {
+            number: invoice.duplicate_warning.number,
+            amount: formatCurrency(invoice.duplicate_warning.total_amount),
+          }),
+          'warning'
+        );
+      }
+
       // Un commercial ne peut pas encaisser : sa facture part en attente de validation.
       // Au guichet, l'avance est appliquée directement par la création de la facture.
       const paymentId = invoice.payments?.[0]?.id;

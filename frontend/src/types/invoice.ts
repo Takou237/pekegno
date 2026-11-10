@@ -113,8 +113,10 @@ export interface Invoice {
   payment_proofs?: PaymentProof[];
   payment_proofs_count?: number;
   commission_payments?: CommissionPayment[];
-  /** Date du dernier versement (présent avec sort=last_activity). */
+  /** Date du dernier versement (prǸsent avec sort=last_activity). */
   last_payment_at?: string | null;
+  /** T8.2 : facture similaire (même client, même montant) sur les 7 derniers jours. */
+  duplicate_warning?: { number: string; invoice_date: string | null; total_amount: number } | null;
 }
 
 export interface InvoiceTotals {

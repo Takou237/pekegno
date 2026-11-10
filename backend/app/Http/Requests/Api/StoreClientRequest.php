@@ -36,6 +36,9 @@ class StoreClientRequest extends FormRequest
             'registered_agency_id' => ['sometimes', 'nullable', 'string', 'exists:agencies,id'],
             'commercial_user_id' => ['sometimes', 'nullable', 'string', 'exists:users,id'],
             'registered_at' => ['sometimes', 'nullable', 'date'],
+            // T8.3 : le premier envoi renvoie 409 avec les clients similaires ;
+            // le formulaire peut confirmer en renvoyant allow_duplicate=true.
+            'allow_duplicate' => ['sometimes', 'boolean'],
         ];
     }
 

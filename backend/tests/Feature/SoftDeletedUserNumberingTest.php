@@ -37,6 +37,7 @@ class SoftDeletedUserNumberingTest extends TestCase
             'email' => $email,
             'password' => 'password',
             'password_confirmation' => 'password',
+            'allow_duplicate' => true,
         ])->assertCreated()->json();
     }
 

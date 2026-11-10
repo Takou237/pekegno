@@ -51,6 +51,34 @@ class ClientController extends Controller
     ) {}
 
     /**
+     * Clients existants qui partagent le nom complet ou le téléphone saisi.
+     */
+    private function similarClients(array $data): \Illuminate\Database\Eloquent\Collection
+    {
+        $firstName = mb_strtolower(trim((string) ($data['first_name'] ?? '')));
+        $lastName = mb_strtolower(trim((string) ($data['last_name'] ?? '')));
+        $phone = mb_strtolower(trim((string) ($data['phone'] ?? '')));
+
+        if ($firstName === '' || $lastName === '') {
+            return new \Illuminate\Database\Eloquent\Collection();
+        }
+
+        return User::query()
+            ->whereHas('role', fn ($q) => $q->where('name', 'client'))
+            ->where(function ($query) use ($firstName, $lastName, $phone) {
+                $query->whereRaw('lower(first_name) = ?', [$firstName])
+                    ->whereRaw('lower(last_name) = ?', [$lastName]);
+
+                if ($phone !== '') {
+                    $query->orWhereRaw('lower(trim(phone)) = ?', [$phone]);
+                }
+            })
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get();
+    }
+
+    /**
      * Requête de base des clients avec les charges utiles Phase 4
      * (catégorie, localisation, origine) et le périmètre organisationnel.
      */
@@ -162,6 +190,28 @@ class ClientController extends Controller
         // commercial à le voir).
         if ($request->user()?->actsAsCommercial()) {
             $data['commercial_user_id'] = $request->user()->id;
+        }
+
+        // T8.3 : alerte bloquante à la première saisie quand un client porte le
+        // même nom ou le même téléphone. Le front peut confirmer et renvoyer
+        // allow_duplicate=true.
+        if (! ($data['allow_duplicate'] ?? false)) {
+            $duplicates = $this->similarClients($data);
+
+            if ($duplicates->isNotEmpty()) {
+                return response()->json([
+                    'message' => 'Un client similaire existe déjà (même nom ou même téléphone).',
+                    'duplicate' => true,
+                    'clients' => $duplicates->map(fn (User $client) => [
+                        'id' => $client->id,
+                        'client_number' => $client->client_number,
+                        'first_name' => $client->first_name,
+                        'last_name' => $client->last_name,
+                        'phone' => $client->phone,
+                        'email' => $client->email,
+                    ])->values(),
+                ], 409);
+            }
         }
 
         // Apprenant inscrit au guichet sans email : email de connexion généré (unique,
