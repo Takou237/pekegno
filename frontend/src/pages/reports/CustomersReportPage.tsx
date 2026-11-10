@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Users, UserPlus, UserCheck, Wallet, Trophy, Rocket, Briefcase } from 'lucide-react';
+import { Users, UserCheck, Wallet, Trophy, Rocket, Briefcase } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { reportsApi, type CustomersReportResponse } from '@/api/reports.api';
 import { formatCurrency, formatNumber } from '@/utils/number';
@@ -109,18 +109,12 @@ export default function CustomersReportPage() {
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
             <ReportStatCard
               icon={Users}
               label={t('reports.clientsTotal')}
               value={formatNumber(report.totals.clients_total)}
               tone="brand"
-            />
-            <ReportStatCard
-              icon={UserPlus}
-              label={t('reports.clientsNew')}
-              value={formatNumber(report.totals.clients_new)}
-              tone="green"
             />
             <ReportStatCard
               icon={UserCheck}
