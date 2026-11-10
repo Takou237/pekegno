@@ -11,7 +11,7 @@ import type {
   RejectInvoicePayload,
   UpdateInvoicePayload,
 } from '@/types/invoice';
-import type { PaginatedResponse } from '@/types/agency';
+import type { PaginatedResponse, PaginationMeta } from '@/types/agency';
 import type { ProofReviewResponse } from '@/types/invoice';
 
 export interface InvoiceIndexResponse {
@@ -121,7 +121,21 @@ export const invoicesApi = {
   },
 
   async listProofs(params: ProofListParams = {}): Promise<PaginatedResponse<PaymentProof>> {
-    const { data } = await client.get<PaginatedResponse<PaymentProof>>('/payment-proofs', { params });
+    const { data } = await client.get<PaginatedResponse<PaymentProof> & Partial<PaginationMeta>>('/payment-proofs', { params });
+    // Le serveur renvoie le paginateur Laravel « à plat » (current_page, total…
+    // à la racine) : sans cette normalisation, `meta` était absent, la
+    // pagination ne s'affichait jamais et seules 15 preuves étaient visibles.
+    if (!data.meta && data.current_page != null) {
+      return {
+        ...data,
+        meta: {
+          current_page: data.current_page,
+          last_page: data.last_page ?? 1,
+          per_page: data.per_page ?? 15,
+          total: data.total ?? data.data?.length ?? 0,
+        },
+      } as PaginatedResponse<PaymentProof>;
+    }
     return data;
   },
 

@@ -213,11 +213,21 @@ export default function PaymentProofsPage({
                           {proof.invoice?.number ?? '—'}
                         </button>
                       </td>
-                      <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{proof.invoice?.client_name ?? '—'}</td>
+                      <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{proof.invoice?.client_label ?? proof.invoice?.client_name ?? '—'}</td>
                       <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{submitter}</td>
                       <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{methodLabel(proof.payment_method)}</td>
                       <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
-                        {Number(proof.amount ?? 0) > 0 ? formatCurrency(proof.amount) : '—'}
+                        {Number(proof.amount ?? 0) > 0 ? (
+                          formatCurrency(proof.amount, proof.invoice?.currency_code)
+                        ) : Number(proof.invoice?.declared_advance ?? 0) > 0 ? (
+                          // Preuve jointe à la vente : le montant annoncé est l'avance déclarée.
+                          <span title={t('invoices.declaredAdvanceHint')}>
+                            {formatCurrency(proof.invoice?.declared_advance ?? 0, proof.invoice?.currency_code)}
+                            <span className="ml-1 text-xs font-normal text-amber-600 dark:text-amber-400">({t('invoices.declaredAdvance')})</span>
+                          </span>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{formatDateTimeFr(proof.created_at)}</td>
                       <td className="px-5 py-3">

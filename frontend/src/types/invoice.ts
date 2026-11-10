@@ -207,6 +207,11 @@ export interface PaymentProofInvoiceRef {
   id: string;
   number: string;
   client_name: string | null;
+  /** Nom du client : fiche liée, sinon nom saisi (B19). */
+  client_label?: string | null;
+  /** Avance annoncée par le commercial à la création (B19). */
+  declared_advance?: string | number | null;
+  currency_code?: string;
   total_amount: string | number;
   validation_status: string;
   status: string;

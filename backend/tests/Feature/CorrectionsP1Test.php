@@ -262,6 +262,24 @@ class CorrectionsP1Test extends TestCase
         $this->assertNotNull($json['payments'][0]['validated_at']);
     }
 
+    public function test_proofs_to_validate_show_client_and_announced_amount(): void
+    {
+        $agency = $this->agency();
+        $client = User::factory()->create(['role_id' => Role::where('name', 'client')->value('id'), 'first_name' => 'Awa', 'last_name' => 'Diallo']);
+        $invoice = $this->invoice($agency, 100000, [['line_total' => 100000]], [
+            'client_id' => $client->id, 'client_name' => null,
+            'validation_status' => Invoice::VALIDATION_PENDING, 'declared_advance' => 40000,
+        ]);
+        \App\Models\PaymentProof::create([
+            'invoice_id' => $invoice->id, 'submitted_by' => $this->admin->id, 'payment_method' => 'om',
+            'amount' => null, 'file_path' => 'proofs/x.jpg', 'status' => \App\Models\PaymentProof::STATUS_PENDING,
+        ]);
+
+        $row = $this->getJson('/api/payment-proofs?status=pending')->assertOk()->json('data.0');
+        $this->assertSame('Awa Diallo', $row['invoice']['client_label']);
+        $this->assertEquals(40000, $row['invoice']['declared_advance']);
+    }
+
     // --- B8 ------------------------------------------------------------------------
 
     public function test_rejected_and_cancelled_invoices_stay_findable(): void
