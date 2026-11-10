@@ -22,7 +22,10 @@ class AcademyReportService
     {
         $courses = Course::withCount('sessions')
             ->with(['agency'])
-            ->when($agencyIds !== null, fn ($q) => $q->where(fn ($c) => $c->whereNull('agency_id')->orWhereIn('agency_id', $agencyIds)))
+            // B23 : périmètre strict. Les cours globaux (agency_id NULL) ne
+            // sont comptés que sans filtre d'agence ; dans un département, seuls
+            // les cours déployés dans ses agences comptent.
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
             ->orderBy('name')
             ->get();
 
@@ -31,14 +34,14 @@ class AcademyReportService
             ->withCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->when($agencyIds !== null, function ($q) use ($agencyIds) {
                 return $q->where(fn ($qq) => $qq->whereIn('agency_id', $agencyIds)
-                    ->orWhereHas('course', fn ($c) => $c->whereIn('agency_id', $agencyIds)->orWhereNull('agency_id')));
+                    ->orWhereHas('course', fn ($c) => $c->whereIn('agency_id', $agencyIds)));
             })
             ->get();
 
         // Les inscriptions en attente de validation de facture ne sont pas encore comptées.
         $enrollments = FormationEnrollment::with(['course:id,name,price,agency_id,mode', 'invoice:id,total_amount'])
             ->where('status', '!=', FormationEnrollment::STATUS_PENDING)
-            ->when($agencyIds !== null, fn ($q) => $q->whereHas('course', fn ($c) => $c->whereIn('agency_id', $agencyIds)->orWhereNull('agency_id')))
+            ->when($agencyIds !== null, fn ($q) => $q->whereHas('course', fn ($c) => $c->whereIn('agency_id', $agencyIds)))
             ->get();
 
         $reportRows = [];
