@@ -65,6 +65,7 @@ export interface SubscriptionsReportResponse {
   totals: {
     subscriptions: number;
     active: number;
+    active_contracts: number;
     renewed: number;
     cancelled: number;
     expired: number;
@@ -198,6 +199,7 @@ export interface SalesTrackingLine {
   city: string;
   activity: string;
   type: SalesTrackingType;
+  branch?: 'academy' | 'agency' | 'store' | 'studio' | null;
   quantity: number;
   billed: number;
   paid: number;

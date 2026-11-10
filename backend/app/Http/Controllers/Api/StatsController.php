@@ -6,13 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\AccountingTransaction;
 use App\Models\Agency;
 use App\Models\Commercial;
+use App\Models\Contract;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\FormationEnrollment;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
-use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AcademyReportService;
 use App\Services\FinancialMetricsService;
@@ -496,8 +496,9 @@ class StatsController extends Controller
             })
             ->count();
 
-        $activeSubscriptions = Subscription::query()
-            ->where('status', 'active')
+        // B21 : « abonnements actifs » = contrats ouverts (active + due_soon).
+        $activeSubscriptions = Contract::query()
+            ->open()
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
             ->count();
 

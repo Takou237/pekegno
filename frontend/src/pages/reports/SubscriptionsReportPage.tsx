@@ -91,7 +91,7 @@ export default function SubscriptionsReportPage() {
             <ReportStatCard
               icon={CalendarCheck}
               label={t('reports.activeSubscriptions')}
-              value={formatNumber(report.totals.active)}
+              value={formatNumber(report.totals.active_contracts)}
               tone="green"
             />
             <ReportStatCard

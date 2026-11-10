@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Contract;
 use App\Models\Invoice;
 use App\Models\Subscription;
 use App\Models\User;
@@ -95,6 +96,16 @@ class ReportController extends Controller
                 'new_subscriptions' => (int) $row->total,
             ]);
 
+        // B21 : la carte « Actifs » compte les contrats ouverts, pas les
+        // anciennes subscriptions (legacy).
+        $activeContracts = Contract::query()
+            ->open()
+            ->whereBetween('contracts.start_date', [$from, $to])
+            ->when($request->agency_id, fn ($q, $agencyId) => $q->where('contracts.agency_id', $agencyId))
+            ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('agency', fn ($inner) => $inner->where('country_id', $countryId)))
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('contracts.agency_id', $agencyIds))
+            ->count();
+
         return response()->json([
             'period' => [
                 'from' => $from->toISOString(),
@@ -103,6 +114,7 @@ class ReportController extends Controller
             'totals' => [
                 'subscriptions' => (int) $base->count(),
                 'active' => (int) (clone $base)->where('subscriptions.status', 'active')->count(),
+                'active_contracts' => $activeContracts,
                 'renewed' => (int) (clone $base)->where('subscriptions.status', 'renewed')->count(),
                 'cancelled' => (int) (clone $base)->where('subscriptions.status', 'cancelled')->count(),
                 'expired' => $expiredCount + (int) (clone $base)->where('subscriptions.status', 'expired')->count(),
