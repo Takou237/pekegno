@@ -35,6 +35,10 @@ export interface InvoicePayment {
   payment_method: PaymentMethod;
   is_advance: boolean;
   paid_at: string;
+  /** Jour où l'argent a été reçu : la date qui compte (Bilan, caisses, Comptabilité). */
+  received_at?: string | null;
+  /** Jour où le paiement a été validé. */
+  validated_at?: string | null;
   received_by: string | null;
   comment: string | null;
   treasury_account_id: string | null;
@@ -88,6 +92,7 @@ export interface Invoice {
   validation_status: InvoiceValidationStatus;
   validated_by: string | null;
   validated_at: string | null;
+  validator?: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
   rejection_reason: string | null;
   source: InvoiceSource | null;
   commission_amount: string | null;

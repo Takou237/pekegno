@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
  */
 class CashClosingController extends Controller
 {
-    public function index(Request $request, ScopeService $scope)
+    public function index(Request $request, ScopeService $scope, CashClosingService $service)
     {
         $data = $request->validate([
             'date' => ['nullable', 'date'],
@@ -23,7 +23,7 @@ class CashClosingController extends Controller
             'treasury_account_id' => ['nullable', 'uuid'],
         ]);
 
-        $query = CashClosing::with(['account', 'closer', 'validator'])
+        $query = CashClosing::with(['account.agency:id,name', 'closer', 'validator'])
             ->visibleTo($request->user())
             ->orderByDesc('closing_date')
             ->orderByDesc('created_at');
@@ -40,7 +40,41 @@ class CashClosingController extends Controller
             $query->where('treasury_account_id', $data['treasury_account_id']);
         }
 
-        return $query->get();
+        // Détail du jour (entrées, sorties, transferts) à côté des soldes enregistrés.
+        return $query->get()->map(fn (CashClosing $closing) => array_merge($closing->toArray(), [
+            'breakdown' => $closing->account
+                ? $service->dayBreakdown($closing->account, Carbon::parse($closing->closing_date)->toDateString())
+                : null,
+        ]));
+    }
+
+    /**
+     * Journée d'une caisse avant clôture : solde initial, entrées, sorties,
+     * transferts reçus / envoyés et solde théorique (cahier §2).
+     */
+    public function day(Request $request, CashClosingService $service, ScopeService $scope)
+    {
+        $data = $request->validate([
+            'treasury_account_id' => ['required', 'uuid'],
+            'date' => ['required', 'date'],
+        ]);
+
+        $account = TreasuryAccount::with('agency')->findOrFail($data['treasury_account_id']);
+        $this->authorize('view', $account);
+
+        $scopeIds = $scope->agencyIds($request->user());
+        abort_if(
+            $scopeIds !== null && $account->agency_id !== null && ! in_array($account->agency_id, $scopeIds, true),
+            403,
+            'Cette caisse est hors de votre périmètre.'
+        );
+
+        $date = Carbon::parse($data['date'])->toDateString();
+
+        return response()->json(array_merge(
+            ['treasury_account_id' => $account->id, 'date' => $date],
+            $service->dayBreakdown($account, $date),
+        ));
     }
 
     public function store(Request $request, CashClosingService $service, ScopeService $scope)

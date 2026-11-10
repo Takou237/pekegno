@@ -141,6 +141,31 @@ class Phase8SeminarTest extends TestCase
         $this->assertEquals(60000, $invoice['total_amount']);
     }
 
+    public function test_same_seminar_on_two_lines_with_different_tiers(): void
+    {
+        $this->actingAsAdmin();
+        $service = $this->createSeminarService();
+
+        Sanctum::actingAs(User::factory()->create([
+            'role_id' => Role::where('name', 'caissier')->value('id'),
+        ]));
+        // 2 Classique + 1 VIP du même séminaire, sur deux lignes.
+        $invoice = $this->postJson('/api/invoices', [
+            'items' => [
+                ['service_id' => $service['id'], 'pass_tier' => 'classique', 'quantity' => 2],
+                ['service_id' => $service['id'], 'pass_tier' => 'vip', 'quantity' => 1],
+            ],
+            'advance' => 1,
+        ])->assertStatus(201)->json();
+        $this->actingAsAdmin();
+
+        $items = collect($invoice['items'])->keyBy('pass_tier');
+        $this->assertCount(2, $items);
+        $this->assertEquals(40000, $items['classique']['line_total']);
+        $this->assertEquals(50000, $items['vip']['line_total']);
+        $this->assertEquals(90000, $invoice['total_amount']);
+    }
+
     public function test_invoice_pass_requires_seminar_service(): void
     {
         $this->actingAsAdmin();

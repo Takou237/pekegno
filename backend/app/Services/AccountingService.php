@@ -7,6 +7,8 @@ use App\Models\AccountingTransaction;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use App\Models\TreasuryTransaction;
+use App\Support\SaleBranch;
+use Illuminate\Support\Facades\DB;
 
 class AccountingService
 {
@@ -44,7 +46,7 @@ class AccountingService
             'number' => $this->nextNumber(),
             'agency_id' => $invoice->agency_id,
             'department_id' => $this->ledger->departmentForInvoice($invoice),
-            'category_id' => $this->systemCategory('income')?->id,
+            'category_id' => $this->incomeCategoryId($invoice),
             'type' => 'income',
             'label' => "Facture {$invoice->number} — versement",
             'reference' => $invoice->number,
@@ -54,6 +56,44 @@ class AccountingService
             'transacted_at' => $payment->received_at ?? $payment->paid_at ?? now(),
             'operator_id' => $payment->received_by,
         ]);
+    }
+
+    /**
+     * Rubrique d'une facture (cahier B4 : chaque paiement reprend la catégorie
+     * de la ligne de facture) : celle de ses lignes qui pèse le plus, selon la
+     * règle unique SaleBranch (Academy, Agency, Séminaire, Livre, Canva…).
+     * Une facture qui mélange plusieurs rubriques prend la principale ; la
+     * répartition exacte est dans « Recettes par rubrique ».
+     */
+    public function incomeRubric(Invoice $invoice): string
+    {
+        $lines = DB::table('invoice_items')->where('invoice_items.invoice_id', $invoice->id);
+        $category = SaleBranch::categorySql();
+
+        $rubric = SaleBranch::joinCatalog(clone $lines)
+            ->where(fn ($q) => $q->whereNull('invoice_items.is_pass_through')->orWhere('invoice_items.is_pass_through', false))
+            ->selectRaw("{$category} as rubric")
+            ->groupByRaw($category)
+            ->orderByRaw('sum(invoice_items.line_total) desc')
+            ->orderByRaw($category)
+            ->value('rubric');
+
+        if ($rubric !== null) {
+            return $rubric;
+        }
+
+        return (clone $lines)->where('invoice_items.is_pass_through', true)->exists()
+            ? SaleBranch::PASS_THROUGH
+            : SaleBranch::UNCATEGORIZED;
+    }
+
+    /** Catégorie comptable (recette) portant le nom de la rubrique, créée au besoin. */
+    public function incomeCategoryId(Invoice $invoice): string
+    {
+        return AccountingCategory::firstOrCreate(
+            ['name' => $this->incomeRubric($invoice), 'type' => 'income', 'agency_id' => null],
+            ['is_system' => false],
+        )->id;
     }
 
     public function systemCategory(string $type): ?AccountingCategory

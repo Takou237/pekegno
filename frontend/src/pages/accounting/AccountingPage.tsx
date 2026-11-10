@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { Plus, Download, Pencil, Trash2, Tag, Banknote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { accountingApi } from '@/api/accounting.api';
+import { accountingApi, type IncomeRubric } from '@/api/accounting.api';
 import { commissionsApi } from '@/api/commissions.api';
 import { countriesApi } from '@/api/countries.api';
 import { agenciesApi } from '@/api/agencies.api';
@@ -43,6 +43,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [categories, setCategories] = useState<AccountingCategory[]>([]);
   const [serverTotals, setServerTotals] = useState<{ income: number; expense: number; balance: number } | null>(null);
+  const [incomeByRubric, setIncomeByRubric] = useState<IncomeRubric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -170,6 +171,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
       if (res.totals) {
         setServerTotals(res.totals);
       }
+      setIncomeByRubric(res.income_by_rubric ?? []);
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('accounting.loadFailed')));
     } finally {
@@ -444,6 +446,37 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
           </p>
         </div>
       </div>
+
+      {incomeByRubric.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="px-5 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('accounting.incomeByRubric')}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('accounting.incomeByRubricHint')}</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="px-5 py-2 font-medium">{t('accounting.rubric')}</th>
+                  <th className="px-5 py-2 font-medium">{t('accounting.branch')}</th>
+                  <th className="px-5 py-2 text-right font-medium">{t('accounting.colAmount')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {incomeByRubric.map((r) => (
+                  <tr key={r.rubric}>
+                    <td className="px-5 py-2 font-medium text-gray-800 dark:text-gray-100">{r.rubric}</td>
+                    <td className="px-5 py-2 text-gray-500 dark:text-gray-400">
+                      {t(`reports.salesTracking.type${r.branch.charAt(0).toUpperCase()}${r.branch.slice(1)}`)}
+                    </td>
+                    <td className="px-5 py-2 text-right text-gray-700 dark:text-gray-200">{r.total > 0 ? formatCurrency(r.total) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">

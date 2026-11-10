@@ -65,14 +65,14 @@ class SalesByCategoryTest extends TestCase
         ]);
     }
 
-    public function test_category_comes_from_the_line_and_amounts_are_collected(): void
+    public function test_category_comes_from_the_line_and_amounts_follow_revenue(): void
     {
         $academy = Category::factory()->create(['name' => 'Academy']);
         $agency = Category::factory()->create(['name' => 'Agency']);
         $formation = Service::factory()->create(['agency_id' => $this->agency->id, 'category_id' => $academy->id]);
         $prestation = Service::factory()->create(['agency_id' => $this->agency->id, 'category_id' => $agency->id]);
 
-        // Facture partielle : 40 000 encaissés sur 100 000 (40 %).
+        // Facture partielle : 40 000 encaissés sur 100 000.
         $partial = $this->invoice('PK-B4-001', 100000, 40000);
         $this->line($partial, 'Formation', 60000, $formation->id);
         $this->line($partial, 'Prestation', 40000, $prestation->id);
@@ -91,14 +91,13 @@ class SalesByCategoryTest extends TestCase
 
         $byCategory = collect($rows)->keyBy('category');
 
-        // 60 000 × 40 % et 40 000 × 40 %.
-        $this->assertSame(24000.0, (float) $byCategory['Academy']['revenue']);
-        $this->assertSame(16000.0, (float) $byCategory['Agency']['revenue']);
+        // B4 : le CA facturé est réparti sur les lignes, comme la carte CA.
+        $this->assertSame(60000.0, (float) $byCategory['Academy']['revenue']);
+        $this->assertSame(40000.0, (float) $byCategory['Agency']['revenue']);
         $this->assertSame(30000.0, (float) $byCategory['Sans catégorie']['revenue']);
 
-        // Total = encaissé de la période, jamais le facturé.
-        $this->assertSame(70000.0, (float) collect($rows)->sum('revenue'));
-        $this->assertLessThanOrEqual(130000.0, (float) $byCategory['Sans catégorie']['revenue']);
+        // Total = CA facturé de la période.
+        $this->assertSame(130000.0, (float) collect($rows)->sum('revenue'));
     }
 
     public function test_line_category_wins_over_the_service_category(): void

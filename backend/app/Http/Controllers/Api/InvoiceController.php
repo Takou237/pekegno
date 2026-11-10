@@ -210,6 +210,8 @@ class InvoiceController extends Controller
             ->when($request->commercial_id, fn ($q, $id) => $q->where('commercial_id', $id))
             ->when($request->from, fn ($q, $d) => $q->whereDate('invoice_date', '>=', $d))
             ->when($request->to, fn ($q, $d) => $q->whereDate('invoice_date', '<=', $d))
+            // B8 : les annulées sont masquées par défaut mais restent consultables
+            // (filtre « Annulée » ou include_cancelled) ; aucune n'est supprimée.
             ->when(
                 ! $request->boolean('include_cancelled') && ! $wantsCancelled,
                 fn ($q) => $q->whereNull('invoices.cancelled_at')
@@ -549,6 +551,8 @@ class InvoiceController extends Controller
             'payments' => fn ($q) => $q->with(['receiver:id,first_name,last_name,email', 'treasuryAccount:id,name,type'])
                 ->orderBy('paid_at')->orderBy('created_at'),
             'commissionPayments',
+            // Cahier §1 : date de validation affichée avec son auteur.
+            'validator:id,first_name,last_name,email',
             'client',
             'commercial',
             'agency',

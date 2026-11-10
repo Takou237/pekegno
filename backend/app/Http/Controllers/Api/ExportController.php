@@ -477,7 +477,7 @@ class ExportController extends Controller
                 $rows->push([$p['category'], $p['label'], $p['count'], (float) $p['total']]);
             }
             if (($bilan['formation_count'] ?? 0) > 0) {
-                $rows->push(['Formations', 'Inscriptions formation', (int) $bilan['formation_count'], (float) $bilan['formation_total']]);
+                $rows->push(['Academy', 'Inscriptions formation', (int) $bilan['formation_count'], (float) $bilan['formation_total']]);
             }
             $rows->push(['', 'TOTAL VENTES', (int) $bilan['total_ventes'], '']);
             $rows->push(['']);

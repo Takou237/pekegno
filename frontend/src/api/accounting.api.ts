@@ -12,6 +12,14 @@ import type {
 export interface AccountingListResponse {
   transactions: PaginatedResponse<AccountingTransaction>;
   totals: { income: number; expense: number; balance: number };
+  /** Recettes du filtre par rubrique (Formations, catégories Agency, catégories du catalogue…). */
+  income_by_rubric?: IncomeRubric[];
+}
+
+export interface IncomeRubric {
+  rubric: string;
+  branch: 'academy' | 'agency' | 'store' | 'studio' | 'other';
+  total: number;
 }
 
 export const accountingApi = {

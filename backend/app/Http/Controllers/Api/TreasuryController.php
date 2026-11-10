@@ -109,6 +109,13 @@ class TreasuryController extends Controller
             $query->direction($request->input('direction'));
         }
 
+        // Nature du mouvement : transferts seulement, ou tout sauf transferts.
+        if ($request->input('kind') === 'transfer') {
+            $query->where('source_type', 'transfer');
+        } elseif ($request->input('kind') === 'movement') {
+            $query->where(fn ($q) => $q->whereNull('source_type')->orWhere('source_type', '!=', 'transfer'));
+        }
+
         $from = $request->filled('from') ? Carbon::parse($request->input('from'))->startOfDay() : null;
         $to = $request->filled('to') ? Carbon::parse($request->input('to'))->endOfDay() : null;
 

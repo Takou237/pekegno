@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Department;
 use App\Models\Invoice;
 use App\Support\GroupCurrency;
+use App\Support\SaleBranch;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -275,20 +276,44 @@ class FinancialMetricsService
     }
 
     /**
-     * Ventilation par catégorie (B4). La catégorie vient de la ligne de facture
-     * (`invoice_items.category_id`), avec repli sur le service puis « Sans
-     * catégorie ». En attendant les 7 rubriques (T3.6), c'est la seule source.
+     * CA par catégorie (B4) : chaque facture validée de la période répartit son
+     * CA (net de remise et hors budget pub client) sur ses lignes, au prorata de
+     * leur montant. La somme des catégories est donc exactement la carte
+     * « Chiffre d'affaires ». Catégorie et branche de chaque ligne : SaleBranch
+     * (la même règle que le Suivi des ventes et le CA des départements).
      *
      * `$basis` :
      * - `revenue` (défaut) : CA facturé validé de la période (T1.6 / metrics) ;
      * - `collected` : part encaissée, répartie au prorata des lignes.
      *
      * @param  array<int, string>|null  $agencyIds
-     * @return Collection<int, array{name: string, total: float, items: int}>
+     * @return Collection<int, array{name: string, branch: string, total: float, items: int}>
      */
     public function byCategory(Carbon $from, Carbon $to, ?array $agencyIds = null, bool $convert = false, ?string $commercialId = null, ?Department $department = null, string $basis = 'revenue'): Collection
     {
-        $rate = fn (string $column) => $convert ? GroupCurrency::rateSql($column) : '1';
+        $rate = $convert ? GroupCurrency::rateSql('invoices.agency_id') : '1';
+
+        // Montant des lignes propres (hors budget pub client) de chaque facture.
+        $ownLines = DB::table('invoice_items')
+            ->selectRaw('invoice_id, coalesce(sum(case when is_pass_through then 0 else line_total end), 0) as own_total')
+            ->groupBy('invoice_id');
+
+        $query = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoinSub($this->passThroughSub(), 'pt', 'pt.invoice_id', '=', 'invoices.id')
+            ->joinSub($ownLines, 'own', 'own.invoice_id', '=', 'invoices.id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
+            ->whereBetween('invoices.invoice_date', [$from, $to])
+            ->where('invoice_items.is_pass_through', false)
+            ->where('own.own_total', '>', 0);
+        $this->applyScope($query, $agencyIds, $commercialId, $department);
+        SaleBranch::joinCatalog($query);
+
+        $category = SaleBranch::categorySql();
+        $branch = SaleBranch::branchSql();
+        // `* 1.0` : division décimale aussi sous SQLite.
+        $share = "invoice_items.line_total * 1.0 * ({$this->netOfPassThroughTotal()}) / own.own_total";
 
         // Part encaissée d'une ligne : le paiement de la facture est réparti au
         // prorata de la ligne dans le reste dû hors pass-through, plafonné à la
@@ -301,31 +326,18 @@ class FinancialMetricsService
                 then invoice_items.line_total * invoices.amount_paid
                     / (invoices.total_amount - coalesce(pt.pass_amount, 0))
                 else 0 end"
-            : 'invoice_items.line_total';
-
-        $query = DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->leftJoinSub($this->passThroughSub(), 'pt', 'pt.invoice_id', '=', 'invoices.id')
-            ->leftJoin('services', 'services.id', '=', 'invoice_items.service_id')
-            ->leftJoin('categories as item_categories', 'item_categories.id', '=', 'invoice_items.category_id')
-            ->leftJoin('categories as service_categories', 'service_categories.id', '=', 'services.category_id')
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
-            ->whereBetween('invoices.invoice_date', [$from, $to])
-            ->where('invoice_items.is_pass_through', false);
-        $this->applyScope($query, $agencyIds, $commercialId, $department);
-
-        $categoryName = "coalesce(item_categories.name, service_categories.name, 'Sans catégorie')";
+            : $share;
 
         return $query
-            ->selectRaw("{$categoryName} as name,
-                coalesce(sum(({$amount}) * {$rate('invoices.agency_id')}), 0) as total,
+            ->selectRaw("{$category} as name, {$branch} as branch,
+                coalesce(sum(({$amount}) * {$rate}), 0) as total,
                 count(*) as items")
-            ->groupByRaw($categoryName)
+            ->groupByRaw("{$category}, {$branch}")
             ->orderByDesc('total')
             ->get()
             ->map(fn ($row) => [
                 'name' => $row->name,
+                'branch' => $row->branch,
                 'total' => Money::franc($row->total),
                 'items' => (int) $row->items,
             ]);

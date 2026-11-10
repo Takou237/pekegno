@@ -252,13 +252,23 @@ export default function InvoiceFormPage({
     setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev));
   }
 
+  /** Niveaux d'un séminaire déjà pris par les autres lignes de la facture. */
+  function usedTiers(serviceId: string, exceptKey: string): Set<string> {
+    return new Set(lines.filter((l) => l.key !== exceptKey && l.service_id === serviceId && l.pass_tier).map((l) => l.pass_tier));
+  }
+
   function handleServiceSelect(key: string, serviceId: string) {
     const results = serviceResultsRef.current[key] ?? [];
     const service = results.find((s) => s.id === serviceId);
     if (!service) return;
+    const seminarTiers = service.is_seminar ? (service.seminar_tiers ?? []) : [];
+    // Séminaire : le même service peut revenir sur une autre ligne pour un
+    // autre niveau (2 Classique + 1 VIP), jamais deux fois le même niveau.
+    const taken = usedTiers(serviceId, key);
+    const freeTier = seminarTiers.find((tier) => !taken.has(tier.tier));
     const alreadyUsed = lines.some((l) => l.key !== key && l.service_id === serviceId);
-    if (alreadyUsed) {
-      showToast(t('invoices.duplicateService'), 'error');
+    if (alreadyUsed && (seminarTiers.length === 0 || !freeTier)) {
+      showToast(t(seminarTiers.length > 0 ? 'invoices.duplicateSeminarTier' : 'invoices.duplicateService'), 'error');
       return;
     }
     const patches: Partial<InvoiceLineDraft> = {
@@ -270,9 +280,9 @@ export default function InvoiceFormPage({
       label: service.name,
       unit_price: String(service.effective_price ?? service.price ?? ''),
     };
-    if (service.is_seminar && service.seminar_tiers && service.seminar_tiers.length > 0) {
-      patches.pass_tier = service.seminar_tiers[0].tier;
-      patches.unit_price = String(service.seminar_tiers[0].price);
+    if (freeTier) {
+      patches.pass_tier = freeTier.tier;
+      patches.unit_price = String(freeTier.price);
     } else {
       patches.pass_tier = '';
     }
@@ -709,7 +719,9 @@ export default function InvoiceFormPage({
                       }}
                     >
                       {tiers.map((t) => (
-                        <option key={t.tier} value={t.tier}>{t.label} — {formatCurrency(Number(t.price), currency)}</option>
+                        <option key={t.tier} value={t.tier} disabled={usedTiers(line.service_id, line.key).has(t.tier)}>
+                          {t.label} — {formatCurrency(Number(t.price), currency)}
+                        </option>
                       ))}
                     </Select>
                   </div>

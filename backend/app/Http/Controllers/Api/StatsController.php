@@ -335,13 +335,13 @@ class StatsController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
-        // B4 : une seule ventilation, celle du service financier. La catégorie
-        // vient de la ligne de facture (repli service), et le montant est la
-        // part réellement encaissée pendant la période.
+        // B4 : même calcul que la carte CA (FinancialMetricsService), converti
+        // dans la monnaie du groupe ; la somme des catégories égale le CA.
         $rows = app(FinancialMetricsService::class)
-            ->byCategory($from, $to, $agencyIds, false, null, null, 'collected')
-            ->map(fn ($row) => [
+            ->byCategory($from, $to, $agencyIds, true)
+            ->map(fn (array $row) => [
                 'category' => $row['name'],
+                'branch' => $row['branch'],
                 'revenue' => $row['total'],
                 'items' => $row['items'],
             ])

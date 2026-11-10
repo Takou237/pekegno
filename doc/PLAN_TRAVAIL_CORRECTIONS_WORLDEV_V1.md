@@ -185,7 +185,7 @@ Contrôle | `ca = encaisse(factures de la période) + impayes` — assertion tes
 - [x] T1.3 — Migration `received_at` / `validated_at` / `validation_status` + backfill.
 - [x] T1.4 — Caisse obligatoire sur chaque paiement **et chaque dépense** (7/11) : paiement → caisse déduite du mode, jamais nulle, sans repli sur C (`TreasuryAccountProvisioner`) ; dépense saisie en Comptabilité → caisse obligatoire + sortie de caisse synchronisée (création/modification/suppression). Mode « mobile » générique retiré de la saisie (ambigu O/M).
 - [x] T1.5 — `App\Support\Money::franc()` adopté par le service unique et l'endpoint de synthèse.
-- [ ] T1.6 — Ventilation 7 rubriques : **reporté**, dépend de T3.6 (`sale_rubrics`).
+- [x] T1.6 — Ventilation par rubrique (9/11) : une rubrique = une catégorie du catalogue (cf. T3.6), plus Formations et les catégories Agency.
 - [x] T1.7 — `GET /api/metrics/summary` et `/api/metrics/breakdown`.
 - [x] T1.8 — `RevenueService` transformé en façade de `FinancialMetricsService`.
 - [x] T1.9 — `tests/Feature/FinancialMetricsConsistencyTest.php` (invariant + cas limites + même CA partout).
@@ -294,6 +294,21 @@ Tests (7/11) : `TreasuryCashClosingTest` 8/8, `PaymentTreasuryRoutingTest` 12/12
 
 **Charge : 15–18 j.** Dépend de T0.3, T0.4 et du Lot 1.
 
+### 6.3 Avancement Lot 3 (9/11/2026)
+
+> Lot entamé : les tâches qui ne dépendent pas d'une réponse du client sont faites (branche `corrections`).
+
+- [ ] T3.1 – T3.4 — Administration par pays : **attend la décision du client**.
+- [x] T3.5 — Bilan du jour : ventes d'un côté, caisses de l'autre (tableau par caisse : solde initial, entrées, sorties, solde final, compté, écart).
+- [x] T3.6 — Rubriques : **décision du 9/11 — une rubrique = une catégorie du catalogue**, pas de liste figée de 7 ni de table `sale_rubrics`. Tout article créé par « Créer un service » (ou produit) relève de la branche **Store**, quelle que soit sa catégorie ; sa catégorie (Livre, Canva…) est sa rubrique. Créer une catégorie crée la rubrique. Rubriques fixes : **Academy** (inscriptions), **Agency** (packages, prestations) et **Séminaire** (tout service coché « Service séminaire (Pass) », prioritaire sur sa catégorie). Pas de rubrique « Store » : chaque catégorie Store est déjà sa propre rubrique. Règle unique : `App\Support\SaleBranch`.
+- [x] T3.7 — Colonnes par rubrique : Bilan du jour (une colonne par catégorie, service ou produit confondus, même à zéro) et Comptabilité (« Recettes par rubrique », chaque versement réparti sur les lignes de sa facture). Autres rapports (`AcademyReportService`…) : à suivre.
+- [ ] T3.8 – T3.11 — Publicité Pekegno (campagnes locales / nationales, résultat avant / après pub).
+- [ ] T3.12 — Budget pub client : déjà exclu du CA et de l'encaissé ; appariement encaissement / dépense à faire.
+- [x] T3.13 — Ventes inter-agences : CA dans l'agence de la facture et pour le commercial, une seule fois au groupe (test `CorrectionsP1Test`).
+- [ ] T3.14 — Dépense rattachée à un événement.
+
+Test : `CorrectionsP1Test::test_rubrics_are_academy_agency_seminar_and_each_catalog_category`.
+
 ---
 
 ## 7. Lot 4 — Bugs P1 (B1 à B16)
@@ -318,6 +333,27 @@ Tests (7/11) : `TreasuryCashClosingTest` 8/8, `PaymentTreasuryRoutingTest` 12/12
 | **B14** | « FCFA » codé en dur ; XOF et XAF additionnés | Formater par devise (`formatCurrency(amount, currency)`), conversion groupe via `GroupCurrency`, mention explicite XOF/XAF | `frontend/src/utils/format`, `GroupCurrency`, toutes les pages montants | `CurrencyFormattingTest` |
 | **B15** | Taux de recouvrement calculé sur une autre base que la carte Encaissé | Une seule source : `encaisse` du service | `DashboardController`, `PEKEGNOGroupDashboard` | `RecoveryRateConsistencyTest` (61,74 % recalculé) |
 | **B16** | CA commercial rattaché à l'agence du **profil** | Rattacher au `invoices.agency_id` (agence d'encaissement) et au commercial de la facture | `CommercialReportService`, `SalesTrackingController`, `CommercialController::stats` | `InterAgencySaleTest` (déjà présent) + `CommercialAgencyRevenueTest` |
+
+### 7.1 Avancement Lot 4 (9/11/2026)
+
+- [ ] B1 — En partie : même CA sur 6 écrans (test) ; Comptabilité (registre d'écritures) à rapprocher.
+- [ ] B2 — En partie : cartes sur les tableaux de bord groupe / pays / agence / département ; clic sur carte à faire.
+- [ ] B3 — En partie : requête commune `InvoiceListQuery` (Takou237, 8/11) ; test à écrire.
+- [x] B4 — Catégorie de chaque ligne (`SaleBranch`), total des catégories = CA ; chaque écriture de versement prend la catégorie de sa rubrique (9/11). Rattrapages `accounting:reassign-departments` et `accounting:categorize-income`.
+- [x] B5 — Total période = premier solde initial / dernier solde final.
+- [x] B6 — Soldes tirés des caisses, consolidé = somme des soldes finaux de la veille, aucune écriture à la lecture.
+- [x] B7 — Revenus potentiels = somme des inscriptions.
+- [x] B8 — Filtre « Annulée » réparé, facture retirée par le client annulée (jamais supprimée), annulation via inscription journalisée. Reste : champ « motif » à l'écran.
+- [x] B9 — Annulation en cascade ; rattrapage `invoices:reverse-cancelled-payments`.
+- [x] B10 — Comptabilité paginée, totaux sur toute la période.
+- [x] B11 — Date de réception (Bilan, caisses, Comptabilité) ; rattrapage `treasury:backfill-payments`.
+- [x] B12 — Conséquence de B9 et B11.
+- [x] B13 — Transferts typés, jamais en dépense ; rattrapage `treasury:reclassify-transfers`.
+- [x] B14 — Conversion en monnaie du groupe en vue multi-pays (Bilan, Suivi des ventes), devise affichée ; bouton de devise sur PEKEGNO Group.
+- [x] B15 — Taux de recouvrement = encaissé sur les factures de la période ÷ CA, base affichée.
+- [x] B16 — CA du commercial dans l'agence de la facture.
+
+Tests : `CorrectionsP1Test`, `BilanTreasuryAndLedgerTest`, `FinancialMetricsConsistencyTest`… ; suite complète 626 verts / 37 échecs connus. Livraison : `doc/deploy/08_11/`.
 
 ---
 

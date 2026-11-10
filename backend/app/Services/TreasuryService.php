@@ -69,6 +69,7 @@ class TreasuryService
         abort_if(! $to->is_active, 422, 'Le compte destination est inactif.');
         abort_if($from->id === $to->id, 422, 'Les comptes source et destination doivent être différents.');
         abort_if(! in_array($transferType, TreasuryTransaction::TRANSFER_TYPES, true), 422, 'Type de transfert invalide.');
+        $this->assertTransferRoute($from, $to, $transferType);
 
         $transferRef = 'XFER-' . strtoupper(uniqid());
 
@@ -101,6 +102,47 @@ class TreasuryService
 
             return ['out' => $out, 'in' => $in, 'reference' => $transferRef];
         });
+    }
+
+    /**
+     * Sens autorisé pour chaque type de transfert (cahier §2) :
+     * - versement en banque : espèces (C) ou mobile money (O, M, W, V) → banque (B) ;
+     * - retrait : mobile money (O, M, W, V) → espèces (C) ;
+     * - décaissement administratif : espèces (C) → caisse de l'administration ;
+     * - transfert interne : toute caisse vers une autre.
+     *
+     * @var array<string, array{from: array<int, string>, to: array<int, string>|null, message: string}>
+     */
+    public const TRANSFER_ROUTES = [
+        'bank_deposit' => [
+            'from' => ['cash', 'mobile_money'],
+            'to' => ['bank'],
+            'message' => 'Un versement en banque part des espèces (C) ou du mobile money (O, M, W, V) vers une caisse banque (B).',
+        ],
+        'withdrawal' => [
+            'from' => ['mobile_money'],
+            'to' => ['cash'],
+            'message' => 'Un retrait part du mobile money (O, M, W, V) vers la caisse espèces (C).',
+        ],
+        'admin_disbursement' => [
+            'from' => ['cash'],
+            'to' => null,
+            'message' => 'Un décaissement administratif part de la caisse espèces (C).',
+        ],
+    ];
+
+    private function assertTransferRoute(TreasuryAccount $from, TreasuryAccount $to, string $transferType): void
+    {
+        $route = self::TRANSFER_ROUTES[$transferType] ?? null;
+        if ($route === null) {
+            return;
+        }
+
+        abort_if(
+            ! in_array($from->type, $route['from'], true) || ($route['to'] !== null && ! in_array($to->type, $route['to'], true)),
+            422,
+            $route['message']
+        );
     }
 
     /**

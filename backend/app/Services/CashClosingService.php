@@ -8,7 +8,9 @@ use App\Models\TreasuryTransaction;
 use App\Models\User;
 use App\Support\Money;
 use App\Support\Period;
+use App\Support\TreasuryFlows;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * T2.8 / T2.9 — clôture journalière d'une caisse.
@@ -40,6 +42,27 @@ class CashClosingService
         [, $endOfDay] = $this->dayBounds($account, $closingDate);
 
         return Money::round((float) $account->opening_balance + $this->netBetween($account, null, $endOfDay), 2);
+    }
+
+    /**
+     * Détail du jour d'une caisse (cahier §2) : solde initial, entrées,
+     * sorties, transferts reçus / envoyés et solde théorique.
+     *
+     * @return array{opening: float, in: float, out: float, transfer_in: float, transfer_out: float, closing: float}
+     */
+    public function dayBreakdown(TreasuryAccount $account, string $closingDate): array
+    {
+        [$start, $end] = $this->dayBounds($account, $closingDate);
+        [$flowSql, $bindings] = TreasuryFlows::selectSql();
+
+        $row = DB::table('treasury_transactions')
+            ->whereNull('deleted_at')
+            ->where('treasury_account_id', $account->id)
+            ->where('transacted_at', '<=', $end)
+            ->selectRaw($flowSql, array_fill(0, $bindings, $start))
+            ->first();
+
+        return TreasuryFlows::fromRow($row, (float) $account->opening_balance);
     }
 
     /** Solde initial = solde final de la veille (cahier §2). */

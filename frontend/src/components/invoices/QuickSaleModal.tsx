@@ -263,6 +263,11 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
     setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev));
   }
 
+  /** Niveaux d'un séminaire déjà pris par les autres lignes de la facture. */
+  function usedTiers(serviceId: string, exceptKey: string): Set<string> {
+    return new Set(lines.filter((l) => l.key !== exceptKey && l.service_id === serviceId && l.pass_tier).map((l) => l.pass_tier));
+  }
+
   function handleProductSelect(key: string, value: string) {
     if (!value) {
       updateLine(key, { service_id: '', product_id: '', kind: '', label: '', unit_price: '', pass_tier: '' });
@@ -278,18 +283,22 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
     const alreadyUsed = lines.some(
       (l) => l.key !== key && ((option.kind === 'service' && l.service_id === rawId) || (option.kind === 'product' && l.product_id === rawId)),
     );
-    if (alreadyUsed) {
-      showToast(t('invoices.duplicateService'), 'error');
+    // Séminaire : le même service peut revenir sur une autre ligne pour un
+    // autre niveau (2 Classique + 1 VIP), jamais deux fois le même niveau.
+    const tiers = option.tiers;
+    const taken = option.kind === 'service' ? usedTiers(rawId, key) : new Set<string>();
+    const freeTier = tiers.find((tier) => !taken.has(tier.tier));
+    if (alreadyUsed && (tiers.length === 0 || !freeTier)) {
+      showToast(t(tiers.length > 0 ? 'invoices.duplicateSeminarTier' : 'invoices.duplicateService'), 'error');
       return;
     }
-    const tiers = option.tiers;
     updateLine(key, {
       service_id: option.kind === 'service' ? rawId : '',
       product_id: option.kind === 'product' ? rawId : '',
       kind: option.kind,
       label: option.label,
-      unit_price: String(tiers[0]?.price ?? option.price),
-      pass_tier: tiers[0]?.tier ?? '',
+      unit_price: String(freeTier?.price ?? option.price),
+      pass_tier: freeTier?.tier ?? '',
     });
   }
 
@@ -533,7 +542,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
                         }}
                       >
                         {tiers.map((t) => (
-                          <option key={t.tier} value={t.tier}>
+                          <option key={t.tier} value={t.tier} disabled={usedTiers(line.service_id, line.key).has(t.tier)}>
                             {t.label} — {formatCurrency(Number(t.price), currency)}
                           </option>
                         ))}

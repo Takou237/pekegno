@@ -211,32 +211,34 @@ class BilanTreasuryAndLedgerTest extends TestCase
         ]);
     }
 
-    public function test_direct_sales_follow_the_category_of_the_items_sold(): void
+    public function test_catalog_sales_go_to_the_store_whatever_their_category(): void
     {
         $agency = $this->agency();
         $depts = $this->departments($agency, ['agency', 'store', 'academy', 'studio']);
         $ledger = app(DepartmentLedger::class);
 
-        $book = $this->directSale($agency, [['service_id' => $this->service('Store')->id, 'line_total' => 5000]]);
-        $canva = $this->directSale($agency, [['service_id' => $this->service('Canva')->id, 'line_total' => 8000]]); // catégorie libre → Store
-        $bootcamp = $this->directSale($agency, [['service_id' => $this->service('Academy')->id, 'line_total' => 50000]]);
+        // Tout article créé par « Créer un service » relève du Store ; sa
+        // catégorie (Livre, Canva…) n'est que sa rubrique.
+        $book = $this->directSale($agency, [['service_id' => $this->service('Livre')->id, 'line_total' => 5000]]);
+        $canva = $this->directSale($agency, [['service_id' => $this->service('Canva')->id, 'line_total' => 8000]]);
+        $namedAcademy = $this->directSale($agency, [['service_id' => $this->service('Academy')->id, 'line_total' => 50000]]);
         $mixed = $this->directSale($agency, [
-            ['service_id' => $this->service('Store')->id, 'line_total' => 3000],
-            ['service_id' => $this->service('Academy')->id, 'line_total' => 9000],
+            ['service_id' => $this->service('Livre')->id, 'line_total' => 3000],
+            ['line_total' => 9000],
         ]);
         $freeLine = $this->directSale($agency, [['line_total' => 2000]]);
 
         $this->assertSame($depts['store']->id, $ledger->departmentForInvoice($book));
         $this->assertSame($depts['store']->id, $ledger->departmentForInvoice($canva));
-        $this->assertSame($depts['academy']->id, $ledger->departmentForInvoice($bootcamp));
-        $this->assertSame($depts['academy']->id, $ledger->departmentForInvoice($mixed)); // la catégorie qui pèse le plus
+        $this->assertSame($depts['store']->id, $ledger->departmentForInvoice($namedAcademy));
+        $this->assertSame($depts['store']->id, $ledger->departmentForInvoice($mixed));
         $this->assertSame($depts['agency']->id, $ledger->departmentForInvoice($freeLine));
 
         // Même rattachement côté CA, et chaque facture dans un seul département.
         $revenue = fn (Department $d) => app(FinancialMetricsService::class)
             ->summary(Carbon::parse('2026-11-01'), Carbon::parse('2026-11-03 23:59:59'), [$agency->id], false, null, $d)['ca'];
-        $this->assertSame(13000.0, $revenue($depts['store']));
-        $this->assertSame(62000.0, $revenue($depts['academy']));
+        $this->assertSame(75000.0, $revenue($depts['store']));
+        $this->assertSame(0.0, $revenue($depts['academy']));
         $this->assertSame(2000.0, $revenue($depts['agency']));
         $this->assertSame(0.0, $revenue($depts['studio']));
     }

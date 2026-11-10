@@ -55,7 +55,7 @@ class InvoiceCancellationService
                     AccountingTransaction::create([
                         'number' => $this->accounting->nextNumber(),
                         'agency_id' => $invoice->agency_id,
-                        'category_id' => $this->accounting->systemCategory('income')?->id,
+                        'category_id' => $this->accounting->incomeCategoryId($invoice),
                         'type' => 'income',
                         'label' => "Facture {$invoice->number} — annulation du versement",
                         'reference' => $invoice->number.'-ANNUL',

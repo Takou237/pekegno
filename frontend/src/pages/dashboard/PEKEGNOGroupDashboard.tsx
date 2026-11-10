@@ -361,6 +361,12 @@ export default function PEKEGNOGroupDashboard() {
         <StatCard
           label={t('dashboard.collectionRate')}
           value={`${stats?.collection_rate ?? 0}%`}
+          // B15 : base explicite — encaissé sur les factures de la période (hors
+          // recouvrements d'anciennes factures, cf. carte Encaissé) ÷ CA.
+          sub={t('dashboard.collectionRateSub', {
+            paid: money(stats?.collected_on_period_invoices ?? 0),
+            revenue: money(stats?.revenue ?? 0),
+          })}
           icon={<Percent className="h-5 w-5" />}
           tone="bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
         />
