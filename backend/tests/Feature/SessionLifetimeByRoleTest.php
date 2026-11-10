@@ -11,8 +11,7 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * B26 — L'inactivité est de 12 h pour la direction générale et de 2 h pour
- * les autres rôles.
+ * B26 — 24 h d'inactivité pour tous les rôles, direction générale comprise.
  */
 class SessionLifetimeByRoleTest extends TestCase
 {
@@ -37,24 +36,24 @@ class SessionLifetimeByRoleTest extends TestCase
         return $this->getJson('/api/stats/group?from=2026-11-01&to=2026-11-30');
     }
 
-    public function test_direction_generale_keeps_a_twelve_hour_session(): void
+    public function test_direction_generale_keeps_its_session_for_a_day(): void
     {
-        Sanctum::actingAs($this->user('direction-generale', 3 * 60));
+        Sanctum::actingAs($this->user('direction-generale', 20 * 60));
 
         $this->hitProtectedRoute()->assertOk();
     }
 
-    public function test_other_roles_expire_after_two_hours(): void
+    public function test_other_roles_keep_their_session_for_a_day(): void
     {
-        Sanctum::actingAs($this->user('commercial', 3 * 60));
+        Sanctum::actingAs($this->user('commercial', 20 * 60));
+
+        $this->hitProtectedRoute()->assertOk();
+    }
+
+    public function test_sessions_expire_after_twenty_four_hours(): void
+    {
+        Sanctum::actingAs($this->user('responsable-agence', 25 * 60));
 
         $this->hitProtectedRoute()->assertStatus(401);
-    }
-
-    public function test_other_roles_keep_their_session_before_two_hours(): void
-    {
-        Sanctum::actingAs($this->user('responsable-agence', 60));
-
-        $this->hitProtectedRoute()->assertOk();
     }
 }

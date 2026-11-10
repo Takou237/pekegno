@@ -5,7 +5,7 @@
 -- État prod de départ : lot `04_11(2)/` appliqué + correctifs master
 --   20a2abe et d923245 (dernière migration en prod : 2026_11_04_000001).
 --
--- Contenu : 6 migrations Laravel + 1 droit :
+-- Contenu : 8 migrations Laravel + 1 droit :
 --   A. 2026_11_05_000001  invoice_payments.cancelled_at
 --      Paiement annulé avec sa facture (B9).
 --   B. 2026_11_06_000001  invoice_payments.received_at / validated_at / validation_status
@@ -21,6 +21,10 @@
 --      Caisse obligatoire sur les dépenses ; versement en banque = transfert (B13).
 --   G. Droit : caissier → tresories.consulter et tresories.modifier
 --      (RoleSeeder : la caissière voit et clôture sa caisse C).
+--   I. 2026_11_09_000001  invoice_items.category_id
+--      Catégorie portée par la ligne de facture (B4), reprise du service.
+--   J. 2026_11_10_000001  products.branch / services.branch
+--      Branche de l'article (B24), affichée dans le catalogue de la Comptabilité.
 --
 -- ⚠ Le code de `corrections` lit ces colonnes sur les factures, paiements,
 --   bilans, tableaux de bord et la comptabilité : importer ce fichier
@@ -139,6 +143,30 @@ WHERE r.name = 'caissier'
   AND NOT EXISTS (SELECT 1 FROM role_permission rp WHERE rp.role_id = r.id AND rp.permission_id = p.id);
 
 -- ------------------------------------------------------------
+-- I. Catégorie sur la ligne de facture — 2026_11_09_000001
+-- ------------------------------------------------------------
+ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS category_id uuid NULL;
+CREATE INDEX IF NOT EXISTS invoice_items_category_id_index ON invoice_items (category_id);
+UPDATE invoice_items
+SET category_id = (SELECT services.category_id FROM services WHERE services.id = invoice_items.service_id)
+WHERE category_id IS NULL AND service_id IS NOT NULL;
+
+-- ------------------------------------------------------------
+-- J. Branche des produits et services — 2026_11_10_000001
+--    Une catégorie qui nomme une branche la garde, sinon Store.
+-- ------------------------------------------------------------
+ALTER TABLE products ADD COLUMN IF NOT EXISTS branch varchar(20) NULL;
+ALTER TABLE services ADD COLUMN IF NOT EXISTS branch varchar(20) NULL;
+CREATE INDEX IF NOT EXISTS products_branch_index ON products (branch);
+CREATE INDEX IF NOT EXISTS services_branch_index ON services (branch);
+UPDATE products SET branch = COALESCE((SELECT lower(categories.name) FROM categories
+  WHERE categories.id = products.category_id AND lower(categories.name) IN ('academy','agency','store','studio')), 'store')
+WHERE branch IS NULL;
+UPDATE services SET branch = COALESCE((SELECT lower(categories.name) FROM categories
+  WHERE categories.id = services.category_id AND lower(categories.name) IN ('academy','agency','store','studio')), 'store')
+WHERE branch IS NULL;
+
+-- ------------------------------------------------------------
 -- H. Marque les migrations comme exécutées (évite tout rejeu via artisan)
 -- ------------------------------------------------------------
 INSERT INTO migrations (migration, batch)
@@ -149,7 +177,9 @@ FROM (VALUES
   ('2026_11_06_000002_add_code_and_visibility_to_treasury_accounts'),
   ('2026_11_06_000003_add_transfer_type_to_treasury_transactions'),
   ('2026_11_06_000004_create_cash_closings_table'),
-  ('2026_11_07_000001_add_treasury_and_transfer_to_accounting_transactions')
+  ('2026_11_07_000001_add_treasury_and_transfer_to_accounting_transactions'),
+  ('2026_11_09_000001_add_category_id_to_invoice_items'),
+  ('2026_11_10_000001_add_branch_to_products_and_services')
 ) AS v(m)
 WHERE NOT EXISTS (SELECT 1 FROM migrations WHERE migration = v.m);
 
@@ -157,7 +187,7 @@ COMMIT;
 
 -- ------------------------------------------------------------
 -- Contrôles (boîte SQL → SELECT uniquement) :
--- SELECT migration FROM migrations WHERE migration > '2026_11_04_000001' ORDER BY migration;  -- 6 lignes
+-- SELECT migration FROM migrations WHERE migration > '2026_11_04_000001' ORDER BY migration;  -- 8 lignes
 -- SELECT agency_id, code, type, provider FROM treasury_accounts ORDER BY agency_id, code;    -- aucun code vide
 -- SELECT COUNT(*) FROM invoice_payments WHERE received_at IS NULL;                            -- 0
 -- SELECT p.name FROM role_permission rp JOIN roles r ON r.id = rp.role_id

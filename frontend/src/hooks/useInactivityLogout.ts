@@ -8,7 +8,8 @@ const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
   'scroll',
 ];
 
-const DEFAULT_TIMEOUT_MINUTES = 120;
+// B26 : 24 h d'inactivité, comme le middleware InactivityLogout du backend.
+const DEFAULT_TIMEOUT_MINUTES = 1440;
 
 /**
  * Déconnecte automatiquement l'utilisateur après N minutes d'inactivité.

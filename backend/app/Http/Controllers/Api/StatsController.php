@@ -51,8 +51,15 @@ class StatsController extends Controller
             ->validated()
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds));
 
-        // Cartes financières : calcul unique (section 1 du cahier), converti dans la monnaie du groupe.
-        $kpi = app(FinancialMetricsService::class)->summary($from, $to, $agencyIds, true);
+        // Cartes financières : calcul unique (section 1 du cahier). Périmètre
+        // d'une seule devise (caissière d'Abidjan…) : montants dans cette devise ;
+        // sinon convertis dans la monnaie du groupe (B14).
+        $currencies = $agencyIds === null
+            ? collect()
+            : collect($agencyIds)->map(fn ($id) => GroupCurrency::currencyForAgency($id))->unique()->values();
+        $singleCurrency = $currencies->count() === 1;
+        $kpi = app(FinancialMetricsService::class)->summary($from, $to, $agencyIds, ! $singleCurrency);
+        $currencyCode = $singleCurrency ? $currencies->first() : GroupCurrency::code();
 
         $clientCount = User::whereHas('role', fn ($q) => $q->where('name', 'client'))
             ->when($countryIds !== null, fn ($q) => $q->whereIn('country_id', $countryIds))
@@ -95,6 +102,7 @@ class StatsController extends Controller
                 'to' => $to->toISOString(),
             ],
             ...$this->kpiPayload($kpi),
+            'currency_code' => $currencyCode,
             'clients_total' => $clientCount,
             'commercials_active' => $activeCommercials,
             'agencies_total' => Agency::query()

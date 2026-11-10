@@ -39,7 +39,7 @@ pas fait, **ne rien importer** : le SQL de ce dossier n'est utile qu'avec ce cod
 
 | Partie | Action |
 |---|---|
-| Base de données | `migration-2026-11-08.sql` : 6 migrations (paiements, caisses, transferts, clôtures, écritures) + droit `tresories.consulter` / `tresories.modifier` pour le caissier |
+| Base de données | `migration-2026-11-08.sql` : 8 migrations (paiements, caisses, transferts, clôtures, écritures, catégorie des lignes, branche des articles) + droit `tresories.consulter` / `tresories.modifier` pour le caissier |
 | Données | **6 commandes de rattrapage** (étape 5), chacune en simulation d'abord |
 | Routes | **nouvelles** (clôtures, transferts, réalisations formateur…) → **vider le cache de routes** |
 | `vendor/` | **aucun changement** |
@@ -56,7 +56,7 @@ hors des heures de vente.
 
 | Fichier | Usage | Quand |
 |---|---|---|
-| `migration-2026-11-08.sql` | 6 migrations + droit caissier + lignes `migrations` (rejouable, une transaction) | phpPgAdmin → **Importer**, **juste après** le `git pull` |
+| `migration-2026-11-08.sql` | 8 migrations + droit caissier + lignes `migrations` (rejouable, une transaction) | phpPgAdmin → **Importer**, **juste après** le `git pull` |
 | `frontend-dist.zip` | Build admin du 08/11 (remplace `04_11(2)/`) | Extraire sur `/plateforme.pekegnogroup.com` |
 | `README.md` | Ce fichier | — |
 
@@ -79,7 +79,7 @@ Validé avant livraison :
 2. **Base (immédiatement)** : phpPgAdmin → base `sc1fopa5058_pekegno` → onglet **Importer** →
    `migration-2026-11-08.sql`. Contrôle (boîte SQL, SELECT seul) :
    `SELECT migration FROM migrations WHERE migration > '2026_11_04_000001' ORDER BY migration;`
-   → 6 lignes.
+   → 8 lignes.
 3. **Caches** — SSH depuis `~/repositories/pekegno/backend` :
    `php artisan route:clear && php artisan config:clear && php artisan view:clear && php artisan cache:clear`
    puis **vider l'OPcache** : uploader `doc/deploy/reset-opcache.php` dans `backend/public/`,

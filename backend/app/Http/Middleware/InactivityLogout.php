@@ -10,11 +10,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class InactivityLogout
 {
-    /** Durée par défaut (autres rôles) : 2 h. */
-    private const DEFAULT_LIFETIME_MINUTES = 120;
+    /** Durée d'inactivité par défaut (tous les rôles) : 24 h. */
+    public const DEFAULT_LIFETIME_MINUTES = 1440;
 
-    /** Durée de la direction générale : 12 h. */
-    private const DG_LIFETIME_MINUTES = 720;
+    /** Direction générale : jamais moins que les autres rôles (B26). */
+    public const DG_LIFETIME_MINUTES = 1440;
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -57,8 +57,10 @@ class InactivityLogout
             return (int) $setting;
         }
 
+        // Pas de repli sur SESSION_LIFETIME (120 min dans le .env) : il
+        // ramènerait les autres rôles à 2 h.
         return $user->role?->name === 'direction-generale'
             ? self::DG_LIFETIME_MINUTES
-            : (int) config('session.lifetime', self::DEFAULT_LIFETIME_MINUTES);
+            : self::DEFAULT_LIFETIME_MINUTES;
     }
 }
