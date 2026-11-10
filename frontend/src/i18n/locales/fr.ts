@@ -899,6 +899,18 @@ export default {
     displayCurrency: "Devise d'affichage",
     // Cartes financières (cahier, section 1) — calcul unique côté serveur.
     kpi: {
+      detailsEmpty: 'Aucun élément pour cette carte sur la période.',
+      detailsTotal: '{{count}} élément(s) — total {{amount}} (égal à la carte)',
+      detailsDate: 'Date',
+      detailsInvoice: 'Facture',
+      detailsClient: 'Client',
+      detailsLabel: 'Libellé',
+      detailsCategory: 'Catégorie',
+      detailsAgency: 'Agence',
+      detailsInvoiceTotal: 'Total facture',
+      detailsAmount: 'Montant compté',
+      detailsRecovery: 'recouvrement',
+      detailsProof: 'preuve de reste à payer',
       revenue: 'Chiffre d\'affaires',
       revenueSub: '{{count}} factures validées · panier moyen {{basket}}',
       collected: 'Encaissé',

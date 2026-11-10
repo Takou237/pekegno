@@ -301,6 +301,39 @@ class CorrectionsP1Test extends TestCase
         $this->assertEqualsWithDelta(567000, $row['potential_revenue'], 0.01);
     }
 
+    public function test_clicking_a_card_lists_what_makes_it_up(): void
+    {
+        $agency = $this->agency();
+        $pay = fn (Invoice $i, float $amount, string $when = '2026-11-02 09:00:00') => app(PaymentService::class)
+            ->applyPayment($i, $amount, 'cash', false, $this->admin->id, null, $when, $when);
+
+        $paid = $this->invoice($agency, 50000, [['line_total' => 50000]]);
+        $pay($paid, 50000);
+        $partial = $this->invoice($agency, 80000, [['line_total' => 80000]]);
+        $pay($partial, 30000);
+        $this->invoice($agency, 20000, [['line_total' => 20000]]); // impayée
+        $old = $this->invoice($agency, 10000, [['line_total' => 10000]], ['invoice_date' => '2026-10-15']);
+        $pay($old, 10000); // recouvrement
+        $this->invoice($agency, 60000, [['line_total' => 60000]], ['validation_status' => Invoice::VALIDATION_PENDING, 'declared_advance' => 25000]);
+        $cash = \App\Models\TreasuryAccount::where('agency_id', $agency->id)->where('code', 'C')->first();
+        $this->postJson('/api/accounting/transactions', ['type' => 'expense', 'label' => 'Loyer', 'amount' => 7000, 'treasury_account_id' => $cash->id, 'agency_id' => $agency->id, 'transacted_at' => '2026-11-02 12:00:00'])->assertCreated();
+
+        $q = 'from=2026-11-01&to=2026-11-03&agency_id='.$agency->id;
+        $summary = $this->getJson("/api/metrics/summary?{$q}")->assertOk()->json();
+
+        foreach (['revenue' => 'revenue', 'payments_total' => 'collected', 'advances_total' => 'advances', 'outstanding' => 'outstanding', 'expenses_total' => 'expenses', 'pending_validation_total' => 'pending_validation'] as $card => $key) {
+            $details = $this->getJson("/api/metrics/details?card={$card}&{$q}")->assertOk()->json();
+            $this->assertEqualsWithDelta($summary[$key], $details['total'], 0.01, $card);
+            $this->assertEqualsWithDelta($details['total'], collect($details['rows'])->sum('amount'), 0.01, $card.' (lignes)');
+        }
+
+        // Encaissé : 3 paiements, dont le recouvrement de l'ancienne facture.
+        $payments = $this->getJson("/api/metrics/details?card=payments_total&{$q}")->json('rows');
+        $this->assertCount(3, $payments);
+        $this->assertSame(1, collect($payments)->where('is_recovery', 1)->count());
+        $this->getJson("/api/metrics/details?card=unknown&{$q}")->assertStatus(422);
+    }
+
     // --- B8 ------------------------------------------------------------------------
 
     public function test_rejected_and_cancelled_invoices_stay_findable(): void

@@ -117,7 +117,7 @@ export default function CashierDashboardPage() {
         </span>
       </div>
 
-      <FinancialKpiCards kpis={stats} currency={stats?.currency_code} />
+      <FinancialKpiCards kpis={stats} currency={stats?.currency_code} detailsScope={{ from: today, to: today }} />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <StatCard

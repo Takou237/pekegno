@@ -310,7 +310,7 @@ export default function PEKEGNOGroupDashboard() {
       </div>
 
       {/* Cartes de la section 1 du cahier, en tête et dans l'ordre (calcul unique serveur). */}
-      <FinancialKpiCards kpis={kpisInView} currency={displayCode} />
+      <FinancialKpiCards kpis={kpisInView} currency={displayCode} detailsScope={{ from: period.from, to: period.to }} />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard

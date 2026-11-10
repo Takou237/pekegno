@@ -62,6 +62,35 @@ class MetricsController extends Controller
     /**
      * @return array{0: Carbon, 1: Carbon, 2: array<int, string>|null, 3: bool, 4: ?string, 5: ?Department}
      */
+    /**
+     * Clic sur une carte (cahier §1, MVP §22) : les factures, paiements ou
+     * dépenses qui la composent, avec les mêmes filtres que la carte.
+     */
+    public function details(Request $request): JsonResponse
+    {
+        $request->validate(['card' => ['required', 'string', 'in:'.implode(',', FinancialMetricsService::DETAIL_CARDS)]]);
+        [$from, $to, $agencyIds, $convert, $commercialId, $department] = $this->resolveScope($request);
+
+        $details = $this->metrics->details(
+            $request->input('card'), $from, $to, $agencyIds, $convert, $commercialId, $department,
+            min(max((int) $request->input('per_page', 25), 1), 100),
+        );
+
+        return response()->json([
+            'card' => $details['card'],
+            'kind' => $details['kind'],
+            'total' => $details['total'],
+            'currency_code' => $this->currencyCode($request),
+            'rows' => $details['rows']->items(),
+            'meta' => [
+                'current_page' => $details['rows']->currentPage(),
+                'last_page' => $details['rows']->lastPage(),
+                'per_page' => $details['rows']->perPage(),
+                'total' => $details['rows']->total(),
+            ],
+        ]);
+    }
+
     private function resolveScope(Request $request): array
     {
         $from = Period::from($request, now()->startOfMonth());

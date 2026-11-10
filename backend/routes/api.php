@@ -395,6 +395,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     // Synthèse financière unique (T1.7) : 7 indicateurs + contrôle CA.
     Route::get('/metrics/summary', [MetricsController::class, 'summary'])->middleware('permission:stats.consulter');
     Route::get('/metrics/breakdown', [MetricsController::class, 'breakdown'])->middleware('permission:stats.consulter');
+    Route::get('/metrics/details', [MetricsController::class, 'details'])->middleware('permission:stats.consulter');
 
     Route::get('/treasury/accounts', [TreasuryController::class, 'indexAccounts'])->middleware('permission:tresories.consulter');
     Route::get('/treasury/accounts/{account}', [TreasuryController::class, 'showAccount'])->middleware('permission:tresories.consulter');

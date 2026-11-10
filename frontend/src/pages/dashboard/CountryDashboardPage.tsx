@@ -111,7 +111,11 @@ export default function CountryDashboardPage() {
       )}
 
       {/* Cartes de la section 1 du cahier, dans la monnaie du pays (calcul unique serveur). */}
-      <FinancialKpiCards kpis={stats} currency={(stats as { country?: { currency_code?: string } } | null)?.country?.currency_code} />
+      <FinancialKpiCards
+        kpis={stats}
+        currency={(stats as { country?: { currency_code?: string } } | null)?.country?.currency_code}
+        detailsScope={countryId ? { from: period.from, to: period.to, country_id: countryId } : null}
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link

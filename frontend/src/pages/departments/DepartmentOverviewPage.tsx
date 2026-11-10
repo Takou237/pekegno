@@ -670,7 +670,11 @@ export default function DepartmentOverviewPage() {
         <PeriodPicker value={period} onChange={setPeriod} />
       </div>
       {/* Cartes de la section 1 du cahier, limitées au département (calcul unique serveur). */}
-      <FinancialKpiCards kpis={departmentKpis} currency={departmentKpis?.currency_code} />
+      <FinancialKpiCards
+        kpis={departmentKpis}
+        currency={departmentKpis?.currency_code}
+        detailsScope={agencyId && departmentId ? { from: period.from, to: period.to, agency_id: agencyId, department_id: departmentId } : null}
+      />
       {isAcademy ? (
         academy && !academy.isLoading ? (
           <>

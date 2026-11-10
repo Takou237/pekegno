@@ -127,7 +127,11 @@ export default function AgencyOverviewPage() {
         <PeriodPicker value={period} onChange={setPeriod} />
       </div>
       {/* Cartes de la section 1 du cahier, en tête (calcul unique serveur, monnaie de l'agence). */}
-      <FinancialKpiCards kpis={agencyStats} currency={agencyStats?.currency_code} />
+      <FinancialKpiCards
+        kpis={agencyStats}
+        currency={agencyStats?.currency_code}
+        detailsScope={agencyId ? { from: period.from, to: period.to, agency_id: agencyId } : null}
+      />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, to, color, bg }) => (
           <Link

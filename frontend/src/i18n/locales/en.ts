@@ -892,6 +892,18 @@ export default {
   dashboard: {
     displayCurrency: 'Display currency',
     kpi: {
+      detailsEmpty: 'Nothing for this card in the period.',
+      detailsTotal: '{{count}} item(s) — total {{amount}} (equals the card)',
+      detailsDate: 'Date',
+      detailsInvoice: 'Invoice',
+      detailsClient: 'Client',
+      detailsLabel: 'Label',
+      detailsCategory: 'Category',
+      detailsAgency: 'Agency',
+      detailsInvoiceTotal: 'Invoice total',
+      detailsAmount: 'Amount counted',
+      detailsRecovery: 'recovery',
+      detailsProof: 'remaining-payment proof',
       revenue: 'Revenue',
       revenueSub: '{{count}} validated invoices · average basket {{basket}}',
       collected: 'Collected',

@@ -170,6 +170,137 @@ class FinancialMetricsService
         ];
     }
 
+    /** Cartes dont on peut afficher le détail (clic sur une carte, MVP §22). */
+    public const DETAIL_CARDS = ['revenue', 'payments_total', 'advances_total', 'outstanding', 'expenses_total', 'pending_validation_total'];
+
+    /**
+     * Détail d'une carte : les factures, paiements ou dépenses qui la
+     * composent, avec exactement les mêmes filtres que summary() (cahier §1,
+     * « Clic sur une carte »). La somme des montants de la liste complète est
+     * égale à la carte.
+     *
+     * @return array{card: string, kind: string, total: float, rows: \Illuminate\Contracts\Pagination\LengthAwarePaginator}
+     */
+    public function details(string $card, Carbon $from, Carbon $to, ?array $agencyIds = null, bool $convert = false, ?string $commercialId = null, ?Department $department = null, int $perPage = 25): array
+    {
+        abort_unless(in_array($card, self::DETAIL_CARDS, true), 422, 'Carte inconnue.');
+
+        $r = $convert ? GroupCurrency::rateSql('invoices.agency_id') : '1';
+        $netFactor = $this->netOfPassThroughFactor();
+        $netTotal = $this->netOfPassThroughTotal();
+        $departmentInvoices = $department ? app(DepartmentLedger::class)->invoiceIds($department) : null;
+        $scope = function ($query) use ($agencyIds, $commercialId, $departmentInvoices) {
+            $query->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds ?: ['00000000-0000-0000-0000-000000000000']))
+                ->when($commercialId, fn ($q) => $q->where('invoices.commercial_id', $commercialId))
+                ->when($departmentInvoices, fn ($q) => $q->whereIn('invoices.id', DB::query()->fromSub($departmentInvoices, 'dept_invoices')->select('dept_invoices.id')));
+        };
+        $client = "coalesce(nullif(invoices.client_name, ''), trim(coalesce(users.first_name, '') || ' ' || coalesce(users.last_name, '')))";
+
+        if ($card === 'payments_total') {
+            $query = DB::table('invoice_payments')
+                ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
+                ->leftJoinSub($this->passThroughSub(), 'pt', 'pt.invoice_id', '=', 'invoices.id')
+                ->leftJoin('users', 'users.id', '=', 'invoices.client_id')
+                ->leftJoin('agencies', 'agencies.id', '=', 'invoices.agency_id')
+                ->whereNull('invoices.cancelled_at')
+                ->whereNull('invoice_payments.cancelled_at')
+                ->where('invoice_payments.validation_status', 'validated')
+                ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
+                ->whereRaw('coalesce(invoice_payments.received_at, invoice_payments.paid_at) between ? and ?', [$from, $to]);
+            $scope($query);
+            $amount = "invoice_payments.amount * {$netFactor} * {$r}";
+            $total = (float) (clone $query)->sum(DB::raw($amount));
+            $rows = $query->selectRaw("invoice_payments.id, invoices.id as invoice_id, invoices.number, {$client} as client, agencies.name as agency,
+                    coalesce(invoice_payments.received_at, invoice_payments.paid_at) as date, invoice_payments.payment_method as method,
+                    ({$amount}) as amount, case when invoices.invoice_date < ? then 1 else 0 end as is_recovery", [$from])
+                ->orderByDesc('date')
+                ->paginate($perPage);
+
+            return ['card' => $card, 'kind' => 'payments', 'total' => Money::franc($total), 'rows' => $rows];
+        }
+
+        if ($card === 'expenses_total') {
+            $er = $convert ? GroupCurrency::rateSql('accounting_transactions.agency_id') : '1';
+            $query = DB::table('accounting_transactions')
+                ->leftJoin('accounting_categories', 'accounting_categories.id', '=', 'accounting_transactions.category_id')
+                ->leftJoin('agencies', 'agencies.id', '=', 'accounting_transactions.agency_id')
+                ->where('accounting_transactions.type', 'expense')
+                ->where('accounting_transactions.is_transfer', false)
+                ->whereBetween('accounting_transactions.transacted_at', [$from, $to])
+                ->when($agencyIds !== null, fn ($q) => $q->whereIn('accounting_transactions.agency_id', $agencyIds ?: ['00000000-0000-0000-0000-000000000000']))
+                ->when($commercialId, fn ($q) => $q->whereRaw('1 = 0'))
+                ->when($department, fn ($q) => $q->where('accounting_transactions.department_id', $department->id));
+            $amount = "accounting_transactions.amount * {$er}";
+            $total = (float) (clone $query)->sum(DB::raw($amount));
+            $rows = $query->selectRaw("accounting_transactions.id, accounting_transactions.number, accounting_transactions.label, accounting_categories.name as category,
+                    agencies.name as agency, accounting_transactions.transacted_at as date, ({$amount}) as amount")
+                ->orderByDesc('date')
+                ->paginate($perPage);
+
+            return ['card' => $card, 'kind' => 'expenses', 'total' => Money::franc($total), 'rows' => $rows];
+        }
+
+        // Cartes « factures » : CA, acomptes, impayés, en attente de validation.
+        $query = DB::table('invoices')
+            ->leftJoinSub($this->passThroughSub(), 'pt', 'pt.invoice_id', '=', 'invoices.id')
+            ->leftJoin('users', 'users.id', '=', 'invoices.client_id')
+            ->leftJoin('agencies', 'agencies.id', '=', 'invoices.agency_id')
+            ->whereNull('invoices.cancelled_at')
+            ->whereBetween('invoices.invoice_date', [$from, $to]);
+        $scope($query);
+
+        $paid = "(invoices.amount_paid * {$netFactor})";
+        if ($card === 'pending_validation_total') {
+            $query->where('invoices.validation_status', Invoice::VALIDATION_PENDING);
+            $amount = "coalesce(invoices.declared_advance, 0) * {$r}";
+        } else {
+            $query->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED);
+            if ($card === 'revenue') {
+                $amount = "({$netTotal}) * {$r}";
+            } elseif ($card === 'outstanding') {
+                $query->whereRaw("({$netTotal}) > {$paid}");
+                $amount = "(({$netTotal}) - {$paid}) * {$r}";
+            } else { // advances_total
+                $query->whereColumn('invoices.amount_paid', '<', 'invoices.total_amount')->where('invoices.amount_paid', '>', 0);
+                $amount = "{$paid} * {$r}";
+            }
+        }
+
+        $select = fn ($q, string $amountSql, string $dateSql, string $source) => $q->selectRaw("invoices.id, invoices.number, {$client} as client, agencies.name as agency, {$dateSql} as date,
+                (({$netTotal}) * {$r}) as invoice_total, ({$paid} * {$r}) as paid, ({$amountSql}) as amount, '{$source}' as source");
+
+        if ($card === 'pending_validation_total') {
+            // + règlements de reste à payer annoncés par preuve, pas encore acceptés
+            // (factures validées), comme la carte.
+            $proofs = DB::table('payment_proofs')
+                ->join('invoices', 'invoices.id', '=', 'payment_proofs.invoice_id')
+                ->leftJoinSub($this->passThroughSub(), 'pt', 'pt.invoice_id', '=', 'invoices.id')
+                ->leftJoin('users', 'users.id', '=', 'invoices.client_id')
+                ->leftJoin('agencies', 'agencies.id', '=', 'invoices.agency_id')
+                ->whereNull('invoices.cancelled_at')
+                ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
+                ->where('payment_proofs.status', 'pending')
+                ->where('payment_proofs.amount', '>', 0)
+                ->whereBetween('payment_proofs.created_at', [$from, $to]);
+            $scope($proofs);
+            $union = $select($query, $amount, 'invoices.invoice_date', 'sale')
+                ->unionAll($select($proofs, "payment_proofs.amount * {$r}", 'payment_proofs.created_at', 'proof'));
+            $all = DB::query()->fromSub($union, 'pending_rows');
+            $total = (float) (clone $all)->sum('amount');
+            $rows = $all->orderByDesc('date')->orderByDesc('number')->paginate($perPage);
+
+            return ['card' => $card, 'kind' => 'invoices', 'total' => Money::franc($total), 'rows' => $rows];
+        }
+
+        $total = (float) (clone $query)->sum(DB::raw($amount));
+        $rows = $select($query, $amount, 'invoices.invoice_date', 'sale')
+            ->orderByDesc('invoices.invoice_date')
+            ->orderByDesc('invoices.number')
+            ->paginate($perPage);
+
+        return ['card' => $card, 'kind' => 'invoices', 'total' => Money::franc($total), 'rows' => $rows];
+    }
+
     /**
      * CA (facturé validé) et encaissé par agence.
      *
