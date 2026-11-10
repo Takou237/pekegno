@@ -63,6 +63,8 @@ export default function ClientListPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [cities, setCities] = useState<{ name: string; count: number }[]>([]);
   const [page, setPage] = useState(1);
 
   const [viewClient, setViewClient] = useState<ClientListItem | null>(null);
@@ -86,9 +88,13 @@ export default function ClientListPage() {
   const canDelete = can('clients.supprimer');
 
   const fetchParams = useMemo(
-    () => ({ search: search || undefined, page }),
-    [search, page]
+    () => ({ search: search || undefined, city: cityFilter || undefined, page }),
+    [search, cityFilter, page]
   );
+
+  useEffect(() => {
+    clientsApi.cities().then(setCities).catch(() => setCities([]));
+  }, []);
 
   async function fetchClients() {
     setIsLoading(true);
@@ -254,6 +260,17 @@ export default function ClientListPage() {
             className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
           />
         </div>
+        <select
+          value={cityFilter}
+          onChange={(e) => { setCityFilter(e.target.value); setPage(1); }}
+          aria-label={t('clients.filterCity')}
+          className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 sm:w-56"
+        >
+          <option value="">{t('clients.allCities')}</option>
+          {cities.map((c) => (
+            <option key={c.name} value={c.name}>{c.name} ({c.count})</option>
+          ))}
+        </select>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">

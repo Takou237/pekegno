@@ -274,6 +274,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::post('/uploads', [UploadController::class, 'store']);
 
+    Route::get('/clients/cities', [ClientController::class, 'cities'])->middleware('permission:clients.consulter');
     Route::get('/clients/search', [ClientController::class, 'search'])->middleware('permission:clients.consulter');
     Route::get('/clients', [ClientController::class, 'index'])->middleware('permission:clients.consulter');
     Route::post('/clients', [ClientController::class, 'store'])->middleware('permission:clients.creer');

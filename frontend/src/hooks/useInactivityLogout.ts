@@ -8,8 +8,10 @@ const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
   'scroll',
 ];
 
-// B26 : 24 h d'inactivité, comme le middleware InactivityLogout du backend.
+// B26 : comme le middleware InactivityLogout du backend — 24 h d'inactivité,
+// 12 h pour la direction générale.
 const DEFAULT_TIMEOUT_MINUTES = 1440;
+const DG_TIMEOUT_MINUTES = 720;
 
 /**
  * Déconnecte automatiquement l'utilisateur après N minutes d'inactivité.
@@ -20,7 +22,8 @@ const DEFAULT_TIMEOUT_MINUTES = 1440;
  * prévenir l'utilisateur côté front.
  */
 export function useInactivityLogout(): void {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, user } = useAuth();
+  const isDg = user?.role?.name === 'direction-generale';
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -28,9 +31,9 @@ export function useInactivityLogout(): void {
       return;
     }
 
-    const timeoutMinutes = Number(
-      import.meta.env.VITE_INACTIVITY_TIMEOUT_MINUTES ?? DEFAULT_TIMEOUT_MINUTES
-    );
+    const timeoutMinutes = isDg
+      ? DG_TIMEOUT_MINUTES
+      : Number(import.meta.env.VITE_INACTIVITY_TIMEOUT_MINUTES ?? DEFAULT_TIMEOUT_MINUTES);
     const timeoutMs = timeoutMinutes * 60 * 1000;
 
     const resetTimer = () => {
@@ -55,5 +58,5 @@ export function useInactivityLogout(): void {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [isAuthenticated, logout]);
+  }, [isAuthenticated, logout, isDg]);
 }

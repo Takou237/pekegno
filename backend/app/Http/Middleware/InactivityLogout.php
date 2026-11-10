@@ -13,8 +13,8 @@ class InactivityLogout
     /** Durée d'inactivité par défaut (tous les rôles) : 24 h. */
     public const DEFAULT_LIFETIME_MINUTES = 1440;
 
-    /** Direction générale : jamais moins que les autres rôles (B26). */
-    public const DG_LIFETIME_MINUTES = 1440;
+    /** Direction générale : 12 h (B26). */
+    public const DG_LIFETIME_MINUTES = 720;
 
     public function handle(Request $request, Closure $next): Response
     {

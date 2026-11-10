@@ -20,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
+use App\Support\PlaceName;
 
 class ClientController extends Controller
 {
@@ -67,9 +68,22 @@ class ClientController extends Controller
             ->whereHas('role', fn ($q) => $q->where('name', 'client'));
 
         // Les clients sont globaux : ils ne sont rattachés à aucune agence et
-        // tout le personnel peut les retrouver pour leur vendre (les filtres
+        // le personnel peut les retrouver pour leur vendre (les filtres
         // agency_id / registered_agency_id restent disponibles explicitement).
+        // Exception : un commercial ne voit que les clients qu'il a ajoutés
+        // (cahier §5 : « ne voir que ses clients »).
+        $user = $request?->user();
+        if ($user?->actsAsCommercial()) {
+            $query->where('commercial_user_id', $user->id);
+        }
+
         return $query;
+    }
+
+    /** Un commercial n'accède qu'aux clients qu'il a ajoutés ; les autres rôles à tous. */
+    private function visibleTo(?User $user, User $client): bool
+    {
+        return ! $user?->actsAsCommercial() || $client->commercial_user_id === $user->id;
     }
 
     #[OA\Get(
@@ -116,6 +130,8 @@ class ClientController extends Controller
             ->when($request->client_category_id, fn ($q, $id) => $q->where('client_category_id', $id))
             ->when($request->country_id, fn ($q, $id) => $q->where('country_id', $id))
             ->when($request->city_id, fn ($q, $id) => $q->where('city_id', $id))
+            // Ville saisie en texte libre : toutes ses graphies (Douala, DOUALA…).
+            ->when($request->filled('city'), fn ($q) => $q->whereIn('city', $this->cityVariants($request, (string) $request->input('city'))))
             ->when($request->registered_agency_id, fn ($q, $id) => $q->where('registered_agency_id', $id))
             ->when($request->commercial_user_id, fn ($q, $id) => $q->where('commercial_user_id', $id))
             ->when($request->agency_id, fn ($q, $agencyId) => $q->whereHas('clientInvoices', fn ($q) => $q->where('agency_id', $agencyId)))
@@ -142,6 +158,11 @@ class ClientController extends Controller
         $clientRole = Role::where('name', 'client')->firstOrFail();
         $data = $request->validated();
         $data['country'] = $this->resolveCountryName($data);
+        // Un client ajouté par un commercial lui appartient (il est le seul
+        // commercial à le voir).
+        if ($request->user()?->actsAsCommercial()) {
+            $data['commercial_user_id'] = $request->user()->id;
+        }
 
         // Apprenant inscrit au guichet sans email : email de connexion généré (unique,
         // jamais montré comme "le sien"), modifiable plus tard depuis sa fiche.
@@ -219,7 +240,7 @@ class ClientController extends Controller
     )]
     public function show(Request $request, User $client): JsonResponse
     {
-        if ($client->role?->name !== 'client') {
+        if ($client->role?->name !== 'client' || ! $this->visibleTo($request->user(), $client)) {
             return response()->json(['message' => 'Client non trouvé.'], 404);
         }
 
@@ -248,7 +269,7 @@ class ClientController extends Controller
     )]
     public function history(Request $request, User $client): JsonResponse
     {
-        if ($client->role?->name !== 'client') {
+        if ($client->role?->name !== 'client' || ! $this->visibleTo($request->user(), $client)) {
             return response()->json(['message' => 'Client non trouvé.'], 404);
         }
 
@@ -327,11 +348,15 @@ class ClientController extends Controller
     )]
     public function update(UpdateClientRequest $request, User $client): JsonResponse
     {
-        if ($client->role?->name !== 'client') {
+        if ($client->role?->name !== 'client' || ! $this->visibleTo($request->user(), $client)) {
             return response()->json(['message' => 'Client non trouvé.'], 404);
         }
 
         $data = $request->validated();
+        // Un commercial ne peut pas donner son client à un autre commercial.
+        if ($request->user()?->actsAsCommercial()) {
+            unset($data['commercial_user_id']);
+        }
         if (array_key_exists('country_id', $data)) {
             $data['country'] = $this->resolveCountryName($data) ?? $data['country'] ?? null;
         }
@@ -385,7 +410,7 @@ class ClientController extends Controller
     )]
     public function destroy(Request $request, User $client): JsonResponse
     {
-        if ($client->role?->name !== 'client') {
+        if ($client->role?->name !== 'client' || ! $this->visibleTo($request->user(), $client)) {
             return response()->json(['message' => 'Client non trouvé.'], 404);
         }
 
@@ -423,20 +448,62 @@ class ClientController extends Controller
             new OA\Response(response: 200, description: 'Résultats de recherche'),
         ]
     )]
+    /**
+     * Villes des clients visibles, graphies regroupées (filtre « Ville »).
+     */
+    public function cities(Request $request): JsonResponse
+    {
+        $cities = PlaceName::rank(
+            $this->clientQuery($request)->whereNotNull('city')->where('city', '!=', '')->pluck('city'),
+            ''
+        );
+
+        return response()->json($cities->filter(fn ($c) => $c['name'] !== '')->values());
+    }
+
+    /** Graphies d'une ville présentes sur les fiches clients. */
+    private function cityVariants(Request $request, string $city): array
+    {
+        $key = PlaceName::key($city);
+
+        return $this->clientQuery($request)
+            ->whereNotNull('city')
+            ->distinct()
+            ->pluck('city')
+            ->filter(fn ($value) => PlaceName::key($value) === $key)
+            ->values()
+            ->all();
+    }
+
     public function search(Request $request): JsonResponse
     {
         $q = trim((string) $request->query('q'));
 
-        $clients = $this->clientQuery($request)
-            ->when($q, function ($query) use ($q) {
-                $query->where(function ($query) use ($q) {
-                    $query->whereRaw('lower(first_name) like ?', ['%'.mb_strtolower($q).'%'])
-                        ->orWhereRaw('lower(last_name) like ?', ['%'.mb_strtolower($q).'%'])
-                        ->orWhereRaw('lower(email) like ?', ['%'.mb_strtolower($q).'%'])
-                        ->orWhereRaw('lower(phone) like ?', ['%'.mb_strtolower($q).'%'])
-                        ->orWhereRaw('lower(client_number) like ?', ['%'.mb_strtolower($q).'%']);
+        $user = $request->user();
+        $like = '%'.mb_strtolower($q).'%';
+        $exact = mb_strtolower($q);
+
+        $clients = User::query()
+            ->whereHas('role', fn ($query) => $query->where('name', 'client'))
+            ->when($q, function ($query) use ($like) {
+                $query->where(function ($query) use ($like) {
+                    $query->whereRaw('lower(first_name) like ?', [$like])
+                        ->orWhereRaw('lower(last_name) like ?', [$like])
+                        ->orWhereRaw('lower(email) like ?', [$like])
+                        ->orWhereRaw('lower(phone) like ?', [$like])
+                        ->orWhereRaw('lower(client_number) like ?', [$like]);
                 });
             })
+            // Commercial : ses clients ; un client d'un autre commercial n'est
+            // retrouvé que par son email, son téléphone ou son numéro exacts,
+            // pour pouvoir lui vendre sans parcourir le portefeuille des autres.
+            ->when($user?->actsAsCommercial(), fn ($query) => $query->where(function ($query) use ($user, $q, $exact) {
+                $query->where('commercial_user_id', $user->id)
+                    ->when($q !== '', fn ($query) => $query
+                        ->orWhereRaw('lower(email) = ?', [$exact])
+                        ->orWhere('phone', $q)
+                        ->orWhereRaw('lower(client_number) = ?', [$exact]));
+            }))
             ->limit(10)
             ->get(['id', 'first_name', 'last_name', 'email', 'phone', 'client_number']);
 

@@ -407,7 +407,7 @@ class ExportController extends Controller
             (float) $t->amount,
             $t->client_id ? trim(($t->client?->first_name ?? '').' '.($t->client?->last_name ?? '')) : '',
             $t->transacted_at?->format('Y-m-d H:i'),
-            $t->type === 'income' ? 'Entrée' : 'Sortie',
+            $t->type === 'income' ? ((float) $t->amount < 0 ? 'Annulation' : 'Entrée') : 'Sortie',
             $t->operator_id ? trim(($t->operator?->first_name ?? '').' '.($t->operator?->last_name ?? '')) : '',
             $t->note ?? '',
             $t->beneficiary ?? '',

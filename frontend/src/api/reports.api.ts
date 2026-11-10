@@ -89,6 +89,8 @@ export interface CustomersReportResponse {
   by_city: Array<{ city: string; count: number }>;
   top_clients: Array<{ client_id: string; client: string; turnover: number; orders: number }>;
   by_commercial: Array<{ commercial_id: string; commercial: string; turnover: number; orders: number }>;
+  /** Pays et villes des fiches clients, pour les filtres. */
+  place_options?: { countries: string[]; cities: string[] };
 }
 
 export type ComparisonDimension = 'country' | 'city' | 'agency';
@@ -272,7 +274,7 @@ export const reportsApi = {
     return data;
   },
 
-  async customers(params: ReportDateParams & { agency_id?: string; country_id?: string; limit?: number } = {}): Promise<CustomersReportResponse> {
+  async customers(params: ReportDateParams & { agency_id?: string; country_id?: string; country?: string; city?: string; limit?: number } = {}): Promise<CustomersReportResponse> {
     const { data } = await client.get<CustomersReportResponse>('/reports/customers', { params });
     return data;
   },

@@ -552,13 +552,17 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
                     <td className="px-5 py-3 text-gray-800 dark:text-gray-100">{tx.label}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{tx.category?.name ?? '—'}</td>
                     <td className="px-5 py-3">
-                      {tx.type === 'income' ? (
+                      {tx.type === 'income' && Number(tx.amount) < 0 ? (
+                        // Contre-passation d'un versement (facture annulée) : reste
+                        // une recette négative pour que les totaux se compensent.
+                        <Badge variant="warning">{t('accounting.typeCancellation')}</Badge>
+                      ) : tx.type === 'income' ? (
                         <Badge variant="success">{t('accounting.typeIncome')}</Badge>
                       ) : (
                         <Badge variant="error">{t('accounting.typeExpense')}</Badge>
                       )}
                     </td>
-                    <td className={`px-5 py-3 text-right font-medium ${tx.type === 'income' ? 'text-success-600' : 'text-error-500'}`}>
+                    <td className={`px-5 py-3 text-right font-medium ${tx.type === 'income' && Number(tx.amount) >= 0 ? 'text-success-600' : tx.type === 'income' ? 'text-amber-600 dark:text-amber-400' : 'text-error-500'}`}>
                       {formatCurrency(tx.amount)}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{tx.reference ?? '—'}</td>

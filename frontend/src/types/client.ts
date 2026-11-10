@@ -26,6 +26,8 @@ export interface ClientListItem {
 export interface ClientListParams {
   search?: string;
   agency_id?: string;
+  /** Ville (texte libre, toutes graphies regroupées par le serveur). */
+  city?: string;
   per_page?: number;
   page?: number;
 }

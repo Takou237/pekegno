@@ -8,6 +8,12 @@ export const clientsApi = {
     return data;
   },
 
+  /** Villes des clients visibles, graphies regroupées, avec leur nombre. */
+  async cities(): Promise<{ name: string; count: number }[]> {
+    const { data } = await client.get<{ name: string; count: number }[]>('/clients/cities');
+    return data;
+  },
+
   async create(payload: ClientPayload): Promise<ClientListItem> {
     const { data } = await client.post<ClientListItem>('/clients', payload);
     return data;

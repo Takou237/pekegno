@@ -36,7 +36,7 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
     case 'unpaid':
       return <Badge variant="error">{t('invoices.statusUnpaid')}</Badge>;
     case 'cancelled':
-      return <Badge variant="neutral">{t('invoices.statusCancelled')}</Badge>;
+      return <Badge variant="error">{t('invoices.statusCancelled')}</Badge>;
   }
 }
 
@@ -105,6 +105,8 @@ export default function InvoiceListPage({
     setLoadError(null);
     try {
       const response = await invoicesApi.list({
+        // Les annulées restent dans la liste, à leur place, bien signalées.
+        include_cancelled: true,
         search: search || undefined,
         status: (status as InvoiceStatus) || undefined,
         agency_id: mine ? undefined : agencyId || undefined,
@@ -327,9 +329,13 @@ export default function InvoiceListPage({
                   <tr
                     key={inv.id}
                     onClick={() => openInvoice(inv.id)}
-                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                    className={`cursor-pointer ${
+                      inv.is_cancelled
+                        ? 'bg-red-50/70 text-gray-400 hover:bg-red-50 dark:bg-red-500/5 dark:hover:bg-red-500/10 [&_td.amount]:line-through'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    }`}
                   >
-                    <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">
+                    <td className={`px-5 py-3 font-medium ${inv.is_cancelled ? 'text-red-700 line-through dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
                       {inv.number}
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
@@ -346,7 +352,7 @@ export default function InvoiceListPage({
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {inv.agency?.name ?? '—'}
                     </td>
-                    <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+                    <td className="amount px-5 py-3 text-right text-gray-600 dark:text-gray-300">
                       {Number(inv.amount_paid) === 0 &&
                       inv.validation_status === 'pending' &&
                       Number(inv.declared_advance ?? 0) > 0 ? (
@@ -357,11 +363,11 @@ export default function InvoiceListPage({
                         formatCurrency(inv.amount_paid, inv.currency_code)
                       )}
                     </td>
-                    <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
+                    <td className="amount px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(inv.balance_due, inv.currency_code)}
                     </td>
                     <td
-                      className={`px-5 py-3 text-right font-medium ${
+                      className={`amount px-5 py-3 text-right font-medium ${
                         inv.status === 'partial'
                           ? 'text-error-600 dark:text-error-400'
                           : 'text-gray-800 dark:text-gray-100'
@@ -369,7 +375,7 @@ export default function InvoiceListPage({
                     >
                       {formatCurrency(inv.total_amount, inv.currency_code)}
                     </td>
-                    <td className="px-5 py-3">{<InvoiceStatusBadge status={inv.status} />}</td>
+                    <td className="px-5 py-3">{<InvoiceStatusBadge status={inv.is_cancelled ? 'cancelled' : inv.status} />}</td>
                     <td className="px-5 py-3">
                       <ValidationBadge status={inv.validation_status} />
                     </td>

@@ -50,8 +50,12 @@ class ProspectController extends Controller
             return $query->whereIn('agency_id', $agencyIds);
         }
 
-        if ($user->actsAsCommercial() && $user->commercialProfile) {
-            return $query->where('commercial_id', $user->commercialProfile->id);
+        // Commercial : les prospects qu'il a ajoutés ou qui lui sont attribués.
+        if ($user->actsAsCommercial()) {
+            $profileId = $user->commercialProfile?->id;
+
+            return $query->where(fn ($q) => $q->where('created_by', $user->id)
+                ->when($profileId, fn ($q) => $q->orWhere('commercial_id', $profileId)));
         }
 
         return $query->whereRaw('1 = 0');

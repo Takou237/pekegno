@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Contract;
+use App\Models\Agency;
 use App\Models\Invoice;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ScopeService;
 use App\Support\Period;
+use App\Support\PlaceName;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -153,27 +155,55 @@ class ReportController extends Controller
 
         $clients = User::whereHas('role', fn ($q) => $q->where('name', 'client'));
 
+        // Filtre pays / ville (texte libre des fiches, graphies regroupées) :
+        // tout le rapport se limite aux clients de ce lieu.
+        $country = PlaceName::countryResolver();
+        $allPlaces = (clone $clients)
+            ->leftJoin('countries', 'countries.id', '=', 'users.country_id')
+            ->leftJoin('cities', 'cities.id', '=', 'users.city_id')
+            ->get(['users.id', 'countries.name as country_ref', 'users.country as country_text', 'cities.name as city_ref', 'users.city as city_text'])
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'country' => $p->country_ref ?? $country($p->country_text),
+                'city' => $p->city_ref ?? $p->city_text,
+            ]);
+
+        $wantedCountry = $request->filled('country') ? PlaceName::key($country($request->input('country'))) : null;
+        $wantedCity = $request->filled('city') ? PlaceName::key($request->input('city')) : null;
+        $placeIds = null;
+        if ($wantedCountry !== null || $wantedCity !== null) {
+            $placeIds = $allPlaces
+                ->filter(fn ($p) => ($wantedCountry === null || PlaceName::key($p['country']) === $wantedCountry)
+                    && ($wantedCity === null || PlaceName::key($p['city']) === $wantedCity))
+                ->pluck('id')
+                ->all();
+            $clients->whereIn('users.id', $placeIds);
+        }
+
+        // Clients du périmètre : agence d'inscription (les clients n'ont pas
+        // d'affectation d'agence ; l'ancien filtre les excluait tous).
         $newClients = (clone $clients)
             ->whereBetween('users.created_at', [$from, $to])
-            ->when($request->agency_id, fn ($q, $agencyId) => $q->whereHas('assignments', fn ($inner) => $inner->where('agency_id', $agencyId)))
-            ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('assignments', fn ($inner) => $inner->where('country_id', $countryId)))
-            ->when($agencyIds !== null, fn ($q) => $q->whereHas('assignments', fn ($inner) => $inner->whereIn('agency_id', $agencyIds)));
+            ->when($request->agency_id, fn ($q, $agencyId) => $q->where('users.registered_agency_id', $agencyId))
+            ->when($request->country_id, fn ($q, $countryId) => $q->where(fn ($q) => $q
+                ->where('users.country_id', $countryId)
+                ->orWhereIn('users.registered_agency_id', Agency::where('country_id', $countryId)->select('id'))))
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('users.registered_agency_id', $agencyIds));
 
-        $byCountry = (clone $newClients)
-            ->join('countries', 'countries.id', '=', 'users.country_id')
-            ->selectRaw('countries.name, count(*) as total')
-            ->groupBy('countries.name')
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn ($row) => ['country' => $row->name, 'count' => (int) $row->total]);
+        // B27 : pays et ville sont saisis en texte libre (country_id / city_id
+        // jamais remplis) ; les variantes sont regroupées (Cameroun / Cameroon…).
+        $places = (clone $newClients)
+            ->leftJoin('countries', 'countries.id', '=', 'users.country_id')
+            ->leftJoin('cities', 'cities.id', '=', 'users.city_id')
+            ->get(['countries.name as country_ref', 'users.country as country_text', 'cities.name as city_ref', 'users.city as city_text']);
 
-        $byCity = (clone $newClients)
-            ->join('cities', 'cities.id', '=', 'users.city_id')
-            ->selectRaw('cities.name, count(*) as total')
-            ->groupBy('cities.name')
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn ($row) => ['city' => $row->name, 'count' => (int) $row->total]);
+        $unknown = 'Non renseigné';
+
+        $byCountry = PlaceName::rank($places->map(fn ($p) => $p->country_ref ?? $country($p->country_text)), $unknown)
+            ->map(fn ($row) => ['country' => $row['name'], 'count' => $row['count']]);
+
+        $byCity = PlaceName::rank($places->map(fn ($p) => $p->city_ref ?? $p->city_text), $unknown)
+            ->map(fn ($row) => ['city' => $row['name'], 'count' => $row['count']]);
 
         // CA = factures validées non annulées de la période, payées ou non
         // (calcul unique, cf. FinancialMetricsService) — plus seulement les factures soldées.
@@ -182,7 +212,8 @@ class ReportController extends Controller
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->when($request->agency_id, fn ($q, $agencyId) => $q->where('invoices.agency_id', $agencyId))
             ->when($request->country_id, fn ($q, $countryId) => $q->whereHas('agency', fn ($inner) => $inner->where('country_id', $countryId)))
-            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds));
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->when($placeIds !== null, fn ($q) => $q->whereIn('invoices.client_id', $placeIds));
 
         $topClients = (clone $invoices)
             ->join('users', 'users.id', '=', 'invoices.client_id')
@@ -235,6 +266,12 @@ class ReportController extends Controller
             'by_city' => $byCity,
             'top_clients' => $topClients,
             'by_commercial' => $byCommercial,
+            // Choix des filtres : tous les pays et villes des fiches clients
+            // (avant filtre), pour que la liste ne rétrécisse pas.
+            'place_options' => [
+                'countries' => PlaceName::rank($allPlaces->pluck('country'), '')->pluck('name')->filter()->values(),
+                'cities' => PlaceName::rank($allPlaces->pluck('city'), '')->pluck('name')->filter()->values(),
+            ],
         ]);
     }
 

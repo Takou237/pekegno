@@ -217,12 +217,14 @@ class InvoiceController extends Controller
                 fn ($q) => $q->whereNull('invoices.cancelled_at')
             );
 
-        $totals = (clone $base)->selectRaw(
+        // Totaux : jamais les factures annulées, même quand la liste les montre.
+        $totals = (clone $base)->whereNull('invoices.cancelled_at')->selectRaw(
             'coalesce(sum(amount_paid), 0) as revenue, '
             ."coalesce(sum(case when status in ('unpaid','partial') then total_amount - amount_paid else 0 end), 0) as outstanding"
         )->first();
 
         $advances = (clone $base)
+            ->whereNull('invoices.cancelled_at')
             ->whereIn('status', ['unpaid', 'partial'])
             ->join('invoice_payments', 'invoice_payments.invoice_id', '=', 'invoices.id')
             ->where('invoice_payments.is_advance', true)
@@ -246,7 +248,10 @@ class InvoiceController extends Controller
                     'case when (select max(p.paid_at) from invoice_payments p where p.invoice_id = invoices.id) > invoices.invoice_date '
                     .'then (select max(p.paid_at) from invoice_payments p where p.invoice_id = invoices.id) else invoices.invoice_date end desc'
                 ))
+            // Une facture annulée garde sa place : l'ordre suit la date et le
+            // numéro de la facture, que l'annulation ne change pas.
             ->orderByDesc('invoice_date')
+            ->orderByDesc('number')
             ->paginate($perPage);
 
         // Le paginateur brut sérialise ses champs à plat (total, current_page, ... au
