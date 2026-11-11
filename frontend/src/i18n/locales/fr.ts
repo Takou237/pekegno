@@ -3320,8 +3320,8 @@ export default {
     },
     dashboard: {
       subtitle: 'Vue du mois en cours : ventes, contrats, prestations et satisfaction.',
-      revenue: "Chiffre d'affaires",
-      revenueHint: 'Honoraires encaissés, hors budget pub client',
+      revenue: 'Honoraires encaissés',
+      revenueHint: 'Hors budget pub client (le chiffre d\'affaires du cahier est la carte du haut)',
       collected: 'Encaissements',
       passThrough: 'Budget pub client',
       receivables: 'Créances',

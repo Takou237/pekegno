@@ -334,6 +334,22 @@ class CorrectionsP1Test extends TestCase
         $this->getJson("/api/metrics/details?card=unknown&{$q}")->assertStatus(422);
     }
 
+    public function test_income_by_rubric_covers_every_entry_not_only_the_page(): void
+    {
+        $agency = $this->agency();
+        $livre = $this->service('Livre');
+        // 20 versements : plus qu'une page (15) de la liste des écritures.
+        for ($i = 0; $i < 20; $i++) {
+            $invoice = $this->invoice($agency, 5000, [['service_id' => $livre->id, 'line_total' => 5000]]);
+            app(PaymentService::class)->applyPayment($invoice, 5000, 'cash', false, $this->admin->id, null, '2026-11-02 09:00:00');
+        }
+
+        $res = $this->getJson('/api/accounting/transactions?from=2026-11-02&to=2026-11-02')->assertOk();
+        $rubrics = collect($res->json('income_by_rubric'))->keyBy('rubric');
+        $this->assertEqualsWithDelta(100000, $rubrics['Livre']['total'], 0.01);
+        $this->assertFalse($rubrics->has('Sans catégorie'));
+    }
+
     // --- B8 ------------------------------------------------------------------------
 
     public function test_rejected_and_cancelled_invoices_stay_findable(): void

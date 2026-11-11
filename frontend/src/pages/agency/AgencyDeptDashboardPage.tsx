@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Banknote, CalendarClock, FileSignature, Repeat, Star, TrendingUp, Wallet, Briefcase } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
+import { statsApi } from '@/api/stats.api';
+import { FinancialKpiCards } from '@/components/dashboard/FinancialKpiCards';
+import type { AgencyStats } from '@/types/stats';
 import { extractErrorMessage } from '@/api/errors';
 import { useAgencyDept } from '@/hooks/useAgencyDept';
 import { formatCurrency } from '@/utils/number';
@@ -29,7 +32,9 @@ function Kpi({ icon: Icon, label, value, hint, to }: { icon: typeof Wallet; labe
 /** Tableau de bord du département Agency (§6.1). */
 export default function AgencyDeptDashboardPage() {
   const { t } = useTranslation();
-  const { department, departmentId, basePath } = useAgencyDept();
+  const { department, departmentId, agencyId, basePath } = useAgencyDept();
+  // Cartes du cahier (section 1) pour le département, cliquables.
+  const [kpis, setKpis] = useState<AgencyStats | null>(null);
   const [report, setReport] = useState<AgencyReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>(defaultPeriod());
@@ -42,7 +47,13 @@ export default function AgencyDeptDashboardPage() {
       .report({ department_id: departmentId, from: period.from, to: period.to })
       .then(setReport)
       .catch((e) => setError(extractErrorMessage(e, t('common.error'))));
-  }, [departmentId, period, t]);
+    if (agencyId) {
+      statsApi
+        .agency(agencyId, { from: period.from, to: period.to, department_id: departmentId })
+        .then(setKpis)
+        .catch(() => setKpis(null));
+    }
+  }, [departmentId, agencyId, period, t]);
 
   if (error) return <Alert variant="error">{error}</Alert>;
   if (!report) return <SkeletonDashboard />;
@@ -58,6 +69,12 @@ export default function AgencyDeptDashboardPage() {
         </div>
         <PeriodPicker value={period} onChange={setPeriod} />
       </div>
+
+      <FinancialKpiCards
+        kpis={kpis}
+        currency={kpis?.currency_code}
+        detailsScope={agencyId && departmentId ? { from: period.from, to: period.to, agency_id: agencyId, department_id: departmentId } : null}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi icon={TrendingUp} label={t('agencyDept.dashboard.revenue')} value={formatCurrency(k.revenue)} hint={t('agencyDept.dashboard.revenueHint')} />

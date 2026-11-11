@@ -91,6 +91,10 @@ class AccountingController extends Controller
             )
             ->first();
 
+        // Avant la pagination : paginate() modifie la requête (limite de 15), la
+        // ventilation ne voyait sinon que les écritures de la page affichée.
+        $incomeByRubric = $this->incomeByRubric(clone $base, (float) $totals->income);
+
         $transactions = $base
             // Numéros du plus récent au plus ancien (number = séquence croissante).
             ->orderByDesc('number')
@@ -104,7 +108,7 @@ class AccountingController extends Controller
                 'expense' => (float) $totals->expense,
                 'balance' => round((float) $totals->income - (float) $totals->expense, 2),
             ],
-            'income_by_rubric' => $this->incomeByRubric($base, (float) $totals->income),
+            'income_by_rubric' => $incomeByRubric,
         ]);
     }
 

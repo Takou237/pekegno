@@ -87,21 +87,24 @@ class AgencyReportService
             'spent' => round((float) PrestationAction::whereIn('prestation_id', $prestationIds)->where('status', '!=', PrestationAction::STATUS_CANCELLED)->sum('actual_cost'), 2),
         ];
 
-        $topCommercials = (clone $contracts())
-            ->join('commercials', 'commercials.id', '=', 'contracts.commercial_id')
-            ->whereBetween('contracts.created_at', [$start, $end])
-            ->selectRaw("commercials.id, commercials.first_name || ' ' || commercials.last_name as name, count(*) as contracts, sum(contracts.amount) as amount")
+        // Classements sur les FACTURES validées de la période (montant facturé,
+        // remise déduite), comme les cartes du cahier — et non sur le montant
+        // des contrats (897 000 au lieu des 750 000 facturés après remise).
+        $topCommercials = (clone $invoices())
+            ->join('commercials', 'commercials.id', '=', 'invoices.commercial_id')
+            ->whereBetween('invoices.invoice_date', [$start, $end])
+            ->selectRaw("commercials.id, commercials.first_name || ' ' || commercials.last_name as name, count(distinct invoices.contract_id) as contracts, sum(invoices.total_amount) as amount")
             ->groupBy('commercials.id', 'commercials.first_name', 'commercials.last_name')
             ->orderByDesc('amount')
             ->limit(5)
             ->get()
             ->map(fn ($r) => ['id' => $r->id, 'name' => $r->name, 'contracts' => (int) $r->contracts, 'amount' => round((float) $r->amount, 2)]);
 
-        $topPackages = (clone $contracts())
+        $topPackages = (clone $invoices())
             ->join('subscription_packs', 'subscription_packs.id', '=', 'contracts.pack_id')
             ->where('contracts.origin', Contract::ORIGIN_PACKAGE)
-            ->whereBetween('contracts.created_at', [$start, $end])
-            ->selectRaw('subscription_packs.id, subscription_packs.name, count(*) as contracts, sum(contracts.amount) as amount')
+            ->whereBetween('invoices.invoice_date', [$start, $end])
+            ->selectRaw('subscription_packs.id, subscription_packs.name, count(distinct invoices.contract_id) as contracts, sum(invoices.total_amount) as amount')
             ->groupBy('subscription_packs.id', 'subscription_packs.name')
             ->orderByDesc('amount')
             ->limit(5)

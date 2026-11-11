@@ -3307,7 +3307,7 @@ export default {
     },
     dashboard: {
       subtitle: 'Current month: sales, contracts, engagements and satisfaction.',
-      revenue: 'Revenue',
+      revenue: 'Fees collected',
       revenueHint: 'Fees collected, excluding client ad budget',
       collected: 'Collected',
       passThrough: 'Client ad budget',

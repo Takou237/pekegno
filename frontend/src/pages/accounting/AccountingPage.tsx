@@ -469,7 +469,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
                     <td className="px-5 py-2 text-gray-500 dark:text-gray-400">
                       {t(`reports.salesTracking.type${r.branch.charAt(0).toUpperCase()}${r.branch.slice(1)}`)}
                     </td>
-                    <td className="px-5 py-2 text-right text-gray-700 dark:text-gray-200">{r.total > 0 ? formatCurrency(r.total) : '—'}</td>
+                    <td className={`px-5 py-2 text-right ${r.total < 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-700 dark:text-gray-200'}`}>{r.total !== 0 ? formatCurrency(r.total) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
