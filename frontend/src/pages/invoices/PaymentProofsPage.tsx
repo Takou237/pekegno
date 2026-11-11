@@ -186,6 +186,7 @@ export default function PaymentProofsPage({
                 <tr>
                   <th className="px-5 py-3 font-medium">{t('invoices.colNumber')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colClient')}</th>
+                  <th className="px-5 py-3 font-medium">{t('invoices.colItems')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.proofSubmittedBy')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.paymentMethod')}</th>
                   <th className="px-5 py-3 text-right font-medium">{t('invoices.proofAmount')}</th>
@@ -214,6 +215,11 @@ export default function PaymentProofsPage({
                         </button>
                       </td>
                       <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{proof.invoice?.client_label ?? proof.invoice?.client_name ?? '—'}</td>
+                      <td className="px-5 py-3 text-xs text-gray-600 dark:text-gray-300">
+                      {(proof.invoice?.items ?? []).length > 0
+                        ? (proof.invoice?.items ?? []).map((it) => `${it.label ?? ''}${it.pass_label ? ` (${it.pass_label})` : ''} × ${Number(it.quantity)}`).join(', ')
+                        : '—'}
+                    </td>
                       <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{submitter}</td>
                       <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{methodLabel(proof.payment_method)}</td>
                       <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">

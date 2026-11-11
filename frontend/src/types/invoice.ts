@@ -213,6 +213,8 @@ export interface PaymentProofInvoiceRef {
   client_label?: string | null;
   /** Avance annoncée par le commercial à la création (B19). */
   declared_advance?: string | number | null;
+  /** Articles de la facture (affichés dans « Paiements à valider »). */
+  items?: { id: string; label: string | null; quantity: string | number; line_total?: string | number; pass_label?: string | null }[];
   currency_code?: string;
   total_amount: string | number;
   validation_status: string;

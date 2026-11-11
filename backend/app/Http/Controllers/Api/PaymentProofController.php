@@ -82,7 +82,7 @@ class PaymentProofController extends Controller
 
         $query = PaymentProof::query()
             // B19 : client (fiche liée, sinon nom saisi) et montant annoncé visibles.
-            ->with(['invoice:id,number,client_id,client_name,total_amount,declared_advance,amount_paid,validation_status,status,agency_id', 'invoice.client:id,first_name,last_name,email', 'submitter:id,first_name,last_name,email', 'reviewer:id,first_name,last_name,email'])
+            ->with(['invoice:id,number,client_id,client_name,total_amount,declared_advance,amount_paid,validation_status,status,agency_id', 'invoice.client:id,first_name,last_name,email', 'invoice.items:id,invoice_id,label,quantity,line_total,pass_label', 'submitter:id,first_name,last_name,email', 'reviewer:id,first_name,last_name,email'])
             ->when($request->filled('invoice_id'), fn ($q) => $q->where('invoice_id', $request->input('invoice_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('agency_id'), fn ($q) => $q->whereHas('invoice', fn ($inner) => $inner->where('agency_id', $request->input('agency_id'))))

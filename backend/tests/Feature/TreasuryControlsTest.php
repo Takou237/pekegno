@@ -239,25 +239,6 @@ class TreasuryControlsTest extends TestCase
         $this->assertEquals(13000, $day['closing']);
     }
 
-    public function test_only_the_agency_chief_validates_a_closing(): void
-    {
-        $cashier = $this->user('caissier');
-        Sanctum::actingAs($cashier);
-        $id = $this->postJson('/api/treasury/closings', [
-            'treasury_account_id' => $this->account('C')->id,
-            'closing_date' => '2026-11-02',
-            'actual_balance' => 0,
-        ])->assertCreated()->json('id');
-
-        $this->postJson("/api/treasury/closings/{$id}/validate")->assertForbidden();
-
-        Sanctum::actingAs($this->user('responsable-agence'));
-        $this->postJson("/api/treasury/closings/{$id}/validate")->assertOk();
-        $this->assertSame(CashClosing::STATUS_VALIDATED, CashClosing::find($id)->status);
-    }
-
-    // --- Indicateur « en attente de validation » ---------------------------------
-
     public function test_pending_validation_includes_pending_remaining_payment_proofs(): void
     {
         $this->invoice(['validation_status' => Invoice::VALIDATION_PENDING, 'declared_advance' => 30000]);

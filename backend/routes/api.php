@@ -411,7 +411,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/treasury/closings/day', [CashClosingController::class, 'day'])->middleware('permission:tresories.consulter');
     Route::post('/treasury/closings', [CashClosingController::class, 'store'])->middleware('permission:tresories.modifier');
     Route::post('/treasury/accounts/{account}/reopen', [CashClosingController::class, 'reopen'])->middleware('permission:tresories.modifier');
-    Route::post('/treasury/closings/{closing}/validate', [CashClosingController::class, 'validateClosing'])->middleware('permission:tresories.modifier');
+    // Validation des clôtures retirée (11/11) : la caissière clôture simplement.
+    // Route::post('/treasury/closings/{closing}/validate', [CashClosingController::class, 'validateClosing'])->middleware('permission:tresories.modifier');
 
     Route::get('/bilans/period', [BilanController::class, 'period'])->middleware('permission:bilans.consulter')->middleware('cache.response:data,300');
     Route::get('/bilans', [BilanController::class, 'dailyBilan'])->middleware('permission:bilans.consulter')->middleware('cache.response:data,300');

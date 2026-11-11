@@ -266,7 +266,13 @@ class CashClosingService
             $closing->justification ?? 'aucune',
         );
 
-        foreach ($this->notifier->agencyChiefIds($agencyId) as $userId) {
+        // Chef(s) d'agence et administrateurs (super-admin) sont alertés.
+        $recipients = array_values(array_unique(array_merge(
+            $this->notifier->agencyChiefIds($agencyId),
+            \App\Models\User::whereHas('role', fn ($q) => $q->where('name', 'super-admin'))->where('is_active', true)->pluck('id')->all(),
+        )));
+
+        foreach ($recipients as $userId) {
             $this->notifier->notify(
                 userId: $userId,
                 type: 'cash_closing_discrepancy',

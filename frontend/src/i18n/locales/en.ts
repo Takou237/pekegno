@@ -611,6 +611,7 @@ export default {
   },
 
   contextBar: {
+    noAlerts: 'No alerts.',
     country: 'Country',
     agency: 'Agency',
     department: 'Department',
@@ -1485,6 +1486,7 @@ export default {
     colAdvance: 'Advance',
     colBalance: 'Balance due',
     colPaid: 'Paid',
+    colItems: 'Items',
     colStatus: 'Status',
     colActions: 'Actions',
     totalsRevenue: 'Collected (filtered list)',

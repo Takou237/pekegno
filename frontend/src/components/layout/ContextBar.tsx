@@ -133,10 +133,11 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
       .catch(() => {});
   }, []);
 
+  // Alertes persistées (écart de caisse, rejet de facture…) : pour tous les rôles.
   useEffect(() => {
-    if (!isCommercial) return;
+    if (!user) return;
     refreshMessages();
-  }, [isCommercial, refreshMessages, location.pathname]);
+  }, [user, refreshMessages, location.pathname]);
 
   useEffect(() => {
     if (!canValidate) return;
@@ -439,7 +440,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {rightSlot}
           <QuickCreateMenu />
-          {(canValidate || isCommercial) && (
+          {user && (
             <div className="relative" ref={notifRef}>
               <button
                 type="button"
@@ -449,6 +450,8 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                     if (next && isCommercial && user) {
                       localStorage.setItem(seenValidatedKey(user.id), new Date().toISOString());
                       setValidatedUnseenTotal(0);
+                    }
+                    if (next) {
                       if (messagesUnread > 0) {
                         agencyDeptApi
                           .markAllNotificationsRead()
@@ -463,13 +466,11 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                 aria-label={t('contextBar.notifications')}
               >
                 <Bell className="h-4.5 w-4.5" />
-                {(canValidate ? pendingTotal : validatedUnseenTotal + messagesUnread) > 0 && (
+                {((canValidate ? pendingTotal : validatedUnseenTotal) + messagesUnread) > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                    {(canValidate ? pendingTotal : validatedUnseenTotal + messagesUnread) > 99
+                    {((canValidate ? pendingTotal : validatedUnseenTotal) + messagesUnread) > 99
                       ? '99+'
-                      : canValidate
-                        ? pendingTotal
-                        : validatedUnseenTotal + messagesUnread}
+                      : (canValidate ? pendingTotal : validatedUnseenTotal) + messagesUnread}
                   </span>
                 )}
               </button>
@@ -479,6 +480,58 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                   <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
                     {t('contextBar.pendingValidations')}
                   </div>
+                  {messages.length > 0 && (
+                    <>
+                      <div className="border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
+                        {t('contextBar.recentAlerts')}
+                      </div>
+                      <ul className="max-h-56 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
+                        {messages.map((msg) => {
+                          const target =
+                            msg.entity_type === 'invoice' && msg.entity_id
+                              ? `/invoices/${msg.entity_id}`
+                              : msg.entity_type === 'cash_closing'
+                                ? '/treasury/closings'
+                                : null;
+                          const content = (
+                            <>
+                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium text-gray-800 dark:text-gray-100">
+                                  {msg.title}
+                                </span>
+                                {msg.body && (
+                                  <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-gray-500 dark:text-gray-400">
+                                    {msg.body}
+                                  </span>
+                                )}
+                                <span className="mt-1 block text-[11px] text-gray-400">
+                                  {formatRelativeDate(msg.created_at)}
+                                </span>
+                              </span>
+                            </>
+                          );
+                          return (
+                            <li key={msg.id}>
+                              {target ? (
+                                <Link
+                                  to={target}
+                                  onClick={() => setNotifOpen(false)}
+                                  className="flex w-full gap-2.5 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                                >
+                                  {content}
+                                </Link>
+                              ) : (
+                                <div className="flex gap-2.5 px-4 py-2.5">{content}</div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  )}
+
+
                   {pendingInvoices.length === 0 ? (
                     <p className="px-4 py-6 text-center text-sm text-gray-400">{t('contextBar.noPending')}</p>
                   ) : (
@@ -517,6 +570,68 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                 </div>
               )}
 
+              {notifOpen && !canValidate && !isCommercial && (
+                <div className="fixed inset-x-3 top-16 z-40 rounded-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                  <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
+                    {t('contextBar.notifications')}
+                  </div>
+                  {messages.length > 0 && (
+                    <>
+                      <div className="border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
+                        {t('contextBar.recentAlerts')}
+                      </div>
+                      <ul className="max-h-56 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
+                        {messages.map((msg) => {
+                          const target =
+                            msg.entity_type === 'invoice' && msg.entity_id
+                              ? `/invoices/${msg.entity_id}`
+                              : msg.entity_type === 'cash_closing'
+                                ? '/treasury/closings'
+                                : null;
+                          const content = (
+                            <>
+                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium text-gray-800 dark:text-gray-100">
+                                  {msg.title}
+                                </span>
+                                {msg.body && (
+                                  <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-gray-500 dark:text-gray-400">
+                                    {msg.body}
+                                  </span>
+                                )}
+                                <span className="mt-1 block text-[11px] text-gray-400">
+                                  {formatRelativeDate(msg.created_at)}
+                                </span>
+                              </span>
+                            </>
+                          );
+                          return (
+                            <li key={msg.id}>
+                              {target ? (
+                                <Link
+                                  to={target}
+                                  onClick={() => setNotifOpen(false)}
+                                  className="flex w-full gap-2.5 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                                >
+                                  {content}
+                                </Link>
+                              ) : (
+                                <div className="flex gap-2.5 px-4 py-2.5">{content}</div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  )}
+
+                  {messages.length === 0 && (
+                    <p className="px-4 py-6 text-center text-sm text-gray-400">{t('contextBar.noAlerts')}</p>
+                  )}
+                </div>
+              )}
+
               {notifOpen && !canValidate && isCommercial && (
                 <div className="fixed inset-x-3 top-16 z-40 rounded-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 border border-gray-100 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
                   <div className="border-b border-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:text-gray-100">
@@ -533,7 +648,9 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                           const target =
                             msg.entity_type === 'invoice' && msg.entity_id
                               ? `/invoices/${msg.entity_id}`
-                              : null;
+                              : msg.entity_type === 'cash_closing'
+                                ? '/treasury/closings'
+                                : null;
                           const content = (
                             <>
                               <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />

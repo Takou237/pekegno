@@ -615,6 +615,7 @@ export default {
   },
 
   contextBar: {
+    noAlerts: 'Aucune alerte.',
     country: 'Pays',
     agency: 'Agence',
     department: 'Département',
@@ -1498,6 +1499,7 @@ export default {
     declaredAdvanceHint: "Avance déclarée par le commercial à la création, encaissée à la validation de la facture.",
     colBalance: 'Reste à payer',
     colPaid: 'Payé',
+    colItems: 'Articles',
     colStatus: 'Statut',
     colActions: 'Actions',
     totalsRevenue: 'Total encaissé (liste filtrée)',

@@ -235,7 +235,8 @@ class InvoiceController extends Controller
         $perPage = min((int) $request->input('per_page', 15), 100);
 
         $paginator = $base
-            ->with(['client:id,first_name,last_name,email,client_number,phone', 'commercial:id,first_name,last_name,email,phone', 'agency:id,name,code,city,address,phone,email'])
+            // Lignes (articles vendus) : affichées dans « Paiements à valider ».
+            ->with(['client:id,first_name,last_name,email,client_number,phone', 'commercial:id,first_name,last_name,email,phone', 'agency:id,name,code,city,address,phone,email', 'items:id,invoice_id,label,quantity,unit_price,line_total,pass_tier,pass_label'])
             ->withCount(['paymentProofs' => fn ($q) => $q->where('status', PaymentProof::STATUS_PENDING)])
             // sort=last_activity : dernière activité (vente ou dernier versement)
             // d'abord — un reste à payer réglé aujourd'hui sur une facture du mois

@@ -59,7 +59,6 @@ export default function CashClosingsPage() {
   const [justification, setJustification] = useState('');
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [validatingId, setValidatingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -114,19 +113,6 @@ export default function CashClosingsPage() {
       setFormError(extractErrorMessage(error, t('treasury.closeFailed')));
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function handleValidate(closing: CashClosing) {
-    setValidatingId(closing.id);
-    try {
-      await treasuryApi.validateClosing(closing.id);
-      showToast(t('treasury.statusValidated'), 'success');
-      load();
-    } catch (error) {
-      showToast(extractErrorMessage(error, t('common.error')), 'error');
-    } finally {
-      setValidatingId(null);
     }
   }
 
@@ -251,8 +237,7 @@ export default function CashClosingsPage() {
                   <th className="py-2 pr-3 font-medium">{t('treasury.actualBalance')}</th>
                   <th className="py-2 pr-3 font-medium">{t('treasury.difference')}</th>
                   <th className="py-2 pr-3 font-medium">{t('treasury.justification')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('treasury.status')}</th>
-                  <th className="py-2 text-right font-medium">{t('common.actions')}</th>
+                  <th className="py-2 font-medium">{t('treasury.closedBy')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -283,28 +268,10 @@ export default function CashClosingsPage() {
                       {formatCurrency(closing.difference)}
                     </td>
                     <td className="max-w-[16rem] py-2 pr-3 text-xs text-gray-500 dark:text-gray-400">{closing.justification ?? '—'}</td>
-                    <td className="py-2 pr-3">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        closing.status === 'validated'
-                          ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
-                      }`}>
-                        {closing.status === 'validated' ? t('treasury.statusValidated') : t('treasury.statusClosed')}
-                      </span>
-                      {closing.validated_at && (
-                        <p className="mt-1 text-xs text-gray-400">{formatDateTimeFr(closing.validated_at)}</p>
-                      )}
-                    </td>
-                    <td className="py-2 text-right">
-                      {closing.status !== 'validated' && (
-                        <Button
-                          variant="outline"
-                          onClick={() => handleValidate(closing)}
-                          isLoading={validatingId === closing.id}
-                        >
-                          {t('treasury.validate')}
-                        </Button>
-                      )}
+                    {/* Plus de validation : la caissière clôture simplement (11/11). */}
+                    <td className="py-2 text-xs text-gray-500 dark:text-gray-400">
+                      {[closing.closer?.first_name, closing.closer?.last_name].filter(Boolean).join(' ') || closing.closer?.name || '—'}
+                      {closing.closed_at && <span className="block">{formatDateTimeFr(closing.closed_at)}</span>}
                     </td>
                   </tr>
                 ))}

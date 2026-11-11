@@ -113,7 +113,8 @@ export interface CashClosing {
   validated_at: string | null;
   account?: TreasuryAccount;
   breakdown?: CashDayBreakdown | null;
-  closer?: { id: string; name: string };
+  closer?: { id: string; name?: string; first_name?: string | null; last_name?: string | null };
+  closed_at?: string | null;
   validator?: { id: string; name: string };
   created_at: string;
   updated_at: string;

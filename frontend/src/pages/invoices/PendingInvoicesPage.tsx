@@ -305,6 +305,7 @@ export default function PendingInvoicesPage({
                   <th className="px-5 py-3 font-medium">{t('invoices.colNumber')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colDate')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colClient')}</th>
+                  <th className="px-5 py-3 font-medium">{t('invoices.colItems')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colAgency')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colSource')}</th>
                   <th className="px-5 py-3 font-medium">{t('invoices.colValidation')}</th>
@@ -336,6 +337,11 @@ export default function PendingInvoicesPage({
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{formatRelativeDate(inv.invoice_date)}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{inv.client_label ?? '—'}</td>
+                    <td className="px-5 py-3 text-xs text-gray-600 dark:text-gray-300">
+                      {(inv.items ?? []).length > 0
+                        ? (inv.items ?? []).map((it) => `${it.label ?? ''}${it.pass_label ? ` (${it.pass_label})` : ''} × ${Number(it.quantity)}`).join(', ')
+                        : '—'}
+                    </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{inv.agency?.name ?? '—'}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       <SourceLabel source={inv.source} />
