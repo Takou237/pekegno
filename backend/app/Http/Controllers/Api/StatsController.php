@@ -329,33 +329,12 @@ class StatsController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
-        // Cohérence bilan / vue d'ensemble : CA = ENCAISSÉ (paid_at, hors
-        // pass-through) comme RevenueService::feeTotal, pas le FACTURÉ. L'ancien
-        // `sum(total_amount)` gonflait les impayés et dépassait le bilan du jour.
-        $ratios = DB::table('invoice_items')
-            ->selectRaw('invoice_id, sum(case when is_pass_through then line_total else 0 end) as pass, sum(line_total) as lines')
-            ->groupBy('invoice_id');
-
-        $paidByCommercial = DB::table('invoice_payments')
-            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
-            ->leftJoinSub($ratios, 'ratios', 'ratios.invoice_id', '=', 'invoices.id')
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
-            ->whereBetween('invoice_payments.paid_at', [$from, $to])
-            ->whereNotNull('invoices.commercial_id')
-            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->groupBy('invoices.commercial_id')
-            ->selectRaw('invoices.commercial_id as commercial_id, sum(invoice_payments.amount * (1 - coalesce(ratios.pass / nullif(ratios.lines, 0), 0)) * '.GroupCurrency::rateSql('invoices.agency_id').') as turnover')
-            ->pluck('turnover', 'commercial_id');
-
-        $salesCountByCommercial = Invoice::whereNull('cancelled_at')
-            ->validated()
-            ->whereBetween('invoice_date', [$from, $to])
-            ->whereNotNull('commercial_id')
-            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
-            ->groupBy('commercial_id')
-            ->selectRaw('commercial_id, count(*) as sales')
-            ->pluck('sales', 'commercial_id');
+        // Même définition que le tableau de bord du commercial et le rapport
+        // commercial (CommercialRevenue) : CA = factures validées de la période,
+        // hors budget pub client ; ventes = quantités vendues.
+        $revenue = \App\Support\CommercialRevenue::byCommercial($from, $to, null, $agencyIds, true);
+        $paidByCommercial = $revenue->map(fn ($row) => $row->revenue);
+        $salesCountByCommercial = $revenue->map(fn ($row) => $row->sales_count);
 
         $commercials = Commercial::with('agency:id,name,code')
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
