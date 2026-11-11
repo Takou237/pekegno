@@ -46,7 +46,29 @@ class CatalogRevenueService
             $rows['other'] = $other;
         }
 
-        $rows = collect($rows)
+        // Un même article existe dans chaque agence (une fiche par agence) :
+        // on regroupe les lignes de même type et de même nom.
+        $grouped = [];
+        foreach ($rows as $r) {
+            $groupKey = $r['kind'].'|'.mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $r['name'])));
+            if (! isset($grouped[$groupKey])) {
+                $grouped[$groupKey] = $r;
+
+                continue;
+            }
+            $g = &$grouped[$groupKey];
+            $g['quantity'] += $r['quantity'];
+            $g['billed'] += $r['billed'];
+            $g['collected'] += $r['collected'];
+            $g['payments'] += $r['payments'];
+            foreach ($r['by_mode'] as $mode => $value) {
+                $g['by_mode'][$mode] = ($g['by_mode'][$mode] ?? 0) + $value;
+            }
+            $g['category'] ??= $r['category'];
+            unset($g);
+        }
+
+        $rows = collect($grouped)
             ->map(fn (array $r) => array_merge($r, [
                 'billed' => round($r['billed'], 2),
                 'collected' => round($r['collected'], 2),
