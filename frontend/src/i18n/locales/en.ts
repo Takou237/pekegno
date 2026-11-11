@@ -1017,6 +1017,7 @@ export default {
       title: 'Today\'s Cash Desk',
       todayRevenue: 'Today\'s Revenue',
       todayInvoices: 'Today\'s Invoices',
+      periodInvoices: 'Invoices of the period',
       todayPaid: 'paid',
       todayPartial: 'partial',
       todayUnpaid: 'unpaid',

@@ -8,7 +8,8 @@ import { FinancialKpiCards } from '@/components/dashboard/FinancialKpiCards';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { currentLocale } from '@/i18n';
-import { businessToday } from '@/utils/date';
+import { PeriodPicker } from '@/components/ui/PeriodPicker';
+import { presetPeriod, type Period } from '@/utils/period';
 import { formatCurrency } from '@/utils/number';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { DashboardStats } from '@/types/stats';
@@ -55,7 +56,9 @@ function StatCard({
 
 export default function CashierDashboardPage() {
   const { t } = useTranslation();
-  const today = businessToday();
+  // Filtre de période, « Aujourd'hui » par défaut (journée de la caissière).
+  const [period, setPeriod] = useState<Period>(() => presetPeriod('today'));
+  const isToday = period.from === presetPeriod('today').from && period.to === presetPeriod('today').to;
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [pending, setPending] = useState<Invoice[]>([]);
@@ -66,7 +69,7 @@ export default function CashierDashboardPage() {
     let active = true;
     setLoading(true);
     const results = [
-      { key: 'stats', fn: () => statsApi.dashboard({ from: today, to: today }) },
+      { key: 'stats', fn: () => statsApi.dashboard({ from: period.from, to: period.to }) },
       { key: 'invoices', fn: () => invoicesApi.list({ per_page: 8 }) },
       { key: 'pending', fn: () => invoicesApi.list({ validation_status: 'pending', per_page: 5 }) },
     ];
@@ -98,9 +101,10 @@ export default function CashierDashboardPage() {
     return () => {
       active = false;
     };
-  }, [today]);
+  }, [period.from, period.to]);
 
-  if (loading) {
+  // Squelette au premier chargement seulement : changer de période garde la page.
+  if (loading && !stats) {
     return <SkeletonTable rows={3} />;
   }
 
@@ -113,15 +117,19 @@ export default function CashierDashboardPage() {
           {t('dashboard.cashier.title')}
         </h1>
         <span className="text-sm text-gray-400">
-          {new Date(today).toLocaleDateString(currentLocale())}
+          {isToday
+            ? new Date(period.from).toLocaleDateString(currentLocale())
+            : `${new Date(period.from).toLocaleDateString(currentLocale())} → ${new Date(period.to).toLocaleDateString(currentLocale())}`}
         </span>
       </div>
 
-      <FinancialKpiCards kpis={stats} currency={stats?.currency_code} detailsScope={{ from: today, to: today }} />
+      <PeriodPicker value={period} onChange={setPeriod} />
+
+      <FinancialKpiCards kpis={stats} currency={stats?.currency_code} detailsScope={{ from: period.from, to: period.to }} />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <StatCard
-          label={t('dashboard.cashier.todayInvoices')}
+          label={isToday ? t('dashboard.cashier.todayInvoices') : t('dashboard.cashier.periodInvoices')}
           value={String(stats?.invoices_total ?? 0)}
           icon={<Receipt className="h-5 w-5" />}
           tone="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"

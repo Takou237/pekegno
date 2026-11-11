@@ -1024,6 +1024,7 @@ export default {
       title: 'Caisse du jour',
       todayRevenue: 'CA du jour',
       todayInvoices: 'Factures du jour',
+      periodInvoices: 'Factures de la période',
       todayPaid: 'payées',
       todayPartial: 'partielles',
       todayUnpaid: 'impayées',
