@@ -188,7 +188,7 @@ export function ServiceFormModal({
     return {
       name: form.name.trim(),
       category_id: form.category_id,
-      branch: form.branch || null,
+      // branch non envoyé : le serveur garde la branche par défaut (Store).
       // En création, pas de choix d'agence : seule l'agence de la page (si on
       // est sur une agence) est ajoutée aux agences des pays cochés.
       agency_id: isEditing ? form.agency_id : agencyId || undefined,
@@ -276,18 +276,9 @@ export function ServiceFormModal({
               </option>
             ))}
           </Select>
-          <Select
-            label={t('services.branch')}
-            value={form.branch}
-            onChange={(e) => update('branch', e.target.value as Branch | '')}
-            error={fieldErrors.branch}
-          >
-            <option value="">{t('services.branchAuto')}</option>
-            <option value="academy">{t('services.branchAcademy')}</option>
-            <option value="agency">{t('services.branchAgency')}</option>
-            <option value="store">{t('services.branchStore')}</option>
-            <option value="studio">{t('services.branchStudio')}</option>
-          </Select>
+          {/* Champ « Branche » retiré (11/11) : tout service créé ici relève du
+              Store ; sa catégorie est sa rubrique. Le serveur applique la branche
+              par défaut. */}
         </div>
 
         {isEditing && (
