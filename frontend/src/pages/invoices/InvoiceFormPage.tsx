@@ -341,26 +341,29 @@ export default function InvoiceFormPage({
   /** Recherche du catalogue selon le type de la ligne. */
   async function searchCatalog(key: string, kind: LineKind, query: string): Promise<AutocompleteOption[]> {
     const q = query.trim();
-    if (kind === 'service') {
-      const res = await servicesApi.search(q);
-      serviceResultsRef.current[key] = res;
-      return res.map((s) => ({
-        id: s.id,
-        label: s.name,
-        subtitle: `${formatCurrency(Number(s.effective_price ?? s.price), currency)}${s.has_promotion ? ' · promo' : ''}${s.category ? ` · ${s.category}` : ''}`,
-      }));
-    }
-    if (kind === 'product') {
+    if (kind === 'service' || kind === 'product') {
+      // Produits et services : un seul catalogue (comme la vente rapide).
       // Recherche ouverte à tous les produits (for_sale) : le vendeur peut
       // facturer un article d'une autre agence ; la facture bascule alors sur
       // l'agence du produit sélectionné.
-      const res = await productsApi.search(q);
-      productResultsRef.current[key] = res;
-      return res.map((p) => ({
-        id: p.id,
-        label: p.name,
-        subtitle: `${formatCurrency(Number(p.selling_price), currency)}${p.category ? ` · ${p.category}` : ''}`,
-      }));
+      const [services, products] = await Promise.all([
+        servicesApi.search(q).catch(() => []),
+        productsApi.search(q).catch(() => []),
+      ]);
+      serviceResultsRef.current[key] = services;
+      productResultsRef.current[key] = products;
+      return [
+        ...services.map((s) => ({
+          id: `service:${s.id}`,
+          label: s.name,
+          subtitle: `${formatCurrency(Number(s.effective_price ?? s.price), currency)}${s.has_promotion ? ' · promo' : ''}${s.category ? ` · ${s.category}` : ''}`,
+        })),
+        ...products.map((p) => ({
+          id: `product:${p.id}`,
+          label: p.name,
+          subtitle: `${formatCurrency(Number(p.selling_price), currency)}${p.category ? ` · ${p.category}` : ''}`,
+        })),
+      ];
     }
     const offers: CatalogOption[] = kind === 'course'
       ? (await academyApi.courses({ search: q || undefined, agency_id: agencyId || undefined, per_page: 20 })).data.map((c) => ({
@@ -670,7 +673,8 @@ export default function InvoiceFormPage({
                 <div className="w-full sm:w-40">
                   <Select
                     label={index === 0 ? t('invoices.itemKind') : undefined}
-                    value={line.kind}
+                    // Produits et services = un seul type (même catalogue).
+                    value={line.kind === 'service' ? 'product' : line.kind}
                     onChange={(e) => {
                       // Changer de type vide la sélection : la recherche ne porte
                       // plus sur le même catalogue.
@@ -689,25 +693,25 @@ export default function InvoiceFormPage({
                     <option value="product">{t('invoices.kindProducts')}</option>
                     <option value="course">{t('invoices.kindCourses')}</option>
                     <option value="package">{t('invoices.kindPackages')}</option>
-                    <option value="service">{t('invoices.kindPrestations')}</option>
                   </Select>
                 </div>
                 <div className="min-w-0 flex-1">
                   <Autocomplete
-                    key={`${line.key}-${line.kind}`}
-                    label={index === 0 ? t(`invoices.kindSearch_${line.kind}`) : undefined}
-                    placeholder={t(`invoices.kindSearchPlaceholder_${line.kind}`)}
+                    key={`${line.key}-${line.kind === 'service' ? 'product' : line.kind}`}
+                    label={index === 0 ? t(`invoices.kindSearch_${line.kind === 'service' ? 'product' : line.kind}`) : undefined}
+                    placeholder={t(`invoices.kindSearchPlaceholder_${line.kind === 'service' ? 'product' : line.kind}`)}
                     value={
-                      line.kind === 'service' ? line.service_id
-                        : line.kind === 'product' ? line.product_id
+                      line.kind === 'service' ? (line.service_id ? `service:${line.service_id}` : '')
+                        : line.kind === 'product' ? (line.product_id ? `product:${line.product_id}` : '')
                         : line.kind === 'course' ? line.course_id
                         : line.package_id
                     }
                     onChange={(id) => {
                       if (!id) return;
-                      if (line.kind === 'service') handleServiceSelect(line.key, id);
-                      else if (line.kind === 'product') handleProductSelect(line.key, id);
-                      else handleOfferSelect(line.key, line.kind, id);
+                      // Catalogue commun : l'identifiant porte sa nature.
+                      if (id.startsWith('service:')) handleServiceSelect(line.key, id.slice(8));
+                      else if (id.startsWith('product:')) handleProductSelect(line.key, id.slice(8));
+                      else handleOfferSelect(line.key, line.kind as 'course' | 'package', id);
                     }}
                     fetchOptions={(query) => searchCatalog(line.key, line.kind, query)}
                   />
