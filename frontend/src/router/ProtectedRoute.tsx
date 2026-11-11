@@ -33,16 +33,10 @@ export function ProtectedRoute() {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Lot 9 : 2FA obligatoire pour les rôles sensibles. L'utilisateur est
-  // redirigé vers ses paramètres tant qu'il n'a pas activé la double
-  // authentification (l'API bloque aussi les routes métier).
-  const twoFactorRequired =
-    !user?.two_factor_enabled &&
-    ['super-admin', 'direction-generale', 'comptable', 'caissier'].includes(
-      user?.role?.name ?? ''
-    );
-
-  if (twoFactorRequired && !location.pathname.startsWith('/profile/settings')) {
+  // Lot 9 : 2FA obligatoire pour les rôles sensibles, uniquement lorsque
+  // l'API l'impose (SECURITY_ENFORCE_2FA). L'utilisateur est alors redirigé
+  // vers ses paramètres tant qu'il n'a pas activé la double authentification.
+  if (user?.two_factor_setup_required && !location.pathname.startsWith('/profile/settings')) {
     return <Navigate to="/profile/settings" replace />;
   }
 

@@ -42,6 +42,8 @@ export interface User {
   is_active: boolean;
   two_factor_enabled: boolean;
   two_factor_channel: TwoFactorChannel;
+  /** L'API impose l'activation de la 2FA pour ce compte (Lot 9). */
+  two_factor_setup_required?: boolean;
   is_password_change_required: boolean;
   last_login_at: string | null;
   created_at: string;

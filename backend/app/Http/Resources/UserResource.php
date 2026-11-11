@@ -48,6 +48,11 @@ class UserResource extends JsonResource
             'is_active' => $this->is_active,
             'two_factor_enabled' => (bool) $this->two_factor_enabled,
             'two_factor_channel' => $this->two_factor_channel ?? 'totp',
+            // Le front ne force l'écran d'activation que si l'application impose
+            // réellement la 2FA (SECURITY_ENFORCE_2FA).
+            'two_factor_setup_required' => (bool) config('security.enforce_two_factor')
+                && ! $this->two_factor_enabled
+                && $this->requiresTwoFactor(),
             'is_password_change_required' => (bool) $this->is_password_change_required,
             'role' => $this->whenLoaded('role'),
             'role_id' => $this->role_id,
