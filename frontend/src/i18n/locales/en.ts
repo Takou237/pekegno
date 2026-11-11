@@ -1,5 +1,6 @@
 export default {
   common: {
+    noOptions: 'No results.',
     loading: 'Loading...',
     refresh: 'Refresh',
     menu: 'Menu',

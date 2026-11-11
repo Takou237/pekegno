@@ -323,6 +323,13 @@ export function Autocomplete({
             <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
           </button>
         )}
+        {/* Liste vide : un message plutôt qu'une liste qui ne s'ouvre pas
+            (ex. type « Produit » sans aucun produit en catalogue). */}
+        {isOpen && !isLoading && options.length === 0 && !(freeText && inputValue.trim()) && (
+          <div className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+            {t('common.noOptions')}
+          </div>
+        )}
         {isOpen && (options.length > 0 || (freeText && inputValue.trim())) && (
           <ul
             id={`${generatedId}-listbox`}
