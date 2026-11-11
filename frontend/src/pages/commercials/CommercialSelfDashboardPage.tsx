@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { TrendingUp, ShoppingCart, Coins, Star, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { commercialsApi } from '@/api/commercials.api';
@@ -9,6 +9,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
+import { Modal } from '@/components/ui/Modal';
+import { Spinner } from '@/components/ui/Spinner';
+import { Pagination } from '@/components/ui/Pagination';
+import { formatDateTimeFr } from '@/utils/date';
+import type { PaginationMeta } from '@/types/agency';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Commercial, CommercialStats } from '@/types/commercial';
@@ -24,6 +29,77 @@ export default function CommercialSelfDashboardPage() {
   return <CommercialSelfDashboard />;
 }
 
+/**
+ * Clic sur les cartes CA / Ventes : les factures validées du commercial qui les
+ * composent (même définition que la carte : validées, non annulées).
+ */
+function MySalesModal({ commercialId, title, onClose }: { commercialId: string; title: string; onClose: () => void }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [page, setPage] = useState(1);
+  const [rows, setRows] = useState<Invoice[]>([]);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    invoicesApi
+      .list({ commercial_id: commercialId, validation_status: 'validated', page, per_page: 25 })
+      .then((res) => {
+        if (!active) return;
+        setRows(res.invoices.data ?? []);
+        setMeta(res.invoices.meta ?? null);
+      })
+      .catch(() => { if (active) setRows([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [commercialId, page]);
+
+  return (
+    <Modal isOpen onClose={onClose} title={title} maxWidth="max-w-4xl">
+      {loading ? (
+        <div className="flex justify-center py-8"><Spinner /></div>
+      ) : rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">{t('invoices.empty')}</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {meta && <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.selfSalesCount', { count: meta.total })}</p>}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.colNumber')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.colDate')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.colClient')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('invoices.colAgency')}</th>
+                  <th className="py-2 pr-3 text-right font-medium">{t('invoices.colTotal')}</th>
+                  <th className="py-2 text-right font-medium">{t('invoices.colPaid')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {rows.map((inv) => (
+                  <tr key={inv.id} onClick={() => navigate(`/invoices/${inv.id}`)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="py-2 pr-3 font-medium text-gray-800 dark:text-gray-100">{inv.number}</td>
+                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{formatDateTimeFr(inv.invoice_date)}</td>
+                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{inv.client_label ?? '—'}</td>
+                    <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{inv.agency?.name ?? '—'}</td>
+                    <td className="py-2 pr-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(inv.total_amount, inv.currency_code)}</td>
+                    <td className="py-2 text-right text-gray-600 dark:text-gray-300">{formatCurrency(inv.amount_paid, inv.currency_code)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {meta && meta.last_page > 1 && (
+            <Pagination currentPage={meta.current_page} lastPage={meta.last_page} total={meta.total} perPage={meta.per_page} onPageChange={setPage} />
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 function CommercialSelfDashboard() {
   const { t } = useTranslation();
   const { showToast } = useToast();
@@ -34,6 +110,8 @@ function CommercialSelfDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [salesOpen, setSalesOpen] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
@@ -122,7 +200,7 @@ function CommercialSelfDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <div role="button" onClick={() => setSalesOpen(t('commercial.selfTurnover'))} className="cursor-pointer rounded-2xl border border-gray-100 bg-white p-5 transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/30">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-brand-600" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.selfTurnover')}</p>
@@ -131,14 +209,14 @@ function CommercialSelfDashboard() {
             {formatCurrency(stats?.turnover ?? 0)}
           </p>
         </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <div role="button" onClick={() => setSalesOpen(t('commercial.selfSales'))} className="cursor-pointer rounded-2xl border border-gray-100 bg-white p-5 transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/30">
           <div className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4 text-brand-600" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.selfSales')}</p>
           </div>
           <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">{stats?.sales_count ?? 0}</p>
         </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <div role="button" onClick={() => navigate('/commercial/commissions')} className="cursor-pointer rounded-2xl border border-gray-100 bg-white p-5 transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/30">
           <div className="flex items-center gap-2">
             <Coins className="h-4 w-4 text-brand-600" />
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('commercial.selfCommissions')}</p>
@@ -155,6 +233,10 @@ function CommercialSelfDashboard() {
           <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">{commercial.points_balance}</p>
         </div>
       </div>
+
+      {salesOpen && commercial && (
+        <MySalesModal commercialId={commercial.id} title={salesOpen} onClose={() => setSalesOpen(null)} />
+      )}
 
       <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">

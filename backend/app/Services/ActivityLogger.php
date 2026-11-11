@@ -119,4 +119,16 @@ class ActivityLogger
             ?? $user?->assignments()->value('agencies.country_id')
             ?? $user?->commercialProfile?->agency?->country_id;
     }
+
+    /** Agence d'un utilisateur pour l'audit (principale, sinon toute affectation, sinon profil commercial). */
+    public function agencyForUser(?User $user): ?string
+    {
+        return $this->resolveAgencyId($user, 'auth', null);
+    }
+
+    /** Pays d'un utilisateur pour l'audit (fiche, sinon pays de son agence). */
+    public function countryForUser(?User $user): ?string
+    {
+        return $this->resolveUserCountry($user);
+    }
 }

@@ -285,8 +285,10 @@ class AuthService
         if ($user !== null && in_array($action, ['login', 'logout'], true)) {
             ActivityLog::create([
                 'user_id' => $user->id,
-                'agency_id' => $user->primaryAgency()->value('agencies.id'),
-                'country_id' => $user->country_id,
+                // Mêmes règles que le reste du journal (ActivityLogger) : agence
+                // principale sinon toute affectation, pays de l'agence à défaut.
+                'agency_id' => app(ActivityLogger::class)->agencyForUser($user),
+                'country_id' => app(ActivityLogger::class)->countryForUser($user),
                 'action' => $action,
                 'entity_type' => 'auth',
                 'entity_id' => $user->id,
