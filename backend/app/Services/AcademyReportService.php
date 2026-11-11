@@ -50,7 +50,8 @@ class AcademyReportService
         $attendancePresent = 0;
 
         foreach ($courses as $course) {
-            $courseSessions = $course->sessions()->withTrashed()->get();
+            // Sessions supprimées exclues (elles gonflaient le nombre de sessions).
+            $courseSessions = $course->sessions()->get();
 
             $activeEnrollments = FormationEnrollment::where('course_id', $course->id)
                 ->active()

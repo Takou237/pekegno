@@ -657,9 +657,10 @@ class StatsController extends Controller
 
         $service = app(AcademyReportService::class);
 
-        // Dépenses du périmètre (pour le dashboard academy) : même source
-        // comptable que le groupe, filtrée aux agences autorisées.
+        // Dépenses de l'Académie seulement (départements Academy du périmètre),
+        // et non toutes les dépenses du groupe.
         $expenses = AccountingTransaction::realExpenses()
+            ->whereIn('department_id', \App\Models\Department::where('type', \App\Models\Department::TYPE_ACADEMY)->select('id'))
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
             ->sum('amount');
 
