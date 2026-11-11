@@ -140,10 +140,20 @@ class CatalogRevenueService
     /** Encaissements de la période, répartis par ligne et par moyen de paiement. */
     private function addCollections(array &$rows, array &$other, Carbon $from, Carbon $to, ?array $agencyIds): void
     {
+        // Même règle que le Bilan du jour et la Comptabilité (B11) : paiement
+        // validé, non annulé, daté du jour de RÉCEPTION (et non de validation),
+        // journée en heure métier.
+        $tz = \App\Support\Period::businessTimezone();
         $payments = DB::table('invoice_payments')
             ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
             ->whereNull('invoices.cancelled_at')
-            ->whereBetween('invoice_payments.paid_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+            ->where('invoices.validation_status', 'validated')
+            ->whereNull('invoice_payments.cancelled_at')
+            ->where('invoice_payments.validation_status', 'validated')
+            ->whereRaw('coalesce(invoice_payments.received_at, invoice_payments.paid_at) between ? and ?', [
+                Carbon::parse($from->toDateString(), $tz)->startOfDay()->utc(),
+                Carbon::parse($to->toDateString(), $tz)->endOfDay()->utc(),
+            ])
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
             ->get(['invoice_payments.invoice_id', 'invoice_payments.amount', 'invoice_payments.payment_method']);
 
