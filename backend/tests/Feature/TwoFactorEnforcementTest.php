@@ -16,6 +16,7 @@ class TwoFactorEnforcementTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->markTestSkipped('Lot 9 désactivé le 11/11/2026 (décision Pekegno) — à réactiver plus tard.');
         $this->seed([PermissionSeeder::class, RoleSeeder::class]);
         config(['security.enforce_two_factor' => true]);
     }

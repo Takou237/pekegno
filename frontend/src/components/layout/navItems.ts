@@ -32,7 +32,7 @@ import {
   DollarSign,
   ScrollText,
   Settings,
-  ShieldCheck,
+  // ShieldCheck, // Lot 9 désactivé (menu Centre de sécurité)
   Target,
   TrendingUp,
 } from 'lucide-react';
@@ -163,9 +163,10 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       monthlyReportItem(t),
       salesTrackingItem(t),
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
-      ...(roleName === 'super-admin'
-        ? [{ to: '/security', label: t('nav.security'), icon: ShieldCheck, end: false }]
-        : []),
+      // Lot 9 désactivé le 11/11/2026 (décision Pekegno) — à réactiver plus tard : centre de sécurité.
+      // ...(roleName === 'super-admin'
+      // ? [{ to: '/security', label: t('nav.security'), icon: ShieldCheck, end: false }]
+      // : []),
       // Paramètres du groupe : même page que celle du pays (onglets général,
       // catégories comptabilité/services, utilisateurs, privilèges). La page et
       // sa route /settings existent déjà — l'entrée manquait juste au menu.

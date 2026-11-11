@@ -51,7 +51,7 @@
   <h1>Support de test — Corrections V1 Pekegno</h1>
   <div class="sub">Scénarios pas à pas pour vérifier tout ce qui est noté « Fait » ou « En partie » dans le rapport de recette du 10/11/2026, dans l'ordre du cahier WORLDEV.</div>
   <div class="meta">
-    <b>Date</b><span>11 novembre 2026</span>
+    <b>Date</b><span>11 novembre 2026 (complété : contrôles de saisie du Lot 8)</span>
     <b>Version testée</b><span>Branche <code>corrections</code> (base locale), puis staging / production après le déploiement du lot <code>doc/deploy/08_11/</code>.</span>
     <b>Comment remplir</b><span>Pour chaque scénario : suivre les étapes avec le compte indiqué, comparer au résultat attendu, cocher <b>OK</b> ou <b>KO</b> et noter ce qui diffère (numéro de facture, montant, capture). Un scénario KO se signale avec son identifiant (ex. « C5 KO »).</span>
   </div>
@@ -185,6 +185,7 @@
 </table>
 
 <h2>9. Sécurité et session</h2>
+<p class="small">Lot 9 (2FA obligatoire, centre de sécurité) désactivé : vérifier seulement qu'aucun compte (super-admin, DG, comptable, caissière) n'est redirigé vers l'activation de la double authentification à la connexion.</p>
 <table>
   <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
   <tr><td><b>I1</b></td><td>Caissière Abidjan (Iris)</td><td>Factures, Paiements à valider, Trésorerie.</td><td>Seulement Abidjan ; ouvrir par l'URL une facture de Douala donne « introuvable ».</td><td>☐ OK ☐ KO</td></tr>
@@ -192,7 +193,19 @@
   <tr><td><b>I3</b></td><td>Direction générale / autre rôle</td><td>Laisser l'onglet ouvert sans rien faire (ou contrôler l'heure de déconnexion).</td><td>Déconnexion après 12 h d'inactivité pour la direction générale, 24 h pour les autres rôles (B26).</td><td>☐ OK ☐ KO</td></tr>
 </table>
 
-<h2>10. Bilan de la campagne</h2>
+<h2>10. Contrôles de saisie (Lot 8)</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>L1</b></td><td>Caissière Douala</td><td>Vente au guichet pour un client existant, 15 000. Puis, le même jour (ou dans les 7 jours), une 2ᵉ vente au <b>même client, même montant</b>.</td><td>La 2ᵉ facture est créée, mais un <b>avertissement de doublon</b> s'affiche avec le numéro de la facture déjà existante. L'alerte n'empêche pas l'enregistrement.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>L2</b></td><td>Caissière Douala</td><td>Même client, montant différent (16 000) ; puis même montant pour un autre client.</td><td>Aucun avertissement de doublon.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>L3</b></td><td>Commerciale Douala (Lynda)</td><td>Clients → Créer un client avec le <b>même prénom et nom</b> qu'un client existant (téléphone différent).</td><td>Avertissement « Un client similaire existe déjà » avec la liste des clients concernés (numéro, téléphone, email). On peut annuler, ou confirmer pour créer quand même.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>L4</b></td><td>Commerciale Douala</td><td>Créer un client avec un nom nouveau mais le <b>même téléphone</b> qu'un client existant.</td><td>Même avertissement de client similaire.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>L5</b></td><td>Commerciale Douala</td><td>Créer un client, pays <b>Cameroun</b>, en essayant successivement les téléphones : « 69A12B34 », « 6901 », « +225 07 00 00 00 00 », puis « +237 6 90 00 00 00 » et « 690000000 ».</td><td>Lettres : refusé. Moins de 6 chiffres : refusé. « +225… » : refusé (« doit commencer par l'indicatif du pays (+237) »). « +237 6 90 00 00 00 » et « 690000000 » : acceptés.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>L6</b></td><td>Commerciale Douala</td><td>Créer un client avec l'email « client@exemple » puis « client@exemple.com ».</td><td>Le premier est refusé (format d'email invalide), le second accepté. Un client sans email reste possible (inscription au guichet).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>L7</b></td><td>Chef de département (Stephan)</td><td>Académie → Sessions → Nouvelle session : remplir tout sauf le <b>formateur</b>, enregistrer. Puis choisir un formateur.</td><td>Sans formateur : refusé (« Un formateur est obligatoire pour créer une session »). Avec formateur : session créée.</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2>11. Bilan de la campagne</h2>
 <table>
   <tr><th>Section</th><th>Scénarios</th><th>OK</th><th>KO</th><th>Remarques</th></tr>
   <tr><td>1. Calcul et cartes</td><td>A1–A7</td><td></td><td></td><td></td></tr>
@@ -204,8 +217,9 @@
   <tr><td>7. Clients et prospects</td><td>G1–G5</td><td></td><td></td><td></td></tr>
   <tr><td>8. Académie et formateurs</td><td>H1–H10</td><td></td><td></td><td></td></tr>
   <tr><td>9. Sécurité et session</td><td>I1–I3</td><td></td><td></td><td></td></tr>
+  <tr><td>10. Contrôles de saisie</td><td>L1–L7</td><td></td><td></td><td></td></tr>
 </table>
-<p class="small">Hors de ce support (pas encore livré, cf. rapport) : administration par pays, publicité Pekegno, dépenses d'événement, double authentification, centre de sécurité, contrôles de saisie, séances datées. Testeur : ____________________ Date : ____ / ____ / 2026</p>
+<p class="small">Hors de ce support : administration par pays, publicité Pekegno, dépenses d'événement, séances datées (pas encore livrés) ; double authentification obligatoire et centre de sécurité (Lot 9, livré puis <b>désactivé le 11/11</b> pour une utilisation future — aucun compte ne doit être forcé d'activer la 2FA). Testeur : ____________________ Date : ____ / ____ / 2026</p>
 
 </body>
 </html>

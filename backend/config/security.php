@@ -12,11 +12,13 @@ return [
 
     /*
      * Double authentification obligatoire pour les rôles sensibles.
-     * Activée par défaut hors environnement de test ; les tests ne sont pas
-     * bloqués (ils authentifient des rôles sensibles sans 2FA).
+     *
+     * Lot 9 désactivé le 11/11/2026 (décision Pekegno) — à réactiver plus tard.
+     * Désactivée par défaut. Pour la réactiver : SECURITY_ENFORCE_2FA=true dans
+     * le .env, décommenter le middleware « two_factor.enrolled » et la route
+     * /security/center (routes/api.php), le menu et la route « /security » du
+     * frontend (navItems.ts, router/index.tsx), et retirer le markTestSkipped
+     * de TwoFactorEnforcementTest / SecurityCenterTest.
      */
-    'enforce_two_factor' => (bool) env(
-        'SECURITY_ENFORCE_2FA',
-        env('APP_ENV') !== 'testing'
-    ),
+    'enforce_two_factor' => (bool) env('SECURITY_ENFORCE_2FA', false),
 ];

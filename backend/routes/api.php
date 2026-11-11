@@ -80,7 +80,7 @@ use App\Http\Controllers\Api\SalesTrackingController;
 use App\Http\Controllers\Api\ScopeController;
 use App\Http\Controllers\Api\SellerProfileController;
 use App\Http\Controllers\Api\ServiceController;
-use App\Http\Controllers\Api\SecurityCenterController;
+// use App\Http\Controllers\Api\SecurityCenterController; // Lot 9 désactivé (centre de sécurité)
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubscriptionController;
@@ -174,7 +174,8 @@ Route::middleware(['auth:sanctum', 'portal:client'])->group(function () {
     Route::post('/client/2fa/email/send', [TwoFactorController::class, 'sendEmailCodeToAuthenticated']);
 });
 
-Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'update.activity', 'portal:staff', 'two_factor.enrolled'])->group(function () {
+// Lot 9 désactivé le 11/11/2026 (décision Pekegno) — à réactiver plus tard : remettre 'two_factor.enrolled' à la fin de la liste pour imposer la 2FA.
+Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'update.activity', 'portal:staff' /* , 'two_factor.enrolled' */])->group(function () {
     Route::post('/auth/logout', LogoutController::class);
     Route::delete('/auth/account', DeleteAccountController::class);
     Route::get('/user', ProfileController::class);
@@ -376,7 +377,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
 
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->middleware('permission:activity-logs.consulter');
 
-    Route::get('/security/center', SecurityCenterController::class);
+    // Lot 9 désactivé le 11/11/2026 (décision Pekegno) — à réactiver plus tard : centre de sécurité du super-admin.
+    // Route::get('/security/center', SecurityCenterController::class);
 
     Route::get('/settings', [SettingController::class, 'index'])->middleware('permission:settings.modifier');
     Route::put('/settings', [SettingController::class, 'update'])->middleware('permission:settings.modifier');
