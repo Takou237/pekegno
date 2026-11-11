@@ -39,7 +39,9 @@ class CommercialReportService
             ->with('agency:id,name')
             ->when($agencyId, fn (Builder $q, $id) => $q->where('agency_id', $id))
             ->when($allowedAgencyIds !== null, fn (Builder $q) => $q->whereIn('agency_id', $allowedAgencyIds))
-            ->when($commercialId, fn (Builder $q, $id) => $q->whereKey($id))
+            // L'écran envoie l'identifiant du compte utilisateur du commercial
+            // (user_id) ; on accepte aussi celui de sa fiche commerciale.
+            ->when($commercialId, fn (Builder $q, $id) => $q->where(fn (Builder $w) => $w->whereKey($id)->orWhere('user_id', $id)))
             ->when($kind, fn (Builder $q, string $k) => $q->kind($k))
             ->orderBy('last_name')
             ->get(['id', 'agency_id', 'kind', 'first_name', 'last_name', 'email', 'points_balance']);
@@ -57,20 +59,15 @@ class CommercialReportService
 
         $ids = $commercials->pluck('id');
 
-        $invoices = Invoice::query()
-            ->whereNull('invoices.cancelled_at')
-            ->validated()
-            ->whereIn('invoices.commercial_id', $ids)
-            ->whereBetween('invoices.invoice_date', [$from, $to])
-            ->join('invoice_items', 'invoice_items.invoice_id', '=', 'invoices.id')
-            ->selectRaw(
-                'invoices.commercial_id, coalesce(sum(invoice_items.quantity), 0) as sales_count, '
-                .'sum(invoices.total_amount) as revenue_billed, '
-                .'count(distinct invoices.client_id) as clients_converted'
-            )
-            ->groupBy('invoices.commercial_id')
-            ->get()
-            ->keyBy('commercial_id');
+        // CA, ventes et clients : définition unique (CommercialRevenue), chaque
+        // facture comptée une fois (l'ancienne jointure sur les lignes
+        // multipliait le total par le nombre de lignes).
+        $invoices = \App\Support\CommercialRevenue::byCommercial($from, $to, $ids->all())
+            ->map(fn ($row) => (object) [
+                'sales_count' => $row->sales_count,
+                'revenue_billed' => $row->revenue,
+                'clients_converted' => $row->clients,
+            ]);
 
         $payments = InvoicePayment::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')

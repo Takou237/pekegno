@@ -286,27 +286,12 @@ class StatsController extends Controller
 
         $agencyIds = app(ScopeService::class)->agencyIds($request->user());
 
-        // CA d'un commercial = ses factures validées de la période (calcul unique,
-        // cf. FinancialMetricsService), dans les agences du périmètre — l'agence de la
-        // FACTURE, pas celle de son profil (vente inter-agences, B16).
-        $paidByCommercial = DB::table('invoices')
-            ->whereNull('invoices.cancelled_at')
-            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
-            ->whereBetween('invoices.invoice_date', [$from, $to])
-            ->whereNotNull('invoices.commercial_id')
-            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
-            ->groupBy('invoices.commercial_id')
-            ->selectRaw('invoices.commercial_id as commercial_id, round(sum(invoices.total_amount * '.GroupCurrency::rateSql('invoices.agency_id').')) as turnover')
-            ->pluck('turnover', 'commercial_id');
-
-        $salesCountByCommercial = Invoice::whereNull('cancelled_at')
-            ->validated()
-            ->whereBetween('invoice_date', [$from, $to])
-            ->whereNotNull('commercial_id')
-            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
-            ->groupBy('commercial_id')
-            ->selectRaw('commercial_id, count(*) as sales')
-            ->pluck('sales', 'commercial_id');
+        // Même définition que le tableau de bord du commercial et le rapport
+        // commercial (CommercialRevenue) : CA = factures validées de la période,
+        // hors budget pub client ; ventes = quantités vendues.
+        $revenue = \App\Support\CommercialRevenue::byCommercial($from, $to, null, $agencyIds, true);
+        $paidByCommercial = $revenue->map(fn ($row) => $row->revenue);
+        $salesCountByCommercial = $revenue->map(fn ($row) => $row->sales_count);
 
         $commercials = Commercial::with('agency:id,name,code')
             ->whereIn('id', $paidByCommercial->keys()->all() ?: ['00000000-0000-0000-0000-000000000000'])

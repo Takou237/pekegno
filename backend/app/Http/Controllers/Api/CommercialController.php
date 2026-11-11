@@ -766,6 +766,8 @@ class CommercialController extends Controller
         $from = $request->date('from');
         $to = $request->date('to');
 
+        // CA = factures validées (payées ou non), comme le classement et le
+        // rapport commercial : avant, seules les factures soldées comptaient.
         $base = $commercial->invoices()
             ->where('validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereNull('cancelled_at')
@@ -867,15 +869,14 @@ class CommercialController extends Controller
             'total' => $peers->count(),
         ];
 
-        // Nombre de ventes = somme des quantités de services vendus (pas le nombre de factures).
-        $salesCount = (int) DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->where('invoices.commercial_id', $commercial->id)
-            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
-            ->whereNull('invoices.cancelled_at')
-            ->when($from, fn ($q) => $q->whereDate('invoices.invoice_date', '>=', $from))
-            ->when($to, fn ($q) => $q->whereDate('invoices.invoice_date', '<=', $to))
-            ->sum('invoice_items.quantity');
+        // CA et nombre de ventes (quantités) : définition unique, la même que le
+        // classement « Meilleurs commerciaux » et le rapport commercial.
+        $own = \App\Support\CommercialRevenue::byCommercial(
+            $from ? \Illuminate\Support\Carbon::parse($from)->startOfDay() : null,
+            $to ? \Illuminate\Support\Carbon::parse($to)->endOfDay() : null,
+            [$commercial->id],
+        )->get($commercial->id);
+        $salesCount = (int) ($own->sales_count ?? 0);
 
         return response()->json([
             'commercial' => array_merge(
@@ -889,7 +890,7 @@ class CommercialController extends Controller
                         : null,
                 ],
             ),
-            'turnover' => round((float) (clone $base)->sum('total_amount'), 2),
+            'turnover' => round((float) ($own->revenue ?? 0), 2),
             'sales_count' => $salesCount,
             // Solde restant : commissions gagnées sur factures payées − versements effectués.
             'commissions' => round($owedCommissions, 2),
