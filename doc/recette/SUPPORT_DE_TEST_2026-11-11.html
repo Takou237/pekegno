@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Support de test — Corrections V1</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
+  :root { --ink:#1d2433; --muted:#5b6474; --line:#d9dee7; --soft:#f4f6f9;
+          --ok:#1f7a4d; --okbg:#e3f3ea; --part:#9a5b00; --partbg:#fdf0d9;
+          --todo:#9b2c2c; --todobg:#fbe5e5; --info:#2c5282; --infobg:#e4edf8; }
+  * { box-sizing: border-box; }
+  body { font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif; color: var(--ink);
+         font-size: 9.6pt; line-height: 1.42; margin: 0; }
+  h1 { font-size: 20pt; margin: 0 0 4px; letter-spacing: -0.2px; }
+  h2 { font-size: 13pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--ink); break-after: avoid; }
+  h3 { font-size: 10.5pt; margin: 14px 0 6px; break-after: avoid; }
+  p { margin: 0 0 7px; }
+  .sub { color: var(--muted); font-size: 9.5pt; }
+  .cover { border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 12px; }
+  .meta { display: grid; grid-template-columns: 130px 1fr; gap: 2px 10px; font-size: 9pt; margin-top: 10px; }
+  .meta b { color: var(--muted); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 8.8pt; }
+  th, td { border: 1px solid var(--line); padding: 4px 6px; vertical-align: top; text-align: left; }
+  th { background: var(--soft); font-weight: 700; }
+  tr { break-inside: avoid; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 9px; font-size: 8pt; font-weight: 700; white-space: nowrap; }
+  .ok { background: var(--okbg); color: var(--ok); }
+  .part { background: var(--partbg); color: var(--part); }
+  .todo { background: var(--todobg); color: var(--todo); }
+  .info { background: var(--infobg); color: var(--info); }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 6px; }
+  .kpi { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .kpi .v { font-size: 17pt; font-weight: 700; line-height: 1.1; }
+  .kpi .l { color: var(--muted); font-size: 8.5pt; }
+  .box { border: 1px solid var(--line); border-left: 4px solid var(--info); background: #fafbfd; padding: 8px 10px; margin: 8px 0; border-radius: 4px; }
+  .box.warn { border-left-color: var(--part); }
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 8.3pt; background: var(--soft); padding: 0 3px; border-radius: 3px; }
+  .w-ref { width: 42px; } .w-st { width: 78px; }
+  ul { margin: 4px 0 8px 18px; padding: 0; } li { margin: 2px 0; }
+  .small { font-size: 8.3pt; color: var(--muted); }
+  .pb { break-before: page; }
+  .bar { display:flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 4px 0 2px; }
+  .bar span { display:block; height:100%; }
+
+</style>
+
+<style> .w-st { width: 70px; } td:last-child { white-space: nowrap; } </style>
+</head>
+<body>
+<div class="cover">
+  <h1>Support de test — Corrections V1 Pekegno</h1>
+  <div class="sub">Scénarios pas à pas pour vérifier tout ce qui est noté « Fait » ou « En partie » dans le rapport de recette du 10/11/2026, dans l'ordre du cahier WORLDEV.</div>
+  <div class="meta">
+    <b>Date</b><span>11 novembre 2026</span>
+    <b>Version testée</b><span>Branche <code>corrections</code> (base locale), puis staging / production après le déploiement du lot <code>doc/deploy/08_11/</code>.</span>
+    <b>Comment remplir</b><span>Pour chaque scénario : suivre les étapes avec le compte indiqué, comparer au résultat attendu, cocher <b>OK</b> ou <b>KO</b> et noter ce qui diffère (numéro de facture, montant, capture). Un scénario KO se signale avec son identifiant (ex. « C5 KO »).</span>
+  </div>
+</div>
+
+<h2>0. Préparation</h2>
+
+<h3>0.1 Comptes de test</h3>
+<p>Mot de passe de tous les comptes ci-dessous : <code>password</code> (comptes fictifs de la base locale). Les comptes <code>admin@</code> et <code>admin2@</code> gardent leur mot de passe d'origine.</p>
+<table>
+  <tr><th>Rôle</th><th>Compte</th><th>Personne</th><th>Agence</th></tr>
+  <tr><td>Super-admin</td><td><code>patricedonaldfotie@pekegno.com</code></td><td>Patrice Fotie</td><td>—</td></tr>
+  <tr><td>Direction générale</td><td><code>ursulamegane22@pekegno.com</code></td><td>Ursule Mogou</td><td>Abidjan</td></tr>
+  <tr><td>Comptable</td><td><code>pekegnopetithomme@pekegno.com</code></td><td>Pek Tit</td><td>—</td></tr>
+  <tr><td>Caissière Douala</td><td><code>sandrinetchangoua6@pekegno.com</code></td><td>Sandrine Tchangoua</td><td>Douala</td></tr>
+  <tr><td>Caissier Yaoundé</td><td><code>ngongapatricia@pekegno.com</code></td><td>Caissier Provisoire Yde</td><td>Yaoundé</td></tr>
+  <tr><td>Caissière Abidjan</td><td><code>devryiris07@pekegno.com</code></td><td>Iris Devry</td><td>Abidjan</td></tr>
+  <tr><td>Chef d'agence Douala</td><td><code>joelkameni@pekegno.com</code></td><td>Joel Kameni</td><td>Douala</td></tr>
+  <tr><td>Chef d'agence Yaoundé</td><td><code>murielle22cm@pekegno.com</code></td><td>Patricia Kenfack</td><td>Yaoundé</td></tr>
+  <tr><td>Chef de département</td><td><code>stephan.robben@pekegno.com</code></td><td>Stephan Tsidie</td><td>Douala</td></tr>
+  <tr><td>Commerciale Douala</td><td><code>moniquengueguim@pekegno.com</code></td><td>Lynda Ngueguim</td><td>Douala</td></tr>
+  <tr><td>Commerciale Yaoundé</td><td><code>paulentebga@pekegno.com</code></td><td>Yolande Ntebga</td><td>Yaoundé</td></tr>
+  <tr><td>Commerciale Abidjan</td><td><code>kasseines@pekegno.com</code></td><td>Ines Kasse</td><td>Abidjan</td></tr>
+  <tr><td>Formateur Yaoundé</td><td><code>molly4hugor@pekegno.com</code></td><td>Guy Molly</td><td>Yaoundé</td></tr>
+  <tr><td>Formateur Douala</td><td><code>nicksonjordan32@pekegno.com</code></td><td>Nickson</td><td>Douala</td></tr>
+</table>
+
+<h3>0.2 Avant de commencer (une seule fois)</h3>
+<ul>
+  <li>Backend à jour (<code>git pull</code> de <code>corrections</code>) et migrations appliquées : <code>docker exec pekegno-server php artisan migrate</code>.</li>
+  <li>Créer les caisses O / M / B (+ W / V à Abidjan) : <code>docker exec pekegno-server php artisan db:seed --class=TreasuryAccountSeeder</code>. Sans cela, seules les caisses C existent et les scénarios C2 à C4 ne peuvent pas être joués.</li>
+  <li>Vider le cache : <code>docker exec pekegno-server php artisan cache:clear</code>. Frontend lancé (<code>npm run dev</code> dans <code>frontend/</code>), puis <b>Ctrl+Maj+R</b> dans le navigateur.</li>
+  <li>Avec le super-admin, dans <b>Catégories</b> : créer « Canva » et « Matootoo » (« livre » existe déjà), puis un service de catégorie Canva (ex. « Abonnement Canva », 5 000).</li>
+  <li>Garder une fenêtre de navigation privée pour se connecter avec un second compte en parallèle.</li>
+</ul>
+
+<h2 class="pb">1. Règles de calcul et cartes (cahier §1)</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>A1</b></td><td>Super-admin</td><td>Ouvrir le tableau de bord <b>PEKEGNO Group</b>, période « Ce mois ».</td><td>En tête, dans cet ordre : Chiffre d'affaires, Encaissé (sous-ligne « dont recouvrements »), Acomptes, Impayés, Dépenses, En attente de validation, Net caisse. Pas d'alerte de contrôle orange.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>A2</b></td><td>Super-admin</td><td>Noter CA, Encaissé, Impayés. Cliquer sur la carte <b>Chiffre d'affaires</b>, puis sur chacune des autres cartes (sauf Net caisse).</td><td>Une fenêtre liste les factures / paiements / dépenses qui composent la carte ; le total affiché en haut est égal au chiffre de la carte. Cliquer une ligne ouvre la facture. Les recouvrements et les preuves de reste à payer sont signalés.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>A3</b></td><td>Super-admin</td><td>Même période sur : tableau de bord groupe, page <b>Pays</b> (Cameroun), <b>Comparaison CA</b>, <b>Rapport clients</b>.</td><td>Le même chiffre d'affaires partout pour le même périmètre (B1).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>A4</b></td><td>Super-admin</td><td>PEKEGNO Group : changer la devise d'affichage (XAF / XOF).</td><td>Les cartes sont converties ; le choix est gardé au rechargement. Sous le taux de recouvrement : « X encaissés sur Y (factures de la période) » (B15).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>A5</b></td><td>Caissière Abidjan (Iris)</td><td>Tableau de bord caissier.</td><td>Les 7 cartes, limitées à Abidjan, en <b>XOF</b> (B2, B14). Cartes cliquables.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>A6</b></td><td>Chef de département (Stephan)</td><td>Tableau de bord de son département.</td><td>Les 7 cartes du département, cliquables ; les listes ne contiennent que les factures du département.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>A7</b></td><td>Super-admin</td><td>Tableau de bord, bloc « Ventes par catégorie », même période.</td><td>Total des catégories = carte CA ; rubriques Academy, Agency, Séminaire, livre… ; plus de « Sans catégorie » géant (B4).</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2>2. Ventes, validation et factures</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>B1</b></td><td>Commerciale Douala (Lynda)</td><td>Nouvelle vente : client existant (un de ses clients), produit / service de Douala, avance 10 000 en espèces, joindre une preuve (image). Créer.</td><td>Facture créée « En attente ». Elle apparaît dans « Mes ventes ».</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>B2</b></td><td>Caissière Douala (Sandrine)</td><td><b>Paiements à valider</b>, onglets Factures puis Preuves.</td><td>La facture de B1 est visible avec le <b>client</b> et le <b>montant annoncé</b> (10 000, mention « annoncé ») (B19). S'il y a plus de 15 preuves, la pagination apparaît en bas et permet d'aller aux pages suivantes.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>B3</b></td><td>Caissier Yaoundé</td><td>Paiements à valider.</td><td>La facture de B1 (Douala) <b>n'apparaît pas</b>.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>B4</b></td><td>Caissière Douala</td><td>Accepter la preuve de B1.</td><td>Facture validée, 10 000 encaissés. Sur la fiche facture : « Validée le … par Sandrine Tchangoua » ; dans les versements : colonnes « Reçu le » et « Validé le » ; le reçu imprimé affiche les deux dates (B11).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>B5</b></td><td>Commerciale Douala (Lynda)</td><td>« Nouvelle facture » : choisir un <b>produit de l'agence de Yaoundé</b>. Créer avec preuve.</td><td>Décision Pekegno : la facture va à <b>Yaoundé</b>. Elle est visible et validable par le caissier de Yaoundé, pas par la caissière de Douala.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>B6</b></td><td>Caissière Douala</td><td>Vente rapide : choisir un service <b>séminaire (Pass)</b> (ex. Bootcamp), niveau Classique, quantité 2 ; ajouter une ligne avec le même séminaire.</td><td>La seconde ligne prend automatiquement un autre niveau (Premium ou VIP) ; le niveau déjà pris est grisé. Avec un service normal, une 2ᵉ ligne identique est refusée (« modifiez plutôt la quantité »).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>B7</b></td><td>Super-admin</td><td>Ouvrir une facture validée avec un paiement, <b>Annuler</b> avec un motif.</td><td>Le motif est obligatoire. Dans la liste des factures, la facture <b>reste à sa place</b>, sur fond rouge, numéro et montants barrés, badge « Annulée » ; les totaux en haut ne la comptent plus. Filtre « Annulée » : elle apparaît (B8). Journal : ligne « annulée » avec le motif.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>B8</b></td><td>Super-admin</td><td>Comptabilité, après B7.</td><td>Une écriture négative de la même rubrique, type <b>« Annulation »</b> (orange) ; la recette d'origine reste. Total recettes diminué du montant annulé (B9).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>B9</b></td><td>Super-admin</td><td>Factures : chercher PK-20261101-009 (ou une facture rejetée).</td><td>Visible avec son statut (rejetée / annulée), jamais disparue (B8).</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2 class="pb">3. Caisses, transferts et clôture (cahier §2)</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>C1</b></td><td>Caissière Douala</td><td>Trésorerie, puis Caisses du jour.</td><td>Seule la caisse <b>C</b> de Douala est visible (pas O, M, B), regroupée sous « Agence de Douala », sans émoji.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>C2</b></td><td>Caissière Douala, puis Super-admin</td><td>Encaisser une vente de 5 000 en <b>Orange Money</b> (avec numéro payeur). Puis, en super-admin, Trésorerie.</td><td>Les 5 000 sont dans la caisse <b>O</b> de Douala, pas dans C. La caissière ne voit pas le solde de O.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>C3</b></td><td>Super-admin</td><td>Trésorerie → Transfert : type « Versement en banque », de C (Douala) vers B (Douala), 1 000. Puis essayer « Retrait » de B vers C.</td><td>Le formulaire ne propose que les caisses possibles pour le type choisi ; le versement passe (badge « Transfert », filtre « Transferts seulement ») ; le retrait B → C est impossible (refusé). Aucune dépense créée (B13).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>C4</b></td><td>Super-admin</td><td>Comptabilité → Nouvelle transaction : dépense sans caisse ; puis dépense « Versement bancaire ».</td><td>Sans caisse : refusée. « Versement bancaire » en dépense : refusé (c'est un transfert).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>C5</b></td><td>Caissière Douala</td><td>Caisses du jour : lire la carte de C.</td><td>« Journée en cours depuis… » ; détail Solde initial / Entrées / Sorties / Transferts reçus / Transferts envoyés / Solde théorique (= initial + entrées − sorties ± transferts).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>C6</b></td><td>Caissière Douala</td><td>« Clôturer la caisse » : saisir un solde réel différent du théorique sans justification, puis avec justification.</td><td>Sans justification : refus. Avec : clôture enregistrée, la carte affiche « Clôturée le … ». Le chef d'agence reçoit une alerte d'écart.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>C7</b></td><td>Commerciale Douala, puis Caissière Douala</td><td>La commerciale crée une vente avec preuve ; la caissière (caisse clôturée) essaie de l'accepter, puis d'encaisser une vente au guichet.</td><td>Les deux sont refusés : « La caisse C de l'agence est clôturée … ». La facture reste en attente.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>C8</b></td><td>Caissière Douala</td><td>« Rouvrir la caisse », puis accepter la preuve de C7.</td><td>Nouvelle journée : solde initial = solde final de la clôture ; la preuve passe et l'argent entre dans la journée en cours.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>C9</b></td><td>Chef d'agence Douala (Joel)</td><td>Caisses du jour : historique, « Valider » la clôture de C6.</td><td>Clôture validée. La caissière, elle, ne peut pas valider sa propre clôture.</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2>4. Bilan du jour</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>D1</b></td><td>Super-admin</td><td>Bilan du jour, agence de Douala, aujourd'hui.</td><td>Deux colonnes : ventes à gauche, caisses à droite. Tableau des caisses : solde initial, entrées, sorties, <b>transferts</b>, solde théorique, compté (écart).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>D2</b></td><td>Super-admin</td><td>Vue période (ex. 1ᵉʳ au 10/11), Douala.</td><td>Colonnes <b>Academy</b>, <b>Agency</b>, <b>Séminaire</b>, puis une par catégorie (livre, Canva, Matootoo…), même à zéro. Ligne TOTAL PÉRIODE : premier solde initial et dernier solde final (B5).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>D3</b></td><td>Super-admin</td><td>Vendre le service séminaire (Pass) puis revenir au Bilan.</td><td>La vente apparaît dans la colonne <b>Séminaire</b>, pas dans sa catégorie.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>D4</b></td><td>Super-admin</td><td>Vue consolidée (toutes agences), deux jours de suite.</td><td>Solde initial consolidé du jour = somme des soldes finaux de la veille ; recharger la page ne change pas les soldes (B6). Montants d'Abidjan convertis, devise affichée (B14).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>D5</b></td><td>Super-admin</td><td>Paiement dont la preuve a été déposée la veille et validée aujourd'hui.</td><td>Compté le jour du dépôt de la preuve, pas le jour de la validation (B11).</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2 class="pb">5. Comptabilité</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>E1</b></td><td>Comptable</td><td>Comptabilité, liste des écritures.</td><td>Chaque versement porte une <b>catégorie</b> = sa rubrique (Academy, Agency, Séminaire, livre…), plus jamais « — » pour les nouvelles ventes (B4). Pour les anciennes : commande <code>accounting:categorize-income --apply</code>.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>E2</b></td><td>Comptable</td><td>Bloc « Recettes par rubrique ».</td><td>Toutes les rubriques, même à zéro ; total = total des recettes du filtre.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>E3</b></td><td>Comptable</td><td>Douala, période longue : naviguer dans les pages.</td><td>Pagination présente ; les totaux en haut couvrent toute la période, pas seulement la page (B10).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>E4</b></td><td>Comptable</td><td>Même jour, même agence : comparer Bilan du jour (encaissé) et Comptabilité (recettes).</td><td>Même montant (B12).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>E5</b></td><td>Comptable</td><td>Exporter la comptabilité d'un mois.</td><td>Fichier CSV téléchargé ; les contre-passations ont le type « Annulation ».</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2>6. Rapports</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>F1</b></td><td>Super-admin</td><td>Rapport clients, période « Cette année ».</td><td>La période affichée s'arrête <b>aujourd'hui</b>, pas demain (B29). Pas de carte « Nouveaux clients ». « Par pays » et « Par ville » remplis (Cameroun, Côte d'Ivoire ; Yaoundé, Douala, Abidjan…) (B27).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>F2</b></td><td>Super-admin</td><td>Rapport clients : choisir le pays « Côte d'Ivoire », puis cliquer « Douala » dans « Par ville ».</td><td>Tout le rapport (totaux, top clients, par commercial) se limite au lieu choisi ; « Tous les lieux » remet tout.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>F3</b></td><td>Super-admin</td><td>Comparaison CA, « Cette année ».</td><td>Fin de période = aujourd'hui (B29).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>F4</b></td><td>Super-admin</td><td>Suivi des ventes, puis tableau de bord : le livre « Comment Gagner de l'Argent en Ligne en Afrique ».</td><td>Classé <b>Store</b> sur les deux pages (B24). Montants d'Abidjan en XOF.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>F5</b></td><td>Super-admin</td><td>Classement des commerciaux : une vente faite par une commerciale dans une autre agence.</td><td>La vente compte pour l'agence de la facture et pour la commerciale, une seule fois au groupe (B16).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>F6</b></td><td>Super-admin</td><td>Journal (Audit) : filtres.</td><td>Filtre Utilisateur : « Tous les utilisateurs » ; filtre Département : « Academy — Douala », etc. (B28).</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2>7. Clients et prospects du commercial (cahier §5)</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>G1</b></td><td>Commerciale Yaoundé (Yolande)</td><td>Clients : parcourir la liste ; filtrer par ville.</td><td>Seuls les clients qu'elle a ajoutés ; le filtre « Toutes les villes » regroupe les graphies (Yaoundé / YAOUNDE).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>G2</b></td><td>Commerciale Yaoundé</td><td>Nouvelle vente : rechercher un client de Lynda par une partie de son nom, puis par son <b>email exact</b>.</td><td>Par le nom : introuvable. Par l'email (ou le téléphone) exact : trouvé, la vente est possible.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>G3</b></td><td>Commerciale Yaoundé</td><td>Créer un client.</td><td>Il apparaît dans sa liste ; Lynda ne le voit pas.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>G4</b></td><td>Commerciale Yaoundé</td><td>Prospects.</td><td>Ceux qu'elle a ajoutés et ceux qui lui sont attribués, pas les autres.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>G5</b></td><td>Direction générale</td><td>Clients et Prospects.</td><td>Tous visibles (B30).</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2 class="pb">8. Académie et formateurs</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>H1</b></td><td>Super-admin</td><td>Stat Aca : CRS-00001 « Community Management ».</td><td>Revenus potentiels ≤ inscrits × 189 000 (au plus 6 615 000 selon le cahier ; ~2 781 300 en local) (B7).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>H2</b></td><td>Super-admin, puis Chef de département</td><td>Taux de présence moyen : Stat Aca réseau, Stat Aca Douala, département Academy Douala.</td><td>Même formule partout (présents ÷ attendus sur les séances passées) ; un apprenant n'est attendu que dans sa propre session (B22).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>H3</b></td><td>Chef de département (Stephan)</td><td>Académie de son département.</td><td>Seules les formations et sessions de Douala (B23).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>H4</b></td><td>Super-admin</td><td>Formations → une formation avec une session animée par Nickson → Modules : créer un module en laissant le formateur vide ; puis en créer un autre en choisissant <b>Guy Molly</b>.</td><td>Formateur facultatif ; les deux modules sont créés.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>H5</b></td><td>Formateur Guy Molly</td><td>Espace formateur → Sessions ; ouvrir la feuille de présence de la session de H4.</td><td>La session apparaît avec « Votre module : … » ; seul son module est proposé ; il fait l'appel de ce module ; pas de prix affiché ; il ne voit pas les autres modules.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>H6</b></td><td>Formateur Guy Molly</td><td>Apprenants.</td><td>Uniquement les apprenants de ses sessions (et des sessions de son module).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>H7</b></td><td>Formateur Nickson</td><td>Feuille de présence de la même session.</td><td>Formateur principal : tous les modules, appel complet.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>H8</b></td><td>Formateur Nickson</td><td>« Mes réalisations ».</td><td>Ses réalisations du pôle studio ; il peut passer une réalisation à « Terminée » avec date et preuve.</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>H9</b></td><td>Super-admin</td><td>Sessions : une session dont la date de fin est passée.</td><td>Statut « Terminée », plus « En cours » (B20). Tableau de bord : « Abonnements actifs » = nombre de contrats actifs (B21).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>H10</b></td><td>Public (sans connexion)</td><td>Page publique de vérification de certificat, saisir un numéro de série.</td><td>Le certificat est retrouvé (numéro valide) ou refusé (numéro inconnu).</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2>9. Sécurité et session</h2>
+<table>
+  <tr><th class="w-ref">#</th><th>Compte</th><th>Étapes</th><th>Résultat attendu</th><th class="w-st">OK / KO</th></tr>
+  <tr><td><b>I1</b></td><td>Caissière Abidjan (Iris)</td><td>Factures, Paiements à valider, Trésorerie.</td><td>Seulement Abidjan ; ouvrir par l'URL une facture de Douala donne « introuvable ».</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>I2</b></td><td>Caissière Douala</td><td>Essayer d'ouvrir les caisses O / M / B par l'URL de la trésorerie.</td><td>Refusé côté serveur (Sécu §16).</td><td>☐ OK ☐ KO</td></tr>
+  <tr><td><b>I3</b></td><td>Direction générale / autre rôle</td><td>Laisser l'onglet ouvert sans rien faire (ou contrôler l'heure de déconnexion).</td><td>Déconnexion après 12 h d'inactivité pour la direction générale, 24 h pour les autres rôles (B26).</td><td>☐ OK ☐ KO</td></tr>
+</table>
+
+<h2>10. Bilan de la campagne</h2>
+<table>
+  <tr><th>Section</th><th>Scénarios</th><th>OK</th><th>KO</th><th>Remarques</th></tr>
+  <tr><td>1. Calcul et cartes</td><td>A1–A7</td><td></td><td></td><td></td></tr>
+  <tr><td>2. Ventes et factures</td><td>B1–B9</td><td></td><td></td><td></td></tr>
+  <tr><td>3. Caisses et clôture</td><td>C1–C9</td><td></td><td></td><td></td></tr>
+  <tr><td>4. Bilan du jour</td><td>D1–D5</td><td></td><td></td><td></td></tr>
+  <tr><td>5. Comptabilité</td><td>E1–E5</td><td></td><td></td><td></td></tr>
+  <tr><td>6. Rapports</td><td>F1–F6</td><td></td><td></td><td></td></tr>
+  <tr><td>7. Clients et prospects</td><td>G1–G5</td><td></td><td></td><td></td></tr>
+  <tr><td>8. Académie et formateurs</td><td>H1–H10</td><td></td><td></td><td></td></tr>
+  <tr><td>9. Sécurité et session</td><td>I1–I3</td><td></td><td></td><td></td></tr>
+</table>
+<p class="small">Hors de ce support (pas encore livré, cf. rapport) : administration par pays, publicité Pekegno, dépenses d'événement, double authentification, centre de sécurité, contrôles de saisie, séances datées. Testeur : ____________________ Date : ____ / ____ / 2026</p>
+
+</body>
+</html>
