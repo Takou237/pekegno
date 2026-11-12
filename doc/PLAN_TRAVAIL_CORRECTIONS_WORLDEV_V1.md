@@ -400,7 +400,7 @@ Tests : `CorrectionsP1Test`, `BilanTreasuryAndLedgerTest`, `FinancialMetricsCons
 | **Dépenses** (CdC §14) | Circuit présent | Rendre le circuit visible (stepper), justificatif photo obligatoire, décaissement tracé | 2 j |
 | **Moteur de primes** (MVP §6) | Règles paramétrées | Afficher le **versionnement** ; **ne pas lancer** octobre avant B1 | 2 j |
 | **Cockpit par employé** (MVP §7) | Non vérifiable | Démonstration par rôle sur staging + écran cockpit | 3 j |
-| **Notifications** (MVP §12) | Cloche présente | Déclencheurs : créance échue, renouvellement, écart de caisse (tests + démo) | 3 j |
+| **Notifications** (MVP §12) | Cloche présente ; renouvellement, écart de caisse, actions en retard et **créance échue** (commande `invoices:check-overdue`, échéance `due_date` sinon `invoice_date` + délai agence paramétrable, 30 j par défaut) | Reste la démo par rôle | 3 j |
 | **Import historique** (MVP §4, CdC §21) | Octobre peu fiable | Journal d'import + liste des anomalies + reprise des centimes (B18) | 5 j |
 
 **Total Lot 7 : ~49 j** (dont ~9 déjà comptés dans les Lots 1–2).
