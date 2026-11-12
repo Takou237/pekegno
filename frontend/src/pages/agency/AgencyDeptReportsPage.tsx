@@ -82,6 +82,19 @@ export default function AgencyDeptReportsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label={t('agencyDept.dashboard.revenue')} value={formatCurrency(report.kpis.revenue)} />
             <Stat label={t('agencyDept.dashboard.collected')} value={formatCurrency(report.kpis.collected)} />
+            {report.kpis.operating_result_before_ads != null && (
+              <Stat label={t('agencyDept.reports.resultBeforeAds', 'Résultat avant pub')} value={formatCurrency(report.kpis.operating_result_before_ads)} />
+            )}
+            {report.kpis.ad_costs && report.kpis.ad_costs.total_ads > 0 && (
+              <Stat
+                label={t('agencyDept.reports.adCosts', 'Charges pub Pekegno')}
+                value={formatCurrency(report.kpis.ad_costs.total_ads)}
+                hint={`Locales: ${formatCurrency(report.kpis.ad_costs.local_ads)} · Nat: ${formatCurrency(report.kpis.ad_costs.national_ads)}`}
+              />
+            )}
+            {report.kpis.operating_result_after_ads != null && (
+              <Stat label={t('agencyDept.reports.resultAfterAds', 'Résultat après pub')} value={formatCurrency(report.kpis.operating_result_after_ads)} />
+            )}
             <Stat label={t('agencyDept.dashboard.passThrough')} value={formatCurrency(report.kpis.pass_through_collected)} />
             <Stat label={t('agencyDept.reports.passThroughSpent')} value={formatCurrency(report.kpis.pass_through_spent)} />
             <Stat label={t('agencyDept.reports.passThroughRemaining')} value={formatCurrency(report.kpis.pass_through_remaining)} />

@@ -40,6 +40,8 @@ class Expense extends Model
         'invoice_id',
         // T3.14 — événement (séminaire du catalogue) dont cette dépense relève.
         'service_id',
+        // T3.8 — campagne de publicité Pekegno
+        'ad_campaign_id',
         'expense_date',
         'status',
         'requested_by',
@@ -93,6 +95,12 @@ class Expense extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    /** Campagne publicitaire Pekegno (T3.8). */
+    public function adCampaign(): BelongsTo
+    {
+        return $this->belongsTo(AdCampaign::class, 'ad_campaign_id');
     }
 
     public function requestor(): BelongsTo

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Agency;
 use App\Models\Contract;
 use App\Models\Prestation;
 use App\Models\PrestationAction;
@@ -16,7 +17,10 @@ use Illuminate\Support\Facades\DB;
  */
 class AgencyReportService
 {
-    public function __construct(private readonly PrestationReviewService $reviews) {}
+    public function __construct(
+        private readonly PrestationReviewService $reviews,
+        private readonly ?AdCampaignService $adCampaigns = null
+    ) {}
 
     public function report(?string $departmentId, ?string $agencyId, Carbon $from, Carbon $to, ?array $agencyIds = null): array
     {
@@ -124,6 +128,18 @@ class AgencyReportService
 
         $revenueByCategory = $this->revenueByCategory($invoices(), $start, $end);
 
+        // T3.11 — résultat par agence sur 2 lignes : « avant pub » / « après pub »
+        $adCosts = ['local_ads' => 0.0, 'national_ads' => 0.0, 'total_ads' => 0.0, 'details' => []];
+        if ($agencyId && $this->adCampaigns) {
+            $agency = Agency::find($agencyId);
+            if ($agency) {
+                $adCosts = $this->adCampaigns->getAgencyAdCosts($agency, $from, $to);
+            }
+        }
+
+        $operatingResultBeforeAds = round($collected['fees'] - $budget['spent'], 2);
+        $operatingResultAfterAds = round($operatingResultBeforeAds - $adCosts['total_ads'], 2);
+
         return [
             'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
             'kpis' => [
@@ -134,6 +150,9 @@ class AgencyReportService
                 'pass_through_remaining' => round($collected['pass_through'] - $passThroughSpent, 2),
                 'receivables' => round($receivables, 2),
                 'mrr' => $mrr,
+                'operating_result_before_ads' => $operatingResultBeforeAds,
+                'ad_costs' => $adCosts,
+                'operating_result_after_ads' => $operatingResultAfterAds,
                 'active_contracts' => (int) (($statusCounts[Contract::STATUS_ACTIVE] ?? 0) + ($statusCounts[Contract::STATUS_DUE_SOON] ?? 0)),
                 'contracts_to_renew' => $dueSoonCount,
                 'prestations_in_progress' => (int) ($prestationStatus[Prestation::STATUS_IN_PROGRESS] ?? 0),
