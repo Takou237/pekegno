@@ -81,6 +81,17 @@ class AgencyReportService
             ->whereNotIn('status', PrestationAction::FINISHED_STATUSES)
             ->count();
 
+        // T3.12 — appariement du budget pub client : ce qui a été encaissé pour
+        // le compte du client face à ce qui a été réellement dépensé en publicité.
+        $passThroughSpent = (float) DB::table('accounting_transactions')
+            ->where('type', 'expense')
+            ->where('is_pass_through', true)
+            ->whereBetween('transacted_at', [$start, $end])
+            ->when($departmentId, fn ($q) => $q->where('department_id', $departmentId))
+            ->when($agencyId, fn ($q) => $q->where('agency_id', $agencyId))
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->sum('amount');
+
         $budget = [
             'total' => round((float) (clone $prestations())->whereNotIn('status', [Prestation::STATUS_CANCELLED, Prestation::STATUS_REJECTED])->sum('budget'), 2),
             'allocated' => round((float) PrestationAction::whereIn('prestation_id', $prestationIds)->where('status', '!=', PrestationAction::STATUS_CANCELLED)->sum('budget'), 2),
@@ -119,6 +130,8 @@ class AgencyReportService
                 'revenue' => $collected['fees'],
                 'collected' => $collected['total'],
                 'pass_through_collected' => $collected['pass_through'],
+                'pass_through_spent' => round($passThroughSpent, 2),
+                'pass_through_remaining' => round($collected['pass_through'] - $passThroughSpent, 2),
                 'receivables' => round($receivables, 2),
                 'mrr' => $mrr,
                 'active_contracts' => (int) (($statusCounts[Contract::STATUS_ACTIVE] ?? 0) + ($statusCounts[Contract::STATUS_DUE_SOON] ?? 0)),

@@ -19,6 +19,11 @@ export interface Expense {
   treasury_account_id: string | null;
   justification_path: string | null;
   note: string | null;
+  /** T3.12 — financer par le budget pub client d'une facture. */
+  is_pass_through?: boolean;
+  invoice_id?: string | null;
+  /** T3.14 — événement (séminaire vendu) dont relève la dépense. */
+  service_id?: string | null;
   cancelled_by: string | null;
   cancelled_at: string | null;
   created_at: string;
@@ -59,4 +64,6 @@ export interface ExpenseCreatePayload {
   expense_date: string;
   note?: string;
   justification_path?: string;
+  invoice_id?: string;
+  service_id?: string;
 }

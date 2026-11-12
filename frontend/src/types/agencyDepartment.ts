@@ -479,6 +479,10 @@ export interface AgencyReport {
     revenue: number;
     collected: number;
     pass_through_collected: number;
+    /** T3.12 — budget pub client réellement dépensé sur la période. */
+    pass_through_spent: number;
+    /** T3.12 — reliquat du budget pub client (encaissé − dépensé). */
+    pass_through_remaining: number;
     receivables: number;
     mrr: number;
     active_contracts: number;

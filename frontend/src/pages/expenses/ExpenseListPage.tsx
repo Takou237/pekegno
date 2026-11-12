@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, Plus, Send, CheckCircle, XCircle, Banknote, Lock, Undo2, Trash2, Eye } from 'lucide-react';
 import { expensesApi } from '@/api/expenses.api';
+import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
@@ -36,7 +37,9 @@ export default function ExpenseListPage() {
   const [page, setPage] = useState(1);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({ agency_id: '', category_id: '', amount: '', expense_date: '', note: '' });
+  const [form, setForm] = useState({ agency_id: '', category_id: '', amount: '', expense_date: '', note: '', service_id: '' });
+  // T3.14 — séminaires vendus : un événement auquel rattacher la dépense.
+  const [seminars, setSeminars] = useState<{ id: string; name: string; agency_name?: string | null }[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -68,6 +71,14 @@ export default function ExpenseListPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!createOpen) return;
+    servicesApi
+      .list({ is_seminar: true, per_page: 100 })
+      .then((res) => setSeminars(res.data.map((s) => ({ id: s.id, name: s.name, agency_name: s.agency?.name ?? null }))))
+      .catch(() => setSeminars([]));
+  }, [createOpen]);
+
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
@@ -79,6 +90,7 @@ export default function ExpenseListPage() {
         amount: Number(form.amount),
         expense_date: form.expense_date,
         note: form.note || undefined,
+        service_id: form.service_id || undefined,
       });
       showToast(t('expenses.created'), 'success');
       setCreateOpen(false);
@@ -281,6 +293,19 @@ export default function ExpenseListPage() {
           <Input label={t('expenses.categoryId')} required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} error={formErrors.category_id} />
           <Input label={t('expenses.amount')} type="number" min={0.01} step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} error={formErrors.amount} />
           <Input label={t('expenses.date')} type="date" required value={form.expense_date} onChange={(e) => setForm({ ...form, expense_date: e.target.value })} error={formErrors.expense_date} />
+          <Select
+            label={t('expenses.event')}
+            value={form.service_id}
+            onChange={(e) => setForm({ ...form, service_id: e.target.value })}
+            error={formErrors.service_id}
+          >
+            <option value="">{t('expenses.eventNone')}</option>
+            {seminars.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.agency_name ? `${s.name} — ${s.agency_name}` : s.name}
+              </option>
+            ))}
+          </Select>
           <Input label={t('expenses.note')} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} className="flex-1">{t('common.cancel')}</Button>

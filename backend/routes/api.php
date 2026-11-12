@@ -260,6 +260,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/reports/subscriptions', [ReportController::class, 'subscriptions'])->middleware('permission:reports.consulter')->middleware('cache.response:data,300');
     Route::get('/reports/customers', [ReportController::class, 'customers'])->middleware('permission:reports.consulter')->middleware('cache.response:data,300');
     Route::get('/reports/comparison', [ReportController::class, 'comparison'])->middleware('permission:reports.consulter')->middleware('cache.response:data,300');
+    Route::get('/reports/events', [ReportController::class, 'eventProfitability'])->middleware('permission:reports.consulter')->middleware('cache.response:data,300');
     Route::get('/training-sessions/{trainingSession}', [TrainingSessionController::class, 'show'])->middleware('permission:sessions.consulter');
     Route::put('/training-sessions/{trainingSession}', [TrainingSessionController::class, 'update'])->middleware('permission:sessions.modifier');
     Route::delete('/training-sessions/{trainingSession}', [TrainingSessionController::class, 'destroy'])->middleware('permission:sessions.supprimer');

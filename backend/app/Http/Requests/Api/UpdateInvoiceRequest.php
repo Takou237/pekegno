@@ -38,6 +38,8 @@ class UpdateInvoiceRequest extends FormRequest
             'items.*.unit_price' => ['required_with:items', 'numeric', 'min:0'],
             'items.*.quantity' => ['required_with:items', 'integer', 'min:1'],
             'items.*.pass_tier' => ['nullable', 'in:classique,premium,vip'],
+            // T8.1 — catégorie obligatoire sur chaque ligne.
+            'items.*.category_id' => ['nullable', 'uuid', 'exists:categories,id'],
         ];
     }
 }

@@ -35,6 +35,11 @@ class Expense extends Model
         'department_id',
         'category_id',
         'amount',
+        // T3.12 — budget pub client : dépense financée par la facture du client.
+        'is_pass_through',
+        'invoice_id',
+        // T3.14 — événement (séminaire du catalogue) dont cette dépense relève.
+        'service_id',
         'expense_date',
         'status',
         'requested_by',
@@ -55,6 +60,7 @@ class Expense extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'is_pass_through' => 'boolean',
             'expense_date' => 'date',
             'approved_at' => 'datetime',
             'paid_at' => 'datetime',
@@ -75,6 +81,18 @@ class Expense extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(AccountingCategory::class, 'category_id');
+    }
+
+    /** Facture client dont le budget pub finance cette dépense (T3.12). */
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
+    }
+
+    /** Événement (séminaire vendu) auquel la dépense est rattachée (T3.14). */
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class);
     }
 
     public function requestor(): BelongsTo

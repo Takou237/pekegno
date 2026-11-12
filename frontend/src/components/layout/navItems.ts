@@ -160,6 +160,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
+      { to: '/reports/events', label: t('nav.eventsReport'), icon: Coins, end: false },
       monthlyReportItem(t),
       salesTrackingItem(t),
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
@@ -195,6 +196,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
+      { to: '/reports/events', label: t('nav.eventsReport'), icon: Coins, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
       monthlyReportItem(t),
     ];
@@ -345,6 +347,7 @@ export function getPermissionItems(t: TranslateFn, permissions: string[]): NavIt
     [has('courses.consulter', 'sessions.consulter'), { to: '/academy', label: t('nav.statAca'), icon: GraduationCap, end: false }],
     [has('reports.consulter'), { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false }],
     [has('reports.consulter'), { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false }],
+    [has('reports.consulter'), { to: '/reports/events', label: t('nav.eventsReport'), icon: Coins, end: false }],
     [has('reports.consulter', 'abonnements.consulter'), { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false }],
     [has('commercials.reporting'), { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false }],
     [has('commercials.reporting'), monthlyReportItem(t)],

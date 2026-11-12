@@ -39,6 +39,8 @@ export default function AgencyDeptReportsPage() {
       ['CA (honoraires, hors pass-through)', k.revenue],
       ['Encaissé', k.collected],
       ['Dont budget pub client (pass-through)', k.pass_through_collected],
+      ['Budget pub client dépensé', k.pass_through_spent],
+      ['Solde budget pub client', k.pass_through_remaining],
       ['Créances', k.receivables],
       ['Revenu récurrent mensuel (MRR)', k.mrr],
       ['Contrats actifs', k.active_contracts],
@@ -81,6 +83,8 @@ export default function AgencyDeptReportsPage() {
             <Stat label={t('agencyDept.dashboard.revenue')} value={formatCurrency(report.kpis.revenue)} />
             <Stat label={t('agencyDept.dashboard.collected')} value={formatCurrency(report.kpis.collected)} />
             <Stat label={t('agencyDept.dashboard.passThrough')} value={formatCurrency(report.kpis.pass_through_collected)} />
+            <Stat label={t('agencyDept.reports.passThroughSpent')} value={formatCurrency(report.kpis.pass_through_spent)} />
+            <Stat label={t('agencyDept.reports.passThroughRemaining')} value={formatCurrency(report.kpis.pass_through_remaining)} />
             <Stat label={t('agencyDept.dashboard.receivables')} value={formatCurrency(report.kpis.receivables)} />
             <Stat label={t('agencyDept.dashboard.mrr')} value={formatCurrency(report.kpis.mrr)} />
             <Stat label={t('agencyDept.reports.renewalRate')} value={report.kpis.renewal_rate != null ? `${report.kpis.renewal_rate} %` : '—'} hint={`${report.kpis.renewed_contracts} / ${report.kpis.ended_contracts}`} />

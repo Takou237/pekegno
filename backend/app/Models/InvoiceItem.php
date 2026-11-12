@@ -38,15 +38,19 @@ class InvoiceItem extends Model
 
     protected static function booted(): void
     {
-        // B4 : toute ligne rattachée à un service hérite de sa catégorie, même
-        // lorsque l'appelant ne la renseigne pas (vente rapide, packages,
-        // inscriptions, commandes…).
+        // B4 / T8.1 : toute ligne rattachée à un service ou à un produit hérite de
+        // sa catégorie, même lorsque l'appelant ne la renseigne pas (vente rapide,
+        // packages, inscriptions, commandes…).
         static::creating(function (InvoiceItem $item) {
-            if (! $item->category_id && $item->service_id) {
-                $item->category_id = Service::query()
-                    ->whereKey($item->service_id)
-                    ->value('category_id');
+            if ($item->category_id) {
+                return;
             }
+
+            $item->category_id = match (true) {
+                $item->service_id !== null => Service::query()->whereKey($item->service_id)->value('category_id'),
+                $item->product_id !== null => Product::query()->whereKey($item->product_id)->value('category_id'),
+                default => null,
+            };
         });
     }
 

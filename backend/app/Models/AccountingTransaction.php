@@ -18,6 +18,7 @@ class AccountingTransaction extends Model
         'treasury_account_id',
         'type',
         'is_transfer',
+        'is_pass_through',
         'label',
         'reference',
         'amount',
@@ -37,6 +38,7 @@ class AccountingTransaction extends Model
             'amount' => 'decimal:2',
             'transacted_at' => 'datetime',
             'is_transfer' => 'boolean',
+            'is_pass_through' => 'boolean',
         ];
     }
 

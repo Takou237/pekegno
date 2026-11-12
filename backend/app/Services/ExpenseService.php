@@ -136,6 +136,11 @@ class ExpenseService
         $category = AccountingCategory::where('id', $expense->category_id)->where('type', 'expense')->first();
         abort_if(! $category, 422, 'La catégorie comptable de la dépense doit être de type dépense.');
 
+        // T3.12 : une dépense payée sur le budget pub d'un client reste une
+        // sortie de caisse, mais n'est pas une dépense d'exploitation — elle est
+        // marquée pour être exclue des synthèses, comme le budget l'est du CA.
+        $passThrough = (bool) $expense->is_pass_through;
+
         AccountingTransaction::create([
             'number' => $this->accountingService->nextNumber(),
             'agency_id' => $expense->agency_id,
@@ -143,7 +148,8 @@ class ExpenseService
             'category_id' => $category->id,
             'treasury_account_id' => $account->id,
             'type' => 'expense',
-            'label' => "Dépense {$expense->number} — {$category->name}",
+            'is_pass_through' => $passThrough,
+            'label' => ($passThrough ? 'Budget pub client — dépense ' : 'Dépense ')."{$expense->number} — {$category->name}",
             'reference' => $expense->number,
             'amount' => (float) $expense->amount,
             'transacted_at' => now(),

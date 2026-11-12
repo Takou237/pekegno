@@ -348,11 +348,24 @@ class InvoiceController extends Controller
                     default => $this->catalogUnitPrice($service, $line['unit_price'] ?? null),
                 };
 
+                // T8.1 : chaque ligne doit relever d'une catégorie. Elle est choisie
+                // explicitement pour une ligne libre, sinon déduite du service ou du
+                // produit ; une inscription (Academy) et un package (Agency) ont leur
+                // rubrique fixe et n'ont pas besoin de catégorie.
+                $categoryId = $line['category_id'] ?? $service?->category_id ?? $product?->category_id ?? null;
+
+                if (! $categoryId && ! $course && ! $package) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Chaque ligne doit avoir une catégorie : choisissez un service, un produit ou une catégorie.',
+                    ]);
+                }
+
                 return [
                     'service_id' => $service?->id,
                     'product_id' => $product?->id,
                     'course_id' => $course?->id,
                     'package_id' => $package?->id,
+                    'category_id' => $categoryId,
                     'label' => $line['label'] ?? $service?->name ?? $product?->name ?? $course?->name ?? $package?->name,
                     'unit_price' => $pass ? (float) $pass->price : $catalogPrice,
                     'quantity' => (int) $line['quantity'],
@@ -416,6 +429,21 @@ class InvoiceController extends Controller
                 $commercialId = $request->user()->commercialProfile?->id;
             }
 
+            // T8.1 : la vente est toujours attribuée à un commercial. À défaut de
+            // commercial désigné, le vendeur indiqué reçoit sa fiche vendeur.
+            if (! $commercialId && ! empty($data['seller_user_id'])) {
+                $seller = User::find($data['seller_user_id']);
+                if ($seller) {
+                    $commercialId = $this->commercialProfiles->ensureFor($seller, $data['agency_id'] ?? null)?->id;
+                }
+            }
+
+            if (! $commercialId) {
+                throw ValidationException::withMessages([
+                    'commercial_id' => 'Renseignez le commercial (vendeur) de la vente.',
+                ]);
+            }
+
             $invoice = Invoice::create([
                 'number' => $this->numberGenerator->next(),
                 // Vente saisie hors agence (page pays, admin sans agence) : agence du
@@ -461,6 +489,7 @@ class InvoiceController extends Controller
                     'service_id' => $line['service_id'],
                     'product_id' => $line['product_id'] ?? null,
                     'package_id' => $line['package_id'] ?? null,
+                    'category_id' => $line['category_id'] ?? null,
                     'label' => $line['label'],
                     'unit_price' => $line['unit_price'],
                     'quantity' => $line['quantity'],
@@ -764,11 +793,24 @@ class InvoiceController extends Controller
                         ? (float) $pass->price
                         : ($existing ? (float) $line['unit_price'] : $this->catalogUnitPrice($service, $line['unit_price']));
 
+                    // T8.1 : catégorie de la ligne (déduite du service/produit, sinon
+                    // choisie). Une ligne qui conserve un package ou une prestation a
+                    // sa rubrique fixe (Agency).
+                    $categoryId = $line['category_id'] ?? $service?->category_id ?? $product?->category_id ?? null;
+                    $fixedRubric = $existing && ($existing->package_id || $existing->prestation_id || $existing->course_id);
+
+                    if (! $categoryId && ! $fixedRubric) {
+                        throw ValidationException::withMessages([
+                            "items.{$index}.category_id" => 'Chaque ligne doit avoir une catégorie.',
+                        ]);
+                    }
+
                     $normalizedItems[] = [
                         'existing' => $existing,
                         'attributes' => [
                             'service_id' => $service?->id,
                             'product_id' => $product?->id,
+                            'category_id' => $categoryId,
                             'label' => $line['label'] ?? $service?->name ?? $product?->name ?? '',
                             'unit_price' => $unitPrice,
                             'quantity' => (int) $line['quantity'],

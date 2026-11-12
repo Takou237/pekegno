@@ -303,9 +303,9 @@ Tests (7/11) : `TreasuryCashClosingTest` 8/8, `PaymentTreasuryRoutingTest` 12/12
 - [x] T3.6 — Rubriques : **décision du 9/11 — une rubrique = une catégorie du catalogue**, pas de liste figée de 7 ni de table `sale_rubrics`. Tout article créé par « Créer un service » (ou produit) relève de la branche **Store**, quelle que soit sa catégorie ; sa catégorie (Livre, Canva…) est sa rubrique. Créer une catégorie crée la rubrique. Rubriques fixes : **Academy** (inscriptions), **Agency** (packages, prestations) et **Séminaire** (tout service coché « Service séminaire (Pass) », prioritaire sur sa catégorie). Pas de rubrique « Store » : chaque catégorie Store est déjà sa propre rubrique. Règle unique : `App\Support\SaleBranch`.
 - [x] T3.7 — Colonnes par rubrique : Bilan du jour (une colonne par catégorie, service ou produit confondus, même à zéro) et Comptabilité (« Recettes par rubrique », chaque versement réparti sur les lignes de sa facture). Autres rapports (`AcademyReportService`…) : à suivre.
 - [ ] T3.8 – T3.11 — Publicité Pekegno (campagnes locales / nationales, résultat avant / après pub).
-- [ ] T3.12 — Budget pub client : déjà exclu du CA et de l'encaissé ; appariement encaissement / dépense à faire.
+- [x] T3.12 — Budget pub client : exclu du CA et de l'encaissé, **et de la dépense** (décision du 12/11). Une dépense peut être rattachée à la facture qui la finance (`expenses.invoice_id`) : elle est alors marquée `is_pass_through`, son écriture comptable aussi, et sort des dépenses d'exploitation (Bilan, Comptabilité, synthèses, rapport agence). Le rapport Agency affiche désormais budget encaissé / dépensé / solde. Test `PassThroughBudgetTest`.
 - [x] T3.13 — Ventes inter-agences : CA dans l'agence de la facture et pour le commercial, une seule fois au groupe (test `CorrectionsP1Test`).
-- [ ] T3.14 — Dépense rattachée à un événement.
+- [x] T3.14 — Dépense rattachée à un événement : **décision du 12/11 — l'événement est le séminaire vendu au catalogue** (pas d'entité séparée). `expenses.service_id`, écran « Rentabilité des événements » (`GET /api/reports/events`) : ventes de la période − dépenses rattachées = marge et taux de marge. Test `EventProfitabilityTest`.
 
 Test : `CorrectionsP1Test::test_rubrics_are_academy_agency_seminar_and_each_catalog_category`.
 
