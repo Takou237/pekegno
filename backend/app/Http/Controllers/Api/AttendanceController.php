@@ -14,14 +14,15 @@ class AttendanceController extends Controller
 {
     /**
      * Feuille de présence : apprenants inscrits à la session
-     * avec leur statut pour le module demandé.
+     * avec leur statut pour le module et la date demandés.
      */
     public function index(TrainingSession $session, Request $request): JsonResponse
     {
         $moduleId = $request->input('course_module_id');
+        $sessionDate = $request->input('session_date');
         $this->assertTrainerScope($request, $session, $moduleId);
 
-        return response()->json(['attendances' => $this->roster($session, $moduleId)]);
+        return response()->json(['attendances' => $this->roster($session, $moduleId, $sessionDate)]);
     }
 
     public function bulkUpdate(Request $request, TrainingSession $session): JsonResponse
@@ -43,18 +44,21 @@ class AttendanceController extends Controller
             'attendances.*.learner_user_id' => ['required', 'uuid', 'exists:users,id'],
             'attendances.*.status' => ['required', 'string', 'in:present,absent'],
             'course_module_id' => ['nullable', 'uuid', 'exists:course_modules,id'],
+            'session_date' => ['nullable', 'date'],
         ]);
 
         $moduleId = $data['course_module_id'] ?? null;
+        $sessionDate = $data['session_date'] ?? null;
         $user = $request->user();
 
-        DB::transaction(function () use ($data, $session, $user, $moduleId) {
+        DB::transaction(function () use ($data, $session, $user, $moduleId, $sessionDate) {
             foreach ($data['attendances'] as $item) {
                 Attendance::updateOrCreate(
                     [
                         'training_session_id' => $session->id,
                         'learner_user_id' => $item['learner_user_id'],
                         'course_module_id' => $moduleId,
+                        'session_date' => $sessionDate,
                     ],
                     [
                         'status' => $item['status'],
@@ -65,7 +69,7 @@ class AttendanceController extends Controller
             }
         });
 
-        return response()->json(['attendances' => $this->roster($session, $moduleId)]);
+        return response()->json(['attendances' => $this->roster($session, $moduleId, $sessionDate)]);
     }
 
     /**
@@ -98,9 +102,9 @@ class AttendanceController extends Controller
     }
 
     /**
-     * Construit la liste complète apprenants + statuts pour le module donné.
+     * Construit la liste complète apprenants + statuts pour le module et la date donnés.
      */
-    private function roster(TrainingSession $session, ?string $moduleId = null): array
+    private function roster(TrainingSession $session, ?string $moduleId = null, ?string $sessionDate = null): array
     {
         $session->loadMissing('course');
 
@@ -115,6 +119,12 @@ class AttendanceController extends Controller
             $attendanceQuery->where('course_module_id', $moduleId);
         } else {
             $attendanceQuery->whereNull('course_module_id');
+        }
+
+        if ($sessionDate) {
+            $attendanceQuery->whereDate('session_date', $sessionDate);
+        } else {
+            $attendanceQuery->whereNull('session_date');
         }
 
         $byUser = $attendanceQuery->get()->keyBy('learner_user_id');
