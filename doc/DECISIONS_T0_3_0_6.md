@@ -10,6 +10,22 @@
 
 ---
 
+## État au 12/11/2026 — décisions rendues et implémentées
+
+| Décision | Arbitrage rendu | État |
+|---|---|---|
+| T0.3 Caisses Côte d'Ivoire | espèces, Orange Money, MTN MoMo, Wave, compte bancaire (**pas de Moov**) | **Fait** : `codesForAgency` XOF = C/O/M/B/W ; caisses B, C, M, O, W créées à Abidjan |
+| T0.4 Rubriques | créer la rubrique **Matootoo** | **Partiel** : catégorie « Matootoo » créée ; *Tik Tok Monetise* et *Logo ou Identité de marque* restent dans « Store » (rubrique non tranchée) |
+| T0.5 « Date échue » | liste de motifs (option A), le badge automatique reste à spécifier | **Fait** : B25 livré — motifs *Date échue*, *Montant erroné*, *Preuve illisible*, *Mauvais destinataire*, *Autre* (précision obligatoire), motif journalisé et repris dans le rejet de facture |
+| T0.6 Community Manager | **option A** — exécutant de prestations | **Fait** : 14 permissions (lecture du périmètre, exécution des actions, espace formateur), plus aucun droit de vente ; menu, page d'accueil et tableau de bord alignés |
+| Matrice caissier | validée | **Fait** : 42 permissions — plus de suppression de client, comptabilité en lecture seule (consulter + exporter) |
+
+Vérification : **720 tests passés, 7 échecs connus, 5 ignorés** (aucune régression) ; `tsc -b` sans erreur.
+
+Le détail de chaque option reste ci-dessous, comme référence des arbitrages.
+
+---
+
 ## 0. Comment répondre
 
 Pour chaque point, cocher **A**, **B** ou **C** (ou écrire la variante). Chaque option indique
@@ -317,8 +333,11 @@ Ensuite seulement : **Lot 3** (Administration par pays + publicité Pekegno), pu
 
 | Décision | Réponse | Date | Validé par |
 |---|---|---|---|
-| T0.3 Caisses CI | ☐ A ☐ B ☐ C : ____________ | | |
-| T0.4 Rubriques | ☐ A ☐ B — Tik Tok : ______ Logo : ______ | | |
-| T0.5 Date échue | ☐ A ☐ B ☐ C — échéance : ____________ | | |
-| T0.6 Community Manager | ☐ A ☐ B ☐ C | | |
-| Matrice caissier | ☐ telle quelle ☐ avec exceptions : ____________ | | |
+| T0.3 Caisses CI | Espèces, Orange Money, MTN MoMo, Wave, compte bancaire (sans Moov) | 12/11/2026 | Direction Pekegno |
+| T0.4 Rubriques | Créer la rubrique Matootoo — *Tik Tok Monetise* et *Logo ou Identité de marque* : à préciser | 12/11/2026 | Direction Pekegno |
+| T0.5 Date échue | Motif dans une liste (option A) — badge automatique à spécifier (quelle échéance ?) | 12/11/2026 | Direction Pekegno |
+| T0.6 Community Manager | A — exécutant de prestations | 12/11/2026 | Direction Pekegno |
+| Matrice caissier | Validée telle quelle | 12/11/2026 | Direction Pekegno |
+
+**Reste ouvert** : la règle d'échéance pour le badge automatique « Date échue » (T0.5 option B) et la
+rubrique des deux articles du catalogue (§3.3).

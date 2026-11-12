@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Log;
  * Caisses codifiées d'une agence (cahier WORLDEV, section 2 ; plan T2.1/T2.2/T2.5).
  *
  * C = espèces, O = Orange Money, M = MTN MoMo, B = banque, W = Wave, V = Moov Money.
+ *
+ * Caisses standard par pays (décision client T0.3) : Cameroun (XAF) = C/O/M/B ;
+ * Côte d'Ivoire (XOF) = C/O/M/B/W. Moov (V) n'est pas déployé : la caisse n'est
+ * créée qu'à la demande, si un paiement Moov est réellement enregistré.
  * Les caisses O/M/B/W/V ne sont visibles que de l'administration et de la DG
  * (Sécu §16) ; la caisse C est visible de tout le périmètre de l'agence.
  *
@@ -54,7 +58,7 @@ class TreasuryAccountProvisioner
     public function codesForAgency(?Agency $agency): array
     {
         return $this->currencyFor($agency) === 'XOF'
-            ? ['C', 'O', 'M', 'B', 'W', 'V']
+            ? ['C', 'O', 'M', 'B', 'W']
             : ['C', 'O', 'M', 'B'];
     }
 

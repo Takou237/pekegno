@@ -12,6 +12,7 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { Alert } from '@/components/ui/Alert';
 import { PrintPortal } from '@/components/invoices/InvoicePrint';
 import { PaymentReceiptPrint } from '@/components/invoices/PaymentReceiptPrint';
@@ -19,6 +20,12 @@ import type { Invoice, InvoicePayment, PaymentProof } from '@/types/invoice';
 import type { PaginationMeta } from '@/types/agency';
 import { useAuth } from '@/hooks/useAuth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
+import {
+  PROOF_REJECTION_CODES,
+  PROOF_REJECTION_LABEL_KEY,
+  PROOF_REJECTION_OTHER,
+  type ProofRejectionCode,
+} from '@/data/proofRejectionReasons';
 
 /**
  * File de validation des paiements (super-admin / caissier) : les preuves de
@@ -58,6 +65,7 @@ export default function PaymentProofsPage({
   const [proofError, setProofError] = useState<string | null>(null);
 
   const [rejectTarget, setRejectTarget] = useState<PaymentProof | null>(null);
+  const [rejectCode, setRejectCode] = useState<ProofRejectionCode | ''>('');
   const [rejectReason, setRejectReason] = useState('');
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
 
@@ -128,21 +136,33 @@ export default function PaymentProofsPage({
 
   function openReject(proof: PaymentProof) {
     setRejectTarget(proof);
+    setRejectCode('');
     setRejectReason('');
     setProofError(null);
   }
 
+  // B25 : motif obligatoire ; « Autre » exige une précision écrite.
+  const rejectNeedsDetails = rejectCode === PROOF_REJECTION_OTHER;
+  const canSubmitReject = rejectCode !== '' && (!rejectNeedsDetails || rejectReason.trim() !== '');
+
   async function handleReject(event: FormEvent) {
     event.preventDefault();
     if (!rejectTarget) return;
-    if (!rejectReason.trim()) {
-      setProofError(t('invoices.proofRejectReasonRequired'));
+    if (rejectCode === '') {
+      setProofError(t('invoices.proofRejectCodeRequired'));
+      return;
+    }
+    if (rejectNeedsDetails && !rejectReason.trim()) {
+      setProofError(t('invoices.proofRejectDetailsRequired'));
       return;
     }
     setRejectSubmitting(true);
     setProofError(null);
     try {
-      await invoicesApi.rejectProof(rejectTarget.id, rejectReason.trim());
+      await invoicesApi.rejectProof(rejectTarget.id, {
+        rejection_code: rejectCode,
+        notes: rejectReason.trim() || undefined,
+      });
       showToast(t('invoices.proofRejectedToast'), 'success');
       setRejectTarget(null);
       setViewProof(null);
@@ -365,8 +385,20 @@ export default function PaymentProofsPage({
         {rejectTarget && (
           <form onSubmit={handleReject} className="flex flex-col gap-4">
             {proofError && <Alert variant="error">{proofError}</Alert>}
-            <Input
+            <Select
               label={t('invoices.proofRejectReason')}
+              value={rejectCode}
+              onChange={(e) => setRejectCode(e.target.value as ProofRejectionCode | '')}
+            >
+              <option value="">{t('invoices.proofRejectCodePlaceholder')}</option>
+              {PROOF_REJECTION_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {t(PROOF_REJECTION_LABEL_KEY[code])}
+                </option>
+              ))}
+            </Select>
+            <Input
+              label={t('invoices.proofRejectDetails')}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder={t('invoices.proofRejectReasonPlaceholder')}
@@ -375,7 +407,7 @@ export default function PaymentProofsPage({
               <Button type="button" variant="outline" onClick={() => setRejectTarget(null)} disabled={rejectSubmitting}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" variant="danger" isLoading={rejectSubmitting} disabled={!rejectReason.trim()}>
+              <Button type="submit" variant="danger" isLoading={rejectSubmitting} disabled={!canSubmitReject}>
                 {t('invoices.proofReject')}
               </Button>
             </div>

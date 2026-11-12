@@ -27,6 +27,12 @@ import { PaymentReceiptPrint } from '@/components/invoices/PaymentReceiptPrint';
 import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
 import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
 import type { Invoice, PaymentMethod, PaymentProof } from '@/types/invoice';
+import {
+  PROOF_REJECTION_CODES,
+  PROOF_REJECTION_LABEL_KEY,
+  PROOF_REJECTION_OTHER,
+  type ProofRejectionCode,
+} from '@/data/proofRejectionReasons';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import type { ServiceSearchItem } from '@/types/service';
@@ -96,6 +102,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
   const [proofPreview, setProofPreview] = useState<PaymentProof | null>(null);
   const [rejectProofTarget, setRejectProofTarget] = useState<PaymentProof | null>(null);
+  const [rejectProofCode, setRejectProofCode] = useState<ProofRejectionCode | ''>('');
   const [rejectProofNotes, setRejectProofNotes] = useState('');
   const [proofSubmitting, setProofSubmitting] = useState(false);
   const [proofError, setProofError] = useState<string | null>(null);
@@ -589,20 +596,33 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
   function openRejectProof(proof: PaymentProof) {
     setRejectProofTarget(proof);
+    setRejectProofCode('');
     setRejectProofNotes('');
     setProofError(null);
   }
 
+  // B25 : motif obligatoire ; « Autre » exige une précision écrite.
+  const rejectProofNeedsDetails = rejectProofCode === PROOF_REJECTION_OTHER;
+  const canSubmitRejectProof =
+    rejectProofCode !== '' && (!rejectProofNeedsDetails || rejectProofNotes.trim() !== '');
+
   async function handleRejectProof() {
     if (!rejectProofTarget) return;
-    if (!rejectProofNotes.trim()) {
-      setProofError(t('invoices.proofRejectReasonRequired'));
+    if (rejectProofCode === '') {
+      setProofError(t('invoices.proofRejectCodeRequired'));
+      return;
+    }
+    if (rejectProofNeedsDetails && !rejectProofNotes.trim()) {
+      setProofError(t('invoices.proofRejectDetailsRequired'));
       return;
     }
     setProofSubmitting(true);
     setProofError(null);
     try {
-      const result = await invoicesApi.rejectProof(rejectProofTarget.id, rejectProofNotes.trim());
+      const result = await invoicesApi.rejectProof(rejectProofTarget.id, {
+        rejection_code: rejectProofCode,
+        notes: rejectProofNotes.trim() || undefined,
+      });
       if (result.invoice?.validation_status === 'rejected') {
         showToast(t('invoices.rejected', { number: result.invoice.number }), 'success');
       } else {
@@ -1652,18 +1672,29 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         {rejectProofTarget && (
           <form onSubmit={(e) => { e.preventDefault(); handleRejectProof(); }} className="flex flex-col gap-4">
             {proofError && <Alert variant="error">{proofError}</Alert>}
-            <Input
+            <Select
               label={t('invoices.proofRejectReason')}
+              value={rejectProofCode}
+              onChange={(e) => setRejectProofCode(e.target.value as ProofRejectionCode | '')}
+            >
+              <option value="">{t('invoices.proofRejectCodePlaceholder')}</option>
+              {PROOF_REJECTION_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {t(PROOF_REJECTION_LABEL_KEY[code])}
+                </option>
+              ))}
+            </Select>
+            <Input
+              label={t('invoices.proofRejectDetails')}
               value={rejectProofNotes}
               onChange={(e) => setRejectProofNotes(e.target.value)}
-              error={proofError ?? undefined}
               placeholder={t('invoices.proofRejectReasonPlaceholder')}
             />
             <div className="flex justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => setRejectProofTarget(null)} disabled={proofSubmitting}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" variant="danger" isLoading={proofSubmitting} disabled={!rejectProofNotes.trim()}>
+              <Button type="submit" variant="danger" isLoading={proofSubmitting} disabled={!canSubmitRejectProof}>
                 {t('invoices.proofReject')}
               </Button>
             </div>

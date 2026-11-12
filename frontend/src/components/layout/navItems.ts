@@ -255,23 +255,23 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     ];
   }
 
-  // Le community-manager a le même menu que le commercial (« Mon suivi » inclus),
-  // sans Prospects, Commissions, Rapport mensuel ni Suivi des ventes.
+  // Community-manager = exécutant de prestations (décision client T0.6) : son
+  // menu se limite à son suivi de travail et à son profil. Aucune entrée de
+  // vente (prospects, factures, commissions) puisqu'il n'a pas ces droits.
+  if (roleName === 'community-manager') {
+    return [trackingItem(t), myProfileItem(t)];
+  }
+
   if (actsAsCommercial(roleName)) {
-    const isCommunityManager = roleName === 'community-manager';
     return [
       ...baseItems,
       trackingItem(t),
-      ...(isCommunityManager ? [] : [{ to: '/prospects', label: t('nav.prospects'), icon: Target, end: false }]),
+      { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
       // Commercial : menu Factures SANS pastille rouge (pas de badge impayés).
       invoiceItem(t),
-      ...(isCommunityManager
-        ? []
-        : [
-            { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
-            monthlyReportItem(t),
-            salesTrackingItem(t),
-          ]),
+      { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
+      monthlyReportItem(t),
+      salesTrackingItem(t),
       catalogItem(t),
       myProfileItem(t),
     ];

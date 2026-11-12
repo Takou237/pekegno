@@ -13,7 +13,8 @@ import { actsAsCommercial } from '@/utils/commercialRoles';
  * - responsable-agence → son agence (point d'entrée = l'agence)
  * - responsable-departement → son département (point d'entrée = le département)
  * - caissier → tableau de bord caisse (Caisse du jour)
- * - commercial, community-manager → tableau de bord commercial
+ * - community-manager → son suivi de travail (exécutant de prestations, T0.6)
+ * - commercial → tableau de bord commercial
  * - formateur → tableau de bord formateur
  * - autres → tableau de bord global
  */
@@ -45,6 +46,12 @@ export function HomeRedirect() {
 
   if (role === 'caissier') {
     return <Navigate to="/caissier/dashboard" replace />;
+  }
+
+  // Le community-manager n'est pas un vendeur (T0.6) : il entre sur son suivi
+  // de prestations et d'actions, pas sur le tableau de bord commercial.
+  if (role === 'community-manager') {
+    return <Navigate to="/team/tracking" replace />;
   }
 
   if (actsAsCommercial(role)) {

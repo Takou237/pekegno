@@ -1,32 +1,24 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Briefcase, CalendarDays, CheckCircle2, ClipboardCheck, ShoppingCart, TrendingUp } from 'lucide-react';
-import { commercialsApi } from '@/api/commercials.api';
-import { invoicesApi } from '@/api/invoices.api';
+import { Briefcase, CalendarDays, CheckCircle2, ClipboardCheck } from 'lucide-react';
 import { agencyDeptApi } from '@/api/agencyDepartment.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useAuth } from '@/hooks/useAuth';
-import { formatCurrency } from '@/utils/number';
 import { Alert } from '@/components/ui/Alert';
 import { SkeletonDetail } from '@/components/ui/Skeleton';
-import { InvoiceStatusBadge } from '@/pages/invoices/InvoiceListPage';
-import { ValidationBadge } from '@/pages/invoices/PendingInvoicesPage';
-import type { CommercialStats } from '@/types/commercial';
-import type { Invoice } from '@/types/invoice';
 import type { TeamMission, TeamMissionAction } from '@/types/agencyDepartment';
 
 /**
- * Tableau de bord du community-manager : ses ventes (comme un commercial)
- * et son travail d'équipier (prestations, actions à faire).
+ * Tableau de bord du community-manager : son travail d'équipier (prestations
+ * assignées et actions à faire). Depuis la décision T0.6, il n'est plus
+ * vendeur : ses droits ne couvrent ni ventes ni factures.
  */
 export default function CommunityManagerDashboardPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [stats, setStats] = useState<CommercialStats | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [missions, setMissions] = useState<TeamMission[]>([]);
   const [actions, setActions] = useState<TeamMissionAction[]>([]);
   const [openActions, setOpenActions] = useState(0);
@@ -35,26 +27,20 @@ export default function CommunityManagerDashboardPage() {
 
   useEffect(() => {
     let active = true;
-    // Chaque bloc se charge indépendamment : une erreur côté ventes ne masque
-    // pas le suivi des prestations (et inversement).
-    Promise.allSettled([
-      commercialsApi.myStats(),
-      // Le périmètre API limite déjà la liste à ses propres ventes.
-      invoicesApi.list({ per_page: 10 }),
-      agencyDeptApi.teamMissions(),
-    ]).then(([s, inv, team]) => {
-      if (!active) return;
-      if (s.status === 'fulfilled') setStats(s.value);
-      if (inv.status === 'fulfilled') setInvoices(inv.value.invoices.data);
-      if (team.status === 'fulfilled') {
-        setMissions(team.value.prestations);
-        setActions(team.value.actions);
-        setOpenActions(team.value.open_actions);
-      }
-      const failed = [s, inv, team].find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined;
-      if (failed) setError(extractErrorMessage(failed.reason, t('common.error')));
-      setLoading(false);
-    });
+    agencyDeptApi
+      .teamMissions()
+      .then((team) => {
+        if (!active) return;
+        setMissions(team.prestations);
+        setActions(team.actions);
+        setOpenActions(team.open_actions);
+      })
+      .catch((error) => {
+        if (active) setError(extractErrorMessage(error, t('common.error')));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
       active = false;
     };
@@ -63,11 +49,8 @@ export default function CommunityManagerDashboardPage() {
   if (loading) return <SkeletonDetail />;
 
   const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.email || '';
-  const agencyName = stats?.commercial?.agency?.name;
 
   const kpis = [
-    { icon: TrendingUp, label: t('commercial.selfTurnover'), value: formatCurrency(stats?.turnover ?? 0) },
-    { icon: ShoppingCart, label: t('commercial.selfSales'), value: String(stats?.sales_count ?? 0) },
     { icon: Briefcase, label: t('agencyDept.team.myPrestations'), value: String(missions.length) },
     { icon: ClipboardCheck, label: t('agencyDept.team.myActions'), value: String(openActions) },
   ];
@@ -79,8 +62,7 @@ export default function CommunityManagerDashboardPage() {
       <div>
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('commercial.selfTitle')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {fullName}
-          {agencyName ? ` · ${agencyName}` : ''} — {t('commercial.cmSubtitle')}
+          {fullName} — {t('commercial.cmSubtitle')}
         </p>
       </div>
 
@@ -98,7 +80,7 @@ export default function CommunityManagerDashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6">
         <section className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
             <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('commercial.cmUpcomingActions')}</h2>
@@ -139,54 +121,6 @@ export default function CommunityManagerDashboardPage() {
                 );
               })}
             </ul>
-          )}
-        </section>
-
-        <section className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('commercial.selfRecentInvoices')}</h2>
-            <Link to="/invoices" className="text-sm font-medium text-brand-600 hover:underline">
-              {t('commercial.selfViewAll')}
-            </Link>
-          </div>
-          {invoices.length === 0 ? (
-            <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">{t('invoices.empty')}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                  <tr>
-                    <th className="px-5 py-3 font-medium">{t('invoices.colNumber')}</th>
-                    <th className="px-5 py-3 font-medium">{t('invoices.colClient')}</th>
-                    <th className="px-5 py-3 text-right font-medium">{t('invoices.colTotal')}</th>
-                    <th className="px-5 py-3 font-medium">{t('invoices.colStatus')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <td className="px-5 py-3">
-                        <Link to={`/invoices/${inv.id}`} className="font-medium text-gray-800 hover:text-brand-600 dark:text-gray-100">
-                          {inv.number}
-                        </Link>
-                        <p className="text-xs text-gray-400">{inv.invoice_date}</p>
-                      </td>
-                      <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{inv.client_label ?? '—'}</td>
-                      <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">
-                        {formatCurrency(inv.total_amount)}
-                      </td>
-                      <td className="px-5 py-3">
-                        {inv.validation_status === 'pending' ? (
-                          <ValidationBadge status={inv.validation_status} />
-                        ) : (
-                          <InvoiceStatusBadge status={inv.status} />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           )}
         </section>
       </div>
