@@ -31,6 +31,7 @@ export default function AttendanceSheetPage() {
 
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [modules, setModules] = useState<CourseModule[]>([]);
+  const [modulesReady, setModulesReady] = useState(false);
   const [selectedModule, setSelectedModule] = useState<string>('');
   const [roster, setRoster] = useState<AttendanceRosterItem[]>([]);
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({});
@@ -42,6 +43,7 @@ export default function AttendanceSheetPage() {
     if (!sessionId) return;
     setIsLoading(true);
     setLoadError(null);
+    setModulesReady(false);
     try {
       const sessionRes = await client.get(`/training-sessions/${sessionId}`);
       const sessionData: TrainingSession = sessionRes.data.data ?? sessionRes.data;
@@ -54,6 +56,7 @@ export default function AttendanceSheetPage() {
           setSelectedModule(mods[0].id);
         }
       }
+      setModulesReady(true);
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('common.error')));
     } finally {
@@ -84,8 +87,11 @@ export default function AttendanceSheetPage() {
   }, [loadSession]);
 
   useEffect(() => {
-    if (session) loadRoster();
-  }, [session, loadRoster]);
+    // Attendre la fin du chargement des modules : un formateur rattache
+    // uniquement a un module n'a pas le droit de lire l'appel sans module
+    // (403), et le module par defaut doit etre connu avant le premier appel.
+    if (session && modulesReady) loadRoster();
+  }, [session, modulesReady, loadRoster]);
 
   function setStatus(learnerUserId: string, status: AttendanceStatus) {
     setRecords((prev) => ({ ...prev, [learnerUserId]: status }));

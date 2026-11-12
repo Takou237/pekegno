@@ -225,7 +225,10 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       }
       return inv;
     } catch (error) {
-      setLoadError(extractErrorMessage(error, t('invoices.loadFailed')));
+      // Hors périmètre (autre agence) ou facture supprimée : le serveur répond
+      // 404, on affiche « introuvable » plutôt qu'une erreur de chargement.
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      setLoadError(status === 404 ? t('invoices.notFound') : extractErrorMessage(error, t('invoices.loadFailed')));
       return null;
     } finally {
       setIsLoading(false);

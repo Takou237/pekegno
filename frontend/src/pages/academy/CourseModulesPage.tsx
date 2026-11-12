@@ -64,19 +64,17 @@ export default function CourseModulesPage() {
 
   const trainerOptions = useCallback(
     async (query: string): Promise<{ id: string; label: string; subtitle?: string }[]> => {
-      const response = await academyApi.trainerCandidates({
-        // Pas de restriction agency_id : afficher tous les utilisateurs de la plateforme
-        agency_id: undefined,
+      // Pas de restriction par agence : un module peut etre confie a un
+      // formateur d'une autre agence. On renvoie l'ID du profil formateur
+      // (et non une reference composite) attendu par l'API.
+      const response = await academyApi.trainers({
         search: query.trim() || undefined,
         per_page: 20,
       });
-      return response.data.map((candidate) => ({
-        id:
-          candidate.kind === 'user'
-            ? `user:${candidate.user_id}`
-            : `profile:${candidate.trainer_id}`,
-        label: [candidate.first_name, candidate.last_name].filter(Boolean).join(' ') || candidate.email || '—',
-        subtitle: candidate.email ?? undefined,
+      return response.data.map((trainer) => ({
+        id: trainer.id,
+        label: [trainer.first_name, trainer.last_name].filter(Boolean).join(' ') || trainer.email || '—',
+        subtitle: trainer.email ?? undefined,
       }));
     },
     [],
