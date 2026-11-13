@@ -93,10 +93,11 @@ class FinancialMetricsService
             coalesce(sum(case when invoices.invoice_date < ? then invoice_payments.amount * '.$netFactor.' else 0 end * '.$r.'), 0) as recoveries
         ', [$from])->first();
 
-        // Dépenses de la période (les transferts entre caisses sont exclus).
+        // Dépenses de la période (transferts entre caisses et budget pub client exclus).
         $expenses = DB::table('accounting_transactions')
             ->where('type', 'expense')
             ->where('is_transfer', false)
+            ->where('is_pass_through', false)
             ->whereBetween('transacted_at', [$from, $to])
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds ?: ['00000000-0000-0000-0000-000000000000']))
             ->when($commercialId, fn ($q) => $q->whereRaw('1 = 0'))
@@ -226,6 +227,7 @@ class FinancialMetricsService
                 ->leftJoin('agencies', 'agencies.id', '=', 'accounting_transactions.agency_id')
                 ->where('accounting_transactions.type', 'expense')
                 ->where('accounting_transactions.is_transfer', false)
+                ->where('accounting_transactions.is_pass_through', false)
                 ->whereBetween('accounting_transactions.transacted_at', [$from, $to])
                 ->when($agencyIds !== null, fn ($q) => $q->whereIn('accounting_transactions.agency_id', $agencyIds ?: ['00000000-0000-0000-0000-000000000000']))
                 ->when($commercialId, fn ($q) => $q->whereRaw('1 = 0'))

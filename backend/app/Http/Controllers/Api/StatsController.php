@@ -614,6 +614,23 @@ class StatsController extends Controller
                 'revenue' => (float) ($row['revenue'] ?? 0),
             ]);
 
+        // T3.4 — Vue Pays : deux corps (Agences opérationnelles / Administration) + total
+        $operationalAgencyIds = Agency::where('country_id', $country->id)
+            ->where(function ($q) {
+                $q->whereNull('type')->orWhere('type', '!=', Agency::TYPE_ADMINISTRATION);
+            })
+            ->pluck('id')
+            ->all();
+
+        $adminAgencyIds = Agency::where('country_id', $country->id)
+            ->where('type', Agency::TYPE_ADMINISTRATION)
+            ->pluck('id')
+            ->all();
+
+        $metricsService = app(FinancialMetricsService::class);
+        $kpiOperational = ! empty($operationalAgencyIds) ? $metricsService->summary($from, $to, $operationalAgencyIds) : null;
+        $kpiAdmin = ! empty($adminAgencyIds) ? $metricsService->summary($from, $to, $adminAgencyIds) : null;
+
         return response()->json([
             'country' => [
                 'id' => $country->id,
@@ -626,6 +643,8 @@ class StatsController extends Controller
                 'to' => $to->toISOString(),
             ],
             ...$this->kpiPayload($kpi),
+            'operational_kpi' => $kpiOperational ? $this->kpiPayload($kpiOperational) : null,
+            'administration_kpi' => $kpiAdmin ? $this->kpiPayload($kpiAdmin) : null,
             'clients_total' => $clientCount,
             'agencies_total' => $agencyCount,
             'departments_total' => $departmentCount,

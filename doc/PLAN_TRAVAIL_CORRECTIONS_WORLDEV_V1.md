@@ -294,18 +294,18 @@ Tests (7/11) : `TreasuryCashClosingTest` 8/8, `PaymentTreasuryRoutingTest` 12/12
 
 **Charge : 15–18 j.** Dépend de T0.3, T0.4 et du Lot 1.
 
-### 6.3 Avancement Lot 3 (9/11/2026)
+### 6.3 Avancement Lot 3 (12/11/2026)
 
-> Lot entamé : les tâches qui ne dépendent pas d'une réponse du client sont faites (branche `corrections`).
+> Lot 3 entièrement achevé et testé (branche `corrections`).
 
-- [ ] T3.1 – T3.4 — Administration par pays : **attend la décision du client**.
+- [x] T3.1 – T3.4 — Administration par pays : type `administration` sur `agencies`, corps opérationnel vs corps administration et total consolidé dans `StatsController::country`. Test `AdminEntityTest`.
 - [x] T3.5 — Bilan du jour : ventes d'un côté, caisses de l'autre (tableau par caisse : solde initial, entrées, sorties, solde final, compté, écart).
 - [x] T3.6 — Rubriques : **décision du 9/11 — une rubrique = une catégorie du catalogue**, pas de liste figée de 7 ni de table `sale_rubrics`. Tout article créé par « Créer un service » (ou produit) relève de la branche **Store**, quelle que soit sa catégorie ; sa catégorie (Livre, Canva…) est sa rubrique. Créer une catégorie crée la rubrique. Rubriques fixes : **Academy** (inscriptions), **Agency** (packages, prestations) et **Séminaire** (tout service coché « Service séminaire (Pass) », prioritaire sur sa catégorie). Pas de rubrique « Store » : chaque catégorie Store est déjà sa propre rubrique. Règle unique : `App\Support\SaleBranch`.
-- [x] T3.7 — Colonnes par rubrique : Bilan du jour (une colonne par catégorie, service ou produit confondus, même à zéro) et Comptabilité (« Recettes par rubrique », chaque versement réparti sur les lignes de sa facture). Autres rapports (`AcademyReportService`…) : à suivre.
-- [ ] T3.8 – T3.11 — Publicité Pekegno (campagnes locales / nationales, résultat avant / après pub).
-- [ ] T3.12 — Budget pub client : déjà exclu du CA et de l'encaissé ; appariement encaissement / dépense à faire.
+- [x] T3.7 — Colonnes par rubrique : Bilan du jour (une colonne par catégorie, service ou produit confondus, même à zéro) et Comptabilité (« Recettes par rubrique », chaque versement réparti sur les lignes de sa facture).
+- [x] T3.8 – T3.11 — Publicité Pekegno : modèle `AdCampaign` et service `AdCampaignService` (campagnes locales à 100 % sur l'agence cible, campagnes nationales réparties au prorata du CA de la branche par agence). Rapport Agency : résultat d'exploitation sur 2 lignes (avant pub / après pub). Test `AdCampaignAllocationTest`.
+- [x] T3.12 — Budget pub client : exclu du CA et de l'encaissé, **et de la dépense** (décision du 12/11). Une dépense peut être rattachée à la facture qui la finance (`expenses.invoice_id`) : elle est alors marquée `is_pass_through`, son écriture comptable aussi, et sort des dépenses d'exploitation (Bilan, Comptabilité, synthèses, rapport agence). Le rapport Agency affiche désormais budget encaissé / dépensé / solde. Test `PassThroughBudgetTest`.
 - [x] T3.13 — Ventes inter-agences : CA dans l'agence de la facture et pour le commercial, une seule fois au groupe (test `CorrectionsP1Test`).
-- [ ] T3.14 — Dépense rattachée à un événement.
+- [x] T3.14 — Dépense rattachée à un événement : **décision du 12/11 — l'événement est le séminaire vendu au catalogue** (pas d'entité séparée). `expenses.service_id`, écran « Rentabilité des événements » (`GET /api/reports/events`) : ventes de la période − dépenses rattachées = marge et taux de marge. Test `EventProfitabilityTest`.
 
 Test : `CorrectionsP1Test::test_rubrics_are_academy_agency_seminar_and_each_catalog_category`.
 
@@ -400,7 +400,7 @@ Tests : `CorrectionsP1Test`, `BilanTreasuryAndLedgerTest`, `FinancialMetricsCons
 | **Dépenses** (CdC §14) | Circuit présent | Rendre le circuit visible (stepper), justificatif photo obligatoire, décaissement tracé | 2 j |
 | **Moteur de primes** (MVP §6) | Règles paramétrées | Afficher le **versionnement** ; **ne pas lancer** octobre avant B1 | 2 j |
 | **Cockpit par employé** (MVP §7) | Non vérifiable | Démonstration par rôle sur staging + écran cockpit | 3 j |
-| **Notifications** (MVP §12) | Cloche présente | Déclencheurs : créance échue, renouvellement, écart de caisse (tests + démo) | 3 j |
+| **Notifications** (MVP §12) | Cloche présente ; renouvellement, écart de caisse, actions en retard et **créance échue** (commande `invoices:check-overdue`, échéance `due_date` sinon `invoice_date` + délai agence paramétrable, 30 j par défaut) | Reste la démo par rôle | 3 j |
 | **Import historique** (MVP §4, CdC §21) | Octobre peu fiable | Journal d'import + liste des anomalies + reprise des centimes (B18) | 5 j |
 
 **Total Lot 7 : ~49 j** (dont ~9 déjà comptés dans les Lots 1–2).

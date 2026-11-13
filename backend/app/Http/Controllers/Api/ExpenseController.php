@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Services\ScopeService;
 use App\Http\Controllers\Controller;
 use App\Models\Expense;
+use App\Models\Invoice;
+use App\Models\Service;
 use App\Services\ExpenseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -83,7 +85,15 @@ class ExpenseController extends Controller
             'expense_date' => ['required', 'date'],
             'note' => ['nullable', 'string', 'max:2000'],
             'justification_path' => ['nullable', 'string', 'max:255'],
+            // T3.12 — dépense financée par le budget pub d'une facture client.
+            'invoice_id' => ['nullable', 'uuid', 'exists:invoices,id'],
+            'is_pass_through' => ['sometimes', 'boolean'],
+            // T3.14 — événement (séminaire vendu) dont relève la dépense.
+            'service_id' => ['nullable', 'uuid', 'exists:services,id'],
         ]);
+
+        $data = $this->passThroughAttributes($data);
+        $data = $this->eventAttributes($data);
 
         $expense = Expense::create($data + [
             'number' => Expense::generateNextNumber(),
@@ -92,6 +102,64 @@ class ExpenseController extends Controller
         ]);
 
         return response()->json($expense->fresh()->load(['agency', 'category', 'requestor', 'department']), 201);
+    }
+
+    /**
+     * T3.12 — une dépense de budget pub client est toujours rattachée à la
+     * facture qui la finance ; le drapeau en découle, il n'est pas libre.
+     * Elle sort des dépenses d'exploitation (seuls les honoraires comptent).
+     */
+    private function passThroughAttributes(array $data, ?Expense $expense = null): array
+    {
+        $invoiceId = $data['invoice_id'] ?? $expense?->invoice_id;
+        $requested = array_key_exists('is_pass_through', $data)
+            ? (bool) $data['is_pass_through']
+            : (bool) ($expense?->is_pass_through ?? false);
+
+        if ($invoiceId === null) {
+            abort_if($requested, 422, 'Indiquez la facture client dont le budget publicitaire finance cette dépense.');
+            $data['is_pass_through'] = false;
+
+            return $data;
+        }
+
+        $invoice = Invoice::find($invoiceId);
+        abort_if(! $invoice, 422, 'Facture client introuvable.');
+        abort_if(
+            isset($data['agency_id']) && $invoice->agency_id !== $data['agency_id'],
+            422,
+            "La facture du budget publicitaire n'appartient pas à cette agence."
+        );
+        abort_unless(
+            $invoice->items()->where('is_pass_through', true)->exists(),
+            422,
+            'Cette facture ne porte pas de budget publicitaire client.'
+        );
+
+        $data['is_pass_through'] = true;
+
+        return $data;
+    }
+
+    /** T3.14 — un événement est le séminaire vendu au catalogue. */
+    private function eventAttributes(array $data, ?Expense $expense = null): array
+    {
+        $serviceId = $data['service_id'] ?? $expense?->service_id;
+        if ($serviceId === null) {
+            return $data;
+        }
+
+        $service = Service::find($serviceId);
+        abort_if(! $service, 422, 'Séminaire introuvable.');
+
+        $agencyId = $data['agency_id'] ?? $expense?->agency_id;
+        abort_if(
+            $agencyId !== null && $service->agency_id !== null && $service->agency_id !== $agencyId,
+            422,
+            "Le séminaire rattaché n'appartient pas à cette agence."
+        );
+
+        return $data;
     }
 
     #[OA\Get(
@@ -131,7 +199,13 @@ class ExpenseController extends Controller
             'expense_date' => ['required', 'date'],
             'note' => ['nullable', 'string', 'max:2000'],
             'justification_path' => ['nullable', 'string', 'max:255'],
+            'invoice_id' => ['nullable', 'uuid', 'exists:invoices,id'],
+            'is_pass_through' => ['sometimes', 'boolean'],
+            'service_id' => ['nullable', 'uuid', 'exists:services,id'],
         ]);
+
+        $data = $this->passThroughAttributes($data, $expense);
+        $data = $this->eventAttributes($data, $expense);
 
         $expense->update($data);
 

@@ -479,8 +479,30 @@ export interface AgencyReport {
     revenue: number;
     collected: number;
     pass_through_collected: number;
+    /** T3.12 — budget pub client réellement dépensé sur la période. */
+    pass_through_spent: number;
+    /** T3.12 — reliquat du budget pub client (encaissé − dépensé). */
+    pass_through_remaining: number;
     receivables: number;
     mrr: number;
+    /** T3.11 — résultat d'exploitation avant imputation des campagnes pub Pekegno. */
+    operating_result_before_ads?: number;
+    /** T3.11 — charges publicitaires de l'agence (campagnes locales + quote-part nationale). */
+    ad_costs?: {
+      local_ads: number;
+      national_ads: number;
+      total_ads: number;
+      details: Array<{
+        campaign_id: string;
+        name: string;
+        branch: string;
+        type: 'local' | 'national';
+        allocated_amount: number;
+        ratio: number;
+      }>;
+    };
+    /** T3.11 — résultat d'exploitation après pub. */
+    operating_result_after_ads?: number;
     active_contracts: number;
     contracts_to_renew: number;
     prestations_in_progress: number;

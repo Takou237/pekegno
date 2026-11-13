@@ -159,7 +159,9 @@ class RoleSeeder extends Seeder
                 // il peut créer des clients (nouveau apprenant dans le formulaire
                 // d'inscription), créer/modifier des inscriptions et vendre (factures).
                 // countries.consulter sert au sélecteur de pays du formulaire apprenant.
-                $p('clients', ['consulter', 'creer', 'modifier', 'supprimer']),
+                // Matrice validée (T0.6 / Lot 9) : le caissier ne supprime pas de
+                // client — la suppression reste à l'administration.
+                $p('clients', ['consulter', 'creer', 'modifier']),
                 $p('countries', ['consulter']),
                 $p('services', ['consulter']),
                 $p('products', ['consulter']),
@@ -169,10 +171,11 @@ class RoleSeeder extends Seeder
                 // ses stats — le formulaire cherche ce profil via GET /employees.
                 $p('employes', ['consulter']),
                 $p('invoices', ['consulter', 'creer', 'imprimer', 'encaisser', 'valider']),
-                // Comptabilité de son agence : mêmes actions que l'admin
-                // (le périmètre d'agence reste appliqué côté API).
-                $p('comptabilite', ['consulter', 'creer', 'modifier', 'supprimer', 'exporter']),
-                $p('accounting-categories', ['consulter', 'creer', 'modifier', 'supprimer']),
+                // Comptabilité de son agence en lecture seule (matrice validée T0.6) :
+                // la saisie et la suppression d'écritures reviennent au comptable et
+                // à l'administration ; le caissier consulte et exporte.
+                $p('comptabilite', ['consulter', 'exporter']),
+                $p('accounting-categories', ['consulter']),
                 $p('bilans', ['consulter', 'exporter']),
                 $p('abonnements', ['consulter', 'creer', 'renouveler']),
                 $p('courses', ['consulter']),
@@ -236,14 +239,28 @@ class RoleSeeder extends Seeder
 
         // Community-manager : toutes les fonctionnalités du commercial (ventes,
         // prospects, rapport…) + l'exécution des prestations dont il est équipier.
-        $assignments['community-manager'] = array_values(array_unique(array_merge(
-            $assignments['commercial'],
-            $p('clients', ['consulter', 'modifier', 'supprimer']),
+        // Community-manager = exécutant de prestations (décision client T0.6,
+        // option A). Il n'a aucun droit de vente : pas de prospects, pas de
+        // création de client, pas de facture, pas de commande. Il consulte les
+        // prestations de son périmètre et fait évoluer les actions qui lui sont
+        // attribuées (statut, coût réel, commentaire, preuve).
+        $assignments['community-manager'] = array_merge(
+            $p('clients', ['consulter']),
+            $p('services', ['consulter']),
+            $p('products', ['consulter']),
+            $p('categories', ['consulter']),
             $p('packages', ['consulter']),
             $p('prestations', ['consulter']),
             $p('prestation-actions', ['consulter', 'modifier']),
             $p('equipe-client', ['consulter']),
-        )));
+            // Espace formateur : un community-manager lié à un profil formateur
+            // garde ses formations, ses apprenants et ses feuilles de présence.
+            $p('courses', ['consulter']),
+            $p('sessions', ['consulter']),
+            $p('enrollments', ['consulter']),
+            $p('presences', ['consulter']),
+            $p('modules', ['consulter']),
+        );
 
         $assignments += [
             'client' => array_merge(

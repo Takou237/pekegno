@@ -13,6 +13,7 @@ import type {
 } from '@/types/invoice';
 import type { PaginatedResponse, PaginationMeta } from '@/types/agency';
 import type { ProofReviewResponse } from '@/types/invoice';
+import type { ProofRejectionCode } from '@/data/proofRejectionReasons';
 
 export interface InvoiceIndexResponse {
   invoices: PaginatedResponse<Invoice>;
@@ -144,8 +145,12 @@ export const invoicesApi = {
     return data;
   },
 
-  async rejectProof(proofId: string, notes: string): Promise<ProofReviewResponse> {
-    const { data } = await client.post<ProofReviewResponse>(`/payment-proofs/${proofId}/reject`, { notes });
+  /** B25 : motif choisi dans une liste fermée, précision libre en complément. */
+  async rejectProof(
+    proofId: string,
+    payload: { rejection_code: ProofRejectionCode; notes?: string }
+  ): Promise<ProofReviewResponse> {
+    const { data } = await client.post<ProofReviewResponse>(`/payment-proofs/${proofId}/reject`, payload);
     return data;
   },
 };

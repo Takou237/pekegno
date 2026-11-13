@@ -105,7 +105,9 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
   const [payErrors, setPayErrors] = useState<Record<string, string>>({});
   const [paySubmitting, setPaySubmitting] = useState(false);
 
-  const canManage = ['super-admin', 'direction-generale', 'responsable-agence', 'comptable', 'caissier'].includes(
+  // Le caissier consulte et exporte (matrice T0.6) : il ne saisit ni ne
+  // supprime d'écriture, la saisie revient au comptable et à l'administration.
+  const canManage = ['super-admin', 'direction-generale', 'responsable-agence', 'comptable'].includes(
     currentUser?.role?.name ?? ''
   );
 

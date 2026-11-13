@@ -36,6 +36,7 @@ class Invoice extends Model
         'seller_user_id',
         'created_by',
         'invoice_date',
+        'due_date',
         'payment_type',
         'payer_phone',
         'total_amount',
@@ -61,6 +62,7 @@ class Invoice extends Model
     {
         return [
             'invoice_date' => 'datetime',
+            'due_date' => 'date',
             'cancelled_at' => 'datetime',
             'client_was_created' => 'boolean',
             'validated_at' => 'datetime',

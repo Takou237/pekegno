@@ -28,7 +28,27 @@ class Agency extends Model
         'email',
     ];
 
-    protected $with = ['departments'];
+    public const TYPE_AGENCY = 'agency';
+    public const TYPE_ACADEMY = 'academy';
+    public const TYPE_MIXED = 'mixed';
+    public const TYPE_ADMINISTRATION = 'administration';
+
+    public const TYPES = [
+        self::TYPE_AGENCY,
+        self::TYPE_ACADEMY,
+        self::TYPE_MIXED,
+        self::TYPE_ADMINISTRATION,
+    ];
+
+    public function isAdministration(): bool
+    {
+        return $this->type === self::TYPE_ADMINISTRATION;
+    }
+
+    public function isOperational(): bool
+    {
+        return $this->type !== self::TYPE_ADMINISTRATION;
+    }
 
     public function organization(): BelongsTo
     {

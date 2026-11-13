@@ -54,6 +54,13 @@ function extractDuplicateClients(error: unknown): DuplicateClient[] | null {
   return null;
 }
 
+/** L3/L4 : le message liste le numéro client, le téléphone et l'email. */
+function duplicateClientLabel(client: DuplicateClient): string {
+  const name = `${client.first_name ?? ''} ${client.last_name ?? ''}`.trim() || '—';
+  const details = [client.client_number, client.phone, client.email].filter(Boolean).join(' — ');
+  return details ? `${name} (${details})` : name;
+}
+
 const EMPTY_FORM: ClientForm = {
   first_name: '',
   last_name: '',
@@ -633,9 +640,7 @@ export default function ClientListPage() {
         message={
           duplicateClients
             ? t('clients.duplicateMessage', {
-                clients: duplicateClients
-                  .map((c) => `${c.first_name ?? ''} ${c.last_name ?? ''} (${c.phone || c.email})`.trim())
-                  .join(', '),
+                clients: duplicateClients.map(duplicateClientLabel).join(', '),
               })
             : ''
         }

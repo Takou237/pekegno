@@ -160,6 +160,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
+      { to: '/reports/events', label: t('nav.eventsReport'), icon: Coins, end: false },
       monthlyReportItem(t),
       salesTrackingItem(t),
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
@@ -195,6 +196,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
       { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
       { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
+      { to: '/reports/events', label: t('nav.eventsReport'), icon: Coins, end: false },
       { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
       monthlyReportItem(t),
     ];
@@ -255,23 +257,23 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     ];
   }
 
-  // Le community-manager a le même menu que le commercial (« Mon suivi » inclus),
-  // sans Prospects, Commissions, Rapport mensuel ni Suivi des ventes.
+  // Community-manager = exécutant de prestations (décision client T0.6) : son
+  // menu se limite à son suivi de travail et à son profil. Aucune entrée de
+  // vente (prospects, factures, commissions) puisqu'il n'a pas ces droits.
+  if (roleName === 'community-manager') {
+    return [trackingItem(t), myProfileItem(t)];
+  }
+
   if (actsAsCommercial(roleName)) {
-    const isCommunityManager = roleName === 'community-manager';
     return [
       ...baseItems,
       trackingItem(t),
-      ...(isCommunityManager ? [] : [{ to: '/prospects', label: t('nav.prospects'), icon: Target, end: false }]),
+      { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
       // Commercial : menu Factures SANS pastille rouge (pas de badge impayés).
       invoiceItem(t),
-      ...(isCommunityManager
-        ? []
-        : [
-            { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
-            monthlyReportItem(t),
-            salesTrackingItem(t),
-          ]),
+      { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },
+      monthlyReportItem(t),
+      salesTrackingItem(t),
       catalogItem(t),
       myProfileItem(t),
     ];
@@ -345,6 +347,7 @@ export function getPermissionItems(t: TranslateFn, permissions: string[]): NavIt
     [has('courses.consulter', 'sessions.consulter'), { to: '/academy', label: t('nav.statAca'), icon: GraduationCap, end: false }],
     [has('reports.consulter'), { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false }],
     [has('reports.consulter'), { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false }],
+    [has('reports.consulter'), { to: '/reports/events', label: t('nav.eventsReport'), icon: Coins, end: false }],
     [has('reports.consulter', 'abonnements.consulter'), { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false }],
     [has('commercials.reporting'), { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false }],
     [has('commercials.reporting'), monthlyReportItem(t)],

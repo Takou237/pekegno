@@ -31,7 +31,9 @@ export default function AttendanceSheetPage() {
 
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [modules, setModules] = useState<CourseModule[]>([]);
+  const [modulesReady, setModulesReady] = useState(false);
   const [selectedModule, setSelectedModule] = useState<string>('');
+  const [sessionDate, setSessionDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [roster, setRoster] = useState<AttendanceRosterItem[]>([]);
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -42,6 +44,7 @@ export default function AttendanceSheetPage() {
     if (!sessionId) return;
     setIsLoading(true);
     setLoadError(null);
+    setModulesReady(false);
     try {
       const sessionRes = await client.get(`/training-sessions/${sessionId}`);
       const sessionData: TrainingSession = sessionRes.data.data ?? sessionRes.data;
@@ -54,6 +57,7 @@ export default function AttendanceSheetPage() {
           setSelectedModule(mods[0].id);
         }
       }
+      setModulesReady(true);
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('common.error')));
     } finally {
@@ -64,7 +68,7 @@ export default function AttendanceSheetPage() {
   const loadRoster = useCallback(async () => {
     if (!sessionId) return;
     try {
-      const attendances = await attendancesApi.list(sessionId, selectedModule || null);
+      const attendances = await attendancesApi.list(sessionId, selectedModule || null, sessionDate || null);
       setRoster(attendances);
       const initial: Record<string, AttendanceStatus> = {};
       for (const item of attendances) {
@@ -77,15 +81,18 @@ export default function AttendanceSheetPage() {
       setRoster([]);
       setRecords({});
     }
-  }, [sessionId, selectedModule]);
+  }, [sessionId, selectedModule, sessionDate]);
 
   useEffect(() => {
     loadSession();
   }, [loadSession]);
 
   useEffect(() => {
-    if (session) loadRoster();
-  }, [session, loadRoster]);
+    // Attendre la fin du chargement des modules : un formateur rattache
+    // uniquement a un module n'a pas le droit de lire l'appel sans module
+    // (403), et le module par defaut doit etre connu avant le premier appel.
+    if (session && modulesReady) loadRoster();
+  }, [session, modulesReady, loadRoster]);
 
   function setStatus(learnerUserId: string, status: AttendanceStatus) {
     setRecords((prev) => ({ ...prev, [learnerUserId]: status }));
@@ -107,7 +114,7 @@ export default function AttendanceSheetPage() {
         const status = records[item.learner_user_id];
         return status ? [{ learner_user_id: item.learner_user_id, status }] : [];
       });
-      await attendancesApi.bulkUpdate(sessionId, items, selectedModule || null);
+      await attendancesApi.bulkUpdate(sessionId, items, selectedModule || null, sessionDate || null);
       showToast(t('common.saved'), 'success');
       loadRoster();
     } catch (error) {
@@ -143,7 +150,7 @@ export default function AttendanceSheetPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${t('academy.attendanceSheet').replace(/\s+/g, '-')}-${session.id}${currentModule ? `-${currentModule.name}` : ''}.csv`;
+    a.download = `${t('academy.attendanceSheet').replace(/\s+/g, '-')}-${session.id}${currentModule ? `-${currentModule.name}` : ''}${sessionDate ? `-${sessionDate}` : ''}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -201,29 +208,46 @@ export default function AttendanceSheetPage() {
         </div>
       </div>
 
-      {modules.length > 0 && (
+      <div className="grid gap-4 sm:grid-cols-2">
+        {modules.length > 0 && (
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('academy.selectModule')}
+            </label>
+            <select
+              value={selectedModule}
+              onChange={(e) => setSelectedModule(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              {modules.map((mod) => (
+                <option key={mod.id} value={mod.id}>
+                  {mod.name} ({mod.duration_hours != null ? `${mod.duration_hours}h` : '—'})
+                </option>
+              ))}
+            </select>
+            {currentModule && (
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                {t('academy.module')} #{currentModule.order_index} — {currentModule.name}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('academy.selectModule')}
+            {t('academy.sessionDate', 'Date de la séance')}
           </label>
-          <select
-            value={selectedModule}
-            onChange={(e) => setSelectedModule(e.target.value)}
-            className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          >
-            {modules.map((mod) => (
-              <option key={mod.id} value={mod.id}>
-                {mod.name} ({mod.duration_hours != null ? `${mod.duration_hours}h` : '—'})
-              </option>
-            ))}
-          </select>
-          {currentModule && (
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              {t('academy.module')} #{currentModule.order_index} — {currentModule.name}
-            </p>
-          )}
+          <input
+            type="date"
+            value={sessionDate}
+            onChange={(e) => setSessionDate(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            {t('academy.sessionDateHint', 'Émargement de la séance datée')}
+          </p>
         </div>
-      )}
+      </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-6">

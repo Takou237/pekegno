@@ -99,6 +99,7 @@ const SalesTrackingPage = lazyWithRetry(() => import('@/pages/commercials/SalesT
 const SubscriptionsReportPage = lazyWithRetry(() => import('@/pages/reports/SubscriptionsReportPage'));
 const CustomersReportPage = lazyWithRetry(() => import('@/pages/reports/CustomersReportPage'));
 const ComparisonReportPage = lazyWithRetry(() => import('@/pages/reports/ComparisonReportPage'));
+const EventProfitabilityPage = lazyWithRetry(() => import('@/pages/reports/EventProfitabilityPage'));
 const EmployeeListPage = lazyWithRetry(() => import('@/pages/employees/EmployeeListPage'));
 const EmployeeDetailPage = lazyWithRetry(() => import('@/pages/employees/EmployeeDetailPage'));
 const AgencyEmployeeListPage = lazyWithRetry(() => import('@/pages/employees/AgencyEmployeeListPage'));
@@ -313,6 +314,7 @@ export const router = createBrowserRouter([
           { path: '/reports/subscriptions', element: page(<SubscriptionsReportPage />, table) },
           { path: '/reports/customers', element: page(<CustomersReportPage />, table) },
           { path: '/reports/comparison', element: page(<ComparisonReportPage />, table) },
+          { path: '/reports/events', element: page(<EventProfitabilityPage />, table) },
           { path: '/invoices', element: page(<InvoiceListPage />, table) },
           { path: '/invoices/pending', element: <Navigate to="/invoices/payment-proofs?tab=invoices" replace /> },
           { path: '/invoices/payment-proofs', element: page(<ValidationsPage />, table) },

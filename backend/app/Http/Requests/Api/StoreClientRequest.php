@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\ValidPhoneNumber;
@@ -20,7 +21,16 @@ class StoreClientRequest extends FormRequest
             'last_name' => ['required', 'string', 'max:150'],
             // Optionnel : un apprenant inscrit au guichet n'a pas toujours d'email.
             // ClientController::store génère un email de connexion de secours si absent.
-            'email' => ['sometimes', 'nullable', 'email', 'max:255', 'unique:users,email'],
+            // L6 : la règle `email` de Laravel (RFC) accepte un domaine sans point
+            // (« client@exemple ») ; on exige donc une extension réelle.
+            'email' => [
+                'sometimes', 'nullable', 'email', 'max:255', 'unique:users,email',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (is_string($value) && $value !== '' && ! preg_match('/^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$/', $value)) {
+                        $fail("Le format de l'email est invalide.");
+                    }
+                },
+            ],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50', new ValidPhoneNumber($this->input('country_id'), $this->input('country'))],
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
             'city' => ['sometimes', 'nullable', 'string', 'max:100'],

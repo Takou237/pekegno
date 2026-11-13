@@ -7,7 +7,8 @@ use App\Services\TreasuryAccountProvisioner;
 use Illuminate\Database\Seeder;
 
 /**
- * T2.2 — une caisse C/O/M/B par agence (plus W/V en Côte d'Ivoire).
+ * T2.2 — une caisse C/O/M/B par agence, plus W (Wave) en Côte d'Ivoire
+ * (décision client T0.3 ; Moov n'est pas déployé).
  *
  * Les modèles de caisses sont définis dans TreasuryAccountProvisioner (source
  * unique, partagée avec la résolution de caisse des paiements). Idempotent :

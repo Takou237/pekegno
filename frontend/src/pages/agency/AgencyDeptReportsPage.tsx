@@ -39,6 +39,8 @@ export default function AgencyDeptReportsPage() {
       ['CA (honoraires, hors pass-through)', k.revenue],
       ['Encaissé', k.collected],
       ['Dont budget pub client (pass-through)', k.pass_through_collected],
+      ['Budget pub client dépensé', k.pass_through_spent],
+      ['Solde budget pub client', k.pass_through_remaining],
       ['Créances', k.receivables],
       ['Revenu récurrent mensuel (MRR)', k.mrr],
       ['Contrats actifs', k.active_contracts],
@@ -80,7 +82,22 @@ export default function AgencyDeptReportsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label={t('agencyDept.dashboard.revenue')} value={formatCurrency(report.kpis.revenue)} />
             <Stat label={t('agencyDept.dashboard.collected')} value={formatCurrency(report.kpis.collected)} />
+            {report.kpis.operating_result_before_ads != null && (
+              <Stat label={t('agencyDept.reports.resultBeforeAds', 'Résultat avant pub')} value={formatCurrency(report.kpis.operating_result_before_ads)} />
+            )}
+            {report.kpis.ad_costs && report.kpis.ad_costs.total_ads > 0 && (
+              <Stat
+                label={t('agencyDept.reports.adCosts', 'Charges pub Pekegno')}
+                value={formatCurrency(report.kpis.ad_costs.total_ads)}
+                hint={`Locales: ${formatCurrency(report.kpis.ad_costs.local_ads)} · Nat: ${formatCurrency(report.kpis.ad_costs.national_ads)}`}
+              />
+            )}
+            {report.kpis.operating_result_after_ads != null && (
+              <Stat label={t('agencyDept.reports.resultAfterAds', 'Résultat après pub')} value={formatCurrency(report.kpis.operating_result_after_ads)} />
+            )}
             <Stat label={t('agencyDept.dashboard.passThrough')} value={formatCurrency(report.kpis.pass_through_collected)} />
+            <Stat label={t('agencyDept.reports.passThroughSpent')} value={formatCurrency(report.kpis.pass_through_spent)} />
+            <Stat label={t('agencyDept.reports.passThroughRemaining')} value={formatCurrency(report.kpis.pass_through_remaining)} />
             <Stat label={t('agencyDept.dashboard.receivables')} value={formatCurrency(report.kpis.receivables)} />
             <Stat label={t('agencyDept.dashboard.mrr')} value={formatCurrency(report.kpis.mrr)} />
             <Stat label={t('agencyDept.reports.renewalRate')} value={report.kpis.renewal_rate != null ? `${report.kpis.renewal_rate} %` : '—'} hint={`${report.kpis.renewed_contracts} / ${report.kpis.ended_contracts}`} />

@@ -87,7 +87,8 @@ class AccountingController extends Controller
         $totals = (clone $base)
             ->selectRaw(
                 "coalesce(sum(case when type = 'income' then amount else 0 end), 0) as income, "
-                ."coalesce(sum(case when type = 'expense' and is_transfer = false then amount else 0 end), 0) as expense"
+                // T3.12 : le budget pub client n'est pas une dépense d'exploitation.
+                ."coalesce(sum(case when type = 'expense' and is_transfer = false and is_pass_through = false then amount else 0 end), 0) as expense"
             )
             ->first();
 

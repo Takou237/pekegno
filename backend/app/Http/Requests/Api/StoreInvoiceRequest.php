@@ -36,6 +36,9 @@ class StoreInvoiceRequest extends FormRequest
             'items.*.unit_price' => ['required_if:items.*.pass_tier,null', 'numeric', 'min:0'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.pass_tier' => ['nullable', 'in:classique,premium,vip'],
+            // T8.1 — catégorie (rubrique) obligatoire sur chaque ligne : elle est
+            // déduite du service/produit, sinon choisie explicitement.
+            'items.*.category_id' => ['nullable', 'uuid', 'exists:categories,id'],
         ];
     }
 
@@ -47,6 +50,7 @@ class StoreInvoiceRequest extends FormRequest
             'items.*.quantity.min' => 'La quantité doit être d\'au moins 1.',
             'items.*.pass_tier.in' => 'Le pass doit être classique, premium ou vip.',
             'payer_phone.required_if' => 'Le numéro ayant payé est obligatoire pour un règlement Orange Money, MoMo ou Wave.',
+            'items.*.category_id.exists' => "La catégorie choisie n'existe pas.",
             'advance.min' => "L'avance doit être supérieure à 0 FCFA.",
         ];
     }

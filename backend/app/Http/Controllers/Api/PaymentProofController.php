@@ -17,12 +17,14 @@ use App\Services\InvoiceRejectionNotifier;
 use App\Services\PaymentService;
 use App\Services\ScopeService;
 use App\Support\InvoiceValidators;
+use App\Support\PaymentProofRejectionReason;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
@@ -332,9 +334,15 @@ class PaymentProofController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['notes'],
+                required: ['rejection_code'],
                 properties: [
-                    new OA\Property(property: 'notes', type: 'string', description: 'Motif du rejet de la preuve'),
+                    new OA\Property(
+                        property: 'rejection_code',
+                        type: 'string',
+                        enum: ['expired_date', 'wrong_amount', 'unreadable', 'wrong_recipient', 'other'],
+                        description: 'Motif du rejet (B25). « other » exige une précision dans notes.'
+                    ),
+                    new OA\Property(property: 'notes', type: 'string', description: 'Précision libre (obligatoire pour « other »)'),
                 ]
             )
         ),
@@ -353,7 +361,21 @@ class PaymentProofController extends Controller
 
         $this->ensureCashierAgencyAccess($proof->invoice, $request->user());
 
-        $request->validate(['notes' => ['required', 'string']]);
+        // B25 : motif choisi dans une liste fermée (dont « Date échue »), le
+        // texte libre restant disponible et obligatoire pour « Autre ».
+        $request->validate([
+            'rejection_code' => ['nullable', 'string', Rule::in(PaymentProofRejectionReason::codes())],
+            'notes' => ['nullable', 'string', 'max:500', 'required_without:rejection_code'],
+        ]);
+
+        if (
+            $request->input('rejection_code') === PaymentProofRejectionReason::OTHER
+            && trim((string) $request->input('notes')) === ''
+        ) {
+            throw ValidationException::withMessages([
+                'notes' => 'Précisez le motif lorsque vous choisissez « Autre ».',
+            ]);
+        }
 
         return $this->review($request, $proof, PaymentProof::STATUS_REJECTED);
     }
@@ -366,12 +388,19 @@ class PaymentProofController extends Controller
             app(\App\Services\CashClosingService::class)->assertAgencyOpen(Invoice::whereKey($proof->invoice_id)->value('agency_id'));
         }
 
-        DB::transaction(function () use ($request, $proof, $status) {
+        $rejectionCode = $status === PaymentProof::STATUS_REJECTED
+            ? ($request->input('rejection_code') ?: null)
+            : null;
+        $rejectionNotes = trim((string) $request->input('notes', ''));
+        $rejectionText = PaymentProofRejectionReason::describe($rejectionCode, $rejectionNotes);
+
+        DB::transaction(function () use ($request, $proof, $status, $rejectionCode, $rejectionNotes, $rejectionText) {
             $proof->update([
                 'status' => $status,
                 'reviewed_by' => $request->user()->id,
                 'reviewed_at' => now(),
-                'notes' => $status === PaymentProof::STATUS_REJECTED ? trim((string) $request->input('notes', '')) : null,
+                'rejection_code' => $rejectionCode,
+                'notes' => $status === PaymentProof::STATUS_REJECTED ? ($rejectionNotes ?: null) : null,
             ]);
 
             // Chaînage du workflow : accepter la preuve valide automatiquement la
@@ -383,7 +412,7 @@ class PaymentProofController extends Controller
                 if ($status === PaymentProof::STATUS_ACCEPTED) {
                     $this->markInvoiceValidated($invoice, $request->user()->id, $proof);
                 } else {
-                    $reason = 'Preuve de paiement rejetée : '.trim((string) $request->input('notes', ''));
+                    $reason = 'Preuve de paiement rejetée : '.$rejectionText;
                     $this->markInvoiceRejected($invoice, $request->user()->id, $reason);
                 }
             } elseif (
@@ -409,7 +438,12 @@ class PaymentProofController extends Controller
                     $status === PaymentProof::STATUS_ACCEPTED ? 'acceptée' : 'rejetée',
                     $invoice?->number ?? $proof->invoice_id,
                 ),
-                newValues: ['proof' => $proof->id, 'status' => $status],
+                newValues: array_filter([
+                    'proof' => $proof->id,
+                    'status' => $status,
+                    'rejection_code' => $rejectionCode,
+                    'reason' => $rejectionText,
+                ], fn ($value) => $value !== null),
                 request: $request,
             );
         });

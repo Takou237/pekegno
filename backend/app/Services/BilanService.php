@@ -632,6 +632,7 @@ class BilanService
             ->leftJoin('accounting_categories', 'accounting_categories.id', '=', 'accounting_transactions.category_id')
             ->where('accounting_transactions.type', 'expense')
             ->where('accounting_transactions.is_transfer', false)
+            ->where('accounting_transactions.is_pass_through', false)
             ->whereBetween('accounting_transactions.transacted_at', $this->dayBounds($date))
             ->when($this->department, fn ($q) => $q->where('accounting_transactions.department_id', $this->department->id))
             ->when($agencyId, fn ($q) => $q->where('accounting_transactions.agency_id', $agencyId))
@@ -672,6 +673,7 @@ class BilanService
         $out = (float) DB::table('accounting_transactions')
             ->where('type', 'expense')
             ->where('is_transfer', false)
+            ->where('is_pass_through', false)
             ->where('department_id', $this->department->id)
             ->where('transacted_at', '<', $before)
             ->sum('amount');

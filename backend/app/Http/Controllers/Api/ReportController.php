@@ -145,6 +145,84 @@ class ReportController extends Controller
             new OA\Response(response: 200, description: 'Synthèse et top clients'),
         ]
     )]
+    /**
+     * T3.14 — rentabilité des événements.
+     *
+     * Décision client du 12/11 : un événement est le séminaire vendu au
+     * catalogue. Pour chaque séminaire : ventes de la période − dépenses qui lui
+     * sont rattachées = marge. Les séminaires sans vente ni dépense sur la
+     * période ne sont pas affichés.
+     */
+    public function eventProfitability(Request $request): JsonResponse
+    {
+        $from = Period::from($request, Period::businessToday()->startOfMonth());
+        $to = Period::to($request);
+        $agencyIds = app(ScopeService::class)->agencyIds($request->user());
+
+        $revenue = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
+            ->whereBetween('invoices.invoice_date', [$from, $to])
+            ->whereNotNull('invoice_items.service_id')
+            ->where(fn ($q) => $q->whereNull('invoice_items.is_pass_through')->orWhere('invoice_items.is_pass_through', false))
+            ->when($request->agency_id, fn ($q, $id) => $q->where('invoices.agency_id', $id))
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->groupBy('invoice_items.service_id')
+            ->selectRaw('invoice_items.service_id, sum(invoice_items.line_total) as revenue, sum(invoice_items.quantity) as tickets')
+            ->get()
+            ->keyBy('service_id');
+
+        $spent = DB::table('expenses')
+            ->whereNull('expenses.deleted_at')
+            ->whereIn('expenses.status', ['paid', 'closed'])
+            ->where('expenses.is_pass_through', false)
+            ->whereNotNull('expenses.service_id')
+            ->whereDate('expenses.expense_date', '>=', $from->toDateString())
+            ->whereDate('expenses.expense_date', '<=', $to->toDateString())
+            ->when($request->agency_id, fn ($q, $id) => $q->where('expenses.agency_id', $id))
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('expenses.agency_id', $agencyIds))
+            ->groupBy('expenses.service_id')
+            ->selectRaw('expenses.service_id, sum(expenses.amount) as spent')
+            ->get()
+            ->keyBy('service_id');
+
+        $serviceIds = $revenue->keys()->merge($spent->keys())->unique()->values();
+
+        $services = \App\Models\Service::query()
+            ->with('agency:id,name')
+            ->whereIn('id', $serviceIds)
+            ->get()
+            ->keyBy('id');
+
+        $rows = $serviceIds->map(function ($id) use ($services, $revenue, $spent) {
+            $service = $services[$id] ?? null;
+            $sold = round((float) ($revenue[$id]->revenue ?? 0), 2);
+            $cost = round((float) ($spent[$id]->spent ?? 0), 2);
+
+            return [
+                'service_id' => $id,
+                'name' => $service?->name,
+                'agency' => $service?->agency?->name,
+                'tickets' => (int) ($revenue[$id]->tickets ?? 0),
+                'revenue' => $sold,
+                'expenses' => $cost,
+                'margin' => round($sold - $cost, 2),
+                'margin_rate' => $sold > 0 ? round(($sold - $cost) / $sold * 100, 1) : null,
+            ];
+        })->sortByDesc('revenue')->values();
+
+        return response()->json([
+            'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
+            'rows' => $rows,
+            'totals' => [
+                'revenue' => round((float) $rows->sum('revenue'), 2),
+                'expenses' => round((float) $rows->sum('expenses'), 2),
+                'margin' => round((float) $rows->sum('margin'), 2),
+            ],
+        ]);
+    }
+
     public function customers(Request $request): JsonResponse
     {
         $from = Period::from($request, Period::businessToday()->startOfYear());

@@ -235,6 +235,8 @@ export interface PaymentProof {
   status: PaymentProofStatus;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  /** B25 : motif de rejet choisi dans la liste (null si acceptée). */
+  rejection_code?: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

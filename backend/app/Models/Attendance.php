@@ -24,6 +24,7 @@ class Attendance extends Model
         'training_session_id',
         'learner_user_id',
         'course_module_id',
+        'session_date',
         'status',
         'recorded_by',
         'recorded_at',
@@ -32,6 +33,7 @@ class Attendance extends Model
     protected function casts(): array
     {
         return [
+            'session_date' => 'date',
             'recorded_at' => 'datetime',
         ];
     }

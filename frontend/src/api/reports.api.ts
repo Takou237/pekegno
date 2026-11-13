@@ -244,6 +244,23 @@ export interface SalesTrackingParams {
   per_page?: number;
 }
 
+export interface EventProfitabilityRow {
+  service_id: string;
+  name: string | null;
+  agency: string | null;
+  tickets: number;
+  revenue: number;
+  expenses: number;
+  margin: number;
+  margin_rate: number | null;
+}
+
+export interface EventProfitabilityResponse {
+  period: { from: string; to: string };
+  rows: EventProfitabilityRow[];
+  totals: { revenue: number; expenses: number; margin: number };
+}
+
 export const reportsApi = {
   async commercialOptions(q = '', agencyId?: string): Promise<CommercialReportOption[]> {
     const { data } = await client.get<CommercialReportOption[]>('/commercials/report/options', {
@@ -281,6 +298,12 @@ export const reportsApi = {
 
   async comparison(params: ReportDateParams & { dimension?: ComparisonDimension; agency_id?: string; country_id?: string } = {}): Promise<ComparisonReportResponse> {
     const { data } = await client.get<ComparisonReportResponse>('/reports/comparison', { params });
+    return data;
+  },
+
+  /** T3.14 — rentabilité des événements (séminaires vendus). */
+  async events(params: ReportDateParams & { agency_id?: string } = {}): Promise<EventProfitabilityResponse> {
+    const { data } = await client.get<EventProfitabilityResponse>('/reports/events', { params });
     return data;
   },
 };

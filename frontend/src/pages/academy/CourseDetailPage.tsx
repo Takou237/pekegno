@@ -292,6 +292,23 @@ export default function CourseDetailPage() {
     [agencyId],
   );
 
+  const moduleTrainerOptions = useCallback(
+    async (query: string) => {
+      // Pas de restriction par agence : un module peut etre confie a un
+      // formateur d'une autre agence que celle de la formation.
+      const response = await academyApi.trainers({
+        search: query.trim() || undefined,
+        per_page: 20,
+      });
+      return response.data.map((trainer) => ({
+        id: trainer.id,
+        label: [trainer.first_name, trainer.last_name].filter(Boolean).join(' ') || trainer.email || '—',
+        subtitle: trainer.email ?? undefined,
+      }));
+    },
+    [],
+  );
+
   const sellerOptions = useCallback(
     async (query: string) => {
       if (!agencyId) return [];
@@ -1145,7 +1162,7 @@ export default function CourseDetailPage() {
             placeholder={t('academy.searchTrainerPlaceholder')}
             value={moduleForm.trainer_id}
             onChange={(trainerId) => setModuleForm((prev) => ({ ...prev, trainer_id: trainerId }))}
-            fetchOptions={trainerOptions}
+            fetchOptions={moduleTrainerOptions}
             error={moduleFieldErrors.trainer_id}
           />
           <div className="mt-2 flex justify-end gap-3">

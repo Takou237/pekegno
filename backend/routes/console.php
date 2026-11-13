@@ -14,5 +14,7 @@ Schedule::command('subscriptions:check-expiry')->dailyAt('06:00');
 Schedule::command('agency:check-renewals')->dailyAt('06:15');
 // B20 : statuts de contrats recalculés même sans passage sur les écrans.
 Schedule::command('contracts:refresh-status')->dailyAt('06:30');
+// Lot 7 : créances échues (factures validées non soldées après échéance).
+Schedule::command('invoices:check-overdue')->dailyAt('06:45');
 // Primes mensuelles des règles par rôle (mois écoulé), le 1er de chaque mois.
 Schedule::command('commissions:compute-period')->monthlyOn(1, '05:00');

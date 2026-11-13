@@ -35,6 +35,7 @@ class PaymentProof extends Model
         'status',
         'reviewed_by',
         'reviewed_at',
+        'rejection_code',
         'notes',
     ];
 
