@@ -6,6 +6,16 @@ export interface AdministrationBody {
   received_from_agencies: number;
 }
 
+export interface AgencyAdResult {
+  agency_id: string;
+  agency: string;
+  result_before_ads: number;
+  ad_costs: number;
+  local_ads: number;
+  national_ads: number;
+  result_after_ads: number;
+}
+
 export interface CountryBodiesTotal {
   agencies_net: number;
   administration_expenses: number;
@@ -24,6 +34,8 @@ export interface DashboardStats {
   /** Cahier §2 — Administration du pays, ses dépenses et ses versements reçus. */
   administration?: AdministrationBody;
   bodies_total?: CountryBodiesTotal;
+  /** Résultat de chaque agence : avant pub / après pub (campagnes Pekegno). */
+  agency_results?: AgencyAdResult[];
   period: { from: string; to: string };
   revenue: number;
   payments_total: number;

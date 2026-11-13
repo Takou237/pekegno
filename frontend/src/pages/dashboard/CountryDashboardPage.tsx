@@ -178,6 +178,38 @@ export default function CountryDashboardPage() {
         </div>
       )}
 
+      {/* Cahier §2 — résultat de chaque agence sur deux lignes : avant pub / après pub. */}
+      {stats?.agency_results && stats.agency_results.length > 0 && (
+        <section className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('dashboard.agencyResultsTitle')}</h2>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t('dashboard.agencyResultsHint')}</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="py-2 pr-3 font-medium">{t('dashboard.agency')}</th>
+                  <th className="py-2 pr-3 text-right font-medium">{t('dashboard.resultBeforeAds')}</th>
+                  <th className="py-2 pr-3 text-right font-medium">{t('dashboard.adCosts')}</th>
+                  <th className="py-2 text-right font-medium">{t('dashboard.resultAfterAds')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {stats.agency_results.map((r) => (
+                  <tr key={r.agency_id}>
+                    <td className="py-2 pr-3 font-medium text-gray-800 dark:text-gray-100">{r.agency}</td>
+                    <td className="py-2 pr-3 text-right text-gray-700 dark:text-gray-200">{formatCurrency(r.result_before_ads, currency)}</td>
+                    <td className="py-2 pr-3 text-right text-red-500" title={`${t('dashboard.localAds')} ${formatCurrency(r.local_ads, currency)} · ${t('dashboard.nationalAds')} ${formatCurrency(r.national_ads, currency)}`}>
+                      {r.ad_costs > 0 ? `− ${formatCurrency(r.ad_costs, currency)}` : '—'}
+                    </td>
+                    <td className="py-2 text-right font-semibold text-gray-900 dark:text-white">{formatCurrency(r.result_after_ads, currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link
           to={`/countries/${countryId}/agencies`}

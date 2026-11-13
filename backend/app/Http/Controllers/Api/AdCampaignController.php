@@ -162,7 +162,7 @@ class AdCampaignController extends Controller
      * rattachée des deux côtés (campagne.expense_id, dépense.ad_campaign_id),
      * puis suit le circuit normal (soumission, validation, paiement). Une
      * campagne locale pèse sur son agence, une campagne nationale sur
-     * l'Administration de son pays.
+     * l'Administration de son pays (locale comme nationale).
      */
     private function createExpense(AdCampaign $campaign, User $user): void
     {
@@ -259,9 +259,11 @@ class AdCampaignController extends Controller
     /** @return array{agency_id: string|null, country_id: string|null} */
     private function expenseTargets(AdCampaign $campaign): array
     {
-        return $campaign->is_national
-            ? ['agency_id' => null, 'country_id' => $campaign->country_id]
-            : ['agency_id' => $campaign->agency_id, 'country_id' => null];
+        // Cahier §2 : toute campagne est saisie une seule fois comme dépense de
+        // l'Administration du pays. L'agence de la ville visée (campagne locale)
+        // ou les agences au prorata du CA (nationale) la portent dans leur
+        // résultat « après pub » — jamais une seconde fois dans leurs dépenses.
+        return ['agency_id' => null, 'country_id' => $campaign->country_id];
     }
 
     /** Catégorie « Publicité Pekegno » (migration 2026_11_13_000008). */

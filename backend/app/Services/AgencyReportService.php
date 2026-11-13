@@ -133,7 +133,8 @@ class AgencyReportService
         if ($agencyId && $this->adCampaigns) {
             $agency = Agency::find($agencyId);
             if ($agency) {
-                $adCosts = $this->adCampaigns->getAgencyAdCosts($agency, $from, $to);
+                // Rapport du département Agency : les campagnes de la branche Agency.
+                $adCosts = $this->adCampaigns->getAgencyAdCosts($agency, $from, $to, \App\Models\Department::TYPE_AGENCY);
             }
         }
 

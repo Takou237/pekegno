@@ -63,6 +63,18 @@ class AccountingTransaction extends Model
     }
 
     /** Charges réelles : dépenses hors transferts entre caisses (B13, T2.7). */
+    protected static function booted(): void
+    {
+        // Une écriture dans une catégorie « budget pub client » (pass-through)
+        // n'est jamais une dépense d'exploitation (CdC §8.2), même saisie à la main.
+        static::creating(function (self $tx) {
+            if (! $tx->is_pass_through && $tx->category_id
+                && AccountingCategory::whereKey($tx->category_id)->where('is_pass_through', true)->exists()) {
+                $tx->is_pass_through = true;
+            }
+        });
+    }
+
     public function scopeRealExpenses($query)
     {
         return $query->where('type', 'expense')->where('is_transfer', false);

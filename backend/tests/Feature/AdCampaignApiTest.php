@@ -159,8 +159,10 @@ class AdCampaignApiTest extends TestCase
 
         $expense = Expense::findOrFail($campaign->expense_id);
         $this->assertSame($campaign->id, $expense->ad_campaign_id);
-        $this->assertSame($agency->id, $expense->agency_id);
-        $this->assertNull($expense->country_id);
+        // Cahier §2 : même locale, la campagne est une dépense de l'Administration
+        // du pays ; l'agence de la ville la porte dans son résultat « après pub ».
+        $this->assertNull($expense->agency_id);
+        $this->assertSame($country->id, $expense->country_id);
         $this->assertEquals(150000, (float) $expense->amount);
         $this->assertSame(Expense::STATUS_DRAFT, $expense->status);
         $this->assertSame('2026-11-01', $expense->expense_date->toDateString());

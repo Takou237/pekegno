@@ -903,6 +903,14 @@ export default {
   },
 
   dashboard: {
+    agencyResultsTitle: 'Résultat par agence',
+    agencyResultsHint: "Avant pub : encaissé − dépenses de l'agence. Après pub : moins sa part des campagnes Pekegno (100 % d'une campagne de sa ville, prorata du CA de la branche pour une campagne nationale).",
+    resultBeforeAds: 'Avant pub',
+    adCosts: 'Pub Pekegno',
+    resultAfterAds: 'Après pub',
+    localAds: 'Locale',
+    nationalAds: 'Nationale',
+    agency: 'Agence',
     checkBackend: 'Impossible de charger les données. Réessayez dans un instant.',
     displayCurrency: "Devise d'affichage",
     // Cartes financières (cahier, section 1) — calcul unique côté serveur.

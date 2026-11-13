@@ -618,6 +618,27 @@ class StatsController extends Controller
         // l'Administration du pays (qui reçoit l'argent des agences et paie les
         // dépenses du groupe), puis leur total.
         $administration = $this->administrationBody($country, $from, $to);
+
+        // Cahier §2 — résultat de chaque agence sur deux lignes : « avant pub »
+        // (encaissé − dépenses de l'agence) et « après pub » (moins sa part des
+        // campagnes Pekegno : 100 % d'une campagne locale, prorata du CA de la
+        // branche pour une nationale).
+        $ads = app(\App\Services\AdCampaignService::class);
+        $metrics = app(FinancialMetricsService::class);
+        $agencyResults = Agency::whereIn('id', $countryAgencyIds)->orderBy('name')->get()->map(function (Agency $agency) use ($ads, $metrics, $from, $to) {
+            $before = (float) $metrics->summary($from, $to, [$agency->id])['net_cash'];
+            $costs = $ads->getAgencyAdCosts($agency, $from, $to);
+
+            return [
+                'agency_id' => $agency->id,
+                'agency' => $agency->name,
+                'result_before_ads' => round($before, 2),
+                'ad_costs' => $costs['total_ads'],
+                'local_ads' => $costs['local_ads'],
+                'national_ads' => $costs['national_ads'],
+                'result_after_ads' => round($before - $costs['total_ads'], 2),
+            ];
+        })->values();
         $agencyNet = (float) $kpi['net_cash'];
 
         return response()->json([
@@ -633,6 +654,7 @@ class StatsController extends Controller
             ],
             ...$this->kpiPayload($kpi),
             'administration' => $administration,
+            'agency_results' => $agencyResults,
             'bodies_total' => [
                 // Agences : encaissé − dépenses des agences ; Administration : ses dépenses.
                 'agencies_net' => round($agencyNet, 2),

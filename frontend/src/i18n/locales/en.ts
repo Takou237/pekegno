@@ -897,6 +897,14 @@ export default {
   },
 
   dashboard: {
+    agencyResultsTitle: 'Result per agency',
+    agencyResultsHint: 'Before ads: collected − agency expenses. After ads: minus its share of Pekegno campaigns (100% of a campaign in its city, pro rata of branch revenue for a national campaign).',
+    resultBeforeAds: 'Before ads',
+    adCosts: 'Pekegno ads',
+    resultAfterAds: 'After ads',
+    localAds: 'Local',
+    nationalAds: 'National',
+    agency: 'Agency',
     checkBackend: 'Unable to load data. Please try again shortly.',
     displayCurrency: 'Display currency',
     kpi: {
