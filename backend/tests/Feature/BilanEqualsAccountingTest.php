@@ -19,6 +19,7 @@ use Tests\TestCase;
  */
 class BilanEqualsAccountingTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     private Agency $agency;
@@ -49,8 +50,9 @@ class BilanEqualsAccountingTest extends TestCase
         // Encaissement : 25 000 en espèces (crée le paiement + l'écriture income).
         Sanctum::actingAs($this->admin);
         $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $this->agency->id,
-            'items' => [['label' => 'Formation', 'unit_price' => 25000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 25000, 'quantity' => 1]],
             'advance' => 25000,
             'payment_type' => 'cash',
         ])->assertStatus(201);
@@ -87,8 +89,9 @@ class BilanEqualsAccountingTest extends TestCase
 
         Sanctum::actingAs($this->admin);
         $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $this->agency->id,
-            'items' => [['label' => 'Formation', 'unit_price' => 40000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 40000, 'quantity' => 1]],
             'advance' => 40000,
             'payment_type' => 'cash',
         ])->assertStatus(201);

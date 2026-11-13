@@ -19,6 +19,7 @@ use Tests\TestCase;
 
 class Phase5CommercialValidationTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -68,8 +69,9 @@ class Phase5CommercialValidationTest extends TestCase
         Sanctum::actingAs($commercial);
 
         $invoice = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -93,8 +95,9 @@ class Phase5CommercialValidationTest extends TestCase
         Sanctum::actingAs($commercial);
 
         $invoice = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -123,8 +126,9 @@ class Phase5CommercialValidationTest extends TestCase
         $this->actingAsRole('super-admin');
 
         $invoice = $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             // Règle métier : l'avance est obligatoire pour le super-admin. Sur
             // une vente au comptoir, elle correspond au montant encaissé
@@ -155,10 +159,11 @@ class Phase5CommercialValidationTest extends TestCase
         // NB : commercial_id n'est PAS envoyé, comme dans l'écran réel (vente rapide) :
         // le backend doit rattacher automatiquement la facture au profil du commercial.
         $invoice = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $agency->id,
             'items' => [
-                ['label' => 'Massage', 'unit_price' => 10000, 'quantity' => 2],
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 3],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Massage', 'unit_price' => 10000, 'quantity' => 2],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 3],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -210,8 +215,9 @@ class Phase5CommercialValidationTest extends TestCase
 
         // Sans preuve de paiement, la création de la facture est refusée.
         $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
         ])->assertStatus(422)->assertJsonValidationErrors('proof_file');
@@ -223,8 +229,9 @@ class Phase5CommercialValidationTest extends TestCase
 
         // Le caissier vend au guichet sans preuve : création directe, validée.
         $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'items' => [
-                ['label' => 'Vente guichet', 'unit_price' => 8000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Vente guichet', 'unit_price' => 8000, 'quantity' => 1],
             ],
             'advance' => 8000,
         ])->assertStatus(201);
@@ -236,10 +243,11 @@ class Phase5CommercialValidationTest extends TestCase
         Sanctum::actingAs($commercial);
 
         $invoice = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'payment_type' => 'om',
             'payer_phone' => '+237690000000',
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -267,10 +275,11 @@ class Phase5CommercialValidationTest extends TestCase
         Sanctum::actingAs($commercial);
 
         $invoice = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'payment_type' => 'om',
             'payer_phone' => '+237690000000',
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -306,10 +315,11 @@ class Phase5CommercialValidationTest extends TestCase
         Sanctum::actingAs($commercial);
 
         $invoice = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'payment_type' => 'momo',
             'payer_phone' => '+237690000000',
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -348,8 +358,9 @@ class Phase5CommercialValidationTest extends TestCase
         Sanctum::actingAs($commercial);
 
         $invoice = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -475,11 +486,12 @@ class Phase5CommercialValidationTest extends TestCase
 
         Sanctum::actingAs($commercial);
         $invoiceId = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $commercialAgency->id,
             'payment_type' => 'momo',
             'payer_phone' => '+237690000000',
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -523,11 +535,12 @@ class Phase5CommercialValidationTest extends TestCase
 
         Sanctum::actingAs($commercial);
         $invoiceId = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $commercialAgency->id,
             'payment_type' => 'momo',
             'payer_phone' => '+237690000000',
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -588,19 +601,21 @@ class Phase5CommercialValidationTest extends TestCase
         Sanctum::actingAs($commercial);
 
         $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'payment_type' => 'om',
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertStatus(422)->assertJsonValidationErrors('payer_phone');
 
         $invoice = $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'payment_type' => 'momo',
             'payer_phone' => '+237691234567',
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
@@ -621,9 +636,10 @@ class Phase5CommercialValidationTest extends TestCase
         $this->actingAsRole('caissier');
 
         $invoice = $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'payment_type' => 'cash',
             'items' => [
-                ['label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 1],
             ],
             'advance' => 5000,
         ])->assertCreated()->json();
@@ -637,7 +653,7 @@ class Phase5CommercialValidationTest extends TestCase
 
         $payload = [
             'items' => [
-                ['label' => 'Vente', 'unit_price' => 5000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Vente', 'unit_price' => 5000, 'quantity' => 1],
             ],
         ];
 

@@ -28,6 +28,7 @@ use Tests\TestCase;
 
 class Phase6AcademyTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
     use \Tests\Concerns\InjectsSessionTrainer;
 
@@ -1374,7 +1375,7 @@ class Phase6AcademyTest extends TestCase
             'client_id' => $client->id,
             'seller_user_id' => $trainer->user_id,
             'items' => [
-                ['label' => 'Conseil en gestion', 'unit_price' => 10000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Conseil en gestion', 'unit_price' => 10000, 'quantity' => 1],
             ],
             'advance' => 1,
         ])->assertStatus(201)->json();

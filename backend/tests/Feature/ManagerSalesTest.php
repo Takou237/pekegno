@@ -24,6 +24,7 @@ use Tests\TestCase;
  */
 class ManagerSalesTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     private Agency $agency;
@@ -48,11 +49,14 @@ class ManagerSalesTest extends TestCase
     private function sell(Agency $agency, array $extra = []): \Illuminate\Testing\TestResponse
     {
         return $this->postJson('/api/invoices', $extra + [
+            // T8.1 : vendeur obligatoire ; preuve obligatoire pour un vendeur soumis à validation.
+            'commercial_id' => auth()->id(),
+            'proof_file' => $this->fakeProof(),
             'agency_id' => $agency->id,
             'client_id' => $this->user('client')->id,
             'payment_type' => 'cash',
             'advance' => 5000,
-            'items' => [['label' => 'Vente', 'unit_price' => 5000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Vente', 'unit_price' => 5000, 'quantity' => 1]],
         ]);
     }
 

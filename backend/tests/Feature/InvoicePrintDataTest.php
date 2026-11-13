@@ -20,6 +20,7 @@ use Tests\TestCase;
  */
 class InvoicePrintDataTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     public function test_invoice_detail_exposes_country_invoice_settings(): void
@@ -44,8 +45,9 @@ class InvoicePrintDataTest extends TestCase
         // L'avance est obligatoire pour tous les rôles ; l'identité admin est restaurée ensuite.
         Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'caissier')->value('id')]));
         $invoice = $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $agency->id,
-            'items' => [['label' => 'Audit comptable', 'unit_price' => 180000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Audit comptable', 'unit_price' => 180000, 'quantity' => 1]],
             'advance' => 180000,
         ])->assertCreated()->json();
         Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]));

@@ -20,6 +20,7 @@ use Tests\TestCase;
  */
 class PaymentReceiptNumberTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     public function test_each_payment_gets_a_sequential_receipt_number(): void
@@ -32,8 +33,9 @@ class PaymentReceiptNumberTest extends TestCase
         // Une avance symbolique ouvre la facture ; l'identité est restaurée ensuite.
         Sanctum::actingAs(User::factory()->create(['role_id' => Role::where('name', 'caissier')->value('id')]));
         $invoice = $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $agency->id,
-            'items' => [['label' => 'Formation', 'unit_price' => 100000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 100000, 'quantity' => 1]],
             'advance' => 1,
         ])->assertCreated()->json();
         Sanctum::actingAs($cashier);

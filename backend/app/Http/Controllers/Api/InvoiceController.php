@@ -433,8 +433,10 @@ class InvoiceController extends Controller
             // commercial désigné, le vendeur indiqué reçoit sa fiche vendeur.
             if (! $commercialId && ! empty($data['seller_user_id'])) {
                 $seller = User::find($data['seller_user_id']);
-                if ($seller) {
-                    $commercialId = $this->commercialProfiles->ensureFor($seller, $data['agency_id'] ?? null)?->id;
+                // N'importe quel compte du staff (formateur, caissier…) : fiche
+                // « employé » créée à la volée (ensureFor ne couvre que les rôles commerciaux).
+                if ($seller && ! $seller->is_client) {
+                    $commercialId = $this->commercialProfiles->ensureForAny($seller, $data['agency_id'] ?? null)->id;
                 }
             }
 

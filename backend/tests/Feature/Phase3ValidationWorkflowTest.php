@@ -25,6 +25,7 @@ use Tests\TestCase;
  */
 class Phase3ValidationWorkflowTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -232,8 +233,10 @@ class Phase3ValidationWorkflowTest extends TestCase
         $this->staffWithRole('responsable-agence');
 
         $invoice = $this->postJson('/api/invoices', [
-            'items' => [['label' => 'Vente', 'unit_price' => 2000, 'quantity' => 1]],
+            'commercial_id' => auth()->id(),
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Vente', 'unit_price' => 2000, 'quantity' => 1]],
             'advance' => 1,
+            'proof_file' => $this->fakeProof(),
         ])->assertCreated()->json();
 
         $this->assertSame(Invoice::VALIDATION_PENDING, $invoice['validation_status']);

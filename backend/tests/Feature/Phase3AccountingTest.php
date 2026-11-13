@@ -15,6 +15,7 @@ use Tests\TestCase;
 
 class Phase3AccountingTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -43,9 +44,10 @@ class Phase3AccountingTest extends TestCase
             'role_id' => Role::where('name', 'caissier')->value('id'),
         ]));
         $invoice = $this->postJson('/api/invoices', array_merge([
+            'commercial_id' => auth()->id(),
             'advance' => 1,
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
         ], $attributes))->assertStatus(201)->json();
 

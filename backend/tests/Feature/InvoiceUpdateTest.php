@@ -17,6 +17,7 @@ use Tests\TestCase;
 
 class InvoiceUpdateTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -144,6 +145,7 @@ class InvoiceUpdateTest extends TestCase
             'comment' => 'Vente modifiée',
             'items' => [[
                 'id' => $item->id,
+                'category_id' => $this->lineCategoryId(),
                 'label' => 'Article modifié',
                 'unit_price' => 3000,
                 'quantity' => 2,

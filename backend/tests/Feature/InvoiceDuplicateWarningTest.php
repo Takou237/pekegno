@@ -18,6 +18,7 @@ use Tests\TestCase;
  */
 class InvoiceDuplicateWarningTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     private User $admin;
@@ -51,11 +52,12 @@ class InvoiceDuplicateWarningTest extends TestCase
     private function createInvoice(float $amount, array $extra = []): array
     {
         return $this->postJson('/api/invoices', array_merge([
+            'commercial_id' => auth()->id(),
             'agency_id' => $this->agency->id,
             'client_id' => $this->client->id,
             'advance' => 1000,
             'items' => [
-                ['label' => 'Prestation', 'unit_price' => $amount, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Prestation', 'unit_price' => $amount, 'quantity' => 1],
             ],
         ], $extra))->assertCreated()->json();
     }

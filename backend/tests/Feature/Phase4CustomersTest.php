@@ -23,6 +23,7 @@ use Tests\TestCase;
 
 class Phase4CustomersTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -359,9 +360,10 @@ class Phase4CustomersTest extends TestCase
         $client = $this->createClient(['registered_agency_id' => $douala->id]);
 
         $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $douala->id,
             'client_id' => $client['id'],
-            'items' => [['label' => 'Formation', 'unit_price' => 100000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 100000, 'quantity' => 1]],
             'advance' => 100000,
             'payment_type' => 'cash',
         ])->assertStatus(201);

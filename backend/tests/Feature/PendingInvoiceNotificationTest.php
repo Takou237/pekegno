@@ -24,6 +24,7 @@ use Tests\TestCase;
  */
 class PendingInvoiceNotificationTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -57,8 +58,9 @@ class PendingInvoiceNotificationTest extends TestCase
     {
         Sanctum::actingAs($user);
         $this->post('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $agency->id,
-            'items' => [['label' => 'Service', 'unit_price' => 15000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Service', 'unit_price' => 15000, 'quantity' => 1]],
             'advance' => 1000,
             'proof_file' => UploadedFile::fake()->image('preuve.png'),
         ])->assertCreated();
@@ -107,8 +109,9 @@ class PendingInvoiceNotificationTest extends TestCase
 
         Sanctum::actingAs($cashier);
         $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $agency->id,
-            'items' => [['label' => 'Service', 'unit_price' => 15000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Service', 'unit_price' => 15000, 'quantity' => 1]],
             'advance' => 15000,
         ])->assertCreated();
 

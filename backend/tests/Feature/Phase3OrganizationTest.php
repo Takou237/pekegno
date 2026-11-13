@@ -21,6 +21,7 @@ use Tests\TestCase;
 
 class Phase3OrganizationTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -88,9 +89,10 @@ class Phase3OrganizationTest extends TestCase
     private function createInvoice(array $attributes = []): void
     {
         $this->postJson('/api/invoices', array_merge([
+            'commercial_id' => auth()->id(),
             'advance' => 1,
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 100000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 100000, 'quantity' => 1],
             ],
         ], $attributes))->assertStatus(201);
     }
@@ -247,7 +249,7 @@ class Phase3OrganizationTest extends TestCase
         $this->createInvoice(['agency_id' => $douala->id, 'advance' => 100000, 'payment_type' => 'cash']);
         $this->createInvoice([
             'agency_id' => $abidjan->id,
-            'items' => [['label' => 'Formation', 'unit_price' => 50000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 50000, 'quantity' => 1]],
             'advance' => 50000,
             'payment_type' => 'cash',
         ]);

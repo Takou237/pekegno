@@ -12,7 +12,7 @@ Les tests utilisent SQLite en mémoire (`phpunit.xml`) : ils ne touchent pas la 
 
 ### Échecs connus (pas graves)
 
-Environ 37 tests échouent en local. Ce sont des échecs connus, sans rapport avec une régression :
+Environ 32 tests échouent en local. Ce sont des échecs connus, sans rapport avec une régression :
 ne pas chercher à les corriger dans le cadre d'une autre tâche, seulement vérifier que leur liste
 ne change pas avant/après une modification.
 
@@ -21,9 +21,13 @@ ne change pas avant/après une modification.
   L'image de production (`backend/Dockerfile`) l'installe. Fichiers concernés : `PayRemainingTest`,
   `Phase5CommercialValidationTest`, `EnrollmentValidationWorkflowTest`, `PendingInvoiceNotificationTest`,
   `PrestationSubmitWithProofTest`, `CashierAgencyActionsTest`, `Phase4ClientPortalTest`, `Phase7ReportingTest`.
-- **5 tests — preuve de paiement obligatoire pour `responsable-agence`** : `ManagerSalesTest` (2),
-  `Phase3ValidationWorkflowTest` (1), `Phase5BilanTest` (2) vendent avec ce rôle sans preuve, alors que
-  la règle métier l'exige désormais (`InvoiceController`, `$needsPaymentProof`). Tests à mettre à jour.
 - **1 test — `ClientPackageSubscriptionTest::test_subscribe_validates_payload_and_minimum_duration`** :
   attend un 422 pour une avance supérieure au total ; le code plafonne l'avance au total
   (`PackageService`). Comportement à trancher.
+
+### Règles de vente (T8.1) dans les tests
+
+Toute ligne de facture doit avoir une catégorie, et toute vente un vendeur. Les tests qui vendent des
+lignes libres utilisent le trait `Tests\Concerns\LineCategory` (`lineCategoryId()`, `fakeProof()` :
+preuve PNG sans GD) et passent `'commercial_id' => auth()->id()`.
+

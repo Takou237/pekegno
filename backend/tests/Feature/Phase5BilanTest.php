@@ -20,6 +20,7 @@ use Tests\TestCase;
 
 class Phase5BilanTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -53,10 +54,13 @@ class Phase5BilanTest extends TestCase
             'role_id' => Role::where('name', $role)->value('id'),
         ]));
         $invoice = $this->postJson('/api/invoices', array_merge([
+            'commercial_id' => auth()->id(),
+            // Preuve obligatoire pour un vendeur soumis à validation (responsable d'agence).
+            ...($role === 'responsable-agence' ? ['proof_file' => $this->fakeProof()] : []),
             'advance' => 1,
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
-                ['label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 2],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 2],
             ],
         ], $attributes))->assertStatus(201)->json();
 
@@ -94,13 +98,13 @@ class Phase5BilanTest extends TestCase
         $agency = $this->createAgency();
         $this->createInvoice([
             'agency_id' => $agency->id,
-            'items' => [['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1]],
             'advance' => 15000,
             'payment_type' => 'cash',
         ]);
         $this->createInvoice([
             'agency_id' => $agency->id,
-            'items' => [['label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 2]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Coaching', 'unit_price' => 5000, 'quantity' => 2]],
             'advance' => 10000,
             'payment_type' => 'momo',
             'payer_phone' => '+237690000000',
@@ -145,7 +149,7 @@ class Phase5BilanTest extends TestCase
         $agencyB = $this->createAgency();
         $this->createInvoice([
             'agency_id' => $agencyB->id,
-            'items' => [['label' => 'Coaching', 'unit_price' => 7000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Coaching', 'unit_price' => 7000, 'quantity' => 1]],
             'advance' => 7000,
             'payment_type' => 'om',
             'payer_phone' => '+237690000000',
@@ -303,7 +307,7 @@ class Phase5BilanTest extends TestCase
         $agency = $this->createAgency();
         $this->createInvoice([
             'agency_id' => $agency->id,
-            'items' => [['label' => 'Coaching', 'unit_price' => 10000, 'quantity' => 1]],
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Coaching', 'unit_price' => 10000, 'quantity' => 1]],
             'advance' => 10000,
             'payment_type' => 'om',
             'payer_phone' => '690000000',
@@ -326,9 +330,10 @@ class Phase5BilanTest extends TestCase
         $this->actingAsAdmin();
 
         $agency = $this->createAgency();
-        $product = Product::factory()->create(['name' => 'Sacoche']);
+        $product = Product::factory()->create(['name' => 'Sacoche', 'category_id' => $this->lineCategoryId()]);
 
         $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'agency_id' => $agency->id,
             'items' => [
                 ['label' => 'Sacoche', 'product_id' => $product->id, 'unit_price' => 5000, 'quantity' => 2],

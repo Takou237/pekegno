@@ -14,6 +14,7 @@ use Tests\TestCase;
 
 class Phase3Test extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -44,7 +45,8 @@ class Phase3Test extends TestCase
     private function createInvoiceAsCashier(array $attributes = []): array
     {
         Sanctum::actingAs($this->userWithRole('caissier'));
-        $invoice = $this->postJson('/api/invoices', array_merge(['advance' => 1], $attributes))
+        $invoice = $this->postJson('/api/invoices', array_merge([
+            'commercial_id' => auth()->id(),'advance' => 1], $attributes))
             ->assertStatus(201)
             ->json();
 
@@ -139,7 +141,7 @@ class Phase3Test extends TestCase
             'commercial_id' => $commercial['id'],
             'payment_type' => 'cash',
             'items' => [
-                ['label' => 'Nettoyage', 'unit_price' => 10000, 'quantity' => 2],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Nettoyage', 'unit_price' => 10000, 'quantity' => 2],
             ],
             'advance' => 5000,
         ]);
@@ -170,7 +172,7 @@ class Phase3Test extends TestCase
 
         $invoice = $this->createInvoiceAsCashier([
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 8000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 8000, 'quantity' => 1],
             ],
         ]);
 
@@ -191,7 +193,7 @@ class Phase3Test extends TestCase
 
         $invoice = $this->createInvoiceAsCashier([
             'items' => [
-                ['label' => 'Conseil', 'unit_price' => 5000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Conseil', 'unit_price' => 5000, 'quantity' => 1],
             ],
         ]);
 

@@ -13,6 +13,7 @@ use Tests\TestCase;
 
 class Phase8SeminarTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -121,6 +122,7 @@ class Phase8SeminarTest extends TestCase
             'role_id' => Role::where('name', 'caissier')->value('id'),
         ]));
         $invoice = $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'items' => [
                 [
                     'service_id' => $service['id'],
@@ -151,6 +153,7 @@ class Phase8SeminarTest extends TestCase
         ]));
         // 2 Classique + 1 VIP du même séminaire, sur deux lignes.
         $invoice = $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'items' => [
                 ['service_id' => $service['id'], 'pass_tier' => 'classique', 'quantity' => 2],
                 ['service_id' => $service['id'], 'pass_tier' => 'vip', 'quantity' => 1],

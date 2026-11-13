@@ -20,6 +20,7 @@ use Tests\TestCase;
 
 class EnrollmentValidationWorkflowTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -295,9 +296,10 @@ class EnrollmentValidationWorkflowTest extends TestCase
         $client = $this->createClient();
 
         $invoice = $this->postJson('/api/invoices', [
+            'commercial_id' => auth()->id(),
             'client_id' => $client->id,
             'items' => [
-                ['label' => 'Vente guichet', 'unit_price' => 12000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Vente guichet', 'unit_price' => 12000, 'quantity' => 1],
             ],
             'advance' => 12000,
             'payment_type' => 'cash',

@@ -16,6 +16,7 @@ use Tests\TestCase;
 
 class Phase2Test extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -55,9 +56,10 @@ class Phase2Test extends TestCase
             'role_id' => Role::where('name', 'caissier')->value('id'),
         ]));
         $invoice = $this->postJson('/api/invoices', array_merge([
+            'commercial_id' => auth()->id(),
             'advance' => 1,
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
         ], $attributes))->assertStatus(201)->json();
 
@@ -122,7 +124,7 @@ class Phase2Test extends TestCase
             'advance' => 5000,
             'commercial_id' => $commercial['id'],
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 15000, 'quantity' => 1],
             ],
         ]);
 
@@ -202,7 +204,7 @@ class Phase2Test extends TestCase
             'commercial_id' => $commercial['id'],
             'items' => [
                 ['service_id' => $service->id, 'unit_price' => 10000, 'quantity' => 1],
-                ['label' => 'Conseil', 'unit_price' => 5000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Conseil', 'unit_price' => 5000, 'quantity' => 1],
             ],
         ]);
 

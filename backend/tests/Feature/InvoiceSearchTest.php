@@ -14,6 +14,7 @@ use Tests\TestCase;
 
 class InvoiceSearchTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -43,9 +44,10 @@ class InvoiceSearchTest extends TestCase
             'role_id' => Role::where('name', 'caissier')->value('id'),
         ]));
         $invoice = $this->postJson('/api/invoices', array_merge([
+            'commercial_id' => auth()->id(),
             'advance' => 1,
             'items' => [
-                ['label' => 'Formation', 'unit_price' => 8000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 8000, 'quantity' => 1],
             ],
         ], $attributes))->assertStatus(201)->json();
 
@@ -194,7 +196,7 @@ class InvoiceSearchTest extends TestCase
             'commercial_id' => $commercial->id,
             'agency_id' => $agency->id,
             'items' => [
-                ['label' => 'Vente commercial 1', 'unit_price' => 5000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Vente commercial 1', 'unit_price' => 5000, 'quantity' => 1],
             ],
         ]);
 
@@ -202,7 +204,7 @@ class InvoiceSearchTest extends TestCase
             'commercial_id' => $other->id,
             'agency_id' => $agency->id,
             'items' => [
-                ['label' => 'Vente commercial 2', 'unit_price' => 6000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Vente commercial 2', 'unit_price' => 6000, 'quantity' => 1],
             ],
         ]);
 
@@ -229,14 +231,14 @@ class InvoiceSearchTest extends TestCase
         $invoiceA = $this->createInvoice([
             'agency_id' => $agencyA->id,
             'items' => [
-                ['label' => 'Vente agence A', 'unit_price' => 5000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Vente agence A', 'unit_price' => 5000, 'quantity' => 1],
             ],
         ]);
 
         $this->createInvoice([
             'agency_id' => $agencyB->id,
             'items' => [
-                ['label' => 'Vente agence B', 'unit_price' => 6000, 'quantity' => 1],
+                ['category_id' => $this->lineCategoryId(), 'label' => 'Vente agence B', 'unit_price' => 6000, 'quantity' => 1],
             ],
         ]);
 

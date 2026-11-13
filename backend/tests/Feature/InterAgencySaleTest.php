@@ -23,6 +23,7 @@ use Tests\TestCase;
  */
 class InterAgencySaleTest extends TestCase
 {
+    use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
 
     private Agency $douala;
@@ -49,10 +50,13 @@ class InterAgencySaleTest extends TestCase
             'agency_id' => $this->douala->id,
             'is_primary' => true,
         ]);
+        // T8.1 : toute vente a un vendeur ; le chef vend avec sa fiche (agence Douala).
+        \App\Models\Commercial::factory()->create(['user_id' => $this->chief->id, 'agency_id' => $this->douala->id]);
 
         $this->yaoundeProduct = Product::factory()->create([
             'agency_id' => $this->yaounde->id,
             'name' => 'Ordinateur Yaounde',
+            'category_id' => $this->lineCategoryId(),
             'selling_price' => 7500,
             'is_active' => true,
         ]);
