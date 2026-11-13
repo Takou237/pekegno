@@ -115,4 +115,35 @@ class CustomCashBoxPaymentMethodTest extends TestCase
         $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
         app(PaymentService::class)->applyPayment($invoice, 10000, 'airtel_money', false, $admin->id);
     }
+
+    public function test_administration_roles_see_every_cash_box_and_manage_their_agency(): void
+    {
+        $douala = Agency::factory()->create();
+        $yaounde = Agency::factory()->create();
+        app(TreasuryAccountProvisioner::class)->ensureForAgency($douala);
+        app(TreasuryAccountProvisioner::class)->ensureForAgency($yaounde);
+
+        $assign = function (string $role, Agency $agency) {
+            $u = $this->user($role);
+            \Illuminate\Support\Facades\DB::table('user_assignments')->insert(['user_id' => $u->id, 'agency_id' => $agency->id, 'is_primary' => $role === 'responsable-agence']);
+
+            return $u;
+        };
+        $chief = $assign('responsable-agence', $douala);
+        $cashier = $assign('caissier', $douala);
+
+        // Chef d'agence (administration) : toutes les caisses de son agence (C, O, M, B).
+        Sanctum::actingAs($chief);
+        $codes = collect($this->getJson("/api/treasury/accounts?agency_id={$douala->id}")->assertOk()->json())->pluck('code')->sort()->values()->all();
+        $this->assertSame(['B', 'C', 'M', 'O'], $codes);
+
+        // Caissière : seulement la caisse espèces (blocage serveur).
+        Sanctum::actingAs($cashier);
+        $this->assertSame(['C'], collect($this->getJson("/api/treasury/accounts?agency_id={$douala->id}")->assertOk()->json())->pluck('code')->all());
+
+        // Le chef crée une caisse dans son agence, pas dans une autre.
+        Sanctum::actingAs($chief);
+        $this->postJson('/api/treasury/accounts', ['agency_id' => $douala->id, 'name' => 'Airtel Money', 'type' => 'mobile_money'])->assertCreated();
+        $this->postJson('/api/treasury/accounts', ['agency_id' => $yaounde->id, 'name' => 'Airtel Money', 'type' => 'mobile_money'])->assertForbidden();
+    }
 }

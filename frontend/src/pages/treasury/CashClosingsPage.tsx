@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, Lock, RefreshCw } from 'lucide-react';
+import { ArrowLeftRight, CheckCircle2, Lock, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import TransferModal from '@/components/treasury/TransferModal';
 import { treasuryApi } from '@/api/treasury.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -45,6 +47,11 @@ function DayBreakdown({ day, t }: { day: CashDayBreakdown; t: (key: string) => s
 
 export default function CashClosingsPage() {
   const { t } = useTranslation();
+  // Administration (super-admin, direction, chefs d'agence et de département) :
+  // transfert d'une caisse à une autre depuis les caisses du jour.
+  const { user } = useAuth();
+  const canTransfer = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(user?.role?.name ?? '');
+  const [transferOpen, setTransferOpen] = useState(false);
   const { showToast } = useToast();
 
   const [date, setDate] = useState(todayLocal());
@@ -157,6 +164,12 @@ export default function CashClosingsPage() {
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
+          {canTransfer && (
+            <Button onClick={() => setTransferOpen(true)}>
+              <ArrowLeftRight className="h-4 w-4" />
+              {t('treasury.transfer')}
+            </Button>
+          )}
           <Button variant="outline" onClick={load}>
             <RefreshCw className="h-4 w-4" />
           </Button>
@@ -328,6 +341,7 @@ export default function CashClosingsPage() {
           </div>
         </form>
       </Modal>
+      <TransferModal isOpen={transferOpen} onClose={() => setTransferOpen(false)} onDone={load} />
     </div>
   );
 }

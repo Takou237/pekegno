@@ -257,13 +257,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
     ];
   }
 
-  // Community-manager = exécutant de prestations (décision client T0.6) : son
-  // menu se limite à son suivi de travail et à son profil. Aucune entrée de
-  // vente (prospects, factures, commissions) puisqu'il n'a pas ces droits.
-  if (roleName === 'community-manager') {
-    return [trackingItem(t), myProfileItem(t)];
-  }
-
+  // Commercial et community-manager : le community manager est un employé qui
+  // vend comme les autres (même menu), en plus du suivi de ses prestations.
   if (actsAsCommercial(roleName)) {
     return [
       ...baseItems,

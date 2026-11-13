@@ -41,18 +41,14 @@ class CommunityManagerScopeTest extends TestCase
         ]);
     }
 
-    public function test_community_manager_has_no_access_to_sales(): void
+    public function test_community_manager_reaches_sales_like_a_commercial(): void
     {
         Sanctum::actingAs($this->communityManager);
 
-        // Ni la liste des factures, ni la vente, ni la création de client.
-        $this->getJson('/api/invoices')->assertForbidden();
-        $this->postJson('/api/invoices', [
-            'items' => [['label' => 'Prestation', 'unit_price' => 1000, 'quantity' => 1]],
-        ])->assertForbidden();
-        $this->postJson('/api/clients', ['first_name' => 'Test', 'last_name' => 'Client'])
-            ->assertForbidden();
-        $this->getJson('/api/prospects')->assertForbidden();
+        // Employé qui vend (décision du 13/11) : factures, prospects, sa fiche commerciale.
+        $this->getJson('/api/invoices')->assertOk();
+        $this->getJson('/api/prospects')->assertOk();
+        $this->getJson('/api/commercials/me/stats')->assertOk();
     }
 
     public function test_community_manager_reaches_his_field_work(): void

@@ -33,7 +33,7 @@ class TreasuryController extends Controller
     }
 
     /** Rôles autorisés à créer / modifier les caisses (administration). */
-    private const ACCOUNT_ADMIN_ROLES = ['super-admin', 'direction-generale', 'comptable'];
+    private const ACCOUNT_ADMIN_ROLES = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'];
 
     /**
      * Moyens de paiement proposés dans les formulaires : une caisse = un moyen
@@ -63,6 +63,8 @@ class TreasuryController extends Controller
         ]);
 
         $agency = \App\Models\Agency::with('geoCountry')->findOrFail($data['agency_id']);
+        $scopeIds = $this->scopeAgencyIds($request->user());
+        abort_if($scopeIds !== null && ! in_array($agency->id, $scopeIds, true), 403, 'Cette agence est hors de votre périmètre.');
         $key = \App\Support\PaymentMethods::keyFromName($data['name']);
         $standard = \App\Support\PaymentMethods::STANDARD[$key] ?? null;
 
@@ -96,6 +98,9 @@ class TreasuryController extends Controller
     public function updateAccount(Request $request, TreasuryAccount $account): JsonResponse
     {
         abort_unless(in_array($request->user()?->role?->name, self::ACCOUNT_ADMIN_ROLES, true), 403, 'Seule l\'administration peut modifier une caisse.');
+
+        $scopeIds = $this->scopeAgencyIds($request->user());
+        abort_if($scopeIds !== null && ! in_array($account->agency_id, $scopeIds, true), 403, 'Cette caisse est hors de votre périmètre.');
 
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:100'],

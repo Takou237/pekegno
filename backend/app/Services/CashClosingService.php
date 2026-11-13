@@ -266,10 +266,19 @@ class CashClosingService
             $closing->justification ?? 'aucune',
         );
 
-        // Chef(s) d'agence et administrateurs (super-admin) sont alertés.
+        // Administration : chef(s) de l'agence, chefs de département de l'agence,
+        // direction générale et super-admins.
+        $departmentChiefs = \Illuminate\Support\Facades\DB::table('user_assignments')
+            ->join('users', 'users.id', '=', 'user_assignments.user_id')
+            ->join('roles', 'roles.id', '=', 'users.role_id')
+            ->where('user_assignments.agency_id', $agencyId)
+            ->where('roles.name', 'responsable-departement')
+            ->where('users.is_active', true)
+            ->pluck('users.id')->all();
         $recipients = array_values(array_unique(array_merge(
             $this->notifier->agencyChiefIds($agencyId),
-            \App\Models\User::whereHas('role', fn ($q) => $q->where('name', 'super-admin'))->where('is_active', true)->pluck('id')->all(),
+            $departmentChiefs,
+            \App\Models\User::whereHas('role', fn ($q) => $q->whereIn('name', ['super-admin', 'direction-generale']))->where('is_active', true)->pluck('id')->all(),
         )));
 
         foreach ($recipients as $userId) {

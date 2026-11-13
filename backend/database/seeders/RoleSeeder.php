@@ -237,18 +237,13 @@ class RoleSeeder extends Seeder
             ),
         ];
 
-        // Community-manager : toutes les fonctionnalités du commercial (ventes,
-        // prospects, rapport…) + l'exécution des prestations dont il est équipier.
-        // Community-manager = exécutant de prestations (décision client T0.6,
-        // option A). Il n'a aucun droit de vente : pas de prospects, pas de
-        // création de client, pas de facture, pas de commande. Il consulte les
-        // prestations de son périmètre et fait évoluer les actions qui lui sont
-        // attribuées (statut, coût réel, commentaire, preuve).
-        $assignments['community-manager'] = array_merge(
-            $p('clients', ['consulter']),
-            $p('services', ['consulter']),
-            $p('products', ['consulter']),
-            $p('categories', ['consulter']),
+        // Community-manager : un employé qui vend comme les autres (toutes les
+        // fonctionnalités du commercial : ventes, prospects, rapport…) et qui
+        // exécute en plus les prestations dont il est équipier. (La décision T0.6
+        // « exécutant sans vente » a été annulée par le client le 13/11.)
+        $assignments['community-manager'] = array_values(array_unique(array_merge(
+            $assignments['commercial'],
+            $p('clients', ['consulter', 'modifier']),
             $p('packages', ['consulter']),
             $p('prestations', ['consulter']),
             $p('prestation-actions', ['consulter', 'modifier']),
@@ -260,7 +255,7 @@ class RoleSeeder extends Seeder
             $p('enrollments', ['consulter']),
             $p('presences', ['consulter']),
             $p('modules', ['consulter']),
-        );
+        )));
 
         $assignments += [
             'client' => array_merge(

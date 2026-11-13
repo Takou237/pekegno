@@ -15,7 +15,7 @@ use Tests\TestCase;
 /**
  * Matrice des droits validée par le client le 12/11/2026 (T0.6).
  *
- * - community-manager : exécutant de prestations, aucun droit de vente.
+ * - community-manager : employé qui vend (droits du commercial) et exécute ses prestations.
  * - caissier : pas de suppression de client, comptabilité en lecture seule.
  */
 class RolePermissionMatrixTest extends TestCase
@@ -53,29 +53,17 @@ class RolePermissionMatrixTest extends TestCase
             ->all();
     }
 
-    public function test_community_manager_keeps_only_field_execution_rights(): void
+    public function test_community_manager_sells_like_the_other_employees(): void
     {
+        // Décision client du 13/11 (annule T0.6) : le community manager est un
+        // employé qui vend, avec les droits du commercial + l'exécution des prestations.
         $permissions = $this->permissionsOf('community-manager');
 
-        $this->assertContains('prestations.consulter', $permissions);
-        $this->assertContains('prestation-actions.modifier', $permissions);
-        $this->assertContains('clients.consulter', $permissions);
-
-        foreach (['invoices.creer', 'invoices.annuler', 'clients.creer', 'clients.supprimer', 'prospects.consulter', 'orders.creer'] as $forbidden) {
-            $this->assertNotContains($forbidden, $permissions, "Le community-manager ne doit pas avoir {$forbidden}.");
+        foreach (array_merge($this->permissionsOf('commercial'), ['prestations.consulter', 'prestation-actions.modifier']) as $expected) {
+            $this->assertContains($expected, $permissions, "Le community-manager doit avoir {$expected}.");
         }
-    }
-
-    public function test_community_manager_cannot_sell_or_create_clients(): void
-    {
-        Sanctum::actingAs($this->userFor('community-manager'));
-
-        $this->postJson('/api/clients', ['first_name' => 'Test', 'last_name' => 'Client'])
-            ->assertForbidden();
-
-        $this->postJson('/api/invoices', [
-            'items' => [['label' => 'Prestation', 'unit_price' => 1000, 'quantity' => 1]],
-        ])->assertForbidden();
+        $this->assertContains('invoices.creer', $permissions);
+        $this->assertContains('clients.creer', $permissions);
     }
 
     public function test_community_manager_can_reach_his_assigned_work(): void

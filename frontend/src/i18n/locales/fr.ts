@@ -616,6 +616,7 @@ export default {
   },
 
   contextBar: {
+    markAllRead: 'Tout marquer comme lu',
     noAlerts: 'Aucune alerte.',
     country: 'Pays',
     agency: 'Agence',

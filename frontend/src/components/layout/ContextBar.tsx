@@ -125,12 +125,27 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
 
   const refreshMessages = useCallback(() => {
     agencyDeptApi
-      .notifications()
+      .notifications({ unread: true })
       .then((res) => {
-        setMessages(res.data.slice(0, 8));
+        // Seules les alertes non lues restent dans la cloche.
+        setMessages(res.data.filter((m) => !m.read_at).slice(0, 8));
         setMessagesUnread(res.unread_count);
       })
       .catch(() => {});
+  }, []);
+
+  // Ouvrir une alerte la marque comme lue : elle quitte la cloche.
+  const openMessage = useCallback((id: string) => {
+    setNotifOpen(false);
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+    setMessagesUnread((n) => Math.max(0, n - 1));
+    agencyDeptApi.markNotificationRead(id).catch(() => {});
+  }, []);
+
+  const markAllMessagesRead = useCallback(() => {
+    setMessages([]);
+    setMessagesUnread(0);
+    agencyDeptApi.markAllNotificationsRead().catch(() => {});
   }, []);
 
   // Alertes persistées (écart de caisse, rejet de facture…) : pour tous les rôles.
@@ -482,8 +497,11 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                   </div>
                   {messages.length > 0 && (
                     <>
-                      <div className="border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
-                        {t('contextBar.recentAlerts')}
+                      <div className="flex items-center justify-between border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
+                        <span>{t('contextBar.recentAlerts')}</span>
+                        <button type="button" onClick={markAllMessagesRead} className="normal-case tracking-normal text-brand-600 hover:underline dark:text-brand-300">
+                          {t('contextBar.markAllRead')}
+                        </button>
                       </div>
                       <ul className="max-h-56 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
                         {messages.map((msg) => {
@@ -516,13 +534,13 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                               {target ? (
                                 <Link
                                   to={target}
-                                  onClick={() => setNotifOpen(false)}
+                                  onClick={() => openMessage(msg.id)}
                                   className="flex w-full gap-2.5 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60"
                                 >
                                   {content}
                                 </Link>
                               ) : (
-                                <div className="flex gap-2.5 px-4 py-2.5">{content}</div>
+                                <button type="button" onClick={() => openMessage(msg.id)} className="flex w-full gap-2.5 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60">{content}</button>
                               )}
                             </li>
                           );
@@ -577,8 +595,11 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                   </div>
                   {messages.length > 0 && (
                     <>
-                      <div className="border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
-                        {t('contextBar.recentAlerts')}
+                      <div className="flex items-center justify-between border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
+                        <span>{t('contextBar.recentAlerts')}</span>
+                        <button type="button" onClick={markAllMessagesRead} className="normal-case tracking-normal text-brand-600 hover:underline dark:text-brand-300">
+                          {t('contextBar.markAllRead')}
+                        </button>
                       </div>
                       <ul className="max-h-56 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
                         {messages.map((msg) => {
@@ -611,13 +632,13 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                               {target ? (
                                 <Link
                                   to={target}
-                                  onClick={() => setNotifOpen(false)}
+                                  onClick={() => openMessage(msg.id)}
                                   className="flex w-full gap-2.5 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60"
                                 >
                                   {content}
                                 </Link>
                               ) : (
-                                <div className="flex gap-2.5 px-4 py-2.5">{content}</div>
+                                <button type="button" onClick={() => openMessage(msg.id)} className="flex w-full gap-2.5 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60">{content}</button>
                               )}
                             </li>
                           );
@@ -640,8 +661,11 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
 
                   {messages.length > 0 && (
                     <>
-                      <div className="border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
-                        {t('contextBar.recentAlerts')}
+                      <div className="flex items-center justify-between border-b border-gray-100 px-4 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:text-gray-500">
+                        <span>{t('contextBar.recentAlerts')}</span>
+                        <button type="button" onClick={markAllMessagesRead} className="normal-case tracking-normal text-brand-600 hover:underline dark:text-brand-300">
+                          {t('contextBar.markAllRead')}
+                        </button>
                       </div>
                       <ul className="max-h-56 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
                         {messages.map((msg) => {
@@ -674,13 +698,13 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                               {target ? (
                                 <Link
                                   to={target}
-                                  onClick={() => setNotifOpen(false)}
+                                  onClick={() => openMessage(msg.id)}
                                   className="flex w-full gap-2.5 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60"
                                 >
                                   {content}
                                 </Link>
                               ) : (
-                                <div className="flex gap-2.5 px-4 py-2.5">{content}</div>
+                                <button type="button" onClick={() => openMessage(msg.id)} className="flex w-full gap-2.5 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60">{content}</button>
                               )}
                             </li>
                           );

@@ -127,6 +127,8 @@ class AgencyController extends Controller
         $data['type'] = Agency::deriveType($activities);
 
         $agency = Agency::create($data);
+        // Caisses standard de l'agence (C/O/M/B, + W en zone XOF) dès sa création.
+        app(\App\Services\TreasuryAccountProvisioner::class)->ensureForAgency($agency->load('geoCountry'));
         $agency->syncActivities($activities);
 
         return (new AgencyResource($agency->load(['departments', 'activities'])))
