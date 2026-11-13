@@ -210,6 +210,8 @@ class ExpenseController extends Controller
 
         $service = Service::find($serviceId);
         abort_if(! $service, 422, 'Séminaire introuvable.');
+        // Un événement est un séminaire (T3.14) : un autre service est refusé.
+        abort_unless((bool) $service->is_seminar, 422, "Seul un séminaire peut être rattaché comme événement.");
 
         $agencyId = $data['agency_id'] ?? $expense?->agency_id;
         abort_if(

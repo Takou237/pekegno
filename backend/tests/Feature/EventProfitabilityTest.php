@@ -90,11 +90,15 @@ class EventProfitabilityTest extends TestCase
             'service_id' => $this->seminar->id,
         ]);
 
+        // Un livre vendu (service qui n'est pas un séminaire) n'est pas un événement.
+        $book = Service::factory()->create(['name' => 'Livre', 'agency_id' => $this->agency->id, 'price' => 20000, 'is_seminar' => false]);
+        $this->invoiceLine(20000, 1)->items()->first()->update(['service_id' => $book->id, 'label' => 'Livre']);
+
         Sanctum::actingAs($this->admin);
 
         $response = $this->getJson('/api/reports/events')->assertOk()->json();
 
-        $this->assertCount(1, $response['rows']);
+        $this->assertCount(1, $response['rows'], 'seuls les séminaires sont des événements');
         $row = $response['rows'][0];
         $this->assertSame($this->seminar->id, $row['service_id']);
         $this->assertEquals(100000, $row['revenue']);

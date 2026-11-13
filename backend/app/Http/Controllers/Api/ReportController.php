@@ -165,6 +165,8 @@ class ReportController extends Controller
             ->where('invoices.validation_status', Invoice::VALIDATION_VALIDATED)
             ->whereBetween('invoices.invoice_date', [$from, $to])
             ->whereNotNull('invoice_items.service_id')
+            // Un événement = un séminaire vendu au catalogue (pas les livres, Canva…).
+            ->whereIn('invoice_items.service_id', \App\Models\Service::where('is_seminar', true)->select('id'))
             ->where(fn ($q) => $q->whereNull('invoice_items.is_pass_through')->orWhere('invoice_items.is_pass_through', false))
             ->when($request->agency_id, fn ($q, $id) => $q->where('invoices.agency_id', $id))
             ->when($agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
@@ -178,6 +180,7 @@ class ReportController extends Controller
             ->whereIn('expenses.status', ['paid', 'closed'])
             ->where('expenses.is_pass_through', false)
             ->whereNotNull('expenses.service_id')
+            ->whereIn('expenses.service_id', \App\Models\Service::where('is_seminar', true)->select('id'))
             ->whereDate('expenses.expense_date', '>=', $from->toDateString())
             ->whereDate('expenses.expense_date', '<=', $to->toDateString())
             ->when($request->agency_id, fn ($q, $id) => $q->where('expenses.agency_id', $id))
