@@ -5,8 +5,10 @@
 Lancer les tests dans le conteneur PHP local (PHP 8.3) ; la machine hôte n'a que PHP 7.4 :
 
 ```bash
-docker exec pekegno-server php artisan test
+docker exec pekegno-server php -d memory_limit=1G artisan test
 ```
+
+Sans `-d memory_limit=1G`, la suite complète s'arrête vers la fin (mémoire épuisée, 128 Mo).
 
 Les tests utilisent SQLite en mémoire (`phpunit.xml`) : ils ne touchent pas la base Postgres locale.
 
