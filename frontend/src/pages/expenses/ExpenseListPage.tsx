@@ -386,37 +386,37 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
                     </td>
                     <td className="py-2 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openDetail(exp)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800">
+                        <button onClick={() => openDetail(exp)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" title={t('common.view')}>
                           <Eye className="h-4 w-4" />
                         </button>
                         {exp.status === 'draft' && (
-                          <button onClick={() => handleAction('submit', exp.id)} className="rounded p-1 text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20" title={t('expenses.submit')}>
-                            <Send className="h-4 w-4" />
+                          <button onClick={() => handleAction('submit', exp.id)} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-900/20">
+                            <Send className="h-3.5 w-3.5" /><span>{t('expenses.submit')}</span>
                           </button>
                         )}
                         {exp.status === 'submitted' && (
                           <>
-                            <button onClick={() => handleAction('approve', exp.id)} className="rounded p-1 text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20" title={t('expenses.approve')}>
-                              <CheckCircle className="h-4 w-4" />
+                            <button onClick={() => handleAction('approve', exp.id)} className="inline-flex items-center gap-1 rounded-lg border border-green-200 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:border-green-500/30 dark:text-green-300 dark:hover:bg-green-900/20">
+                              <CheckCircle className="h-3.5 w-3.5" /><span>{t('expenses.approve')}</span>
                             </button>
-                            <button onClick={() => { setRejectTarget(exp.id); setRejectOpen(true); }} className="rounded p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title={t('expenses.reject')}>
-                              <XCircle className="h-4 w-4" />
+                            <button onClick={() => { setRejectTarget(exp.id); setRejectOpen(true); }} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-300 dark:hover:bg-red-900/20">
+                              <XCircle className="h-3.5 w-3.5" /><span>{t('expenses.reject')}</span>
                             </button>
                           </>
                         )}
                         {exp.status === 'approved' && (
-                          <button onClick={() => openPay(exp)} className="rounded p-1 text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20" title={t('expenses.pay')}>
-                            <Banknote className="h-4 w-4" />
+                          <button onClick={() => openPay(exp)} className="inline-flex items-center gap-1 rounded-lg border border-purple-200 px-2 py-1 text-xs font-medium text-purple-700 hover:bg-purple-50 dark:border-purple-500/30 dark:text-purple-300 dark:hover:bg-purple-900/20">
+                            <Banknote className="h-3.5 w-3.5" /><span>{t('expenses.pay')}</span>
                           </button>
                         )}
                         {exp.status === 'paid' && (
-                          <button onClick={() => handleAction('close', exp.id)} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" title={t('expenses.close')}>
-                            <Lock className="h-4 w-4" />
+                          <button onClick={() => handleAction('close', exp.id)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                            <Lock className="h-3.5 w-3.5" /><span>{t('expenses.close')}</span>
                           </button>
                         )}
                         {exp.status === 'rejected' && (
-                          <button onClick={() => handleAction('reopen', exp.id)} className="rounded p-1 text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20" title={t('expenses.reopen')}>
-                            <Undo2 className="h-4 w-4" />
+                          <button onClick={() => handleAction('reopen', exp.id)} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-300 dark:hover:bg-amber-900/20">
+                            <Undo2 className="h-3.5 w-3.5" /><span>{t('expenses.reopen')}</span>
                           </button>
                         )}
                         {(exp.status === 'draft' || exp.status === 'rejected') && (
