@@ -42,7 +42,9 @@ export default function CertificateListPage() {
   const [page, setPage] = useState(1);
 
   const [issueOpen, setIssueOpen] = useState(false);
-  const [issueForm, setIssueForm] = useState({ enrollment_id: '', mention: '' });
+  const [issueForm, setIssueForm] = useState({ course_id: '', enrollment_id: '', mention: '' });
+  const [enrollmentOptions, setEnrollmentOptions] = useState<{ id: string; label: string }[]>([]);
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
   const [issueErrors, setIssueErrors] = useState<Record<string, string>>({});
   const [issuing, setIssuing] = useState(false);
 
@@ -82,10 +84,9 @@ export default function CertificateListPage() {
   }, [search]);
 
   useEffect(() => {
-    if (!agencyId) return;
     let active = true;
     academyApi
-      .courses({ agency_id: agencyId, per_page: 100 })
+      .courses({ agency_id: agencyId || undefined, per_page: 100 })
       .then((res) => {
         if (active) setCourseOptions(res.data.map((c) => ({ id: c.id, name: c.name, code: c.code })));
       })
@@ -94,6 +95,35 @@ export default function CertificateListPage() {
       active = false;
     };
   }, [agencyId]);
+
+  // Délivrer : on choisit la formation puis l'apprenant (jamais un identifiant à saisir).
+  useEffect(() => {
+    if (!issueForm.course_id) {
+      setEnrollmentOptions([]);
+      return;
+    }
+    let active = true;
+    setEnrollmentsLoading(true);
+    academyApi
+      .formationEnrollments({ course_id: issueForm.course_id, per_page: 200 })
+      .then((res) => {
+        if (!active) return;
+        setEnrollmentOptions(
+          res.data
+            .filter((e) => e.status === 'enrolled' || e.status === 'completed')
+            .map((e) => ({
+              id: e.id,
+              label: [e.learner?.first_name, e.learner?.last_name].filter(Boolean).join(' ') || e.learner?.email || e.id,
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label)),
+        );
+      })
+      .catch(() => {})
+      .finally(() => active && setEnrollmentsLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [issueForm.course_id]);
 
   function extractFieldErrors(error: unknown): Record<string, string> {
     const err = error as { response?: { data?: { errors?: Record<string, string[]> } } };
@@ -117,7 +147,7 @@ export default function CertificateListPage() {
       });
       showToast(t('certificates.issued'), 'success');
       setIssueOpen(false);
-      setIssueForm({ enrollment_id: '', mention: '' });
+      setIssueForm({ course_id: '', enrollment_id: '', mention: '' });
       load();
     } catch (error) {
       setIssueErrors(extractFieldErrors(error));
@@ -215,7 +245,6 @@ export default function CertificateListPage() {
               <thead className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                 <tr>
                   <th className="px-5 py-3 font-medium">{t('certificates.number')}</th>
-                  <th className="px-5 py-3 font-medium">{t('certificates.enrollmentId')}</th>
                   <th className="px-5 py-3 font-medium">{t('nav.learners')}</th>
                   <th className="px-5 py-3 font-medium">{t('nav.courses')}</th>
                   <th className="px-5 py-3 font-medium">{t('certificates.issuedOn')}</th>
@@ -228,7 +257,6 @@ export default function CertificateListPage() {
                 {certificates.map((cert) => (
                   <tr key={cert.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{cert.number}</td>
-                    <td className="px-5 py-3 font-mono text-xs text-gray-400">{cert.enrollment_id}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {cert.enrollment?.learner
                         ? [cert.enrollment.learner.first_name, cert.enrollment.learner.last_name]
@@ -286,15 +314,39 @@ export default function CertificateListPage() {
       <Modal isOpen={issueOpen} onClose={() => setIssueOpen(false)} title={t('certificates.issue')} maxWidth="max-w-md">
         <form onSubmit={handleIssue} className="flex flex-col gap-4">
           {issueErrors.general && <Alert variant="error">{issueErrors.general}</Alert>}
-          <Input
-            label={t('certificates.enrollmentId')}
-            required
-            value={issueForm.enrollment_id}
-            onChange={(e) => setIssueForm({ ...issueForm, enrollment_id: e.target.value })}
-            error={issueErrors.enrollment_id}
-          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('nav.courses')} *</label>
+            <select
+              required
+              value={issueForm.course_id}
+              onChange={(e) => setIssueForm({ ...issueForm, course_id: e.target.value, enrollment_id: '' })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="">—</option>
+              {courseOptions.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('certificates.learner')} *</label>
+            <select
+              required
+              disabled={!issueForm.course_id || enrollmentsLoading}
+              value={issueForm.enrollment_id}
+              onChange={(e) => setIssueForm({ ...issueForm, enrollment_id: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="">{enrollmentsLoading ? t('common.loading') : issueForm.course_id && enrollmentOptions.length === 0 ? t('common.noOptions') : '—'}</option>
+              {enrollmentOptions.map((o) => (
+                <option key={o.id} value={o.id}>{o.label}</option>
+              ))}
+            </select>
+            {issueErrors.enrollment_id && <p className="mt-1 text-xs text-red-500">{issueErrors.enrollment_id}</p>}
+          </div>
           <Input
             label={t('certificates.mention')}
+            placeholder={t('certificates.mentionPlaceholder')}
             value={issueForm.mention}
             onChange={(e) => setIssueForm({ ...issueForm, mention: e.target.value })}
           />

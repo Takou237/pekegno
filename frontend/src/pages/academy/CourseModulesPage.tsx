@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
-import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { CourseModule, CourseModulePayload } from '@/types/formation';
 
 interface FormState {
@@ -62,23 +61,6 @@ export default function CourseModulesPage() {
     fetchModules();
   }, [fetchModules]);
 
-  const trainerOptions = useCallback(
-    async (query: string): Promise<{ id: string; label: string; subtitle?: string }[]> => {
-      // Pas de restriction par agence : un module peut etre confie a un
-      // formateur d'une autre agence. On renvoie l'ID du profil formateur
-      // (et non une reference composite) attendu par l'API.
-      const response = await academyApi.trainers({
-        search: query.trim() || undefined,
-        per_page: 20,
-      });
-      return response.data.map((trainer) => ({
-        id: trainer.id,
-        label: [trainer.first_name, trainer.last_name].filter(Boolean).join(' ') || trainer.email || '—',
-        subtitle: trainer.email ?? undefined,
-      }));
-    },
-    [],
-  );
 
   function openCreate() {
     setEditing(null);
@@ -110,7 +92,6 @@ export default function CourseModulesPage() {
     const payload: CourseModulePayload = {
       name: form.name,
       description: form.description || undefined,
-      trainer_id: form.trainer_id || undefined,
     };
 
     try {
@@ -170,10 +151,7 @@ export default function CourseModulesPage() {
     }
   }
 
-  function trainerName(mod: CourseModule): string {
-    if (!mod.trainer) return '—';
-    return [mod.trainer.first_name, mod.trainer.last_name].filter(Boolean).join(' ') || '—';
-  }
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -203,7 +181,6 @@ export default function CourseModulesPage() {
                   <th className="px-3 py-3 font-medium" />
                   <th className="px-5 py-3 font-medium">{t('common.order')}</th>
                   <th className="px-5 py-3 font-medium">{t('common.name')}</th>
-                  <th className="px-5 py-3 font-medium">{t('nav.trainers')}</th>
                   <th className="px-5 py-3 font-medium">{t('academy.duration')}</th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -249,7 +226,6 @@ export default function CourseModulesPage() {
                         </p>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{trainerName(mod)}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {mod.duration_hours != null ? (
                         <Badge variant="brand">
@@ -315,15 +291,6 @@ export default function CourseModulesPage() {
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
-
-          <Autocomplete
-            label={t('nav.trainers')}
-            placeholder={t('academy.searchTrainerPlaceholder')}
-            value={form.trainer_id}
-            onChange={(trainerId) => setForm((prev) => ({ ...prev, trainer_id: trainerId }))}
-            fetchOptions={trainerOptions}
-            error={fieldErrors.trainer_id}
-          />
 
           <div className="mt-2 flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setFormOpen(false)} disabled={isSubmitting} className="flex-1">

@@ -51,7 +51,7 @@ export default function AttendanceSheetPage() {
       setSession(sessionData);
 
       if (sessionData.course?.id) {
-        const mods = await academyApi.modules(sessionData.course.id);
+        const mods = await academyApi.modules(sessionData.course.id, sessionData.id);
         setModules(mods);
         if (mods.length > 0) {
           setSelectedModule(mods[0].id);

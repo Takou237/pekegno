@@ -2657,6 +2657,9 @@ export default {
   },
 
   academy: {
+    moduleTrainersTitle: 'Module trainers',
+    moduleTrainersHint: 'Optional. The chosen trainer only sees this session and this module, not the other sessions of the course.',
+    moduleTrainersEmpty: 'This course has no module yet.',
     myModulesOnly: 'Your module: {{modules}}',
     title: 'Training',
     subtitle: 'Agency Academy line: courses, trainers and learners.',

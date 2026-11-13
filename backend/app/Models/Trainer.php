@@ -76,9 +76,13 @@ class Trainer extends Model
     }
 
     /** Modules de la formation confiés à ce formateur. */
-    public function moduleIdsForCourse(?string $courseId): array
+    /** Modules qui lui sont confiés dans CETTE session. */
+    public function moduleIdsForSession(TrainingSession $session): array
     {
-        return $courseId ? $this->modules()->where('course_id', $courseId)->pluck('id')->all() : [];
+        return SessionModuleTrainer::where('trainer_id', $this->id)
+            ->where('training_session_id', $session->id)
+            ->pluck('course_module_id')
+            ->all();
     }
 
     /** Formateur principal de la session (il voit toute la session). */
@@ -88,18 +92,17 @@ class Trainer extends Model
     }
 
     /**
-     * Sessions accessibles : celles qu'il anime, et celles des formations dont
-     * un module lui est confié (il n'y voit que son module).
+     * Sessions accessibles : celles qu'il anime, et celles où un module lui
+     * est confié (il n'y voit que son module). Le rattachement se fait par
+     * session : il n'apparaît pas dans les autres sessions de la formation.
      *
      * @return array<int, string>
      */
     public function accessibleSessionIds(): array
     {
-        $moduleCourses = $this->modules()->pluck('course_id')->unique()->all();
-
         return TrainingSession::query()
             ->where(fn ($q) => $q->where('trainer_id', $this->id)
-                ->when($moduleCourses !== [], fn ($q) => $q->orWhereIn('course_id', $moduleCourses)))
+                ->orWhereIn('id', SessionModuleTrainer::where('trainer_id', $this->id)->select('training_session_id')))
             ->pluck('id')
             ->all();
     }

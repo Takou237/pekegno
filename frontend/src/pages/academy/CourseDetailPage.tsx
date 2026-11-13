@@ -11,6 +11,7 @@ import {
   UserPlus,
   ClipboardList,
   Trash2,
+  UserCog,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -56,6 +57,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { canDeleteSessions } from '@/utils/academyPermissions';
 import type { Department } from '@/types/department';
 import SessionInfoCard from '@/components/academy/SessionInfoCard';
+import SessionModuleTrainersModal from '@/components/academy/SessionModuleTrainersModal';
 
 interface DepartmentLayoutContext {
   department?: Department | null;
@@ -185,10 +187,10 @@ export default function CourseDetailPage() {
   const [isDeletingEnrollment, setIsDeletingEnrollment] = useState(false);
 
   const [moduleFormOpen, setModuleFormOpen] = useState(false);
-  const [moduleForm, setModuleForm] = useState<{ name: string; description: string; trainer_id: string }>({
+  const [moduleTrainersSession, setModuleTrainersSession] = useState<string | null>(null);
+  const [moduleForm, setModuleForm] = useState<{ name: string; description: string }>({
     name: '',
     description: '',
-    trainer_id: '',
   });
   const [moduleSubmitting, setModuleSubmitting] = useState(false);
   const [moduleError, setModuleError] = useState<string | null>(null);
@@ -258,12 +260,11 @@ export default function CourseDetailPage() {
       const saved = await academyApi.createModule(courseId, {
         name: moduleForm.name.trim(),
         description: moduleForm.description.trim() || undefined,
-        trainer_id: moduleForm.trainer_id || undefined,
         order_index: modules.length,
       });
       setModules((prev) => [...prev, saved]);
       setModuleFormOpen(false);
-      setModuleForm({ name: '', description: '', trainer_id: '' });
+      setModuleForm({ name: '', description: '' });
       showToast(t('academy.saved'), 'success');
     } catch (error) {
       const message = extractErrorMessage(error, t('academy.saveFailed'));
@@ -290,23 +291,6 @@ export default function CourseDetailPage() {
       }));
     },
     [agencyId],
-  );
-
-  const moduleTrainerOptions = useCallback(
-    async (query: string) => {
-      // Pas de restriction par agence : un module peut etre confie a un
-      // formateur d'une autre agence que celle de la formation.
-      const response = await academyApi.trainers({
-        search: query.trim() || undefined,
-        per_page: 20,
-      });
-      return response.data.map((trainer) => ({
-        id: trainer.id,
-        label: [trainer.first_name, trainer.last_name].filter(Boolean).join(' ') || trainer.email || '—',
-        subtitle: trainer.email ?? undefined,
-      }));
-    },
-    [],
   );
 
   const sellerOptions = useCallback(
@@ -726,6 +710,12 @@ export default function CourseDetailPage() {
                             <UserPlus className="h-4 w-4" />
                             {t('academy.newEnrollment')}
                           </Button>
+                          {modules.length > 0 && (
+                            <Button variant="outline" size="sm" onClick={() => setModuleTrainersSession(session.id)}>
+                              <UserCog className="h-4 w-4" />
+                              {t('academy.moduleTrainersTitle')}
+                            </Button>
+                          )}
                           <Link to={`/departments/${departmentId}/sessions/${session.id}/attendances`}>
                             <Button variant="outline" size="sm">
                               <ClipboardList className="h-4 w-4" />
@@ -869,11 +859,6 @@ export default function CourseDetailPage() {
                     </span>
                     <div>
                       <p className="text-gray-800 dark:text-gray-100">{module.name}</p>
-                      {module.trainer && (
-                        <p className="text-xs text-gray-400">
-                          {[module.trainer.first_name, module.trainer.last_name].filter(Boolean).join(' ')}
-                        </p>
-                      )}
                     </div>
                   </div>
                   {module.duration_hours != null && (
@@ -1141,7 +1126,7 @@ export default function CourseDetailPage() {
         <form onSubmit={handleCreateModule} className="flex flex-col gap-4">
           {moduleError && <Alert variant="error">{moduleError}</Alert>}
           <Input
-            label={`${t('academy.moduleName')} *`}
+            label={`${t('courseModules.moduleName')} *`}
             value={moduleForm.name}
             onChange={(e) => setModuleForm((prev) => ({ ...prev, name: e.target.value }))}
             error={moduleFieldErrors.name}
@@ -1157,14 +1142,6 @@ export default function CourseDetailPage() {
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
-          <Autocomplete
-            label={t('academy.trainer')}
-            placeholder={t('academy.searchTrainerPlaceholder')}
-            value={moduleForm.trainer_id}
-            onChange={(trainerId) => setModuleForm((prev) => ({ ...prev, trainer_id: trainerId }))}
-            fetchOptions={moduleTrainerOptions}
-            error={moduleFieldErrors.trainer_id}
-          />
           <div className="mt-2 flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setModuleFormOpen(false)} disabled={moduleSubmitting} className="flex-1">
               {t('common.cancel')}
@@ -1175,6 +1152,8 @@ export default function CourseDetailPage() {
           </div>
         </form>
       </Modal>
+
+      <SessionModuleTrainersModal sessionId={moduleTrainersSession} onClose={() => setModuleTrainersSession(null)} />
 
       <ConfirmDialog
         isOpen={Boolean(deleteSession)}

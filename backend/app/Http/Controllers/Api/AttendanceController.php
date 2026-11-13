@@ -30,7 +30,7 @@ class AttendanceController extends Controller
         $caller = $request->user();
         $trainer = Trainer::forUser($caller);
         $isSessionTrainer = $trainer?->isMainTrainerOf($session) ?? false;
-        $isModuleTrainer = $trainer && $trainer->moduleIdsForCourse($session->course_id) !== [];
+        $isModuleTrainer = $trainer && $trainer->moduleIdsForSession($session) !== [];
 
         abort_unless(
             $caller->hasPermission('presences.modifier') || $isSessionTrainer || $isModuleTrainer,
@@ -92,7 +92,7 @@ class AttendanceController extends Controller
             return;
         }
 
-        $myModules = $trainer->moduleIdsForCourse($session->course_id);
+        $myModules = $trainer->moduleIdsForSession($session);
         abort_if($myModules === [], 403, 'Cette session ne fait pas partie de vos formations.');
         abort_unless(
             $moduleId !== null && in_array($moduleId, $myModules, true),

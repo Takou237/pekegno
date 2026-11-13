@@ -2670,6 +2670,9 @@ export default {
   },
 
   academy: {
+    moduleTrainersTitle: 'Formateurs des modules',
+    moduleTrainersHint: 'Facultatif. Le formateur choisi ne voit que cette session et ce module, pas les autres sessions de la formation.',
+    moduleTrainersEmpty: "Cette formation n'a pas encore de module.",
     myModulesOnly: 'Votre module : {{modules}}',
     title: 'Formations',
     subtitle: 'Ligne Academy de l\'agence : formations, formateurs et apprenants.',

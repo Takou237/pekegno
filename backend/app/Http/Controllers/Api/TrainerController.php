@@ -488,7 +488,7 @@ class TrainerController extends Controller
             ->orderByDesc('start_at')
             ->get();
 
-        $assignedModules = CourseModule::where('trainer_id', $trainer->id)
+        $assignedModules = CourseModule::whereIn('id', \App\Models\SessionModuleTrainer::where('trainer_id', $trainer->id)->select('course_module_id'))
             ->with('course:id,name,code')
             ->orderBy('course_id')
             ->orderBy('order_index')
@@ -701,8 +701,9 @@ class TrainerController extends Controller
         return [
             // Formateur principal : toute la session ; sinon seulement ses modules.
             'is_main_trainer' => $isMain,
-            'my_modules' => $isMain || ! $trainer ? [] : CourseModule::where('trainer_id', $trainer->id)
-                ->where('course_id', $session->course_id)
+            'my_modules' => $isMain || ! $trainer ? [] : CourseModule::whereIn('id', \App\Models\SessionModuleTrainer::where('trainer_id', $trainer->id)
+                    ->where('training_session_id', $session->id)
+                    ->select('course_module_id'))
                 ->orderBy('order_index')
                 ->get(['id', 'name'])
                 ->map(fn ($m) => ['id' => $m->id, 'name' => $m->name])

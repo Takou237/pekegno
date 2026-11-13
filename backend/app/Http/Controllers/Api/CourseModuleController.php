@@ -14,13 +14,21 @@ class CourseModuleController extends Controller
     {
         $modules = $course->modules()->with('trainer')->get();
 
-        // Formateur d'un module seulement (il n'anime aucune session de la
-        // formation) : il ne voit que les modules qui lui sont confiés.
+        // Formateur : s'il n'anime pas la session (ou aucune session de la
+        // formation), il ne voit que les modules qui lui sont confiés — dans
+        // cette session si `training_session_id` est donné.
         if ($request->user()?->role?->name === 'formateur') {
             $trainer = \App\Models\Trainer::forUser($request->user());
-            $animates = $trainer && $course->sessions()->where('trainer_id', $trainer->id)->exists();
+            $sessionId = $request->query('training_session_id');
+            $animates = $trainer && $course->sessions()
+                ->where('trainer_id', $trainer->id)
+                ->when($sessionId, fn ($q) => $q->whereKey($sessionId))
+                ->exists();
             if (! $animates) {
-                $modules = $modules->where('trainer_id', $trainer?->id)->values();
+                $mine = $trainer ? \App\Models\SessionModuleTrainer::where('trainer_id', $trainer->id)
+                    ->when($sessionId, fn ($q) => $q->where('training_session_id', $sessionId))
+                    ->pluck('course_module_id')->all() : [];
+                $modules = $modules->whereIn('id', $mine)->values();
             }
         }
 
@@ -70,6 +78,49 @@ class CourseModuleController extends Controller
         $module->load('trainer');
 
         return response()->json($module);
+    }
+
+    /** Formateurs des modules pour une session (un par module, facultatif). */
+    public function sessionTrainers(\App\Models\TrainingSession $trainingSession): JsonResponse
+    {
+        $assigned = \App\Models\SessionModuleTrainer::with('trainer:id,first_name,last_name,email')
+            ->where('training_session_id', $trainingSession->id)
+            ->get()
+            ->keyBy('course_module_id');
+
+        return response()->json(CourseModule::where('course_id', $trainingSession->course_id)
+            ->orderBy('order_index')
+            ->get(['id', 'name', 'order_index'])
+            ->map(fn (CourseModule $m) => [
+                'course_module_id' => $m->id,
+                'name' => $m->name,
+                'trainer' => $assigned->get($m->id)?->trainer,
+            ])->values());
+    }
+
+    public function updateSessionTrainers(Request $request, \App\Models\TrainingSession $trainingSession): JsonResponse
+    {
+        $data = $request->validate([
+            'assignments' => 'present|array',
+            'assignments.*.course_module_id' => 'required|uuid|exists:course_modules,id',
+            'assignments.*.trainer_id' => 'nullable|uuid|exists:trainers,id',
+        ]);
+
+        $moduleIds = CourseModule::where('course_id', $trainingSession->course_id)->pluck('id')->all();
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($data, $trainingSession, $moduleIds) {
+            foreach ($data['assignments'] as $row) {
+                abort_unless(in_array($row['course_module_id'], $moduleIds, true), 422, 'Ce module n\'appartient pas à la formation de la session.');
+                $key = ['training_session_id' => $trainingSession->id, 'course_module_id' => $row['course_module_id']];
+                if (empty($row['trainer_id'])) {
+                    \App\Models\SessionModuleTrainer::where($key)->delete();
+                } else {
+                    \App\Models\SessionModuleTrainer::updateOrCreate($key, ['trainer_id' => $row['trainer_id']]);
+                }
+            }
+        });
+
+        return $this->sessionTrainers($trainingSession);
     }
 
     public function destroy(Course $course, CourseModule $module): JsonResponse

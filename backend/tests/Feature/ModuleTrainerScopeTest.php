@@ -60,10 +60,21 @@ class ModuleTrainerScopeTest extends TestCase
         [$moduleUser, $moduleTrainer] = $this->trainer($agency);
 
         $course = Course::factory()->create(['agency_id' => $agency->id]);
-        $mine = CourseModule::create(['course_id' => $course->id, 'name' => 'Marketing digital', 'trainer_id' => $moduleTrainer->id]);
+        $mine = CourseModule::create(['course_id' => $course->id, 'name' => 'Marketing digital']);
         $other = CourseModule::create(['course_id' => $course->id, 'name' => 'Comptabilité']); // sans formateur : facultatif
         $session = TrainingSession::factory()->create(['course_id' => $course->id, 'trainer_id' => $main->id, 'agency_id' => $agency->id, 'price' => 150000]);
+        // Autre session de la MÊME formation : il n'y a pas de module confié.
+        $sibling = TrainingSession::factory()->create(['course_id' => $course->id, 'trainer_id' => $main->id, 'agency_id' => $agency->id]);
         $learner = $this->participant($course, $session);
+        $siblingLearner = $this->participant($course, $sibling);
+
+        // Le responsable confie le module « Marketing digital » de CETTE session.
+        $admin = User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]);
+        Sanctum::actingAs($admin);
+        $this->putJson("/api/training-sessions/{$session->id}/module-trainers", ['assignments' => [
+            ['course_module_id' => $mine->id, 'trainer_id' => $moduleTrainer->id],
+            ['course_module_id' => $other->id, 'trainer_id' => null],
+        ]])->assertOk()->assertJsonPath('0.trainer.id', $moduleTrainer->id)->assertJsonPath('1.trainer', null);
 
         // Autre formation, sans lien avec lui.
         $otherCourse = Course::factory()->create(['agency_id' => $agency->id]);
@@ -72,15 +83,19 @@ class ModuleTrainerScopeTest extends TestCase
 
         Sanctum::actingAs($moduleUser);
 
-        // Sessions : celle de la formation de son module, pas les autres ; sans montant.
+        // Sessions : seulement celle où son module lui est confié (pas les
+        // autres sessions de la même formation) ; sans montant.
         $ids = collect($this->getJson('/api/training-sessions?per_page=100')->assertOk()->json('data'))->pluck('id');
         $this->assertEquals([$session->id], $ids->all());
         $this->getJson("/api/training-sessions/{$foreignSession->id}")->assertNotFound();
+        $this->getJson("/api/training-sessions/{$sibling->id}")->assertNotFound();
+        $this->getJson("/api/training-sessions/{$sibling->id}/attendances?course_module_id={$mine->id}")->assertForbidden();
         $this->assertNull($this->getJson("/api/training-sessions/{$session->id}")->assertOk()->json('data.price'));
 
-        // Modules : seulement le sien.
+        // Modules : seulement le sien (dans cette session).
         $modules = collect($this->getJson("/api/courses/{$course->id}/modules")->assertOk()->json())->pluck('id');
         $this->assertEquals([$mine->id], $modules->all());
+        $this->assertSame([], $this->getJson("/api/courses/{$course->id}/modules?training_session_id={$sibling->id}")->assertOk()->json());
 
         // Appel : son module seulement.
         $this->getJson("/api/training-sessions/{$session->id}/attendances")->assertForbidden();
@@ -99,11 +114,13 @@ class ModuleTrainerScopeTest extends TestCase
         $learnerIds = collect($this->getJson('/api/learners?as_trainer=1&per_page=100')->assertOk()->json('data'))->pluck('id');
         $this->assertContains($learner->id, $learnerIds->all());
         $this->assertNotContains($stranger->id, $learnerIds->all());
+        $this->assertNotContains($siblingLearner->id, $learnerIds->all());
 
         // Son espace : la session apparaît avec son module.
         $row = collect($this->getJson('/api/trainers/me/stats')->assertOk()->json('all_sessions'))->firstWhere('id', $session->id);
         $this->assertFalse($row['is_main_trainer']);
         $this->assertSame(['Marketing digital'], collect($row['my_modules'])->pluck('name')->all());
+        $this->assertNull(collect($this->getJson('/api/trainers/me/stats')->json('all_sessions'))->firstWhere('id', $sibling->id));
 
         // Le formateur principal voit toute la session et tous les modules.
         Sanctum::actingAs($mainUser);

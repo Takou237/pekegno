@@ -64,6 +64,12 @@ export type {
   SellerProfile,
 };
 
+export interface SessionModuleTrainerRow {
+  course_module_id: string;
+  name: string;
+  trainer: { id: string; first_name: string; last_name: string; email: string | null } | null;
+}
+
 export const academyApi = {
   async courses(params: CourseListParams = {}): Promise<Paginated<Course>> {
     const { data } = await client.get<Paginated<Course>>('/courses', { params });
@@ -232,8 +238,24 @@ export const academyApi = {
   },
 
   // === Modules ===
-  async modules(courseId: string): Promise<CourseModule[]> {
-    const { data } = await client.get<CourseModule[]>(`/courses/${courseId}/modules`);
+  async modules(courseId: string, trainingSessionId?: string): Promise<CourseModule[]> {
+    const { data } = await client.get<CourseModule[]>(`/courses/${courseId}/modules`, {
+      params: trainingSessionId ? { training_session_id: trainingSessionId } : undefined,
+    });
+    return data;
+  },
+
+  // Formateur de chaque module, pour UNE session.
+  async sessionModuleTrainers(sessionId: string): Promise<SessionModuleTrainerRow[]> {
+    const { data } = await client.get<SessionModuleTrainerRow[]>(`/training-sessions/${sessionId}/module-trainers`);
+    return data;
+  },
+
+  async updateSessionModuleTrainers(
+    sessionId: string,
+    assignments: { course_module_id: string; trainer_id: string | null }[],
+  ): Promise<SessionModuleTrainerRow[]> {
+    const { data } = await client.put<SessionModuleTrainerRow[]>(`/training-sessions/${sessionId}/module-trainers`, { assignments });
     return data;
   },
 
