@@ -44,7 +44,8 @@ export default function TreasuryPage() {
 
   // Nouvelle caisse (administration) : crée aussi le moyen de paiement.
   const { user } = useAuth();
-  const canManageAccounts = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(user?.role?.name ?? '');
+  // Seul l'administrateur (super-admin) crée et désactive les caisses.
+  const canManageAccounts = user?.role?.name === 'super-admin';
   const [newAccountOpen, setNewAccountOpen] = useState(false);
   const [agencyOptions, setAgencyOptions] = useState<{ id: string; name: string }[]>([]);
   const [newAccount, setNewAccount] = useState({ agency_id: '', name: '', type: 'mobile_money' as 'cash' | 'mobile_money' | 'bank', account_number: '', opening_balance: '', visible_to_cashier: false });

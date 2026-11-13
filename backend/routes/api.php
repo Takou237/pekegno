@@ -474,6 +474,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/expenses/{expense}', [ExpenseController::class, 'show'])->middleware('permission:depenses.consulter');
     Route::put('/expenses/{expense}', [ExpenseController::class, 'update'])->middleware('permission:depenses.modifier');
     Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->middleware('permission:depenses.supprimer');
+    Route::post('/expenses/{expense}/justification', [ExpenseController::class, 'uploadJustification'])->middleware('permission:depenses.consulter');
     Route::post('/expenses/{expense}/submit', [ExpenseController::class, 'submit'])->middleware('permission:depenses.modifier');
     Route::post('/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->middleware('permission:depenses.valider');
     Route::post('/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->middleware('permission:depenses.valider');
@@ -528,6 +529,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->middleware('permission:activites.supprimer');
 
     // === Sprint 5 : Présences ===
+    Route::get('/attendances/seances', [AttendanceController::class, 'seances'])->middleware('permission:presences.consulter');
     Route::get('/training-sessions/{session}/attendances', [AttendanceController::class, 'index'])->middleware('permission:presences.consulter');
     // presences.modifier OU formateur de la session (vérifié dans le contrôleur) :
     // un commercial / community manager lié à un profil formateur pointe ses sessions.

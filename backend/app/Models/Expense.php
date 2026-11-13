@@ -29,6 +29,19 @@ class Expense extends Model
         self::STATUS_CLOSED,
     ];
 
+    /** Lien du justificatif (photo / PDF du reçu). */
+    protected $appends = ['justification_url'];
+
+    public function getJustificationUrlAttribute(): ?string
+    {
+        $path = $this->justification_path;
+        if (! $path) {
+            return null;
+        }
+
+        return str_starts_with($path, 'http') ? $path : \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+    }
+
     protected $fillable = [
         'number',
         'agency_id',

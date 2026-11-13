@@ -1,5 +1,6 @@
 export default {
   common: {
+    required: 'Required field.',
     noOptions: 'No results.',
     loading: 'Loading...',
     refresh: 'Refresh',
@@ -895,6 +896,7 @@ export default {
   },
 
   dashboard: {
+    checkBackend: 'Unable to load data. Please try again shortly.',
     displayCurrency: 'Display currency',
     kpi: {
       detailsEmpty: 'Nothing for this card in the period.',
@@ -2053,6 +2055,7 @@ export default {
   },
 
   treasury: {
+    selectTreasuryAccount: '— Select a cash box —',
     newAccount: 'New cash box',
     newAccountHint: 'One cash box = one payment method: it is offered in the agency sales forms and broken down in tables (daily report, treasury).',
     accountAgency: 'Agency',
@@ -2143,6 +2146,10 @@ export default {
   },
 
   expenses: {
+    justification: 'Receipt',
+    viewJustification: 'View',
+    attachJustification: 'Attach photo',
+    justificationSaved: 'Receipt saved.',
     title: 'Expenses',
     subtitle: 'Expense management and workflow.',
     newExpense: 'New expense',
@@ -2239,6 +2246,28 @@ export default {
   },
 
   companies: {
+    loadFailed: 'Unable to load companies.',
+    saveFailed: 'Unable to save the company.',
+    deleteFailed: 'Unable to delete the company.',
+    empty: 'No company.',
+    colName: 'Name',
+    colIndustry: 'Industry',
+    colCity: 'City',
+    colPhone: 'Phone',
+    colProspects: 'Prospects',
+    colOpportunities: 'Opportunities',
+    editTitle: 'Edit company',
+    createTitle: 'New company',
+    fieldName: 'Company name',
+    fieldIndustry: 'Industry',
+    fieldPhone: 'Phone',
+    fieldEmail: 'Email',
+    fieldCity: 'City',
+    fieldCountry: 'Country',
+    fieldWebsite: 'Website',
+    fieldAddress: 'Address',
+    deleteTitle: 'Delete company',
+    deleteMessage: 'Delete the company “{{name}}”?',
     title: 'Companies',
     subtitle: 'Manage B2B companies and contacts.',
     newCompany: 'New company',
@@ -2262,6 +2291,11 @@ export default {
   },
 
   opportunities: {
+    loadError: 'Unable to load the opportunity.',
+    company: 'Company',
+    agency: 'Agency',
+    deleteConfirmTitle: 'Delete opportunity',
+    deleteConfirmMessage: 'This opportunity will be deleted. Continue?',
     title: 'Sales Pipeline',
     subtitle: 'Track opportunities and deals.',
     newOpportunity: 'New opportunity',
@@ -2295,6 +2329,13 @@ export default {
   },
 
   activities: {
+    quickCreate: 'Add a follow-up',
+    create: 'New activity',
+    timeline: 'Follow-up history',
+    noActivities: 'No activity.',
+    outcomePlaceholder: 'Follow-up outcome…',
+    confirm: 'Confirm',
+    markComplete: 'Mark as done',
     title: 'Activities',
     newActivity: 'New activity',
     type: 'Type',
@@ -2408,6 +2449,7 @@ export default {
   },
 
   reports: {
+    colAgency: 'Agency',
     monthly: {
       title: 'Commercial report',
       subtitle: 'Monthly commercial activity report',
@@ -2668,6 +2710,23 @@ export default {
   },
 
   academy: {
+    seancesSubtitle: 'Each session’s classes and the roll call taken by the trainer.',
+    takeRollCall: 'Take roll call',
+    noSeance: 'No roll call yet for this session.',
+    seanceDate: 'Class',
+    present: 'Present',
+    absent: 'Absent',
+    late: 'Late',
+    rollCallBy: 'Roll call by',
+    openSeance: 'Open',
+    allModules: 'Whole session',
+    noEndDate: 'no end date',
+    status_planned: 'Planned',
+    status_ongoing: 'Ongoing',
+    status_completed: 'Completed',
+    learnerRequired: 'Select a learner.',
+    availabilityGlobal: 'Available in every agency',
+    availabilityAgency: 'Available in this agency only',
     moduleTrainersTitle: 'Module trainers',
     moduleTrainersHint: 'Optional. The chosen trainer only sees this session and this module, not the other sessions of the course.',
     moduleTrainersEmpty: 'This course has no module yet.',

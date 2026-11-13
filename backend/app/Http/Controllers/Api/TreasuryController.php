@@ -32,8 +32,8 @@ class TreasuryController extends Controller
         return app(\App\Services\ScopeService::class)->agencyIds($user) ?? [];
     }
 
-    /** Rôles autorisés à créer / modifier les caisses (administration). */
-    private const ACCOUNT_ADMIN_ROLES = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'];
+    /** Seul l'administrateur (super-admin) crée / modifie les caisses. */
+    private const ACCOUNT_ADMIN_ROLES = ['super-admin'];
 
     /**
      * Moyens de paiement proposés dans les formulaires : une caisse = un moyen
@@ -51,7 +51,7 @@ class TreasuryController extends Controller
      */
     public function storeAccount(Request $request): JsonResponse
     {
-        abort_unless(in_array($request->user()?->role?->name, self::ACCOUNT_ADMIN_ROLES, true), 403, 'Seule l\'administration peut créer une caisse.');
+        abort_unless(in_array($request->user()?->role?->name, self::ACCOUNT_ADMIN_ROLES, true), 403, 'Seul l\'administrateur peut créer une caisse.');
 
         $data = $request->validate([
             'agency_id' => ['required', 'uuid', 'exists:agencies,id'],
@@ -97,7 +97,7 @@ class TreasuryController extends Controller
     /** Renommer, activer / désactiver une caisse (le moyen de paiement suit). */
     public function updateAccount(Request $request, TreasuryAccount $account): JsonResponse
     {
-        abort_unless(in_array($request->user()?->role?->name, self::ACCOUNT_ADMIN_ROLES, true), 403, 'Seule l\'administration peut modifier une caisse.');
+        abort_unless(in_array($request->user()?->role?->name, self::ACCOUNT_ADMIN_ROLES, true), 403, 'Seul l\'administrateur peut modifier une caisse.');
 
         $scopeIds = $this->scopeAgencyIds($request->user());
         abort_if($scopeIds !== null && ! in_array($account->agency_id, $scopeIds, true), 403, 'Cette caisse est hors de votre périmètre.');

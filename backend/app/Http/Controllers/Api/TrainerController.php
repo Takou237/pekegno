@@ -719,6 +719,7 @@ class TrainerController extends Controller
                 'name' => $session->agency?->name,
             ],
             'start_at' => $session->start_at?->toISOString(),
+            'end_at' => $session->end_at?->toISOString(),
             'status' => $session->status,
             'enrollments_count' => $session->enrollments_count ?? $session->enrollments()->count(),
         ];

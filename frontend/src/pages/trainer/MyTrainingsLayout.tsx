@@ -17,6 +17,7 @@ export default function MyTrainingsLayout() {
     { to: '/mes-formations/apprenants', label: t('nav.learners'), icon: UserCheck, end: false },
     { to: '/mes-formations/sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
     { to: '/mes-formations/planning', label: t('nav.planning'), icon: CalendarCheck, end: false },
+    { to: '/mes-formations/presences', label: t('nav.presences'), icon: CalendarCheck, end: false },
   ];
 
   return (

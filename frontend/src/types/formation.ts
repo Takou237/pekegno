@@ -352,6 +352,7 @@ export interface TrainerSessionItem {
   course?: { id: string; name: string; code: string } | null;
   agency?: { id: string; name: string } | null;
   start_at: string;
+  end_at?: string | null;
   status: SessionStatus;
   enrollments_count: number;
   /** Formateur principal (toute la session) ou seulement formateur de modules. */

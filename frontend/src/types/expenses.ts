@@ -18,6 +18,7 @@ export interface Expense {
   paid_at: string | null;
   treasury_account_id: string | null;
   justification_path: string | null;
+  justification_url?: string | null;
   note: string | null;
   /** T3.12 — financer par le budget pub client d'une facture. */
   is_pass_through?: boolean;

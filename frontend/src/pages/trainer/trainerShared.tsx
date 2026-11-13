@@ -98,6 +98,11 @@ export function TrainerSessionsTable({
                       dateStyle: 'short',
                       timeStyle: 'short',
                     })}
+                    {session.end_at && (
+                      <span className="block text-xs text-gray-400">
+                        → {new Date(session.end_at).toLocaleDateString(currentLocale(), { dateStyle: 'short' })}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                     {session.enrollments_count}

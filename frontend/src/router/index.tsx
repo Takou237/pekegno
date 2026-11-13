@@ -32,6 +32,7 @@ const TrainerOverviewPage = lazyWithRetry(() => import('@/pages/trainer/TrainerO
 const TrainerCoursesPage = lazyWithRetry(() => import('@/pages/trainer/TrainerCoursesPage'));
 const TrainerLearnersPage = lazyWithRetry(() => import('@/pages/trainer/TrainerLearnersPage'));
 const TrainerSessionsPage = lazyWithRetry(() => import('@/pages/trainer/TrainerSessionsPage'));
+const SessionSeancesPage = lazyWithRetry(() => import('@/pages/academy/SessionSeancesPage'));
 const TrainerPlanningPage = lazyWithRetry(() => import('@/pages/trainer/TrainerPlanningPage'));
 const MyTrainingsLayout = lazyWithRetry(() => import('@/pages/trainer/MyTrainingsLayout'));
 const TrainerRealizationsPage = lazyWithRetry(() => import('@/pages/trainer/TrainerRealizationsPage'));
@@ -247,6 +248,7 @@ export const router = createBrowserRouter([
               { path: 'sessions', element: page(<TrainerSessionsPage />, table) },
               { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
               { path: 'planning', element: page(<TrainerPlanningPage />, table) },
+              { path: 'presences', element: page(<SessionSeancesPage />, table) },
               { path: 'realisations', element: page(<TrainerRealizationsPage />, table) },
             ],
           },
@@ -263,6 +265,7 @@ export const router = createBrowserRouter([
               { path: 'sessions', element: page(<TrainerSessionsPage />, table) },
               { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
               { path: 'planning', element: page(<TrainerPlanningPage />, table) },
+              { path: 'presences', element: page(<SessionSeancesPage />, table) },
             ],
           },
           { path: '/caissier/commissions', element: page(<CashierCommissionsPage />, table) },
@@ -429,7 +432,7 @@ export const router = createBrowserRouter([
           { path: 'sessions/:sessionId/attendances', element: page(<AttendanceSheetPage />, table) },
           { path: 'trainers', element: page(<AcademyTrainersPage />, table) },
           { path: 'trainers/:trainerId', element: page(<AcademyTrainerDetailPage />, detail) },
-          { path: 'presences', element: page(<AcademySessionsPage />, table) },
+          { path: 'presences', element: page(<SessionSeancesPage />, table) },
           { path: 'invoices/new', element: page(<AcademyInvoiceFormPage />, form) },
           { path: 'payments', element: page(<SellerProfilesPage />, table) },
           { path: 'certificates', element: page(<CertificateListPage />, table) },

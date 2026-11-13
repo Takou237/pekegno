@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Save, ArrowLeft, Download, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { client } from '@/api/client';
@@ -26,6 +26,10 @@ const STATUS_COLORS: Record<AttendanceStatus, string> = {
 
 export default function AttendanceSheetPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  // Ouverte depuis « Présences » : séance (date) et module choisis.
+  const [searchParams] = useSearchParams();
+  const presetDate = searchParams.get('date');
+  const presetModule = searchParams.get('module');
   const { t } = useTranslation();
   const { showToast } = useToast();
 
@@ -33,7 +37,7 @@ export default function AttendanceSheetPage() {
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [modulesReady, setModulesReady] = useState(false);
   const [selectedModule, setSelectedModule] = useState<string>('');
-  const [sessionDate, setSessionDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [sessionDate, setSessionDate] = useState<string>(() => presetDate || new Date().toISOString().slice(0, 10));
   const [roster, setRoster] = useState<AttendanceRosterItem[]>([]);
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -54,7 +58,7 @@ export default function AttendanceSheetPage() {
         const mods = await academyApi.modules(sessionData.course.id, sessionData.id);
         setModules(mods);
         if (mods.length > 0) {
-          setSelectedModule(mods[0].id);
+          setSelectedModule(presetModule && mods.some((m) => m.id === presetModule) ? presetModule : mods[0].id);
         }
       }
       setModulesReady(true);
@@ -63,7 +67,7 @@ export default function AttendanceSheetPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, t]);
+  }, [sessionId, t, presetModule]);
 
   const loadRoster = useCallback(async () => {
     if (!sessionId) return;

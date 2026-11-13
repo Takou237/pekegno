@@ -1,5 +1,6 @@
 export default {
   common: {
+    required: 'Champ obligatoire.',
     noOptions: 'Aucun résultat.',
     loading: 'Chargement...',
     refresh: 'Actualiser',
@@ -901,6 +902,7 @@ export default {
   },
 
   dashboard: {
+    checkBackend: 'Impossible de charger les données. Réessayez dans un instant.',
     displayCurrency: "Devise d'affichage",
     // Cartes financières (cahier, section 1) — calcul unique côté serveur.
     kpi: {
@@ -2066,6 +2068,7 @@ export default {
   },
 
   treasury: {
+    selectTreasuryAccount: '— Choisir une caisse —',
     newAccount: 'Nouvelle caisse',
     newAccountHint: "Une caisse = un moyen de paiement : il sera proposé dans les formulaires de vente de l'agence et ventilé dans les tableaux (bilan, trésorerie).",
     accountAgency: 'Agence',
@@ -2156,6 +2159,10 @@ export default {
   },
 
   expenses: {
+    justification: 'Justificatif',
+    viewJustification: 'Voir',
+    attachJustification: 'Joindre la photo',
+    justificationSaved: 'Justificatif enregistré.',
     title: 'Dépenses',
     subtitle: 'Gestion et workflow des dépenses.',
     newExpense: 'Nouvelle dépense',
@@ -2252,6 +2259,28 @@ export default {
   },
 
   companies: {
+    loadFailed: 'Impossible de charger les entreprises.',
+    saveFailed: "Impossible d'enregistrer l'entreprise.",
+    deleteFailed: "Impossible de supprimer l'entreprise.",
+    empty: 'Aucune entreprise.',
+    colName: 'Nom',
+    colIndustry: 'Secteur',
+    colCity: 'Ville',
+    colPhone: 'Téléphone',
+    colProspects: 'Prospects',
+    colOpportunities: 'Opportunités',
+    editTitle: "Modifier l'entreprise",
+    createTitle: 'Nouvelle entreprise',
+    fieldName: "Nom de l'entreprise",
+    fieldIndustry: "Secteur d'activité",
+    fieldPhone: 'Téléphone',
+    fieldEmail: 'E-mail',
+    fieldCity: 'Ville',
+    fieldCountry: 'Pays',
+    fieldWebsite: 'Site web',
+    fieldAddress: 'Adresse',
+    deleteTitle: "Supprimer l'entreprise",
+    deleteMessage: "Supprimer l'entreprise « {{name}} » ?",
     title: 'Entreprises',
     subtitle: 'Gestion des entreprises et contacts B2B.',
     newCompany: 'Nouvelle entreprise',
@@ -2275,6 +2304,11 @@ export default {
   },
 
   opportunities: {
+    loadError: "Impossible de charger l'opportunité.",
+    company: 'Entreprise',
+    agency: 'Agence',
+    deleteConfirmTitle: "Supprimer l'opportunité",
+    deleteConfirmMessage: 'Cette opportunité sera supprimée. Continuer ?',
     title: 'Pipeline commercial',
     subtitle: 'Suivi des opportunités et deals.',
     newOpportunity: 'Nouvelle opportunité',
@@ -2308,6 +2342,13 @@ export default {
   },
 
   activities: {
+    quickCreate: 'Ajouter une relance',
+    create: 'Nouvelle activité',
+    timeline: 'Historique des relances',
+    noActivities: 'Aucune activité.',
+    outcomePlaceholder: 'Résultat de la relance…',
+    confirm: 'Valider',
+    markComplete: 'Marquer comme faite',
     title: 'Activités',
     newActivity: 'Nouvelle activité',
     type: 'Type',
@@ -2421,6 +2462,7 @@ export default {
   },
 
   reports: {
+    colAgency: 'Agence',
     monthly: {
       title: 'Rapport commercial',
       subtitle: "Rapport mensuel d'activité commerciale",
@@ -2681,6 +2723,23 @@ export default {
   },
 
   academy: {
+    seancesSubtitle: "Les séances de chaque session et l'appel fait par le formateur.",
+    takeRollCall: "Faire l'appel",
+    noSeance: 'Aucun appel fait pour cette session.',
+    seanceDate: 'Séance',
+    present: 'Présents',
+    absent: 'Absents',
+    late: 'Retards',
+    rollCallBy: 'Appel fait par',
+    openSeance: 'Ouvrir',
+    allModules: 'Toute la session',
+    noEndDate: 'sans date de fin',
+    status_planned: 'Planifiée',
+    status_ongoing: 'En cours',
+    status_completed: 'Terminée',
+    learnerRequired: 'Choisissez un apprenant.',
+    availabilityGlobal: 'Disponible dans toutes les agences',
+    availabilityAgency: 'Disponible dans cette agence seulement',
     moduleTrainersTitle: 'Formateurs des modules',
     moduleTrainersHint: 'Facultatif. Le formateur choisi ne voit que cette session et ce module, pas les autres sessions de la formation.',
     moduleTrainersEmpty: "Cette formation n'a pas encore de module.",

@@ -39,6 +39,13 @@ export const expensesApi = {
     return client.post(`/expenses/${id}/reject`, { reason }).then((r) => r.data);
   },
 
+  // Justificatif (photo ou PDF du reçu).
+  uploadJustification(id: string, file: File): Promise<Expense> {
+    const form = new FormData();
+    form.append('file', file);
+    return client.post(`/expenses/${id}/justification`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+  },
+
   pay(id: string, treasury_account_id: string): Promise<Expense> {
     return client.post(`/expenses/${id}/pay`, { treasury_account_id }).then((r) => r.data);
   },

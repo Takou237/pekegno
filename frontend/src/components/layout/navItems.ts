@@ -110,6 +110,7 @@ function trainerItems(t: TranslateFn): NavItem[] {
     { to: '/formateur/apprenants', label: t('nav.learners'), icon: UserCheck, end: false },
     { to: '/formateur/sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
     { to: '/formateur/planning', label: t('nav.planning'), icon: CalendarCheck, end: false },
+    { to: '/formateur/presences', label: t('nav.presences'), icon: ClipboardCheck, end: false },
     { to: '/formateur/realisations', label: t('nav.realizations'), icon: ClipboardList, end: false },
   ];
 }
@@ -264,6 +265,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       ...baseItems,
       trackingItem(t),
       { to: '/prospects', label: t('nav.prospects'), icon: Target, end: false },
+      // CRM (MVP §4) : pipeline Nouveau → Gagné / Perdu, avec relances.
+      { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
       // Commercial : menu Factures SANS pastille rouge (pas de badge impayés).
       invoiceItem(t),
       { to: '/commercial/commissions', label: t('nav.commissions'), icon: Coins, end: false },

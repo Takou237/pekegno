@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Plus, Send, CheckCircle, XCircle, Banknote, Lock, Undo2, Trash2, Eye } from 'lucide-react';
+import { RefreshCw, Plus, Send, CheckCircle, XCircle, Banknote, Lock, Undo2, Trash2, Eye, Camera, Paperclip } from 'lucide-react';
 import { expensesApi } from '@/api/expenses.api';
 import { servicesApi } from '@/api/services.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -44,6 +44,22 @@ export default function ExpenseListPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [detail, setDetail] = useState<Expense | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+  // Justificatif (CdC §14) : photo du reçu, prise au téléphone ou choisie.
+  async function attachJustification(expense: Expense, file: File | undefined) {
+    if (!file) return;
+    setUploadingId(expense.id);
+    try {
+      const updated = await expensesApi.uploadJustification(expense.id, file);
+      setExpenses((prev) => prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e)));
+      showToast(t('expenses.justificationSaved'), 'success');
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('common.error')), 'error');
+    } finally {
+      setUploadingId(null);
+    }
+  }
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -208,6 +224,7 @@ export default function ExpenseListPage() {
                   <th className="py-2 pr-3 font-medium">{t('expenses.category')}</th>
                   <th className="py-2 pr-3 font-medium">{t('expenses.requestor')}</th>
                   <th className="py-2 pr-3 font-medium">{t('common.status')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('expenses.justification')}</th>
                   <th className="py-2 text-right font-medium">{t('expenses.amount')}</th>
                   <th className="py-2 text-right font-medium">{t('common.actions')}</th>
                 </tr>
@@ -225,6 +242,27 @@ export default function ExpenseListPage() {
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGES[exp.status]}`}>
                         {t(`expenses.status${exp.status.charAt(0).toUpperCase() + exp.status.slice(1)}`)}
                       </span>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <div className="flex items-center gap-2">
+                        {exp.justification_url && (
+                          <a href={exp.justification_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline dark:text-brand-300">
+                            <Paperclip className="h-3.5 w-3.5" />
+                            {t('expenses.viewJustification')}
+                          </a>
+                        )}
+                        <label className={`inline-flex cursor-pointer items-center gap-1 rounded p-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 ${uploadingId === exp.id ? 'opacity-50' : ''}`} title={t('expenses.attachJustification')}>
+                          {uploadingId === exp.id ? <Spinner /> : <Camera className="h-4 w-4" />}
+                          {!exp.justification_url && <span>{t('expenses.attachJustification')}</span>}
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            disabled={uploadingId === exp.id}
+                            onChange={(e) => { attachJustification(exp, e.target.files?.[0]); e.target.value = ''; }}
+                          />
+                        </label>
+                      </div>
                     </td>
                     <td className="py-2 text-right font-medium text-gray-800 dark:text-gray-100">
                       {formatCurrency(exp.amount)}

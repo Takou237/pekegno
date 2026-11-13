@@ -97,17 +97,27 @@ export default function AcademyPlanningPage() {
 
   const sessionsByDay = useMemo(() => {
     const map = new Map<string, TrainingSession[]>();
+    // Une session apparaît sur chaque jour de sa période (début → fin), pas
+    // seulement le jour de son début ; sans date de fin : le jour du début.
+    const gridFirst = days[0] ? startOfDay(days[0]) : null;
+    const gridLast = days[days.length - 1] ? startOfDay(days[days.length - 1]) : null;
     sessions.forEach((session) => {
-      const key = startOfDay(new Date(session.start_at)).toDateString();
-      const bucket = map.get(key) ?? [];
-      bucket.push(session);
-      map.set(key, bucket);
+      const start = startOfDay(new Date(session.start_at));
+      const end = session.end_at ? startOfDay(new Date(session.end_at)) : start;
+      const from = gridFirst && start < gridFirst ? gridFirst : start;
+      const to = gridLast && end > gridLast ? gridLast : end;
+      for (const d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+        const key = d.toDateString();
+        const bucket = map.get(key) ?? [];
+        bucket.push(session);
+        map.set(key, bucket);
+      }
     });
     map.forEach((bucket) => {
       bucket.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
     });
     return map;
-  }, [sessions]);
+  }, [sessions, days]);
 
   const isToday = (date: Date) => date.toDateString() === startOfDay(new Date()).toDateString();
   const isCurrentMonth = (date: Date) => date.getMonth() === monthStart.getMonth();

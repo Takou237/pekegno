@@ -52,6 +52,8 @@ class CustomCashBoxPaymentMethodTest extends TestCase
         // Une caissière ne crée pas de caisse.
         Sanctum::actingAs($this->user('caissier'));
         $this->postJson('/api/treasury/accounts', ['agency_id' => $agency->id, 'name' => 'Airtel Money', 'type' => 'mobile_money'])->assertForbidden();
+        Sanctum::actingAs($this->user('direction-generale'));
+        $this->postJson('/api/treasury/accounts', ['agency_id' => $agency->id, 'name' => 'Airtel Money', 'type' => 'mobile_money'])->assertForbidden();
 
         $admin = $this->user('super-admin');
         Sanctum::actingAs($admin);
@@ -141,9 +143,8 @@ class CustomCashBoxPaymentMethodTest extends TestCase
         Sanctum::actingAs($cashier);
         $this->assertSame(['C'], collect($this->getJson("/api/treasury/accounts?agency_id={$douala->id}")->assertOk()->json())->pluck('code')->all());
 
-        // Le chef crée une caisse dans son agence, pas dans une autre.
+        // Seul l'administrateur (super-admin) crée une caisse ; pas le chef d'agence.
         Sanctum::actingAs($chief);
-        $this->postJson('/api/treasury/accounts', ['agency_id' => $douala->id, 'name' => 'Airtel Money', 'type' => 'mobile_money'])->assertCreated();
-        $this->postJson('/api/treasury/accounts', ['agency_id' => $yaounde->id, 'name' => 'Airtel Money', 'type' => 'mobile_money'])->assertForbidden();
+        $this->postJson('/api/treasury/accounts', ['agency_id' => $douala->id, 'name' => 'Airtel Money', 'type' => 'mobile_money'])->assertForbidden();
     }
 }

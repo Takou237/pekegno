@@ -221,6 +221,36 @@ class ExpenseController extends Controller
             new OA\Response(response: 422, description: 'Transition interdite'),
         ]
     )]
+    /**
+     * Justificatif (CdC §14) : photo ou PDF du reçu, joint à tout moment du
+     * circuit (demande, validation, décaissement). Remplace le précédent.
+     */
+    public function uploadJustification(Expense $expense, Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,heic,pdf', 'max:8192'],
+        ]);
+
+        $user = $request->user();
+        abort_unless(
+            collect(['depenses.creer', 'depenses.modifier', 'depenses.valider', 'depenses.encaisser'])->contains(fn ($p) => $user->hasPermission($p)),
+            403,
+            'Vous ne pouvez pas joindre de justificatif.'
+        );
+        $scope = app(ScopeService::class)->agencyIds($user);
+        abort_if($scope !== null && ! in_array($expense->agency_id, $scope, true), 404);
+
+        $previous = $expense->justification_path;
+        $path = $request->file('file')->store('expense-justifications', 'public');
+        $expense->update(['justification_path' => $path]);
+
+        if ($previous && $previous !== $path && ! str_starts_with($previous, 'http')) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($previous);
+        }
+
+        return response()->json($expense->fresh()->load(['agency', 'category', 'requestor', 'department']));
+    }
+
     public function submit(Expense $expense, Request $request): JsonResponse
     {
         $expense = $this->expenseService->submit($expense, $request->user()->id);
