@@ -158,6 +158,9 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/bilans', label: t('nav.bilans'), icon: FileText, end: false },
       adCampaignsItem(t),
       cashClosingsItem(t),
+      // Dépenses (agences et Administration du pays) et trésorerie du groupe.
+      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
+      { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
       invoiceItem(t),
       { to: '/contracts', label: t('nav.contracts'), icon: FileText, end: false },
       ...(canValidateInvoices(roleName)
