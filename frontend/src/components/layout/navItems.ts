@@ -173,6 +173,8 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/reports/events', label: t('nav.eventsReport'), icon: Coins, end: false },
       monthlyReportItem(t),
       salesTrackingItem(t),
+      // CRM : pipeline des opportunités de tous les commerciaux.
+      { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
       { to: '/audit', label: t('nav.audit'), icon: FileText, end: false },
       // Lot 9 désactivé le 11/11/2026 (décision Pekegno) — à réactiver plus tard : centre de sécurité.
       // ...(roleName === 'super-admin'
@@ -242,30 +244,21 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
   }
 
   if (roleName === 'comptable') {
+    // Comptable : la finance seulement (pas de suivi commercial, CRM ni catalogue).
     return [
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
-      trackingItem(t),
-      { to: '/clients', label: t('nav.clients'), icon: Contact, end: false },
-      { to: '/commercials', label: t('nav.commercials'), icon: Briefcase, end: false },
-      invoiceItem(t, unpaidBadge),
-      cashClosingsItem(t),
-      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
-      adCampaignsItem(t),
-      { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
-      { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: ScrollText, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
-      { to: '/subscriptions', label: t('nav.subscriptions'), icon: CalendarCheck, end: false },
-      { to: '/reports/subscriptions', label: t('nav.subscriptionsReport'), icon: CalendarCheck, end: false },
-      { to: '/reports/customers', label: t('nav.customersReport'), icon: Users, end: false },
-      { to: '/reports/comparison', label: t('nav.comparisonReport'), icon: BarChart3, end: false },
-      { to: '/commercials/report', label: t('nav.commercialReport'), icon: BarChart3, end: false },
+      cashClosingsItem(t),
+      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
+      invoiceItem(t, unpaidBadge),
+      { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
+      { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: ScrollText, end: false },
+      { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
       monthlyReportItem(t),
-      { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
-      { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
-      catalogItem(t),
     ];
   }
+
 
   // Commercial et community-manager : le community manager est un employé qui
   // vend comme les autres (même menu), en plus du suivi de ses prestations.
