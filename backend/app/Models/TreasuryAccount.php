@@ -25,6 +25,7 @@ class TreasuryAccount extends Model
 
     protected $fillable = [
         'agency_id',
+        'country_id',
         'name',
         'code',
         'method_key',
@@ -120,5 +121,11 @@ class TreasuryAccount extends Model
     public static function typeValidationRule(): string
     {
         return 'required|string|in:' . implode(',', self::TYPES);
+    }
+
+    /** Pays de l'Administration (dépense / écriture / caisse sans agence). */
+    public function country(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'country_id');
     }
 }

@@ -65,6 +65,13 @@ class ExpenseService
             422,
             "La caisse choisie n'appartient pas à l'agence de la dépense."
         );
+        // Dépense de l'Administration : payée depuis une caisse de l'Administration du même pays.
+        abort_if(
+            $expense->agency_id === null && $expense->country_id !== null
+                && ($account->agency_id !== null || $account->country_id !== $expense->country_id),
+            422,
+            "Une dépense de l'Administration se paie depuis une caisse de l'Administration du même pays."
+        );
 
         DB::transaction(function () use ($expense, $account, $actorUserId) {
             $this->treasuryService->recordMovement(
@@ -144,6 +151,7 @@ class ExpenseService
         AccountingTransaction::create([
             'number' => $this->accountingService->nextNumber(),
             'agency_id' => $expense->agency_id,
+            'country_id' => $expense->country_id ?? ($expense->agency_id ? null : $account->country_id),
             'department_id' => $expense->department_id,
             'category_id' => $category->id,
             'treasury_account_id' => $account->id,

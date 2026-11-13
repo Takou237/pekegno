@@ -54,7 +54,9 @@ class TreasuryController extends Controller
         abort_unless(in_array($request->user()?->role?->name, self::ACCOUNT_ADMIN_ROLES, true), 403, 'Seul l\'administrateur peut créer une caisse.');
 
         $data = $request->validate([
-            'agency_id' => ['required', 'uuid', 'exists:agencies,id'],
+            // Agence, ou Administration d'un pays (country_id).
+            'agency_id' => ['required_without:country_id', 'nullable', 'uuid', 'exists:agencies,id'],
+            'country_id' => ['required_without:agency_id', 'nullable', 'uuid', 'exists:countries,id'],
             'name' => ['required', 'string', 'max:100'],
             'type' => ['required', 'in:cash,mobile_money,bank'],
             'account_number' => ['nullable', 'string', 'max:50'],
@@ -62,30 +64,28 @@ class TreasuryController extends Controller
             'visible_to_cashier' => ['sometimes', 'boolean'],
         ]);
 
-        $agency = \App\Models\Agency::with('geoCountry')->findOrFail($data['agency_id']);
-        $scopeIds = $this->scopeAgencyIds($request->user());
-        abort_if($scopeIds !== null && ! in_array($agency->id, $scopeIds, true), 403, 'Cette agence est hors de votre périmètre.');
+        $agency = ! empty($data['agency_id']) ? \App\Models\Agency::with('geoCountry')->findOrFail($data['agency_id']) : null;
+        $country = $agency ? null : \App\Models\Country::findOrFail($data['country_id']);
         $key = \App\Support\PaymentMethods::keyFromName($data['name']);
         $standard = \App\Support\PaymentMethods::STANDARD[$key] ?? null;
 
-        abort_if(
-            TreasuryAccount::where('agency_id', $agency->id)->where('method_key', $key)->exists(),
-            422,
-            "L'agence a déjà la caisse « {$data['name']} »."
-        );
+        $siblings = TreasuryAccount::query()
+            ->when($agency, fn ($q) => $q->where('agency_id', $agency->id), fn ($q) => $q->whereNull('agency_id')->where('country_id', $country->id));
+        abort_if((clone $siblings)->where('method_key', $key)->exists(), 422, "Cette caisse « {$data['name']} » existe déjà.");
 
-        $code = $standard['code'] ?? $this->nextAccountCode($agency->id, $data['name']);
+        $code = $standard['code'] ?? $this->nextAccountCode((clone $siblings)->withTrashed()->pluck('code')->filter()->all(), $data['name']);
         $visibleToCashier = (bool) ($data['visible_to_cashier'] ?? $data['type'] === TreasuryAccount::TYPE_CASH);
 
         $account = TreasuryAccount::create([
-            'agency_id' => $agency->id,
+            'agency_id' => $agency?->id,
+            'country_id' => $country?->id,
             'name' => $data['name'],
             'code' => $code,
             'method_key' => $key,
             'type' => $standard['type'] ?? $data['type'],
             'account_number' => $data['account_number'] ?? null,
             'opening_balance' => $data['opening_balance'] ?? 0,
-            'currency_code' => $agency->geoCountry?->currency_code ?? 'XAF',
+            'currency_code' => ($agency?->geoCountry ?? $country)?->currency_code ?? 'XAF',
             'is_active' => true,
             'visible_roles' => $visibleToCashier ? null : \App\Services\TreasuryAccountProvisioner::RESTRICTED_ROLES,
         ]);
@@ -98,9 +98,6 @@ class TreasuryController extends Controller
     public function updateAccount(Request $request, TreasuryAccount $account): JsonResponse
     {
         abort_unless(in_array($request->user()?->role?->name, self::ACCOUNT_ADMIN_ROLES, true), 403, 'Seul l\'administrateur peut modifier une caisse.');
-
-        $scopeIds = $this->scopeAgencyIds($request->user());
-        abort_if($scopeIds !== null && ! in_array($account->agency_id, $scopeIds, true), 403, 'Cette caisse est hors de votre périmètre.');
 
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:100'],
@@ -121,9 +118,8 @@ class TreasuryController extends Controller
     }
 
     /** Code court unique dans l'agence (initiales du nom : « Airtel Money » → AM). */
-    private function nextAccountCode(string $agencyId, string $name): string
+    private function nextAccountCode(array $used, string $name): string
     {
-        $used = TreasuryAccount::withTrashed()->where('agency_id', $agencyId)->pluck('code')->filter()->all();
         $initials = collect(preg_split('/\s+/', \Illuminate\Support\Str::ascii($name)))
             ->map(fn ($w) => strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $w), 0, 1)))
             ->implode('');
@@ -156,16 +152,26 @@ class TreasuryController extends Controller
     )]
     public function indexAccounts(Request $request): JsonResponse
     {
-        $query = TreasuryAccount::active()->with('agency')->visibleTo($request->user());
+        $query = TreasuryAccount::active()->with(['agency', 'country:id,name'])->visibleTo($request->user());
 
         if ($request->filled('agency_id')) {
             $query->where('agency_id', $request->input('agency_id'));
         }
+        // Caisses de l'Administration (d'un pays donné, ou de tous).
+        if ($request->boolean('administration')) {
+            $query->whereNull('agency_id')->whereNotNull('country_id');
+        }
+        if ($request->filled('country_id')) {
+            $query->where('country_id', $request->input('country_id'));
+        }
 
-        // Hors direction : trésorerie limitée aux agences du périmètre.
+        // Hors direction : trésorerie limitée aux agences du périmètre, plus
+        // l'Administration de leur pays (destination des versements).
         $scopeIds = $this->scopeAgencyIds($request->user());
         if ($scopeIds !== null) {
-            $query->whereIn('agency_id', $scopeIds);
+            $countries = \App\Models\Agency::whereIn('id', $scopeIds)->pluck('country_id')->filter()->unique()->all();
+            $query->where(fn ($q) => $q->whereIn('agency_id', $scopeIds)
+                ->orWhere(fn ($qq) => $qq->whereNull('agency_id')->whereIn('country_id', $countries)));
         }
 
         if ($request->filled('type')) {
@@ -282,9 +288,14 @@ class TreasuryController extends Controller
 
         // Hors direction : transfert limité aux comptes du périmètre.
         $scopeIds = $this->scopeAgencyIds($request->user());
-        if ($scopeIds !== null
-            && (! in_array($from->agency_id, $scopeIds, true) || ! in_array($to->agency_id, $scopeIds, true))) {
-            abort(403, 'Transfert hors de votre périmètre.');
+        if ($scopeIds !== null) {
+            // Une caisse de l'Administration du pays de ses agences est dans le
+            // périmètre (l'agence lui reverse son argent, cahier §2).
+            $countries = \App\Models\Agency::whereIn('id', $scopeIds)->pluck('country_id')->filter()->unique()->all();
+            $inScope = fn (TreasuryAccount $a) => $a->agency_id !== null
+                ? in_array($a->agency_id, $scopeIds, true)
+                : in_array($a->country_id, $countries, true);
+            abort_unless($inScope($from) && $inScope($to), 403, 'Transfert hors de votre périmètre.');
         }
 
         $result = $this->treasuryService->transfer(

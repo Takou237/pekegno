@@ -90,6 +90,7 @@ class TreasuryAccountProvisioner
 
         $existing = TreasuryAccount::withTrashed()
             ->where('agency_id', $agency?->id)
+            ->when($agency === null, fn ($q) => $q->whereNull('country_id'))
             ->where('code', $code)
             ->first();
 
@@ -121,6 +122,41 @@ class TreasuryAccountProvisioner
         ]);
 
         return $account;
+    }
+
+    /**
+     * Caisses de l'Administration d'un pays (cahier §2) : espèces, Orange
+     * Money, MTN MoMo, banque (+ Wave en zone XOF). Elles reçoivent l'argent
+     * des agences et paient les dépenses du groupe. Visibles de
+     * l'administration seulement. Idempotent.
+     */
+    public function ensureForAdministration(\App\Models\Country $country): void
+    {
+        $codes = ($country->currency_code ?? 'XAF') === 'XOF' ? ['C', 'O', 'M', 'B', 'W'] : ['C', 'O', 'M', 'B'];
+
+        foreach ($codes as $code) {
+            $template = self::TEMPLATES[$code];
+            $exists = TreasuryAccount::withTrashed()->whereNull('agency_id')->where('country_id', $country->id)->where('code', $code)->first();
+            if ($exists) {
+                $exists->trashed() && $exists->restore();
+
+                continue;
+            }
+
+            TreasuryAccount::create([
+                'agency_id' => null,
+                'country_id' => $country->id,
+                'code' => $code,
+                'method_key' => self::METHOD_KEYS[$code] ?? null,
+                'name' => ($code === 'C' ? 'Caisse Administration' : $template['name'].' — Administration'),
+                'type' => $template['type'],
+                'provider' => $template['provider'],
+                'opening_balance' => 0,
+                'currency_code' => $country->currency_code ?? 'XAF',
+                'is_active' => true,
+                'visible_roles' => self::RESTRICTED_ROLES,
+            ]);
+        }
     }
 
     private function currencyFor(?Agency $agency): string

@@ -13,6 +13,7 @@ class AccountingTransaction extends Model
     protected $fillable = [
         'number',
         'agency_id',
+        'country_id',
         'department_id',
         'category_id',
         'treasury_account_id',
@@ -85,5 +86,11 @@ class AccountingTransaction extends Model
     public function operator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'operator_id');
+    }
+
+    /** Pays de l'Administration (dépense / écriture / caisse sans agence). */
+    public function country(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'country_id');
     }
 }

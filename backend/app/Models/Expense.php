@@ -45,6 +45,7 @@ class Expense extends Model
     protected $fillable = [
         'number',
         'agency_id',
+        'country_id',
         'department_id',
         'category_id',
         'amount',
@@ -177,5 +178,11 @@ class Expense extends Model
     public function hasSettlementAccount(): bool
     {
         return $this->treasury_account_id !== null;
+    }
+
+    /** Pays de l'Administration (dépense / écriture / caisse sans agence). */
+    public function country(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'country_id');
     }
 }

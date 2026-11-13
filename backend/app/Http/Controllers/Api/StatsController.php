@@ -614,22 +614,11 @@ class StatsController extends Controller
                 'revenue' => (float) ($row['revenue'] ?? 0),
             ]);
 
-        // T3.4 — Vue Pays : deux corps (Agences opérationnelles / Administration) + total
-        $operationalAgencyIds = Agency::where('country_id', $country->id)
-            ->where(function ($q) {
-                $q->whereNull('type')->orWhere('type', '!=', Agency::TYPE_ADMINISTRATION);
-            })
-            ->pluck('id')
-            ->all();
-
-        $adminAgencyIds = Agency::where('country_id', $country->id)
-            ->where('type', Agency::TYPE_ADMINISTRATION)
-            ->pluck('id')
-            ->all();
-
-        $metricsService = app(FinancialMetricsService::class);
-        $kpiOperational = ! empty($operationalAgencyIds) ? $metricsService->summary($from, $to, $operationalAgencyIds) : null;
-        $kpiAdmin = ! empty($adminAgencyIds) ? $metricsService->summary($from, $to, $adminAgencyIds) : null;
+        // Cahier §2 — Vue Pays : deux corps, les agences (qui vendent) et
+        // l'Administration du pays (qui reçoit l'argent des agences et paie les
+        // dépenses du groupe), puis leur total.
+        $administration = $this->administrationBody($country, $from, $to);
+        $agencyNet = (float) $kpi['net_cash'];
 
         return response()->json([
             'country' => [
@@ -643,8 +632,13 @@ class StatsController extends Controller
                 'to' => $to->toISOString(),
             ],
             ...$this->kpiPayload($kpi),
-            'operational_kpi' => $kpiOperational ? $this->kpiPayload($kpiOperational) : null,
-            'administration_kpi' => $kpiAdmin ? $this->kpiPayload($kpiAdmin) : null,
+            'administration' => $administration,
+            'bodies_total' => [
+                // Agences : encaissé − dépenses des agences ; Administration : ses dépenses.
+                'agencies_net' => round($agencyNet, 2),
+                'administration_expenses' => $administration['expenses'],
+                'net' => round($agencyNet - $administration['expenses'], 2),
+            ],
             'clients_total' => $clientCount,
             'agencies_total' => $agencyCount,
             'departments_total' => $departmentCount,
@@ -698,6 +692,37 @@ class StatsController extends Controller
      * @param  array<string, float|int|bool>  $kpi
      * @return array<string, float|int|bool>
      */
+    /**
+     * Administration d'un pays : dépenses payées (hors transferts, hors budget
+     * pub client) par catégorie, et argent reçu des agences (transferts vers
+     * ses caisses) sur la période.
+     */
+    private function administrationBody(Country $country, $from, $to): array
+    {
+        $expenses = \App\Models\AccountingTransaction::realExpenses()
+            ->where('is_pass_through', false)
+            ->whereNull('agency_id')
+            ->where('country_id', $country->id)
+            ->whereBetween('transacted_at', [$from, $to])
+            ->leftJoin('accounting_categories', 'accounting_categories.id', '=', 'accounting_transactions.category_id')
+            ->groupBy('accounting_categories.name')
+            ->selectRaw("coalesce(accounting_categories.name, 'Autres') as name, sum(accounting_transactions.amount) as total")
+            ->get();
+
+        $accountIds = \App\Models\TreasuryAccount::whereNull('agency_id')->where('country_id', $country->id)->pluck('id');
+        $received = \App\Models\TreasuryTransaction::whereIn('treasury_account_id', $accountIds)
+            ->where('direction', 'in')
+            ->whereNotNull('transfer_type')
+            ->whereBetween('transacted_at', [$from, $to])
+            ->sum('amount');
+
+        return [
+            'expenses' => round((float) $expenses->sum('total'), 2),
+            'expenses_by_category' => $expenses->map(fn ($r) => ['name' => $r->name, 'total' => round((float) $r->total, 2)])->sortByDesc('total')->values(),
+            'received_from_agencies' => round((float) $received, 2),
+        ];
+    }
+
     private function kpiPayload(array $kpi): array
     {
         return [

@@ -35,8 +35,16 @@ class ExpenseController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $query = Expense::query()->with(['agency', 'category', 'requestor']);
+        $query = Expense::query()->with(['agency', 'country:id,name', 'category', 'requestor']);
         app(ScopeService::class)->scopeManagerQuery($query, $request->user());
+
+        // Dépenses de l'Administration d'un pays (sans agence).
+        if ($request->boolean('administration')) {
+            $query->whereNull('agency_id')->whereNotNull('country_id');
+        }
+        if ($request->filled('country_id')) {
+            $query->where('country_id', $request->input('country_id'));
+        }
 
         if ($request->filled('status')) {
             $query->ofStatus($request->input('status'));
@@ -78,7 +86,9 @@ class ExpenseController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'agency_id' => ['required', 'uuid', 'exists:agencies,id'],
+            // Agence, OU Administration d'un pays (country_id, sans agence).
+            'agency_id' => ['required_without:country_id', 'nullable', 'uuid', 'exists:agencies,id'],
+            'country_id' => ['required_without:agency_id', 'nullable', 'uuid', 'exists:countries,id'],
             'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
             'category_id' => ['required', 'uuid', 'exists:accounting_categories,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
@@ -92,6 +102,7 @@ class ExpenseController extends Controller
             'service_id' => ['nullable', 'uuid', 'exists:services,id'],
         ]);
 
+        $data = $this->administrationAttributes($data, $request);
         $data = $this->passThroughAttributes($data);
         $data = $this->eventAttributes($data);
 
@@ -101,7 +112,34 @@ class ExpenseController extends Controller
             'requested_by' => $request->user()->id,
         ]);
 
-        return response()->json($expense->fresh()->load(['agency', 'category', 'requestor', 'department']), 201);
+        return response()->json($expense->fresh()->load(['agency', 'country:id,name', 'category', 'requestor', 'department']), 201);
+    }
+
+    /** Rôles qui saisissent les dépenses de l'Administration d'un pays. */
+    public const ADMINISTRATION_ROLES = ['super-admin', 'direction-generale', 'comptable'];
+
+    /**
+     * Cahier §2 : dépense de l'Administration d'un pays (frais d'administration,
+     * publicité Pekegno, stock de livres et de Matootoo) — sans agence ni
+     * département. Saisie par l'administration centrale et le comptable.
+     */
+    private function administrationAttributes(array $data, Request $request): array
+    {
+        if (! empty($data['agency_id'])) {
+            unset($data['country_id']);
+
+            return $data;
+        }
+
+        abort_unless(
+            in_array($request->user()?->role?->name, self::ADMINISTRATION_ROLES, true),
+            403,
+            "Seuls l'administrateur, la direction générale et le comptable saisissent les dépenses de l'Administration."
+        );
+        $data['agency_id'] = null;
+        $data['department_id'] = null;
+
+        return $data;
     }
 
     /**
