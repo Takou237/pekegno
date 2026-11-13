@@ -244,9 +244,10 @@ class Phase3AccountingTest extends TestCase
 
         $this->assertDatabaseHas('accounting_categories', ['name' => 'Commissions', 'type' => 'expense', 'is_system' => true]);
 
+        // 8 catégories système + « Publicité Pekegno » (campagnes, 13/11) + Transport.
         $this->getJson('/api/accounting/categories?type=expense')
             ->assertOk()
-            ->assertJsonCount(9);
+            ->assertJsonCount(10);
     }
 
     public function test_accounting_export_downloads_csv(): void

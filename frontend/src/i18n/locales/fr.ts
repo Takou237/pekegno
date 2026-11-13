@@ -2224,6 +2224,8 @@ export default {
   },
 
   adCampaigns: {
+    country: 'Pays',
+    agency: 'Agence',
     title: 'Publicité Pekegno',
     subtitle: 'Campagnes locales (agence ciblée) et nationales (réparties au prorata du CA de la branche).',
     newCampaign: 'Nouvelle campagne',

@@ -2211,6 +2211,8 @@ export default {
   },
 
   adCampaigns: {
+    country: 'Country',
+    agency: 'Agency',
     title: 'Pekegno Advertising',
     subtitle: 'Local campaigns (targeted agency) and national campaigns (split by branch revenue).',
     newCampaign: 'New campaign',

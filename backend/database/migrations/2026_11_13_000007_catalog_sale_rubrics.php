@@ -16,7 +16,6 @@ return new class extends Migration
         'Canva' => ['#00C4CC', 'palette'],
         'Livre' => ['#8B5CF6', 'book'],
         'Graphisme' => ['#F97316', 'pen-tool'],
-        'Tik Tok' => ['#111827', 'music'],
         'Matootoo' => ['#10B981', 'shopping-bag'],
         'Séminaire' => ['#EF4444', 'users'],
     ];
@@ -26,7 +25,6 @@ return new class extends Migration
         'Canva Pro' => 'Canva',
         "Livre Comment Gagner de l'Argent en Ligne en Afrique" => 'Livre',
         'Logo ou Identité de marque' => 'Graphisme',
-        'Tik Tok Monetise' => 'Tik Tok',
         'Bootcamp 3 jours, Yaoundé' => 'Séminaire',
     ];
 
