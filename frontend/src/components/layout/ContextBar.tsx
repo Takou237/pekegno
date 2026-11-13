@@ -95,6 +95,26 @@ interface ContextBarProps {
   onMobileMenuToggle?: () => void;
 }
 
+/**
+ * Page ouverte par une alerte de la cloche, pour y faire l'action : facture,
+ * caisses du jour, contrat (renouveler / résilier), prestation (action en retard).
+ */
+function notificationTarget(msg: AgencyNotification): string | null {
+  if (!msg.entity_id && msg.entity_type !== 'cash_closing') return null;
+  switch (msg.entity_type) {
+    case 'invoice':
+      return `/invoices/${msg.entity_id}`;
+    case 'cash_closing':
+      return '/treasury/closings';
+    case 'contract':
+      return `/contracts/${msg.entity_id}`;
+    case 'prestation':
+      return `/team/prestations/${msg.entity_id}`;
+    default:
+      return null;
+  }
+}
+
 export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextBarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -505,12 +525,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                       </div>
                       <ul className="max-h-56 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
                         {messages.map((msg) => {
-                          const target =
-                            msg.entity_type === 'invoice' && msg.entity_id
-                              ? `/invoices/${msg.entity_id}`
-                              : msg.entity_type === 'cash_closing'
-                                ? '/treasury/closings'
-                                : null;
+                          const target = notificationTarget(msg);
                           const content = (
                             <>
                               <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
@@ -603,12 +618,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                       </div>
                       <ul className="max-h-56 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
                         {messages.map((msg) => {
-                          const target =
-                            msg.entity_type === 'invoice' && msg.entity_id
-                              ? `/invoices/${msg.entity_id}`
-                              : msg.entity_type === 'cash_closing'
-                                ? '/treasury/closings'
-                                : null;
+                          const target = notificationTarget(msg);
                           const content = (
                             <>
                               <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
@@ -669,12 +679,7 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
                       </div>
                       <ul className="max-h-56 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
                         {messages.map((msg) => {
-                          const target =
-                            msg.entity_type === 'invoice' && msg.entity_id
-                              ? `/invoices/${msg.entity_id}`
-                              : msg.entity_type === 'cash_closing'
-                                ? '/treasury/closings'
-                                : null;
+                          const target = notificationTarget(msg);
                           const content = (
                             <>
                               <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
