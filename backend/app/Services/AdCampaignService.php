@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AdCampaign;
 use App\Models\Agency;
 use App\Support\Money;
+use App\Support\Period;
 use App\Support\SaleBranch;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -120,8 +121,17 @@ class AdCampaignService
             return [$overlapFrom, $overlapTo, 1.0];
         }
 
-        $campaignDays = $start->diffInDays($end->copy()->startOfDay()) + 1;
-        $overlapDays = $overlapFrom->copy()->startOfDay()->diffInDays($overlapTo->copy()->startOfDay()) + 1;
+        // Les bornes de la période arrivent en UTC (ex. 1er novembre 00:00 à
+        // Douala = 31 octobre 23:00 UTC) : compter les jours du calendrier
+        // métier, sinon le prorata gagne un jour (14 jours au lieu de 13, 31 au
+        // lieu de 30) et une campagne de 2 mois pèse 62 000 au lieu de 61 000.
+        $tz = Period::businessTimezone();
+        $businessDay = function (Carbon $instant) use ($tz): Carbon {
+            return Carbon::parse($instant->copy()->setTimezone($tz)->toDateString(), $tz)->startOfDay();
+        };
+        $campaignDays = Carbon::parse($start->toDateString(), $tz)
+            ->diffInDays(Carbon::parse($end->toDateString(), $tz)) + 1;
+        $overlapDays = $businessDay($overlapFrom)->diffInDays($businessDay($overlapTo)) + 1;
 
         return [$overlapFrom, $overlapTo, min(1.0, $overlapDays / max(1, $campaignDays))];
     }

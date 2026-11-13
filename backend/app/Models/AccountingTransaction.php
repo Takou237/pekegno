@@ -77,7 +77,10 @@ class AccountingTransaction extends Model
 
     public function scopeRealExpenses($query)
     {
-        return $query->where('type', 'expense')->where('is_transfer', false);
+        // Colonnes qualifiées : la table est jointe à accounting_categories,
+        // qui porte aussi une colonne `type`.
+        return $query->where('accounting_transactions.type', 'expense')
+            ->where('accounting_transactions.is_transfer', false);
     }
 
     public function category(): BelongsTo

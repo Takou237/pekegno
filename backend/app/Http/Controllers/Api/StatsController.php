@@ -721,11 +721,13 @@ class StatsController extends Controller
      */
     private function administrationBody(Country $country, $from, $to): array
     {
+        // Colonnes qualifiées : la table est jointe à accounting_categories,
+        // qui porte aussi `is_pass_through`, `agency_id` et `country_id`.
         $expenses = \App\Models\AccountingTransaction::realExpenses()
-            ->where('is_pass_through', false)
-            ->whereNull('agency_id')
-            ->where('country_id', $country->id)
-            ->whereBetween('transacted_at', [$from, $to])
+            ->where('accounting_transactions.is_pass_through', false)
+            ->whereNull('accounting_transactions.agency_id')
+            ->where('accounting_transactions.country_id', $country->id)
+            ->whereBetween('accounting_transactions.transacted_at', [$from, $to])
             ->leftJoin('accounting_categories', 'accounting_categories.id', '=', 'accounting_transactions.category_id')
             ->groupBy('accounting_categories.name')
             ->selectRaw("coalesce(accounting_categories.name, 'Autres') as name, sum(accounting_transactions.amount) as total")
