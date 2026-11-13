@@ -3,6 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { Plus, GripVertical, Building2, Filter, RefreshCw } from 'lucide-react';
 import { opportunitiesApi } from '@/api/opportunities.api';
 import { usersApi } from '@/api/users.api';
+import { prospectsApi } from '@/api/prospects.api';
+import { clientsApi } from '@/api/clients.api';
+import { companiesApi } from '@/api/companies.api';
+import { agenciesApi } from '@/api/agencies.api';
+import { useAuth } from '@/hooks/useAuth';
+import { actsAsCommercial } from '@/utils/commercialRoles';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
@@ -27,7 +33,19 @@ export default function OpportunityKanbanPage() {
   const [filterSearch, setFilterSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [createStage, setCreateStage] = useState<OpportunityStage>('new');
-  const [form, setForm] = useState({ title: '', expected_amount: '', company_id: '', agency_id: '', commercial_id: '' });
+  const { user } = useAuth();
+  const isSeller = actsAsCommercial(user?.role?.name);
+  // Agence par défaut : l'agence principale du connecté.
+  const defaultAgencyId = user?.assignments?.find((a) => a.pivot?.is_primary)?.id ?? user?.assignments?.[0]?.id ?? '';
+  const emptyForm = () => ({
+    title: '', expected_amount: '', expected_close_date: '', company_id: '',
+    contact_kind: 'prospect' as 'prospect' | 'client', prospect_id: '', client_id: '',
+    agency_id: defaultAgencyId,
+    // Un commercial porte lui-même l'opportunité qu'il crée.
+    commercial_id: isSeller ? user?.id ?? '' : '',
+  });
+  const [form, setForm] = useState(emptyForm);
+  const [agencyOptions, setAgencyOptions] = useState<{ id: string; name: string }[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [draggedOpp, setDraggedOpp] = useState<string | null>(null);
@@ -47,6 +65,13 @@ export default function OpportunityKanbanPage() {
   }, [filterCommercial, filterSearch]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!createOpen || agencyOptions.length > 0) return;
+    agenciesApi.list({ per_page: 100 }, { silentForbidden: true })
+      .then((res) => setAgencyOptions(res.data.map((a) => ({ id: a.id, name: a.name }))))
+      .catch(() => setAgencyOptions((user?.assignments ?? []).map((a) => ({ id: a.id, name: a.name }))));
+  }, [createOpen, agencyOptions.length, user]);
 
   const stageGroups = ALL_STAGES.reduce((acc, stage) => {
     acc[stage] = opportunities.filter((o) => o.stage === stage);
@@ -106,10 +131,13 @@ export default function OpportunityKanbanPage() {
         commercial_id: form.commercial_id,
       };
       if (form.expected_amount) payload.expected_amount = Number(form.expected_amount);
+      if (form.expected_close_date) payload.expected_close_date = form.expected_close_date;
       if (form.company_id) payload.company_id = form.company_id;
+      if (form.contact_kind === 'prospect' && form.prospect_id) payload.prospect_id = form.prospect_id;
+      if (form.contact_kind === 'client' && form.client_id) payload.client_id = form.client_id;
       await opportunitiesApi.create(payload as never);
       setCreateOpen(false);
-      setForm({ title: '', expected_amount: '', company_id: '', agency_id: '', commercial_id: '' });
+      setForm(emptyForm());
       showToast(t('opportunities.created'), 'success');
       load();
     } catch (err: unknown) {
@@ -259,41 +287,86 @@ export default function OpportunityKanbanPage() {
             onChange={(e) => setForm({ ...form, expected_amount: e.target.value })}
             error={formErrors.expected_amount}
           />
-          <div className="text-xs text-gray-500">{t('opportunities.stageLabel')}: {STAGE_LABELS[createStage]}</div>
           <Input
-            label={t('opportunities.agencyId')}
-            value={form.agency_id}
-            onChange={(e) => setForm({ ...form, agency_id: e.target.value })}
-            error={formErrors.agency_id}
-            required
+            label={t('opportunities.expectedCloseDate')}
+            type="date"
+            value={form.expected_close_date}
+            onChange={(e) => setForm({ ...form, expected_close_date: e.target.value })}
+            error={formErrors.expected_close_date}
           />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('opportunities.stageLabel')}</label>
+            <select value={createStage} onChange={(e) => setCreateStage(e.target.value as OpportunityStage)} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+              {ALL_STAGES.map((stage) => <option key={stage} value={stage}>{STAGE_LABELS[stage]}</option>)}
+            </select>
+          </div>
+          {/* Pour qui : un prospect (pas encore client) ou un client existant. */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('opportunities.contact')}</label>
+            <div className="mb-2 flex gap-4 text-sm text-gray-700 dark:text-gray-300">
+              <label className="inline-flex items-center gap-1.5"><input type="radio" checked={form.contact_kind === 'prospect'} onChange={() => setForm({ ...form, contact_kind: 'prospect', client_id: '' })} /> {t('nav.prospects')}</label>
+              <label className="inline-flex items-center gap-1.5"><input type="radio" checked={form.contact_kind === 'client'} onChange={() => setForm({ ...form, contact_kind: 'client', prospect_id: '' })} /> {t('nav.clients')}</label>
+            </div>
+            {form.contact_kind === 'prospect' ? (
+              <Autocomplete
+                placeholder={t('opportunities.searchProspect')}
+                value={form.prospect_id}
+                onChange={(id) => setForm({ ...form, prospect_id: id })}
+                error={formErrors.prospect_id}
+                fetchOptions={async (query) => {
+                  const res = await prospectsApi.list({ search: query.trim() || undefined, per_page: 20 });
+                  return res.data.map((p): AutocompleteOption => ({ id: p.id, label: [p.first_name, p.last_name].filter(Boolean).join(' ') || '—', subtitle: p.phone ?? p.email ?? '' }));
+                }}
+              />
+            ) : (
+              <Autocomplete
+                placeholder={t('opportunities.searchClient')}
+                value={form.client_id}
+                onChange={(id) => setForm({ ...form, client_id: id })}
+                error={formErrors.client_id}
+                fetchOptions={async (query) => {
+                  const res = await clientsApi.list({ search: query.trim() || undefined, per_page: 20 });
+                  return res.data.map((c): AutocompleteOption => ({ id: c.id, label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '—', subtitle: c.phone ?? c.email ?? '' }));
+                }}
+              />
+            )}
+          </div>
           <Autocomplete
-            label={t('opportunities.commercialId')}
-            placeholder={t('opportunities.commercialId')}
+            label={t('opportunities.company')}
+            placeholder={t('opportunities.searchCompany')}
+            value={form.company_id}
+            onChange={(id) => setForm({ ...form, company_id: id })}
+            error={formErrors.company_id}
+            fetchOptions={async (query) => {
+              const res = await companiesApi.list({ search: query.trim() || undefined, per_page: 20 });
+              return res.data.data.map((c): AutocompleteOption => ({ id: c.id, label: c.name, subtitle: c.industry ?? '' }));
+            }}
+          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('opportunities.agency')} *</label>
+            <select required value={form.agency_id} onChange={(e) => setForm({ ...form, agency_id: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+              <option value="">—</option>
+              {agencyOptions.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            {formErrors.agency_id && <p className="mt-1 text-xs text-red-500">{formErrors.agency_id}</p>}
+          </div>
+          {!isSeller && (
+          <Autocomplete
+            label={`${t('opportunities.commercial')} *`}
+            placeholder={t('opportunities.searchCommercial')}
             value={form.commercial_id}
             onChange={(id) => setForm({ ...form, commercial_id: id })}
             error={formErrors.commercial_id}
             fetchOptions={async (query) => {
               // Tous les comptes du staff (clients exclus) : une opportunité
-              // peut être portée par n'importe quel utilisateur.
+              // peut être portée par n'importe quel employé.
               const usersRes = await usersApi.list({ search: query.trim() || undefined, per_page: 100 });
               return usersRes.data
                 .filter((u) => u.role?.name !== 'client')
-                .map(
-                  (u): AutocompleteOption => ({
-                    id: u.id,
-                    label: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || '',
-                    subtitle: u.email ?? '',
-                  })
-                );
+                .map((u): AutocompleteOption => ({ id: u.id, label: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || '', subtitle: u.email ?? '' }));
             }}
           />
-          <Input
-            label={t('opportunities.companyId')}
-            value={form.company_id}
-            onChange={(e) => setForm({ ...form, company_id: e.target.value })}
-            error={formErrors.company_id}
-          />
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>{t('common.cancel')}</Button>
             <Button type="submit" disabled={submitting}>{submitting ? <Spinner className="h-4 w-4" /> : t('common.create')}</Button>

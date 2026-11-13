@@ -2304,6 +2304,11 @@ export default {
   },
 
   opportunities: {
+    contact: 'Pour qui ?',
+    searchProspect: 'Rechercher un prospect…',
+    searchClient: 'Rechercher un client…',
+    searchCompany: 'Rechercher une entreprise (facultatif)…',
+    searchCommercial: 'Rechercher un commercial…',
     loadError: "Impossible de charger l'opportunité.",
     company: 'Entreprise',
     agency: 'Agence',
@@ -2723,6 +2728,9 @@ export default {
   },
 
   academy: {
+    planningStart: 'début',
+    planningEnd: 'Fin',
+    planningSeance: 'Appel',
     seancesSubtitle: "Les séances de chaque session et l'appel fait par le formateur.",
     takeRollCall: "Faire l'appel",
     noSeance: 'Aucun appel fait pour cette session.',

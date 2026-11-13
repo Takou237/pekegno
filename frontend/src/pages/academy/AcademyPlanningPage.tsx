@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { client } from '@/api/client';
+import { Modal } from '@/components/ui/Modal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { academyApi, type SessionStatus, type TrainingSession } from '@/api/academy.api';
@@ -31,6 +33,21 @@ const STATUS_KEYS: Record<SessionStatus, string> = {
   cancelled: 'academy.statusCancelled',
 };
 
+/** Une entrée du calendrier : début, fin ou séance (appel fait) d'une session. */
+interface PlanningEvent {
+  session: TrainingSession;
+  kind: 'start' | 'end' | 'seance';
+  date: string; // AAAA-MM-JJ pour une séance
+  present?: number;
+  total?: number;
+  moduleName?: string | null;
+}
+
+interface SeanceRow {
+  id: string;
+  seances: { date: string | null; module_name: string | null; present: number; total: number }[];
+}
+
 function startOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -53,14 +70,21 @@ export default function AcademyPlanningPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
+  const { departmentId } = useParams<{ departmentId?: string }>();
+  const [seanceRows, setSeanceRows] = useState<SeanceRow[]>([]);
+  const [openDay, setOpenDay] = useState<Date | null>(null);
 
   const fetchSessions = useCallback(async () => {
     if (!agencyId) return;
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await academyApi.sessions({ agency_id: agencyId, per_page: 200 });
+      const [response, seances] = await Promise.all([
+        academyApi.sessions({ agency_id: agencyId, per_page: 200 }),
+        client.get('/attendances/seances', { params: { agency_id: agencyId, per_page: 100 } }).then((r) => r.data.data as SeanceRow[]).catch(() => []),
+      ]);
       setSessions(response.data);
+      setSeanceRows(seances);
     } catch (error) {
       setLoadError(extractErrorMessage(error, t('academy.loadFailed')));
     } finally {
@@ -95,29 +119,41 @@ export default function AcademyPlanningPage() {
     return list;
   }, [gridStart]);
 
-  const sessionsByDay = useMemo(() => {
-    const map = new Map<string, TrainingSession[]>();
-    // Une session apparaît sur chaque jour de sa période (début → fin), pas
-    // seulement le jour de son début ; sans date de fin : le jour du début.
-    const gridFirst = days[0] ? startOfDay(days[0]) : null;
-    const gridLast = days[days.length - 1] ? startOfDay(days[days.length - 1]) : null;
+  // Calendrier : début et fin de chaque session, et chaque séance où l'appel
+  // a été fait (date réelle du cours) — pas la session répétée chaque jour.
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, PlanningEvent[]>();
+    const push = (date: Date, event: PlanningEvent) => {
+      const key = startOfDay(date).toDateString();
+      map.set(key, [...(map.get(key) ?? []), event]);
+    };
+    const byId = new Map(sessions.map((s) => [s.id, s]));
     sessions.forEach((session) => {
-      const start = startOfDay(new Date(session.start_at));
-      const end = session.end_at ? startOfDay(new Date(session.end_at)) : start;
-      const from = gridFirst && start < gridFirst ? gridFirst : start;
-      const to = gridLast && end > gridLast ? gridLast : end;
-      for (const d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-        const key = d.toDateString();
-        const bucket = map.get(key) ?? [];
-        bucket.push(session);
-        map.set(key, bucket);
+      push(new Date(session.start_at), { session, kind: 'start', date: session.start_at });
+      if (session.end_at && startOfDay(new Date(session.end_at)).getTime() !== startOfDay(new Date(session.start_at)).getTime()) {
+        push(new Date(session.end_at), { session, kind: 'end', date: session.end_at });
       }
     });
-    map.forEach((bucket) => {
-      bucket.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+    seanceRows.forEach((row) => {
+      const session = byId.get(row.id);
+      if (!session) return;
+      row.seances.forEach((seance) => {
+        if (!seance.date) return;
+        push(new Date(`${seance.date}T12:00:00`), { session, kind: 'seance', date: seance.date, present: seance.present, total: seance.total, moduleName: seance.module_name });
+      });
     });
     return map;
-  }, [sessions, days]);
+  }, [sessions, seanceRows]);
+
+  const sheetLink = (event: PlanningEvent) =>
+    `/departments/${departmentId}/sessions/${event.session.id}/attendances${event.kind === 'seance' ? `?date=${event.date}` : ''}`;
+
+  const eventLabel = (event: PlanningEvent) =>
+    event.kind === 'start'
+      ? `${formatEventTime(event.session.start_at)} ${t('academy.planningStart')}`
+      : event.kind === 'end'
+        ? t('academy.planningEnd')
+        : `${t('academy.planningSeance')} ${event.present ?? 0}/${event.total ?? 0}`;
 
   const isToday = (date: Date) => date.toDateString() === startOfDay(new Date()).toDateString();
   const isCurrentMonth = (date: Date) => date.getMonth() === monthStart.getMonth();
@@ -212,7 +248,7 @@ export default function AcademyPlanningPage() {
           <div className="grid grid-cols-7">
             {days.map((date) => {
               const key = date.toDateString();
-              const daySessions = sessionsByDay.get(key) ?? [];
+              const daySessions = eventsByDay.get(key) ?? [];
               return (
                 <div
                   key={key}
@@ -239,21 +275,21 @@ export default function AcademyPlanningPage() {
                     )}
                   </div>
                   <div className="flex flex-col gap-1">
-                    {daySessions.slice(0, 3).map((session) => (
+                    {daySessions.slice(0, 3).map((event, idx) => (
                       <Link
-                        key={session.id}
-                        to={`sessions/${session.id}/attendances`}
-                        className={`rounded-md border px-1.5 py-1 text-[11px] leading-tight ${STATUS_COLORS[session.status]}`}
-                        title={session.course?.name ?? ''}
+                        key={`${event.session.id}-${event.kind}-${idx}`}
+                        to={sheetLink(event)}
+                        className={`rounded-md border px-1.5 py-1 text-[11px] leading-tight ${STATUS_COLORS[event.session.status]}`}
+                        title={event.session.course?.name ?? ''}
                       >
-                        <span className="font-mono">{formatEventTime(session.start_at)}</span>{' '}
-                        <span className="line-clamp-1">{session.course?.name ?? session.course?.code ?? ''}</span>
+                        <span className="font-mono">{eventLabel(event)}</span>{' '}
+                        <span className="line-clamp-1">{event.session.course?.name ?? event.session.course?.code ?? ''}</span>
                       </Link>
                     ))}
                     {daySessions.length > 3 && (
-                      <span className="px-1 text-[11px] font-medium text-gray-500">
+                      <button type="button" onClick={() => setOpenDay(date)} className="px-1 text-left text-[11px] font-medium text-brand-600 hover:underline dark:text-brand-300">
                         +{daySessions.length - 3} {t('academy.moreEvents')}
-                      </span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -262,6 +298,30 @@ export default function AcademyPlanningPage() {
           </div>
         )}
       </div>
+      <Modal
+        isOpen={Boolean(openDay)}
+        onClose={() => setOpenDay(null)}
+        title={openDay ? openDay.toLocaleDateString(currentLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+        maxWidth="max-w-lg"
+      >
+        <ul className="flex flex-col gap-2">
+          {(openDay ? eventsByDay.get(startOfDay(openDay).toDateString()) ?? [] : []).map((event, idx) => (
+            <li key={`${event.session.id}-${event.kind}-${idx}`}>
+              <Link
+                to={sheetLink(event)}
+                onClick={() => setOpenDay(null)}
+                className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${STATUS_COLORS[event.session.status]}`}
+              >
+                <span className="font-medium">{event.session.course?.name ?? '—'}</span>
+                <span className="shrink-0 text-xs">
+                  {eventLabel(event)}
+                  {event.moduleName ? ` · ${event.moduleName}` : ''}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Modal>
     </div>
   );
 }

@@ -420,6 +420,8 @@ export function getDepartmentItems(t: TranslateFn, type: DepartmentType, roleNam
         { to: 'courses', label: t('nav.courses'), icon: BookOpen, end: false },
         { to: 'sessions', label: t('nav.sessions'), icon: CalendarDays, end: false },
         { to: 'planning', label: t('nav.planning'), icon: CalendarCheck, end: false },
+        // Présences par séance (MVP §10) : séances de chaque session et appel.
+        { to: 'presences', label: t('nav.presences'), icon: ClipboardCheck, end: false },
         { to: 'trainers', label: t('nav.trainers'), icon: UserCheck, end: false },
         { to: 'invoices', label: t('nav.invoices'), icon: Receipt, end: false },
         ...(canValidateInvoices(roleName)

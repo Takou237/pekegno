@@ -2291,6 +2291,11 @@ export default {
   },
 
   opportunities: {
+    contact: 'For whom?',
+    searchProspect: 'Search a prospect…',
+    searchClient: 'Search a client…',
+    searchCompany: 'Search a company (optional)…',
+    searchCommercial: 'Search a sales rep…',
     loadError: 'Unable to load the opportunity.',
     company: 'Company',
     agency: 'Agency',
@@ -2710,6 +2715,9 @@ export default {
   },
 
   academy: {
+    planningStart: 'start',
+    planningEnd: 'End',
+    planningSeance: 'Roll call',
     seancesSubtitle: 'Each session’s classes and the roll call taken by the trainer.',
     takeRollCall: 'Take roll call',
     noSeance: 'No roll call yet for this session.',
