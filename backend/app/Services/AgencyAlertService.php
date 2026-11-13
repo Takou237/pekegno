@@ -21,6 +21,7 @@ class AgencyAlertService
     public function __construct(
         private readonly ContractService $contracts,
         private readonly AgencyNotifier $notifier,
+        private readonly AgencyRenewalService $renewals,
     ) {}
 
     /** @return array{due_soon: int, expired: int, alerts: int, overdue_actions: int} */
@@ -28,10 +29,76 @@ class AgencyAlertService
     {
         $dueSoon = $this->contracts->markDueSoon();
         $alerts = $this->sendRenewalAlerts();
+        $this->autoRenewDue();
         $expired = $this->contracts->markExpired();
         $overdue = $this->notifyOverdueActions();
 
         return ['due_soon' => $dueSoon, 'expired' => $expired, 'alerts' => $alerts, 'overdue_actions' => $overdue];
+    }
+
+    /**
+     * Renouvellement automatique (case « auto_renew ») : le dernier jour du
+     * contrat, la période suivante est créée (nouveau contrat en attente de
+     * paiement, nouvelle facture, nouvelle prestation pour un package). Les
+     * responsables et le client sont prévenus. Rejouable : un contrat déjà
+     * renouvelé ne l'est pas deux fois.
+     */
+    public function autoRenewDue(): int
+    {
+        $count = 0;
+
+        $contracts = Contract::query()
+            ->whereIn('status', [Contract::STATUS_ACTIVE, Contract::STATUS_DUE_SOON])
+            ->where('auto_renew', true)
+            ->whereIn('origin', [Contract::ORIGIN_PACKAGE, Contract::ORIGIN_PRESTATION])
+            ->whereDate('end_date', '<=', today())
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('contracts as child')->whereColumn('child.parent_contract_id', 'contracts.id'))
+            ->with('pack:id,name', 'prestation:id,name,reference')
+            ->get();
+
+        foreach ($contracts as $contract) {
+            try {
+                $child = $this->renewals->renew($contract, null);
+            } catch (\Throwable $e) {
+                Log::error("Renouvellement automatique impossible pour le contrat {$contract->number} : ".$e->getMessage());
+
+                continue;
+            }
+
+            $invoice = \App\Models\Invoice::where('contract_id', $child->id)->latest('created_at')->first();
+            $subject = $contract->pack?->name ?? $contract->prestation?->name ?? 'contrat';
+            $period = $child->start_date->format('d/m/Y').' → '.$child->end_date->format('d/m/Y');
+            $invoiceText = $invoice ? " Facture {$invoice->number} à régler." : '';
+            $dedupe = "contract:{$contract->id}:auto-renewed";
+
+            foreach ($this->notifier->contractManagerIds($contract) as $managerId) {
+                $this->notifier->notify(
+                    userId: $managerId,
+                    type: 'contract_renewed',
+                    title: "Contrat {$contract->number} renouvelé automatiquement",
+                    body: "« {$subject} » : nouveau contrat {$child->number} ({$period}), en attente de paiement.{$invoiceText} L'ancienne prestation se clôture à la fin de la période.",
+                    entityType: 'contract',
+                    entityId: $child->id,
+                    dedupeKey: $dedupe,
+                );
+            }
+
+            if ($contract->client_id) {
+                $this->notifier->notify(
+                    userId: $contract->client_id,
+                    type: 'contract_renewed',
+                    title: "Votre contrat {$contract->number} est renouvelé",
+                    body: "« {$subject} » continue du {$period}.{$invoiceText}",
+                    entityType: 'contract',
+                    entityId: $child->id,
+                    dedupeKey: $dedupe,
+                );
+            }
+
+            $count++;
+        }
+
+        return $count;
     }
 
     /**

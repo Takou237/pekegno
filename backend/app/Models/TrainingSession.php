@@ -76,6 +76,42 @@ class TrainingSession extends Model
         return $value ?: self::STATUS_PLANNED;
     }
 
+    protected static function booted(): void
+    {
+        // Dates repoussées après une clôture automatique : la session redevient
+        // planifiée / en cours (le statut affiché se recalcule depuis les dates).
+        static::saving(function (self $session) {
+            if ($session->isDirty(['start_at', 'end_at'])
+                && $session->getRawOriginal('status') === self::STATUS_COMPLETED
+                && ($session->end_at === null || now()->lte($session->end_at))
+                && ! $session->isDirty('status')) {
+                $session->attributes['status'] = self::STATUS_PLANNED;
+            }
+        });
+    }
+
+    /**
+     * Filtre SQL cohérent avec getStatusAttribute (le statut affiché se
+     * calcule depuis les dates ; la colonne peut être en retard d'un jour).
+     */
+    public function scopeWithEffectiveStatus($query, string $status)
+    {
+        $now = now();
+        $terminal = [self::STATUS_CANCELLED, self::STATUS_COMPLETED];
+
+        return match ($status) {
+            self::STATUS_CANCELLED => $query->where('status', self::STATUS_CANCELLED),
+            self::STATUS_COMPLETED => $query->where(fn ($q) => $q->where('status', self::STATUS_COMPLETED)
+                ->orWhere(fn ($qq) => $qq->where('status', '!=', self::STATUS_CANCELLED)->whereNotNull('end_at')->where('end_at', '<', $now))),
+            self::STATUS_PLANNED => $query->whereNotIn('status', $terminal)
+                ->where(fn ($q) => $q->where('start_at', '>', $now)->orWhere(fn ($qq) => $qq->whereNull('start_at')->where('status', self::STATUS_PLANNED))),
+            self::STATUS_ONGOING => $query->whereNotIn('status', $terminal)
+                ->where('start_at', '<=', $now)
+                ->where(fn ($q) => $q->whereNull('end_at')->orWhere('end_at', '>=', $now)),
+            default => $query->where('status', $status),
+        };
+    }
+
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class, 'course_id');

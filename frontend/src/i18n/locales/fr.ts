@@ -3130,6 +3130,8 @@ export default {
   },
 
   certificates: {
+    open: 'Ouvrir le certificat',
+    print: 'Imprimer / PDF',
     title: 'Certificats',
     subtitle: 'Gestion des certificats délivrés aux apprenants.',
     issue: 'Délivrer un certificat',

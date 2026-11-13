@@ -83,7 +83,7 @@ class TrainingSessionController extends Controller
             ->withCount(['participants as enrollments_count' => fn ($q) => $q->whereNot('status', 'cancelled')])
             ->when($request->course_id, fn ($q, $v) => $q->where('course_id', $v))
             ->when($request->agency_id, fn ($q, $v) => $q->where('agency_id', $v))
-            ->when($request->status, fn ($q, $v) => $q->where('status', $v))
+            ->when($request->status, fn ($q, $v) => $q->withEffectiveStatus($v))
             ->when($request->from, fn ($q, $v) => $q->where('start_at', '>=', $v))
             ->when($request->to, fn ($q, $v) => $q->where('start_at', '<=', $v.' 23:59:59'));
 

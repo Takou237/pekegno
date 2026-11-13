@@ -244,8 +244,11 @@ class ContractService
 
     public function markExpired(): int
     {
-        $contracts = Contract::whereIn('status', [Contract::STATUS_ACTIVE, Contract::STATUS_DUE_SOON])
+        // Actif / à renouveler, mais aussi suspendu ou jamais payé (en attente) :
+        // une fois la période passée, le contrat est expiré.
+        $contracts = Contract::whereIn('status', [Contract::STATUS_ACTIVE, Contract::STATUS_DUE_SOON, Contract::STATUS_SUSPENDED, Contract::STATUS_PENDING])
             ->whereDate('end_date', '<', today())
+            ->with('pack:id,name', 'prestation:id,name,reference')
             ->get();
 
         $count = 0;
@@ -254,20 +257,84 @@ class ContractService
             $oldStatus = $contract->status;
             $contract->update(['status' => Contract::STATUS_EXPIRED]);
 
+            // Fin du contrat : la prestation en cours est clôturée.
+            $closed = $this->closePrestation($contract);
+
             $this->logger->log(
                 action: 'status_changed',
                 entityType: 'contract',
                 entityId: $contract->id,
-                description: "Contrat {$contract->number} expiré",
+                description: "Contrat {$contract->number} expiré".($closed ? ' (prestation clôturée)' : ''),
                 oldValues: ['status' => $oldStatus],
                 newValues: ['status' => Contract::STATUS_EXPIRED],
                 agencyId: $contract->agency_id,
             );
 
+            $this->notifyExpired($contract, $oldStatus !== Contract::STATUS_PENDING);
+
             $count++;
         }
 
+        // Package renouvelé (à la main ou automatiquement) : l'ancienne
+        // prestation se clôture à la fin de l'ancienne période (la nouvelle
+        // période a sa propre prestation).
+        Contract::where('status', Contract::STATUS_RENEWED)
+            ->where('origin', Contract::ORIGIN_PACKAGE)
+            ->whereNotNull('prestation_id')
+            ->whereDate('end_date', '<', today())
+            ->get()
+            ->each(fn (Contract $c) => $this->closePrestation($c));
+
         return $count;
+    }
+
+    /** Prestation « en cours » du contrat → « terminée ». */
+    private function closePrestation(Contract $contract): bool
+    {
+        if (! $contract->prestation_id) {
+            return false;
+        }
+
+        return Prestation::whereKey($contract->prestation_id)
+            ->where('status', Prestation::STATUS_IN_PROGRESS)
+            ->update(['status' => Prestation::STATUS_COMPLETED]) > 0;
+    }
+
+    /**
+     * Contrat expiré sans renouvellement : chef(s) d'agence, chef du département,
+     * super-admins et direction (et le client si le contrat avait été payé)
+     * sont prévenus qu'il faut renouveler.
+     */
+    private function notifyExpired(Contract $contract, bool $notifyClient): void
+    {
+        $notifier = app(AgencyNotifier::class);
+        $subject = $contract->pack?->name ?? $contract->prestation?->name ?? 'contrat';
+        $end = $contract->end_date->format('d/m/Y');
+        $dedupe = "contract:{$contract->id}:expired";
+
+        foreach ($notifier->contractManagerIds($contract) as $managerId) {
+            $notifier->notify(
+                userId: $managerId,
+                type: 'contract_expired',
+                title: "Contrat {$contract->number} expiré — à renouveler",
+                body: "Le contrat {$contract->number} ({$subject}) est arrivé à échéance le {$end}. La prestation est clôturée ; proposez le renouvellement au client.",
+                entityType: 'contract',
+                entityId: $contract->id,
+                dedupeKey: $dedupe,
+            );
+        }
+
+        if ($notifyClient && $contract->client_id) {
+            $notifier->notify(
+                userId: $contract->client_id,
+                type: 'contract_expired',
+                title: "Votre contrat {$contract->number} est terminé",
+                body: "Votre contrat « {$subject} » s'est terminé le {$end}. Contactez-nous pour le renouveler.",
+                entityType: 'contract',
+                entityId: $contract->id,
+                dedupeKey: $dedupe,
+            );
+        }
     }
 
     /**

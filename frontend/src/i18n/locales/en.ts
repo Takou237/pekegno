@@ -3117,6 +3117,8 @@ export default {
   },
 
   certificates: {
+    open: 'Open certificate',
+    print: 'Print / PDF',
     title: 'Certificates',
     subtitle: 'Manage certificates issued to learners.',
     issue: 'Issue Certificate',

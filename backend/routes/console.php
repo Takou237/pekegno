@@ -10,6 +10,8 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::job(new PenalizeInactiveCommercials)->dailyAt('01:00');
+// B20 : statuts des sessions (dates) et inscriptions terminées en fin de formation.
+Schedule::command('academy:refresh-statuses')->dailyAt('00:15');
 Schedule::command('subscriptions:check-expiry')->dailyAt('06:00');
 Schedule::command('agency:check-renewals')->dailyAt('06:15');
 // B20 : statuts de contrats recalculés même sans passage sur les écrans.

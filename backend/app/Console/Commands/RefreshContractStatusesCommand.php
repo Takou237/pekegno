@@ -15,11 +15,13 @@ class RefreshContractStatusesCommand extends Command
 
     protected $description = 'Contrats : marque les expirés et les contrats à renouveler';
 
-    public function handle(ContractService $contracts): int
+    public function handle(ContractService $contracts, \App\Services\AgencyAlertService $alerts): int
     {
+        // Renouvellements automatiques d'abord (le dernier jour), puis expirations.
+        $renewed = $alerts->autoRenewDue();
         $result = $contracts->refreshStatuses();
 
-        $this->info("Expirés : {$result['expired']} · À renouveler : {$result['due_soon']}");
+        $this->info("Renouvelés automatiquement : {$renewed} · Expirés : {$result['expired']} · À renouveler : {$result['due_soon']}");
 
         return self::SUCCESS;
     }

@@ -93,8 +93,11 @@ class PackageService
         }
         $total = round(max(0, $subtotal - $discountAmount), 2);
 
+        // Une avance supérieure au total est refusée (jamais plafonnée en silence).
         if ($advance !== null && $advance > $total) {
-            $advance = $total;
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'advance' => "L'avance ne peut pas dépasser le total ({$total}).",
+            ]);
         }
 
         return DB::transaction(function () use (

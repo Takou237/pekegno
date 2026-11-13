@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, RefreshCw, Ban, Search } from 'lucide-react';
+import { Plus, RefreshCw, Ban, Search, Eye, Printer } from 'lucide-react';
 import { certificatesApi } from '@/api/certificates.api';
 import { academyApi } from '@/api/academy.api';
 import { extractErrorMessage } from '@/api/errors';
@@ -13,6 +13,8 @@ import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import type { Certificate } from '@/types/certificate';
+import { CertificatePrint, CertificatePrintPageStyle } from '@/components/academy/CertificatePrint';
+import { PrintPortal } from '@/components/invoices/InvoicePrint';
 import type { PaginationMeta } from '@/types/agency';
 
 interface DepartmentLayoutContext {
@@ -47,6 +49,8 @@ export default function CertificateListPage() {
   const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
   const [issueErrors, setIssueErrors] = useState<Record<string, string>>({});
   const [issuing, setIssuing] = useState(false);
+
+  const [viewing, setViewing] = useState<Certificate | null>(null);
 
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState('');
@@ -255,7 +259,7 @@ export default function CertificateListPage() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {certificates.map((cert) => (
-                  <tr key={cert.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <tr key={cert.id} onClick={() => setViewing(cert)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{cert.number}</td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-300">
                       {cert.enrollment?.learner
@@ -277,7 +281,15 @@ export default function CertificateListPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => setViewing(cert)}
+                          className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                          title={t('certificates.open')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
                         {cert.status === 'issued' && (
                           <button
                             type="button"
@@ -359,6 +371,35 @@ export default function CertificateListPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Certificat : aperçu + impression */}
+      {viewing && (
+        <>
+          <CertificatePrintPageStyle />
+          <PrintPortal>
+            <CertificatePrint certificate={viewing} />
+          </PrintPortal>
+        </>
+      )}
+      <Modal isOpen={Boolean(viewing)} onClose={() => setViewing(null)} title={viewing ? `${t('certificates.title')} ${viewing.number}` : ''} maxWidth="max-w-5xl">
+        {viewing && (
+          <div className="flex flex-col gap-4">
+            {viewing.status === 'revoked' && viewing.revoked_reason && (
+              <Alert variant="error">{t('certificates.statusRevoked')} : {viewing.revoked_reason}</Alert>
+            )}
+            <div className="max-h-[70vh] overflow-auto rounded-xl border border-gray-200 dark:border-gray-700">
+              <CertificatePrint certificate={viewing} />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setViewing(null)}>{t('common.close')}</Button>
+              <Button onClick={() => window.print()}>
+                <Printer className="h-4 w-4" />
+                {t('certificates.print')}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Revoke modal */}

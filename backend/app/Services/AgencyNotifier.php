@@ -66,6 +66,31 @@ class AgencyNotifier
     }
 
     /**
+     * Responsables d'un contrat (expiration, renouvellement) : chef(s) de
+     * l'agence, chef du département, super-admins et direction générale actifs.
+     *
+     * @return array<int, string>
+     */
+    public function contractManagerIds(\App\Models\Contract $contract): array
+    {
+        $chiefs = collect($contract->agency_id ? $this->agencyChiefIds($contract->agency_id) : []);
+
+        $departmentChiefs = $contract->department_id
+            ? DB::table('user_assignments')->where('department_id', $contract->department_id)->where('is_department_chief', true)->pluck('user_id')
+                ->merge(DB::table('department_chiefs')->where('department_id', $contract->department_id)->pluck('user_id'))
+            : collect();
+
+        $leaders = DB::table('users')
+            ->join('roles', 'roles.id', '=', 'users.role_id')
+            ->whereIn('roles.name', ['super-admin', 'direction-generale'])
+            ->where('users.is_active', true)
+            ->whereNull('users.deleted_at')
+            ->pluck('users.id');
+
+        return $chiefs->merge($departmentChiefs)->merge($leaders)->filter()->unique()->values()->all();
+    }
+
+    /**
      * Responsables d'une prestation : membres « lead » de l'équipe et compte
      * utilisateur du commercial vendeur.
      *
