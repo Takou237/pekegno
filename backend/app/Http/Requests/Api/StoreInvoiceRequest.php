@@ -20,7 +20,7 @@ class StoreInvoiceRequest extends FormRequest
             'commercial_id' => ['nullable', 'uuid', \App\Services\CommercialProfileService::commercialOrUserRule()],
             'seller_user_id' => ['nullable', 'uuid', 'exists:users,id'],
             'invoice_date' => ['nullable', 'date'],
-            'payment_type' => ['nullable', 'in:cash,om,momo,wave,moov'],
+            'payment_type' => ['nullable', 'string', \App\Support\PaymentMethods::rule()],
             'payer_phone' => ['nullable', 'required_if:payment_type,om,momo,wave', 'string', 'max:50'],
             'comment' => ['nullable', 'string', 'max:1000'],
             'advance' => ['nullable', 'numeric', 'min:0.01'],

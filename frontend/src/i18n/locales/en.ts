@@ -1992,6 +1992,7 @@ export default {
   },
 
   bilans: {
+    receivedVia: 'Received — {{method}}',
     cashBoxesTitle: 'Cash boxes',
     cashBox: 'Cash box',
     cashIn: 'In',
@@ -2051,6 +2052,19 @@ export default {
   },
 
   treasury: {
+    newAccount: 'New cash box',
+    newAccountHint: 'One cash box = one payment method: it is offered in the agency sales forms and broken down in tables (daily report, treasury).',
+    accountAgency: 'Agency',
+    accountName: 'Cash box name (= payment method)',
+    accountType: 'Type',
+    typeCash: 'Cash',
+    typeMobileMoney: 'Mobile money',
+    typeBank: 'Bank',
+    accountNumber: 'Account / merchant number',
+    openingBalance: 'Opening balance',
+    visibleToCashier: 'Visible to cashiers (balance)',
+    accountCreated: 'Cash box created.',
+    deactivateAccount: 'Enable / disable',
     title: 'Treasury',
     subtitle: 'Manage treasury accounts and transactions.',
     accounts: 'Accounts',
@@ -2109,7 +2123,6 @@ export default {
     reopenSuccess: 'Cash box reopened: new day.',
     closeCashWarning: 'After closing, nothing enters or leaves this cash box and the agency payments wait until it is reopened.',
     closingDate: 'Closings of',
-    openingBalance: 'Opening balance',
     theoreticalBalance: 'Theoretical balance',
     actualBalance: 'Actual balance',
     difference: 'Difference',
@@ -2126,9 +2139,6 @@ export default {
     noClosings: 'No closing for this date.',
     noAgency: 'No agency',
     closeRequiredJustification: 'A non-zero difference must be justified.',
-    typeCash: '💵 Cash',
-    typeMobileMoney: '📱 Mobile Money',
-    typeBank: '🏦 Bank',
   },
 
   expenses: {

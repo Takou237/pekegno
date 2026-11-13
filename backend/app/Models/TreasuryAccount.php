@@ -27,6 +27,7 @@ class TreasuryAccount extends Model
         'agency_id',
         'name',
         'code',
+        'method_key',
         'type',
         'provider',
         'account_number',

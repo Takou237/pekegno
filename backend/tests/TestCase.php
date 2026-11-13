@@ -13,5 +13,6 @@ abstract class TestCase extends BaseTestCase
         // Les commandes de rattrapage désactivent le verrou de clôture : chaque
         // test repart avec le verrou actif.
         TreasuryTransaction::$enforceCashClosing = true;
+        \App\Support\PaymentMethods::flush();
     }
 }

@@ -405,6 +405,9 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/metrics/breakdown', [MetricsController::class, 'breakdown'])->middleware('permission:stats.consulter');
     Route::get('/metrics/details', [MetricsController::class, 'details'])->middleware('permission:stats.consulter');
 
+    Route::get('/payment-methods', [TreasuryController::class, 'paymentMethods']);
+    Route::post('/treasury/accounts', [TreasuryController::class, 'storeAccount'])->middleware('permission:tresories.modifier');
+    Route::put('/treasury/accounts/{account}', [TreasuryController::class, 'updateAccount'])->middleware('permission:tresories.modifier');
     Route::get('/treasury/accounts', [TreasuryController::class, 'indexAccounts'])->middleware('permission:tresories.consulter');
     Route::get('/treasury/accounts/{account}', [TreasuryController::class, 'showAccount'])->middleware('permission:tresories.consulter');
     Route::get('/treasury/transactions', [TreasuryController::class, 'indexTransactions'])->middleware('permission:tresories.consulter');

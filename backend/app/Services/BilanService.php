@@ -284,6 +284,8 @@ class BilanService
             'momo_total' => $momo,
             'mobile_total' => $mobile,
             'bank_total' => $bank,
+            // Une ligne par moyen de paiement (= par caisse), caisses créées comprises.
+            'by_method' => $this->receivedByMethod($date, $agencyId, $agencyIds),
             'total_received' => $totalReceived,
             'expense_total' => (float) $expenseTotal,
             'expenses_by_category' => $expensesByCategory,
@@ -621,6 +623,41 @@ class BilanService
         }
 
         return array_map(fn ($total) => round($total, 2), $buckets);
+    }
+
+    /**
+     * Encaissements du jour par moyen de paiement (clé normalisée : cash, om,
+     * momo, wave, moov, bank ou la clé d'une caisse créée), avec son libellé.
+     *
+     * @return array<int, array{key: string, label: string, total: float}>
+     */
+    private function receivedByMethod(Carbon $date, ?string $agencyId, ?array $agencyIds = null): array
+    {
+        $rows = DB::table('invoice_payments')
+            ->join('invoices', 'invoices.id', '=', 'invoice_payments.invoice_id')
+            ->whereNull('invoices.cancelled_at')
+            ->where('invoices.validation_status', 'validated')
+            ->whereNull('invoice_payments.cancelled_at')
+            ->where('invoice_payments.validation_status', 'validated')
+            ->whereRaw(self::RECEIVED_AT.' between ? and ?', $this->dayBounds($date))
+            ->when($this->department, fn ($q) => $q->whereIn('invoices.id', $this->ledger->invoiceIds($this->department)))
+            ->when($agencyId, fn ($q) => $q->where('invoices.agency_id', $agencyId))
+            ->when($agencyId === null && $agencyIds !== null, fn ($q) => $q->whereIn('invoices.agency_id', $agencyIds))
+            ->selectRaw('invoice_payments.payment_method as method, sum(invoice_payments.amount * '.$this->rate('invoices.agency_id').') as total')
+            ->groupBy('invoice_payments.payment_method')
+            ->get();
+
+        $totals = [];
+        foreach ($rows as $row) {
+            $key = \App\Support\PaymentMethods::keyFor($row->method);
+            $totals[$key] = ($totals[$key] ?? 0) + (float) $row->total;
+        }
+
+        return collect($totals)
+            ->map(fn ($total, $key) => ['key' => $key, 'label' => \App\Support\PaymentMethods::label($key), 'total' => round($total, 2)])
+            ->sortBy(fn ($m) => $m['key'] === 'cash' ? '0' : '1'.$m['label'])
+            ->values()
+            ->all();
     }
 
     /**

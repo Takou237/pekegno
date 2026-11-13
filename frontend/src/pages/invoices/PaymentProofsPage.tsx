@@ -20,6 +20,7 @@ import type { Invoice, InvoicePayment, PaymentProof } from '@/types/invoice';
 import type { PaginationMeta } from '@/types/agency';
 import { useAuth } from '@/hooks/useAuth';
 import { canValidateInvoices } from '@/utils/invoicePermissions';
+import { paymentMethodName } from '@/components/ui/PaymentMethodOptions';
 import {
   PROOF_REJECTION_CODES,
   PROOF_REJECTION_LABEL_KEY,
@@ -180,7 +181,7 @@ export default function PaymentProofsPage({
     if (method === 'wave') return t('invoices.paymentWave');
     if (method === 'mobile') return t('invoices.paymentMobile');
     if (method === 'cash') return t('invoices.paymentCash');
-    return method;
+    return paymentMethodName(method);
   }
 
   return (

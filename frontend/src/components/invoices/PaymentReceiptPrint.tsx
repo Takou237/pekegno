@@ -1,10 +1,11 @@
 import { formatDateTimeFr } from '@/utils/date';
 import { currencyLabel, formatNumber, numberToWords } from '@/utils/number';
-import type { Invoice, InvoicePayment, PaymentMethod } from '@/types/invoice';
+import type { Invoice, InvoicePayment } from '@/types/invoice';
 import logoUrl from '@/assets/pekegno-logo.png';
 import { BLUE, currencyWords } from '@/components/invoices/InvoicePrint';
+import { paymentMethodName } from '@/components/ui/PaymentMethodOptions';
 
-const METHOD_LABELS: Record<PaymentMethod, string> = {
+const METHOD_LABELS: Record<string, string> = {
   cash: 'Espèces',
   om: 'Orange Money',
   momo: 'MTN Mobile Money',
@@ -92,7 +93,7 @@ export function PaymentReceiptPrint({ invoice, payment }: { invoice: Invoice; pa
           {row('Ordre (#)', `#${order}`)}
           {row('Reçu le', formatDateTimeFr(payment.received_at ?? payment.paid_at))}
           {payment.validated_at && row('Validé le', formatDateTimeFr(payment.validated_at))}
-          {row('Mode de paiement', METHOD_LABELS[payment.payment_method] ?? payment.payment_method)}
+          {row('Mode de paiement', METHOD_LABELS[payment.payment_method] ?? paymentMethodName(payment.payment_method))}
           {payment.treasury_account?.name && row('Compte', payment.treasury_account.name)}
           {receiver && row('Encaissé par', receiver)}
           {payment.comment && row('Commentaire', payment.comment)}

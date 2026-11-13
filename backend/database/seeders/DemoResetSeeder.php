@@ -294,7 +294,7 @@ class DemoResetSeeder extends Seeder
     private function seedTreasury(Agency $agency, Country $country): void
     {
         $accounts = [
-            ['name' => 'Caisse Principale', 'type' => 'cash', 'provider' => null],
+            ['name' => 'Caisse Espèces', 'type' => 'cash', 'provider' => null],
             ['name' => 'Orange Money', 'type' => 'mobile_money', 'provider' => 'orange_money'],
             ['name' => 'MTN MoMo', 'type' => 'mobile_money', 'provider' => 'mtn_momo'],
         ];

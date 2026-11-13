@@ -20,6 +20,7 @@ import { useOrgContext } from '@/context/OrgContext';
 import type { PaymentMethod } from '@/types/invoice';
 import type { ServiceSearchItem, SeminarTier } from '@/types/service';
 import { actsAsCommercial } from '@/utils/commercialRoles';
+import { PaymentMethodOptions, requiresPayerPhone as methodNeedsPhone } from '@/components/ui/PaymentMethodOptions';
 
 export default function QuickSalePage() {
   const { t } = useTranslation();
@@ -89,7 +90,7 @@ export default function QuickSalePage() {
 
   // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
   // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
-  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo' || paymentType === 'wave';
+  const requiresPayerPhone = methodNeedsPhone(paymentType);
 
   /**
    * Vide le formulaire. Appelé après chaque vente enregistrée : le guichet
@@ -382,10 +383,7 @@ export default function QuickSalePage() {
               error={errors.payment_type}
             >
               {isCommercial && <option value="">—</option>}
-              <option value="cash">{t('invoices.paymentCash')}</option>
-              <option value="om">{t('invoices.paymentOm')}</option>
-              <option value="momo">{t('invoices.paymentMomo')}</option>
-              <option value="wave">{t('invoices.paymentWave')}</option>
+              <PaymentMethodOptions agencyId={agencyId} />
             </Select>
             {requiresPayerPhone && (
               <Input

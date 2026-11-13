@@ -37,6 +37,7 @@ import { canValidateInvoices } from '@/utils/invoicePermissions';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import type { ServiceSearchItem } from '@/types/service';
 import { actsAsCommercial } from '@/utils/commercialRoles';
+import { PaymentMethodOptions, requiresPayerPhone, paymentMethodName } from '@/components/ui/PaymentMethodOptions';
 
 interface EditInvoiceLine {
   key: string;
@@ -502,7 +503,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
       setEditErrors({ client_id: t('invoices.colClient') });
       return;
     }
-    if ((editPaymentType === 'om' || editPaymentType === 'momo') && !editPayerPhone.trim()) {
+    if (requiresPayerPhone(editPaymentType) && !editPayerPhone.trim()) {
       setEditErrors({ payer_phone: t('invoices.payerPhoneRequired') });
       return;
     }
@@ -521,7 +522,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
         seller_user_id: editSellerUserId || null,
         invoice_date: editInvoiceDate,
         payment_type: editPaymentType || null,
-        payer_phone: editPaymentType === 'om' || editPaymentType === 'momo' ? editPayerPhone.trim() : null,
+        payer_phone: requiresPayerPhone(editPaymentType) ? editPayerPhone.trim() : null,
         comment: editComment || null,
         advance: Number(editAdvance) || 0,
         discount: Number(editDiscount) || 0,
@@ -845,7 +846,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                     ? t('invoices.paymentMomo')
                     : invoice.payment_type === 'wave'
                     ? t('invoices.paymentWave')
-                    : t('invoices.paymentMobile')}
+                    : paymentMethodName(invoice.payment_type)}
                 </p>
               )}
             </div>
@@ -885,7 +886,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                       {p.validated_at ? formatDateTimeFr(p.validated_at) : '—'}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
-                      {p.payment_method === 'cash' ? t('invoices.paymentCash') : p.payment_method === 'om' ? t('invoices.paymentOm') : p.payment_method === 'momo' ? t('invoices.paymentMomo') : p.payment_method === 'wave' ? t('invoices.paymentWave') : t('invoices.paymentMobile')}
+                      {p.payment_method === 'cash' ? t('invoices.paymentCash') : p.payment_method === 'om' ? t('invoices.paymentOm') : p.payment_method === 'momo' ? t('invoices.paymentMomo') : p.payment_method === 'wave' ? t('invoices.paymentWave') : paymentMethodName(p.payment_method)}
                     </td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
                       {p.treasury_account?.name ?? '—'}
@@ -949,7 +950,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                         ? t('invoices.paymentMomo')
                         : proof.payment_method === 'wave'
                         ? t('invoices.paymentWave')
-                        : proof.payment_method}
+                        : paymentMethodName(proof.payment_method)}
                       {Number(proof.amount ?? 0) > 0 && (
                         <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
                           {formatCurrency(proof.amount, invoice.currency_code)}
@@ -1163,10 +1164,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               value={payMethod}
               onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
             >
-              <option value="cash">{t('invoices.paymentCash')}</option>
-              <option value="om">{t('invoices.paymentOm')}</option>
-              <option value="momo">{t('invoices.paymentMomo')}</option>
-              <option value="wave">{t('invoices.paymentWave')}</option>
+              <PaymentMethodOptions agencyId={invoice?.agency_id} />
             </Select>
             <Input
               label={t('invoices.payDate')}
@@ -1221,10 +1219,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               value={remMethod}
               onChange={(e) => setRemMethod(e.target.value as PaymentMethod)}
             >
-              <option value="cash">{t('invoices.paymentCash')}</option>
-              <option value="om">{t('invoices.paymentOm')}</option>
-              <option value="momo">{t('invoices.paymentMomo')}</option>
-              <option value="wave">{t('invoices.paymentWave')}</option>
+              <PaymentMethodOptions agencyId={invoice?.agency_id} />
             </Select>
             <Input
               label={t('invoices.proofPhone')}
@@ -1366,12 +1361,9 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                   error={editErrors.payment_type}
                 >
                   <option value="">—</option>
-                  <option value="cash">{t('invoices.paymentCash')}</option>
-                  <option value="om">{t('invoices.paymentOm')}</option>
-                  <option value="momo">{t('invoices.paymentMomo')}</option>
-                  <option value="wave">{t('invoices.paymentWave')}</option>
+                  <PaymentMethodOptions agencyId={invoice?.agency_id} />
                 </Select>
-                {(editPaymentType === 'om' || editPaymentType === 'momo' || editPaymentType === 'wave') && (
+                {requiresPayerPhone(editPaymentType) && (
                   <Input
                     label={`${t('invoices.payerPhone')} *`}
                     value={editPayerPhone}

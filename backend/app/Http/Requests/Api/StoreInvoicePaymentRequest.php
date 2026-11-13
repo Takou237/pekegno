@@ -15,7 +15,7 @@ class StoreInvoicePaymentRequest extends FormRequest
     {
         return [
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'in:cash,om,momo,wave,moov,bank'],
+            'payment_method' => ['required', 'string', \App\Support\PaymentMethods::rule()],
             'is_advance' => ['sometimes', 'boolean'],
             'paid_at' => ['nullable', 'date'],
             'received_at' => ['nullable', 'date'],

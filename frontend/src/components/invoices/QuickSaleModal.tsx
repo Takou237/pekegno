@@ -25,6 +25,7 @@ import type { SeminarTier, Service } from '@/types/service';
 import type { Commercial } from '@/types/commercial';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import { actsAsCommercial } from '@/utils/commercialRoles';
+import { PaymentMethodOptions, requiresPayerPhone as methodNeedsPhone } from '@/components/ui/PaymentMethodOptions';
 
 interface InvoiceLineDraft {
   key: string;
@@ -100,7 +101,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
 
   // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
   // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
-  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo' || paymentType === 'wave';
+  const requiresPayerPhone = methodNeedsPhone(paymentType);
 
   // Les formations se vendent par une inscription (module Academy), pas par
   // une vente de guichet : la liste propose les services ET les produits du
@@ -620,10 +621,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
               value={paymentType}
               onChange={(e) => setPaymentType(e.target.value as '' | PaymentMethod)}
             >
-              <option value="cash">{t('invoices.paymentCash')}</option>
-              <option value="om">{t('invoices.paymentOm')}</option>
-              <option value="momo">{t('invoices.paymentMomo')}</option>
-              <option value="wave">{t('invoices.paymentWave')}</option>
+              <PaymentMethodOptions agencyId={agencyId} />
             </Select>
           </div>
           {requiresPayerPhone && (

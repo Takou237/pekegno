@@ -2005,6 +2005,7 @@ export default {
   },
 
   bilans: {
+    receivedVia: 'Encaissé — {{method}}',
     cashBoxesTitle: 'Caisses',
     cashBox: 'Caisse',
     cashIn: 'Entrées',
@@ -2064,6 +2065,19 @@ export default {
   },
 
   treasury: {
+    newAccount: 'Nouvelle caisse',
+    newAccountHint: "Une caisse = un moyen de paiement : il sera proposé dans les formulaires de vente de l'agence et ventilé dans les tableaux (bilan, trésorerie).",
+    accountAgency: 'Agence',
+    accountName: 'Nom de la caisse (= moyen de paiement)',
+    accountType: 'Type',
+    typeCash: 'Espèces',
+    typeMobileMoney: 'Mobile money',
+    typeBank: 'Banque',
+    accountNumber: 'Numéro de compte / marchand',
+    openingBalance: 'Solde initial',
+    visibleToCashier: 'Visible des caissières (solde)',
+    accountCreated: 'Caisse créée.',
+    deactivateAccount: 'Activer / désactiver',
     title: 'Trésorerie',
     subtitle: 'Gestion des comptes de trésorerie et des mouvements.',
     accounts: 'Comptes',
@@ -2122,7 +2136,6 @@ export default {
     reopenSuccess: 'Caisse rouverte : nouvelle journée.',
     closeCashWarning: 'Après la clôture, plus rien n\'entre ni ne sort de cette caisse et les paiements de l\'agence attendent sa réouverture.',
     closingDate: 'Clôtures du',
-    openingBalance: 'Solde initial',
     theoreticalBalance: 'Solde théorique',
     actualBalance: 'Solde réel',
     difference: 'Écart',
@@ -2139,9 +2152,6 @@ export default {
     noClosings: 'Aucune clôture pour cette date.',
     noAgency: 'Sans agence',
     closeRequiredJustification: 'Un écart non nul doit être justifié.',
-    typeCash: '💵 Caisse',
-    typeMobileMoney: '📱 Mobile Money',
-    typeBank: '🏦 Banque',
   },
 
   expenses: {

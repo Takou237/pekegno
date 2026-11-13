@@ -32,6 +32,110 @@ class TreasuryController extends Controller
         return app(\App\Services\ScopeService::class)->agencyIds($user) ?? [];
     }
 
+    /** Rôles autorisés à créer / modifier les caisses (administration). */
+    private const ACCOUNT_ADMIN_ROLES = ['super-admin', 'direction-generale', 'comptable'];
+
+    /**
+     * Moyens de paiement proposés dans les formulaires : une caisse = un moyen
+     * de paiement (agence donnée, sinon tout le réseau).
+     */
+    public function paymentMethods(Request $request): JsonResponse
+    {
+        return response()->json(\App\Support\PaymentMethods::forAgency($request->query('agency_id')));
+    }
+
+    /**
+     * Nouvelle caisse : crée aussi le moyen de paiement correspondant, proposé
+     * ensuite dans les formulaires de vente et ventilé dans les tableaux.
+     * Une caisse du même nom dans une autre agence partage le même moyen.
+     */
+    public function storeAccount(Request $request): JsonResponse
+    {
+        abort_unless(in_array($request->user()?->role?->name, self::ACCOUNT_ADMIN_ROLES, true), 403, 'Seule l\'administration peut créer une caisse.');
+
+        $data = $request->validate([
+            'agency_id' => ['required', 'uuid', 'exists:agencies,id'],
+            'name' => ['required', 'string', 'max:100'],
+            'type' => ['required', 'in:cash,mobile_money,bank'],
+            'account_number' => ['nullable', 'string', 'max:50'],
+            'opening_balance' => ['nullable', 'numeric', 'min:0'],
+            'visible_to_cashier' => ['sometimes', 'boolean'],
+        ]);
+
+        $agency = \App\Models\Agency::with('geoCountry')->findOrFail($data['agency_id']);
+        $key = \App\Support\PaymentMethods::keyFromName($data['name']);
+        $standard = \App\Support\PaymentMethods::STANDARD[$key] ?? null;
+
+        abort_if(
+            TreasuryAccount::where('agency_id', $agency->id)->where('method_key', $key)->exists(),
+            422,
+            "L'agence a déjà la caisse « {$data['name']} »."
+        );
+
+        $code = $standard['code'] ?? $this->nextAccountCode($agency->id, $data['name']);
+        $visibleToCashier = (bool) ($data['visible_to_cashier'] ?? $data['type'] === TreasuryAccount::TYPE_CASH);
+
+        $account = TreasuryAccount::create([
+            'agency_id' => $agency->id,
+            'name' => $data['name'],
+            'code' => $code,
+            'method_key' => $key,
+            'type' => $standard['type'] ?? $data['type'],
+            'account_number' => $data['account_number'] ?? null,
+            'opening_balance' => $data['opening_balance'] ?? 0,
+            'currency_code' => $agency->geoCountry?->currency_code ?? 'XAF',
+            'is_active' => true,
+            'visible_roles' => $visibleToCashier ? null : \App\Services\TreasuryAccountProvisioner::RESTRICTED_ROLES,
+        ]);
+        \App\Support\PaymentMethods::flush();
+
+        return response()->json(array_merge($account->toArray(), ['balance' => $this->treasuryService->balanceFor($account)]), 201);
+    }
+
+    /** Renommer, activer / désactiver une caisse (le moyen de paiement suit). */
+    public function updateAccount(Request $request, TreasuryAccount $account): JsonResponse
+    {
+        abort_unless(in_array($request->user()?->role?->name, self::ACCOUNT_ADMIN_ROLES, true), 403, 'Seule l\'administration peut modifier une caisse.');
+
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:100'],
+            'account_number' => ['nullable', 'string', 'max:50'],
+            'is_active' => ['sometimes', 'boolean'],
+            'visible_to_cashier' => ['sometimes', 'boolean'],
+        ]);
+
+        if (array_key_exists('visible_to_cashier', $data)) {
+            $data['visible_roles'] = $data['visible_to_cashier'] ? null : \App\Services\TreasuryAccountProvisioner::RESTRICTED_ROLES;
+            unset($data['visible_to_cashier']);
+        }
+
+        $account->update($data);
+        \App\Support\PaymentMethods::flush();
+
+        return response()->json(array_merge($account->fresh()->toArray(), ['balance' => $this->treasuryService->balanceFor($account)]));
+    }
+
+    /** Code court unique dans l'agence (initiales du nom : « Airtel Money » → AM). */
+    private function nextAccountCode(string $agencyId, string $name): string
+    {
+        $used = TreasuryAccount::withTrashed()->where('agency_id', $agencyId)->pluck('code')->filter()->all();
+        $initials = collect(preg_split('/\s+/', \Illuminate\Support\Str::ascii($name)))
+            ->map(fn ($w) => strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $w), 0, 1)))
+            ->implode('');
+        $base = substr($initials !== '' ? $initials : 'X', 0, 3);
+
+        if (! in_array($base, $used, true)) {
+            return $base;
+        }
+        for ($i = 2; $i < 100; $i++) {
+            if (! in_array($base.$i, $used, true)) {
+                return substr($base, 0, 3).$i;
+            }
+        }
+
+        return 'X'.random_int(100, 999);
+    }
+
     #[OA\Get(
         path: '/api/treasury/accounts',
         summary: 'Lister les comptes de trésorerie avec soldes',

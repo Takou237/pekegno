@@ -56,6 +56,8 @@ export interface BilanAgency {
   momo_total: number;
   mobile_total: number;
   bank_total: number;
+  /** Une ligne par moyen de paiement (= par caisse). */
+  by_method?: { key: string; label: string; total: number }[];
   total_received: number;
   expense_total: number;
   expenses_by_category: BilanExpenseLine[];

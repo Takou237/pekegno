@@ -13,6 +13,15 @@ import type {
 } from '@/types/treasury';
 
 export const treasuryApi = {
+  // Nouvelle caisse : crée aussi le moyen de paiement correspondant.
+  createAccount(payload: { agency_id: string; name: string; type: 'cash' | 'mobile_money' | 'bank'; account_number?: string; opening_balance?: number; visible_to_cashier?: boolean }): Promise<TreasuryAccount> {
+    return client.post('/treasury/accounts', payload).then((r) => r.data);
+  },
+
+  updateAccount(id: string, payload: { name?: string; is_active?: boolean; visible_to_cashier?: boolean }): Promise<TreasuryAccount> {
+    return client.put(`/treasury/accounts/${id}`, payload).then((r) => r.data);
+  },
+
   listAccounts(params?: TreasuryAccountListParams): Promise<TreasuryAccount[]> {
     return client.get('/treasury/accounts', { params }).then((r) => r.data);
   },

@@ -192,7 +192,7 @@ class PaymentProofController extends Controller
 
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'in:cash,om,momo,wave,moov'],
+            'payment_method' => ['required', 'string', \App\Support\PaymentMethods::rule()],
             'phone_number_used' => ['nullable', 'string', 'max:30'],
             'reference' => ['nullable', 'string', 'max:100'],
             'file' => ['required', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],

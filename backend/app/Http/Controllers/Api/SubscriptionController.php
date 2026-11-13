@@ -248,7 +248,7 @@ class SubscriptionController extends Controller
             'price_per_month' => ['nullable', 'numeric', 'min:0.01'],
             'status' => ['nullable', 'in:draft,pending,active,suspended'],
             'advance' => ['nullable', 'numeric', 'min:0.01'],
-            'payment_type' => ['nullable', 'in:cash,om,momo,wave,moov'],
+            'payment_type' => ['nullable', 'string', \App\Support\PaymentMethods::rule()],
         ]);
 
         $pack = SubscriptionPack::with('packServices.service')->findOrFail($data['subscription_pack_id']);
@@ -327,7 +327,7 @@ class SubscriptionController extends Controller
         $data = $request->validate([
             'months' => ['nullable', 'integer', 'min:1', 'max:60'],
             'advance' => ['nullable', 'numeric', 'min:0.01'],
-            'payment_type' => ['nullable', 'in:cash,om,momo,wave,moov'],
+            'payment_type' => ['nullable', 'string', \App\Support\PaymentMethods::rule()],
         ]);
 
         $pack = $subscription->pack()->with('packServices.service')->firstOrFail();

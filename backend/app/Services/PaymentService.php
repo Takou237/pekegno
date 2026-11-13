@@ -122,6 +122,15 @@ class PaymentService
         }
 
         $agencyAccounts = TreasuryAccount::where('agency_id', $invoice->agency_id)->where('is_active', true);
+
+        // Caisse créée par l'administration : le moyen de paiement EST la caisse.
+        if (\App\Support\PaymentMethods::isCustom($method)) {
+            $account = (clone $agencyAccounts)->where('method_key', $method)->first();
+            abort_if(! $account, 422, "Le moyen de paiement « ".\App\Support\PaymentMethods::label($method)." » n'a pas de caisse dans l'agence de la facture.");
+
+            return $account;
+        }
+
         $code = TreasuryAccountProvisioner::codeForMethod($method);
 
         if ($code === null) {

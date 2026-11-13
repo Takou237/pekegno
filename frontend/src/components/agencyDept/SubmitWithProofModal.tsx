@@ -13,6 +13,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import type { Prestation } from '@/types/agencyDepartment';
 import type { TreasuryAccount } from '@/types/treasury';
+import { PaymentMethodOptions } from '@/components/ui/PaymentMethodOptions';
 
 interface SubmitWithProofModalProps {
   prestation: Prestation;
@@ -31,7 +32,7 @@ export function SubmitWithProofModal({ prestation, onClose, onDone }: SubmitWith
   const { showToast } = useToast();
 
   const [amount, setAmount] = useState('');
-  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'wave'>('cash');
+  const [paymentType, setPaymentType] = useState<string>('cash');
   const [treasuryAccountId, setTreasuryAccountId] = useState('');
   const [accounts, setAccounts] = useState<TreasuryAccount[]>([]);
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -118,10 +119,7 @@ export function SubmitWithProofModal({ prestation, onClose, onDone }: SubmitWith
             value={paymentType}
             onChange={(e) => setPaymentType(e.target.value as typeof paymentType)}
           >
-            <option value="cash">Cash</option>
-            <option value="om">Orange Money</option>
-            <option value="momo">MTN MoMo</option>
-            <option value="wave">Wave</option>
+            <PaymentMethodOptions agencyId={prestation.agency_id} />
           </Select>
           {accounts.length > 0 && (
             <Select

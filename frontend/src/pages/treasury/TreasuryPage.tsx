@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowDownCircle, ArrowUpCircle, ArrowLeftRight, RefreshCw } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, ArrowLeftRight, RefreshCw, Plus, Power } from 'lucide-react';
+import { agenciesApi } from '@/api/agencies.api';
+import { useAuth } from '@/hooks/useAuth';
+import { invalidatePaymentMethods } from '@/components/ui/PaymentMethodOptions';
 import { treasuryApi } from '@/api/treasury.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -51,6 +54,15 @@ export default function TreasuryPage() {
   const [filterDirection, setFilterDirection] = useState<TreasuryDirection | ''>('');
   const [filterKind, setFilterKind] = useState<'' | 'transfer' | 'movement'>('');
   const [txPage, setTxPage] = useState(1);
+
+  // Nouvelle caisse (administration) : crée aussi le moyen de paiement.
+  const { user } = useAuth();
+  const canManageAccounts = ['super-admin', 'direction-generale', 'comptable'].includes(user?.role?.name ?? '');
+  const [newAccountOpen, setNewAccountOpen] = useState(false);
+  const [agencyOptions, setAgencyOptions] = useState<{ id: string; name: string }[]>([]);
+  const [newAccount, setNewAccount] = useState({ agency_id: '', name: '', type: 'mobile_money' as 'cash' | 'mobile_money' | 'bank', account_number: '', opening_balance: '', visible_to_cashier: false });
+  const [newAccountError, setNewAccountError] = useState<string | null>(null);
+  const [newAccountSaving, setNewAccountSaving] = useState(false);
 
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferFrom, setTransferFrom] = useState('');
@@ -103,6 +115,49 @@ export default function TreasuryPage() {
   }
 
   const route = TRANSFER_TYPES.find((tt) => tt.value === transferType) ?? TRANSFER_TYPES[TRANSFER_TYPES.length - 1];
+  function openNewAccount() {
+    setNewAccountError(null);
+    setNewAccount({ agency_id: '', name: '', type: 'mobile_money', account_number: '', opening_balance: '', visible_to_cashier: false });
+    setNewAccountOpen(true);
+    if (agencyOptions.length === 0) {
+      agenciesApi.list({ per_page: 100 }).then((res) => setAgencyOptions(res.data.map((a) => ({ id: a.id, name: a.name })))).catch(() => {});
+    }
+  }
+
+  async function submitNewAccount(e: FormEvent) {
+    e.preventDefault();
+    setNewAccountSaving(true);
+    setNewAccountError(null);
+    try {
+      await treasuryApi.createAccount({
+        agency_id: newAccount.agency_id,
+        name: newAccount.name.trim(),
+        type: newAccount.type,
+        account_number: newAccount.account_number.trim() || undefined,
+        opening_balance: newAccount.opening_balance ? Number(newAccount.opening_balance) : undefined,
+        visible_to_cashier: newAccount.visible_to_cashier,
+      });
+      invalidatePaymentMethods();
+      showToast(t('treasury.accountCreated'), 'success');
+      setNewAccountOpen(false);
+      loadAccounts();
+    } catch (error) {
+      setNewAccountError(extractErrorMessage(error, t('common.error')));
+    } finally {
+      setNewAccountSaving(false);
+    }
+  }
+
+  async function toggleAccount(account: TreasuryAccount) {
+    try {
+      await treasuryApi.updateAccount(account.id, { is_active: !account.is_active });
+      invalidatePaymentMethods();
+      loadAccounts();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('common.error')), 'error');
+    }
+  }
+
   const sourceAccounts = accounts.filter((a) => a.is_active && (route.from === null || route.from.includes(a.type)));
   const targetAccounts = accounts.filter((a) => a.is_active && a.id !== transferFrom && (route.to === null || route.to.includes(a.type)));
 
@@ -156,6 +211,12 @@ export default function TreasuryPage() {
           <Button variant="outline" onClick={() => { loadAccounts(); loadTransactions(); }}>
             <RefreshCw className="h-4 w-4" />
           </Button>
+          {canManageAccounts && (
+            <Button variant="outline" onClick={openNewAccount}>
+              <Plus className="h-4 w-4" />
+              {t('treasury.newAccount')}
+            </Button>
+          )}
           <Button onClick={openTransfer}>
             <ArrowLeftRight className="h-4 w-4" />
             {t('treasury.transfer')}
@@ -178,6 +239,16 @@ export default function TreasuryPage() {
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{a.code}</span>
                   )}
                   <span>{a.name}</span>
+                  {canManageAccounts && (
+                    <button
+                      type="button"
+                      onClick={() => toggleAccount(a)}
+                      className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-error-600 dark:hover:bg-gray-800"
+                      title={t('treasury.deactivateAccount')}
+                    >
+                      <Power className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
                 <p className="mt-2 text-lg font-semibold sm:text-2xl text-gray-900 dark:text-white">
                   {formatCurrency(a.balance)}
@@ -303,6 +374,39 @@ export default function TreasuryPage() {
       </div>
 
       {/* Transfer modal */}
+      <Modal isOpen={newAccountOpen} onClose={() => setNewAccountOpen(false)} title={t('treasury.newAccount')} maxWidth="max-w-md">
+        <form onSubmit={submitNewAccount} className="flex flex-col gap-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('treasury.newAccountHint')}</p>
+          {newAccountError && <Alert variant="error">{newAccountError}</Alert>}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('treasury.accountAgency')} *</label>
+            <select required value={newAccount.agency_id} onChange={(e) => setNewAccount({ ...newAccount, agency_id: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+              <option value="">—</option>
+              {agencyOptions.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+          <Input label={`${t('treasury.accountName')} *`} required placeholder="Airtel Money" value={newAccount.name} onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })} />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('treasury.accountType')} *</label>
+            <select value={newAccount.type} onChange={(e) => setNewAccount({ ...newAccount, type: e.target.value as 'cash' | 'mobile_money' | 'bank', visible_to_cashier: e.target.value === 'cash' })} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+              <option value="cash">{t('treasury.typeCash')}</option>
+              <option value="mobile_money">{t('treasury.typeMobileMoney')}</option>
+              <option value="bank">{t('treasury.typeBank')}</option>
+            </select>
+          </div>
+          <Input label={t('treasury.accountNumber')} value={newAccount.account_number} onChange={(e) => setNewAccount({ ...newAccount, account_number: e.target.value })} />
+          <Input label={t('treasury.openingBalance')} type="number" min="0" value={newAccount.opening_balance} onChange={(e) => setNewAccount({ ...newAccount, opening_balance: e.target.value })} />
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" checked={newAccount.visible_to_cashier} onChange={(e) => setNewAccount({ ...newAccount, visible_to_cashier: e.target.checked })} />
+            {t('treasury.visibleToCashier')}
+          </label>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setNewAccountOpen(false)} className="flex-1">{t('common.cancel')}</Button>
+            <Button type="submit" isLoading={newAccountSaving} className="flex-1">{t('common.create')}</Button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal
         isOpen={transferOpen}
         onClose={() => setTransferOpen(false)}

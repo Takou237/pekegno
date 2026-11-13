@@ -29,6 +29,7 @@ import type { Commercial } from '@/types/commercial';
 import { todayLocal } from '@/utils/date';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import { actsAsCommercial } from '@/utils/commercialRoles';
+import { PaymentMethodOptions, requiresPayerPhone as methodNeedsPhone } from '@/components/ui/PaymentMethodOptions';
 
 /** Type de ligne : il filtre la recherche du catalogue (champ à côté). */
 type LineKind = 'product' | 'course' | 'package' | 'service';
@@ -147,7 +148,7 @@ export default function InvoiceFormPage({
 
   // Un règlement mobile money sans numéro payeur est inexploitable (traçabilité
   // de la transaction) : le champ apparaît et devient obligatoire pour OM / MoMo.
-  const requiresPayerPhone = paymentType === 'om' || paymentType === 'momo' || paymentType === 'wave';
+  const requiresPayerPhone = methodNeedsPhone(paymentType);
 
   useEffect(() => {
     if ((!isCommercial && !isResponsableAgence) || !currentUser?.id) return;
@@ -622,10 +623,7 @@ export default function InvoiceFormPage({
                 onChange={(e) => setPaymentType(e.target.value as '' | PaymentMethod)}
               >
                 <option value="">—</option>
-                <option value="cash">{t('invoices.paymentCash')}</option>
-                <option value="om">{t('invoices.paymentOm')}</option>
-                <option value="momo">{t('invoices.paymentMomo')}</option>
-                <option value="wave">{t('invoices.paymentWave')}</option>
+                <PaymentMethodOptions agencyId={agencyId} />
               </Select>
               {requiresPayerPhone && (
                 <Input

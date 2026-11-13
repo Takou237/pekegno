@@ -361,7 +361,7 @@ class PackageController extends Controller
             'periods' => ['required', 'integer', 'min:1', 'max:60'],
             'auto_renew' => ['sometimes', 'boolean'],
             'advance' => ['nullable', 'numeric', 'min:0'],
-            'payment_type' => ['nullable', 'in:cash,om,momo,wave,moov'],
+            'payment_type' => ['nullable', 'string', \App\Support\PaymentMethods::rule()],
             // Preuve de paiement (photo) : examinée par le caissier avant validation.
             'proof_file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
             'discount_type' => ['nullable', 'required_with:discount_value', 'in:amount,percent'],

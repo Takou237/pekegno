@@ -52,7 +52,12 @@ class RevenueService
             in_array($key, ['momo', 'mtn', 'mtn_momo', 'mobile_money', 'mobilemoney', 'mvola'], true) => self::MODE_MOMO,
             in_array($key, ['mobile', 'moov', 'moov_money', 'moovmoney', 'wave', 'free_money'], true) => self::MODE_MOBILE,
             in_array($key, ['bank', 'bank_transfer', 'virement', 'transfer', 'cheque', 'cheque_bancaire', 'card', 'carte'], true) => self::MODE_BANK,
-            default => self::MODE_CASH,
+            // Caisse créée par l'administration : rangée selon son type.
+            default => match (\App\Support\PaymentMethods::typeOf($key)) {
+                \App\Models\TreasuryAccount::TYPE_MOBILE_MONEY => self::MODE_MOBILE,
+                \App\Models\TreasuryAccount::TYPE_BANK => self::MODE_BANK,
+                default => self::MODE_CASH,
+            },
         };
     }
 

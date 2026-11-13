@@ -4,7 +4,8 @@ import type { CommissionPayment } from './commercial';
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
 export type InvoiceValidationStatus = 'pending' | 'validated' | 'rejected';
 export type InvoiceSource = 'in_person' | 'commercial_online' | 'client_self';
-export type PaymentMethod = 'cash' | 'om' | 'momo' | 'mobile' | 'wave';
+// Une caisse = un moyen de paiement : cash, om, momo, wave, moov, bank ou la clé d'une caisse créée.
+export type PaymentMethod = string;
 
 export interface AgencySnapshot {
   name: string;

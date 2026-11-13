@@ -26,13 +26,16 @@ class TreasuryAccountProvisioner
 
     /** @var array<string, array{name: string, type: string, provider: ?string}> */
     public const TEMPLATES = [
-        'C' => ['name' => 'Caisse Principale', 'type' => TreasuryAccount::TYPE_CASH, 'provider' => null],
+        'C' => ['name' => 'Caisse Espèces', 'type' => TreasuryAccount::TYPE_CASH, 'provider' => null],
         'O' => ['name' => 'Orange Money', 'type' => TreasuryAccount::TYPE_MOBILE_MONEY, 'provider' => 'orange_money'],
         'M' => ['name' => 'MTN MoMo', 'type' => TreasuryAccount::TYPE_MOBILE_MONEY, 'provider' => 'mtn_momo'],
         'B' => ['name' => 'Compte bancaire', 'type' => TreasuryAccount::TYPE_BANK, 'provider' => null],
         'W' => ['name' => 'Wave', 'type' => TreasuryAccount::TYPE_MOBILE_MONEY, 'provider' => 'wave'],
         'V' => ['name' => 'Moov Money', 'type' => TreasuryAccount::TYPE_MOBILE_MONEY, 'provider' => 'moov_money'],
     ];
+
+    /** Moyen de paiement de chaque caisse standard (une caisse = un moyen). */
+    public const METHOD_KEYS = ['C' => 'cash', 'O' => 'om', 'M' => 'momo', 'B' => 'bank', 'W' => 'wave', 'V' => 'moov'];
 
     /**
      * Code de caisse attendu pour un mode de paiement, ou null si le mode est
@@ -96,6 +99,7 @@ class TreasuryAccountProvisioner
         $account = TreasuryAccount::create([
             'agency_id' => $agency?->id,
             'code' => $code,
+            'method_key' => self::METHOD_KEYS[$code] ?? null,
             'name' => $template['name'],
             'type' => $template['type'],
             'provider' => $template['provider'],

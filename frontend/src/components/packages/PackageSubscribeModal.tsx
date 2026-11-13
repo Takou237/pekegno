@@ -17,6 +17,7 @@ import { EnrollmentLearnerField, emptyNewLearnerForm, isNewLearnerComplete, type
 import { clientsApi } from '@/api/clients.api';
 import type { AgencyPackage } from '@/types/agencyDepartment';
 import { actsAsCommercial } from '@/utils/commercialRoles';
+import { PaymentMethodOptions } from '@/components/ui/PaymentMethodOptions';
 
 interface PackageSubscribeModalProps {
   pkg: AgencyPackage;
@@ -52,7 +53,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
   const [start, setStart] = useState(todayLocal());
   const [periods, setPeriods] = useState('1');
   const [advance, setAdvance] = useState('');
-  const [paymentType, setPaymentType] = useState<'cash' | 'om' | 'momo' | 'wave'>('cash');
+  const [paymentType, setPaymentType] = useState<string>('cash');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [autoRenew, setAutoRenew] = useState(false);
@@ -237,10 +238,7 @@ export function PackageSubscribeModal({ pkg, departmentId, onClose, onDone }: Pa
             value={paymentType}
             onChange={(e) => setPaymentType(e.target.value as typeof paymentType)}
           >
-            <option value="cash">Cash</option>
-            <option value="om">Orange Money</option>
-            <option value="momo">MTN MoMo</option>
-            <option value="wave">Wave</option>
+            <PaymentMethodOptions agencyId={pkg.agency_id} />
           </Select>
         </div>
 

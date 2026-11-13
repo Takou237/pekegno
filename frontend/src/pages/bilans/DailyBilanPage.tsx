@@ -272,7 +272,7 @@ export function formatSignedCurrency(value: number | string, currency?: string |
   return `${prefix}${formatCurrency(Math.abs(n), currency)}`;
 }
 
-export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string) => string }) {
+export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: string, opts?: Record<string, unknown>) => string }) {
   // B14 : chaque montant dans la devise du périmètre (agence ou groupe).
   const cur = bilan.currency_code;
   return (
@@ -345,31 +345,17 @@ export function AgencyBilanCard({ bilan, t }: { bilan: BilanAgency; t: (key: str
                 <td className="px-5 py-3 text-right text-gray-800 dark:text-gray-100">{formatCurrency(bilan.total_ventes_amount, cur)}</td>
               </tr>
 
-              <tr className="border-t-2 border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30">
-                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.cashTotal')}</td>
-                <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.cash_total, cur)}</td>
-              </tr>
-              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.omTotal')}</td>
-                <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.om_total, cur)}</td>
-              </tr>
-              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.momoTotal')}</td>
-                <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.momo_total, cur)}</td>
-              </tr>
-              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.mobileTotal')}</td>
-                <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.mobile_total, cur)}</td>
-              </tr>
-              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.bankTotal')}</td>
-                <td />
-                <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(bilan.bank_total, cur)}</td>
-              </tr>
+              {/* Une ligne par moyen de paiement (= par caisse), caisses créées comprises. */}
+              {(bilan.by_method && bilan.by_method.length > 0
+                ? bilan.by_method
+                : [{ key: 'cash', label: t('bilans.cashTotal'), total: bilan.cash_total }]
+              ).map((m, idx) => (
+                <tr key={m.key} className={idx === 0 ? 'border-t-2 border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}>
+                  <td colSpan={2} className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{t('bilans.receivedVia', { method: m.label })}</td>
+                  <td />
+                  <td className="px-5 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{formatCurrency(m.total, cur)}</td>
+                </tr>
+              ))}
               <tr className="bg-brand-50/50 font-semibold dark:bg-brand-500/5">
                 <td colSpan={2} className="px-5 py-3 text-brand-700 dark:text-brand-300">{t('bilans.totalReceived')}</td>
                 <td />
