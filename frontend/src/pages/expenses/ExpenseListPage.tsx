@@ -61,6 +61,10 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
 
   const { user } = useAuth();
   const canAdministration = ADMINISTRATION_ROLES.includes(user?.role?.name ?? '');
+  // Onglet du circuit : Approuver / Rejeter seulement avec la permission de
+  // valider (le chef d'agence l'a ; la caissière, elle, soumet sans valider).
+  const canValidate =
+    user?.role?.name === 'super-admin' || Boolean(user?.permissions?.includes('depenses.valider'));
 
   const [createOpen, setCreateOpen] = useState(false);
   // Cible : « agency:<uuid> » ou « country:<uuid> » (Administration du pays).
@@ -394,7 +398,7 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
                             <Send className="h-3.5 w-3.5" /><span>{t('expenses.submit')}</span>
                           </button>
                         )}
-                        {exp.status === 'submitted' && (
+                        {exp.status === 'submitted' && canValidate && (
                           <>
                             <button onClick={() => handleAction('approve', exp.id)} className="inline-flex items-center gap-1 rounded-lg border border-green-200 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:border-green-500/30 dark:text-green-300 dark:hover:bg-green-900/20">
                               <CheckCircle className="h-3.5 w-3.5" /><span>{t('expenses.approve')}</span>

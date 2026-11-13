@@ -476,7 +476,9 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::put('/expenses/{expense}', [ExpenseController::class, 'update'])->middleware('permission:depenses.modifier');
     Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->middleware('permission:depenses.supprimer');
     Route::post('/expenses/{expense}/justification', [ExpenseController::class, 'uploadJustification'])->middleware('permission:depenses.consulter');
-    Route::post('/expenses/{expense}/submit', [ExpenseController::class, 'submit'])->middleware('permission:depenses.modifier');
+    // Créer suffit pour soumettre : la caissière n'a que depenses.creer, et le
+    // circuit veut qu'elle soumette la sortie qu'elle vient de saisir (N20).
+    Route::post('/expenses/{expense}/submit', [ExpenseController::class, 'submit'])->middleware('permission:depenses.creer');
     Route::post('/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->middleware('permission:depenses.valider');
     Route::post('/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->middleware('permission:depenses.valider');
     Route::post('/expenses/{expense}/pay', [ExpenseController::class, 'pay'])->middleware('permission:depenses.encaisser');
