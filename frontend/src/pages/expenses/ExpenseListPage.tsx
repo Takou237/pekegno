@@ -34,7 +34,21 @@ const STATUS_BADGES: Record<ExpenseStatus, string> = {
   closed: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
 };
 
-export default function ExpenseListPage() {
+interface ExpenseListPageProps {
+  /** Affichée dans un onglet de la Comptabilité (sans grand titre de page). */
+  embedded?: boolean;
+  /** Change de valeur pour ouvrir le formulaire de sortie (depuis « Nouvelle transaction »). */
+  createSignal?: number;
+  /** Pré-remplissage venant du formulaire de transaction. */
+  prefill?: { amount?: string; expense_date?: string; note?: string; category_id?: string };
+}
+
+/**
+ * Sorties (cahier §14) : circuit brouillon → soumise → validée → payée, avec
+ * photo du justificatif, rattachement à une agence ou à l'Administration du
+ * pays, et à un séminaire. Une sortie payée crée son écriture en Comptabilité.
+ */
+export default function ExpenseListPage({ embedded = false, createSignal, prefill }: ExpenseListPageProps = {}) {
   const { t } = useTranslation();
   const { showToast } = useToast();
 
@@ -57,6 +71,7 @@ export default function ExpenseListPage() {
   const [seminars, setSeminars] = useState<{ id: string; name: string; agency_name?: string | null }[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [createFile, setCreateFile] = useState<File | null>(null);
 
   const [detail, setDetail] = useState<Expense | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -153,10 +168,17 @@ export default function ExpenseListPage() {
   );
 
   function openCreate() {
-    setForm({ target: '', category_id: '', amount: '', expense_date: '', note: '', service_id: '' });
+    setForm({ target: '', category_id: prefill?.category_id ?? '', amount: prefill?.amount ?? '', expense_date: prefill?.expense_date ?? '', note: prefill?.note ?? '', service_id: '' });
+    setCreateFile(null);
     setFormErrors({});
     setCreateOpen(true);
   }
+
+  // Ouverture demandée depuis « Nouvelle transaction » de type Sortie.
+  useEffect(() => {
+    if (createSignal) openCreate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createSignal]);
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -164,7 +186,7 @@ export default function ExpenseListPage() {
     setFormErrors({});
     try {
       const isAdministration = form.target.startsWith('country:');
-      await expensesApi.create({
+      const created = await expensesApi.create({
         ...(isAdministration
           ? { country_id: form.target.slice('country:'.length) }
           : { agency_id: form.target.slice('agency:'.length) }),
@@ -174,6 +196,12 @@ export default function ExpenseListPage() {
         note: form.note || undefined,
         service_id: form.service_id || undefined,
       });
+      // Photo du justificatif jointe dès la saisie.
+      if (createFile) {
+        await expensesApi.uploadJustification(created.id, createFile).catch(() => {
+          showToast(t('expenses.justificationFailed'), 'error');
+        });
+      }
       showToast(t('expenses.created'), 'success');
       setCreateOpen(false);
       load();
@@ -258,8 +286,14 @@ export default function ExpenseListPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('expenses.title')}</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('expenses.subtitle')}</p>
+          {embedded ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('expenses.embeddedSubtitle')}</p>
+          ) : (
+            <>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('expenses.title')}</h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('expenses.subtitle')}</p>
+            </>
+          )}
         </div>
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
@@ -469,6 +503,16 @@ export default function ExpenseListPage() {
             ))}
           </Select>
           <Input label={t('expenses.note')} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('expenses.justification')}</label>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setCreateFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-700 dark:text-gray-300"
+            />
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('expenses.circuitHint')}</p>
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} className="flex-1">{t('common.cancel')}</Button>
             <Button type="submit" isLoading={submitting} className="flex-1">{t('common.create')}</Button>

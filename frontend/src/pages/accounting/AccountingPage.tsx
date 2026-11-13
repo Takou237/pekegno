@@ -31,6 +31,7 @@ import type { PaginationMeta } from '@/types/agency';
 import { businessToday, formatDateTimeFr } from '@/utils/date';
 import { PeriodPresets } from '@/components/ui/PeriodPresets';
 import { CatalogRevenueTab } from '@/components/accounting/CatalogRevenueTab';
+import ExpenseListPage from '@/pages/expenses/ExpenseListPage';
 
 export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { fixedAgencyId?: string; fixedDepartmentId?: string }) {
   const { agencyId: routeAgencyId, countryId: routeCountryId } = useParams<{ agencyId?: string; countryId?: string }>();
@@ -62,7 +63,10 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
   // Caissier : scope forcé à son agence d'affectation (primaire puis première).
   const isCaissier = currentUser?.role?.name === 'caissier';
   // Onglets : écritures comptables / comptabilité par produit (catalogue).
-  const [view, setView] = useState<'entries' | 'catalog'>('entries');
+  const [view, setView] = useState<'entries' | 'expenses' | 'catalog'>('entries');
+  // Une transaction de type Sortie suit le circuit des sorties (onglet « Sorties à valider »).
+  const [expenseSignal, setExpenseSignal] = useState(0);
+  const [expensePrefill, setExpensePrefill] = useState<{ amount?: string; expense_date?: string; note?: string; category_id?: string }>({});
   const caissierAgencyId =
     currentUser?.assignments?.find((a) => a.pivot?.is_primary)?.id ??
     currentUser?.assignments?.[0]?.id ??
@@ -412,7 +416,10 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
       </div>
 
       <div className="flex w-full gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800 sm:w-fit">
-        {(['entries', 'catalog'] as const).map((key) => (
+        {(['entries', 'expenses', 'catalog'] as const)
+          // Onglet du circuit des sorties : réservé à qui peut consulter les dépenses.
+          .filter((key) => key !== 'expenses' || currentUser?.role?.name === 'super-admin' || Boolean(currentUser?.permissions?.includes('depenses.consulter')))
+          .map((key) => (
           <button
             key={key}
             type="button"
@@ -428,7 +435,9 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
         ))}
       </div>
 
-      {view === 'catalog' ? (
+      {view === 'expenses' ? (
+        <ExpenseListPage embedded createSignal={expenseSignal} prefill={expensePrefill} />
+      ) : view === 'catalog' ? (
         <CatalogRevenueTab agencyId={agencyId || agencyFilter || undefined} />
       ) : (
       <>
@@ -600,7 +609,18 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
         <form onSubmit={handleTxSubmit} className="flex flex-col gap-4">
           {Object.keys(txErrors).length > 0 && <Alert variant="error">{Object.values(txErrors).join(' ')}</Alert>}
           <div className="grid grid-cols-2 gap-3">
-            <Select label={t('accounting.colType')} required value={txForm.type} onChange={(e) => setTxForm((f) => ({ ...f, type: e.target.value as AccountingType }))}>
+            <Select label={t('accounting.colType')} required value={txForm.type} onChange={(e) => {
+              const type = e.target.value as AccountingType;
+              // Nouvelle Sortie : formulaire du circuit (validation, justificatif, séminaire, Administration).
+              if (type === 'expense' && !editTx) {
+                setExpensePrefill({ amount: txForm.amount, expense_date: txForm.transacted_at, note: txForm.label || txForm.note });
+                setTxOpen(false);
+                setView('expenses');
+                setExpenseSignal((n) => n + 1);
+                return;
+              }
+              setTxForm((f) => ({ ...f, type }));
+            }}>
               <option value="income">{t('accounting.typeIncome')}</option>
               <option value="expense">{t('accounting.typeExpense')}</option>
             </Select>

@@ -235,6 +235,7 @@ export default {
 
   catalogRevenue: {
     tab_entries: 'Écritures',
+    tab_expenses: 'Sorties à valider',
     tab_catalog: 'Par produit',
     loadFailed: 'Impossible de charger la comptabilité par produit.',
     from: 'Du',
@@ -2180,6 +2181,9 @@ export default {
   },
 
   expenses: {
+    embeddedSubtitle: 'Chaque sortie suit le circuit : brouillon → soumise → validée → payée. Une fois payée, elle apparaît dans les écritures.',
+    circuitHint: 'La sortie est créée en brouillon : soumettez-la, faites-la valider puis payez-la depuis une caisse (onglet « Sorties à valider »).',
+    justificationFailed: "La sortie est créée, mais le justificatif n'a pas pu être joint.",
     justification: 'Justificatif',
     viewJustification: 'Voir',
     attachJustification: 'Joindre la photo',

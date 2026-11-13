@@ -235,6 +235,7 @@ export default {
 
   catalogRevenue: {
     tab_entries: 'Entries',
+    tab_expenses: 'Outflows to approve',
     tab_catalog: 'By product',
     loadFailed: 'Unable to load revenue by product.',
     from: 'From',
@@ -2167,6 +2168,9 @@ export default {
   },
 
   expenses: {
+    embeddedSubtitle: 'Each outflow follows the circuit: draft → submitted → approved → paid. Once paid, it appears in the entries.',
+    circuitHint: 'The outflow is created as a draft: submit it, get it approved, then pay it from a cash box (tab “Outflows to approve”).',
+    justificationFailed: 'The outflow was created but the receipt could not be attached.',
     justification: 'Receipt',
     viewJustification: 'View',
     attachJustification: 'Attach photo',

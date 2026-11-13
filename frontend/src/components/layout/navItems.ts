@@ -28,7 +28,6 @@ import {
   Warehouse,
   Megaphone,
   Coins,
-  CircleDollarSign,
   DollarSign,
   ScrollText,
   Settings,
@@ -159,7 +158,6 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       cashClosingsItem(t),
       // Dépenses (agences et Administration du pays) : circuit demande →
       // validation → paiement, justificatif, événement.
-      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       invoiceItem(t),
       { to: '/contracts', label: t('nav.contracts'), icon: FileText, end: false },
       ...(canValidateInvoices(roleName)
@@ -200,7 +198,6 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       catalogItem(t),
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       cashClosingsItem(t),
-      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       adCampaignsItem(t),
       { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
@@ -250,7 +247,6 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false },
       cashClosingsItem(t),
-      { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
       invoiceItem(t, unpaidBadge),
       { to: '/invoices/receivables', label: t('nav.receivables'), icon: DollarSign, end: false },
       { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: ScrollText, end: false },
@@ -339,7 +335,6 @@ export function getPermissionItems(t: TranslateFn, permissions: string[]): NavIt
     [has('comptabilite.consulter'), { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false }],
     [has('bilans.consulter'), { to: '/bilans', label: t('nav.bilans'), icon: BarChart3, end: false }],
     [has('tresories.consulter'), cashClosingsItem(t)],
-    [has('depenses.consulter'), { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false }],
     [has('depenses.consulter'), adCampaignsItem(t)],
     [has('commissions.consulter'), { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: Coins, end: false }],
     [has('entreprises.consulter'), { to: '/companies', label: t('nav.companies'), icon: Building2, end: false }],
