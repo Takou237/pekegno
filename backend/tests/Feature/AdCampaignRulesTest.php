@@ -33,15 +33,18 @@ class AdCampaignRulesTest extends TestCase
         ]);
 
         $service = app(AdCampaignService::class);
-        $oct = $service->getAgencyAdCosts($douala, Carbon::parse('2026-10-01'), Carbon::parse('2026-10-31')->endOfDay());
-        $nov = $service->getAgencyAdCosts($douala, Carbon::parse('2026-11-01'), Carbon::parse('2026-11-30')->endOfDay());
+        // Bornes comme l'application : jours métier (Douala) convertis en UTC.
+        $tz = \App\Support\Period::businessTimezone();
+        $day = fn (string $d, bool $end = false) => ($end ? Carbon::parse($d, $tz)->endOfDay() : Carbon::parse($d, $tz)->startOfDay())->utc();
+        $oct = $service->getAgencyAdCosts($douala, $day('2026-10-01'), $day('2026-10-31', true));
+        $nov = $service->getAgencyAdCosts($douala, $day('2026-11-01'), $day('2026-11-30', true));
 
         // 31 jours en octobre, 30 en novembre : 31 000 + 30 000 = le budget, pas 2 × 61 000.
         $this->assertEquals(31000, $oct['local_ads']);
         $this->assertEquals(30000, $nov['local_ads']);
         // Yaoundé ne porte rien d'une campagne de Douala.
-        $this->assertEquals(0, $service->getAgencyAdCosts($yaounde, Carbon::parse('2026-10-01'), Carbon::parse('2026-11-30')->endOfDay())['total_ads']);
+        $this->assertEquals(0, $service->getAgencyAdCosts($yaounde, $day('2026-10-01'), $day('2026-11-30', true))['total_ads']);
         // Filtre de branche (rapport du département Agency) : campagne Academy exclue.
-        $this->assertEquals(0, $service->getAgencyAdCosts($douala, Carbon::parse('2026-10-01'), Carbon::parse('2026-10-31')->endOfDay(), 'agency')['total_ads']);
+        $this->assertEquals(0, $service->getAgencyAdCosts($douala, $day('2026-10-01'), $day('2026-10-31', true), 'agency')['total_ads']);
     }
 }

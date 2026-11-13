@@ -1,5 +1,6 @@
 export default {
   common: {
+    view: 'View',
     required: 'Required field.',
     noOptions: 'No results.',
     loading: 'Loading...',

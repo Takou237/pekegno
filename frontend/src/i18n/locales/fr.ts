@@ -1,5 +1,6 @@
 export default {
   common: {
+    view: 'Voir',
     required: 'Champ obligatoire.',
     noOptions: 'Aucun résultat.',
     loading: 'Chargement...',
