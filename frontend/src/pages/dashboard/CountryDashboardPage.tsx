@@ -7,6 +7,8 @@ import {
   ArrowRight,
   Globe,
   Star,
+  Landmark,
+  Scale,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { client } from '@/api/client';
@@ -78,8 +80,11 @@ export default function CountryDashboardPage() {
 
   if (loading) return <SkeletonDashboard />;
 
-  const countryName = (stats as any)?.country?.name ?? '';
-  const countryCode = (stats as any)?.country?.code ?? '';
+  const countryName = stats?.country?.name ?? '';
+  const countryCode = stats?.country?.code ?? '';
+  const currency = stats?.country?.currency_code ?? stats?.currency_code;
+  const bodies = stats?.bodies_total;
+  const administration = stats?.administration;
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,9 +118,65 @@ export default function CountryDashboardPage() {
       {/* Cartes de la section 1 du cahier, dans la monnaie du pays (calcul unique serveur). */}
       <FinancialKpiCards
         kpis={stats}
-        currency={(stats as { country?: { currency_code?: string } } | null)?.country?.currency_code}
+        currency={currency}
         detailsScope={countryId ? { from: period.from, to: period.to, country_id: countryId } : null}
       />
+
+      {/* Cahier §2 — les deux corps du pays : les agences et l'Administration, puis le total. */}
+      {(bodies || administration) && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <Building2 className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+              {t('dashboard.agenciesBody')}
+            </div>
+            <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">
+              {formatCurrency(bodies?.agencies_net, currency)}
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('dashboard.agenciesBodyHint')}</p>
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <Landmark className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              {t('dashboard.administrationBody')}
+            </div>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {formatCurrency(administration?.expenses, currency)}
+              </p>
+              <p className="text-right text-xs text-gray-500 dark:text-gray-400">
+                {t('dashboard.administrationReceived')}
+                <span className="block font-semibold text-success-600">
+                  {formatCurrency(administration?.received_from_agencies, currency)}
+                </span>
+              </p>
+            </div>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('dashboard.administrationBodyHint')}</p>
+            {administration && administration.expenses_by_category.length > 0 && (
+              <ul className="mt-3 flex flex-col gap-1 border-t border-gray-100 pt-2 text-xs dark:border-gray-800">
+                {administration.expenses_by_category.slice(0, 5).map((row) => (
+                  <li key={row.name} className="flex items-center justify-between gap-3 text-gray-600 dark:text-gray-300">
+                    <span className="truncate">{row.name}</span>
+                    <span className="shrink-0 font-medium">{formatCurrency(row.total, currency)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-500/30 dark:bg-brand-500/10">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
+              <Scale className="h-4 w-4" />
+              {t('dashboard.bodiesTotal')}
+            </div>
+            <p className="mt-3 text-2xl font-bold text-brand-700 dark:text-brand-300">
+              {formatCurrency(bodies?.net, currency)}
+            </p>
+            <p className="mt-1 text-xs text-brand-700/70 dark:text-brand-300/70">{t('dashboard.bodiesTotalHint')}</p>
+          </section>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link

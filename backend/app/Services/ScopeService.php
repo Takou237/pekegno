@@ -97,6 +97,12 @@ class ScopeService
     /** Rôles d'encadrement dont les listes sont limitées à leur espace. */
     private const MANAGER_ROLES = ['responsable-agence', 'responsable-departement', 'direction-generale'];
 
+    /** Indique si les listes du rôle sont restreintes à son périmètre. */
+    public function isAgencyScoped(?User $user): bool
+    {
+        return $user !== null && in_array($user->role?->name, self::MANAGER_ROLES, true);
+    }
+
     /**
      * Restreint une requête (colonne agence) au périmètre d'un chef d'agence,
      * chef de département ou directeur général rattaché à un pays. Sans effet
@@ -120,6 +126,10 @@ class ScopeService
      */
     public function countryIds(?User $user): ?array
     {
+        if ($countryId = $this->directorCountryId($user)) {
+            return [$countryId];
+        }
+
         $agencyIds = $this->agencyIds($user);
 
         if ($agencyIds === null) {

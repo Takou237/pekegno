@@ -27,6 +27,7 @@ import {
   Undo2,
   Warehouse,
   Landmark,
+  Megaphone,
   Coins,
   CircleDollarSign,
   DollarSign,
@@ -92,6 +93,11 @@ function paymentProofsItem(t: TranslateFn): NavItem {
   return { to: '/invoices/payment-proofs', label: t('nav.paymentProofs'), icon: Receipt, end: false };
 }
 
+/** T3.8-T3.11 — publicité Pekegno : campagnes locales et nationales. */
+function adCampaignsItem(t: TranslateFn): NavItem {
+  return { to: '/ad-campaigns', label: t('nav.adCampaigns'), icon: Megaphone, end: false };
+}
+
 /** T2.11 — caisses du jour : soldes, clôture et validation. */
 function cashClosingsItem(t: TranslateFn): NavItem {
   return { to: '/treasury/closings', label: t('nav.cashClosings'), icon: ClipboardCheck, end: false };
@@ -150,6 +156,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/academy', label: t('nav.statAca'), icon: GraduationCap, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
       { to: '/bilans', label: t('nav.bilans'), icon: FileText, end: false },
+      adCampaignsItem(t),
       cashClosingsItem(t),
       invoiceItem(t),
       { to: '/contracts', label: t('nav.contracts'), icon: FileText, end: false },
@@ -191,6 +198,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
       cashClosingsItem(t),
       { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
+      adCampaignsItem(t),
       { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
       { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false },
       { to: '/companies', label: t('nav.companies'), icon: Building2, end: false },
@@ -242,6 +250,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
       { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false },
       cashClosingsItem(t),
       { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false },
+      adCampaignsItem(t),
       { to: '/commissions/rules', label: t('nav.commissionRules'), icon: ScrollText, end: false },
       { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: ScrollText, end: false },
       { to: '/accounting', label: t('nav.accounting'), icon: Calculator, end: false },
@@ -339,6 +348,7 @@ export function getPermissionItems(t: TranslateFn, permissions: string[]): NavIt
     [has('tresories.consulter'), { to: '/treasury', label: t('nav.treasury'), icon: Landmark, end: false }],
     [has('tresories.consulter'), cashClosingsItem(t)],
     [has('depenses.consulter'), { to: '/expenses', label: t('nav.expenses'), icon: CircleDollarSign, end: false }],
+    [has('depenses.consulter'), adCampaignsItem(t)],
     [has('commissions.consulter'), { to: '/commissions/entries', label: t('nav.commissionEntries'), icon: Coins, end: false }],
     [has('entreprises.consulter'), { to: '/companies', label: t('nav.companies'), icon: Building2, end: false }],
     [has('opportunites.consulter'), { to: '/opportunities', label: t('nav.opportunities'), icon: Target, end: false }],

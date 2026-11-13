@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccountingCategoryController;
 use App\Http\Controllers\Api\AccountingController;
 use App\Http\Controllers\Api\ActivityController;
+use App\Http\Controllers\Api\AdCampaignController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\Agency\AgencyCategoryController;
 use App\Http\Controllers\Api\Agency\AgencyNotificationController;
@@ -481,6 +482,12 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/expenses/{expense}/pay', [ExpenseController::class, 'pay'])->middleware('permission:depenses.encaisser');
     Route::post('/expenses/{expense}/close', [ExpenseController::class, 'close'])->middleware('permission:depenses.modifier');
     Route::post('/expenses/{expense}/reopen', [ExpenseController::class, 'reopen'])->middleware('permission:depenses.modifier');
+
+    // === T3.8-T3.11 : Publicité Pekegno (campagnes locales et nationales) ===
+    Route::get('/ad-campaigns', [AdCampaignController::class, 'index'])->middleware('permission:depenses.consulter');
+    Route::post('/ad-campaigns', [AdCampaignController::class, 'store'])->middleware('permission:depenses.creer');
+    Route::put('/ad-campaigns/{adCampaign}', [AdCampaignController::class, 'update'])->middleware('permission:depenses.modifier');
+    Route::delete('/ad-campaigns/{adCampaign}', [AdCampaignController::class, 'destroy'])->middleware('permission:depenses.supprimer');
 
     // === Sprint 3 : Commissions ===
     Route::get('/commission-rules', [CommissionController::class, 'indexRules'])->middleware('permission:commissions.consulter');

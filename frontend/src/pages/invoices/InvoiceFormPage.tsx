@@ -121,7 +121,9 @@ export default function InvoiceFormPage({
   const [saleAgencies, setSaleAgencies] = useState<AgencyOption[] | null>(null);
 
   useEffect(() => {
-    if (agencyLocked || isCommercial || isResponsableAgence) return;
+    // Le chef d'agence aussi : en vendant un article d'une autre agence, la
+    // facture bascule sur cette agence, et l'en-tête doit afficher la bonne.
+    if (agencyLocked || isCommercial) return;
     let active = true;
     scopeApi
       .agencies()
@@ -134,7 +136,7 @@ export default function InvoiceFormPage({
     return () => {
       active = false;
     };
-  }, [agencyLocked, isCommercial, isResponsableAgence]);
+  }, [agencyLocked, isCommercial]);
 
   const selectedAgencyOption = useMemo(() => {
     const found = saleAgencies?.find((a) => a.id === agencyId);
@@ -574,10 +576,16 @@ export default function InvoiceFormPage({
                 value={lockedAgencyName}
                 disabled
               />
-            ) : (isCommercial || isResponsableAgence) ? (
+            ) : isCommercial ? (
                 <Input
                   label={t('invoices.headerAgency')}
                   value={myCommercial?.agency?.name ?? ''}
+                  disabled
+                />
+              ) : isResponsableAgence ? (
+                <Input
+                  label={t('invoices.headerAgency')}
+                  value={saleAgencies?.find((a) => a.id === agencyId)?.name ?? myCommercial?.agency?.name ?? ''}
                   disabled
                 />
               ) : (

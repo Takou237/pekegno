@@ -122,6 +122,7 @@ const ComingSoonPage = lazyWithRetry(() => import('@/pages/ComingSoonPage'));
 const TreasuryPage = lazyWithRetry(() => import('@/pages/treasury/TreasuryPage'));
 const CashClosingsPage = lazyWithRetry(() => import('@/pages/treasury/CashClosingsPage'));
 const ExpenseListPage = lazyWithRetry(() => import('@/pages/expenses/ExpenseListPage'));
+const AdCampaignsPage = lazyWithRetry(() => import('@/pages/ads/AdCampaignsPage'));
 const CommissionRulesPage = lazyWithRetry(() => import('@/pages/commissions/CommissionRulesPage'));
 const CommissionEntriesPage = lazyWithRetry(() => import('@/pages/commissions/CommissionEntriesPage'));
 const CashierCommissionsPage = lazyWithRetry(() => import('@/pages/commissions/CashierCommissionsPage'));
@@ -304,6 +305,7 @@ export const router = createBrowserRouter([
           { path: '/treasury', element: page(<TreasuryPage />, table) },
           { path: '/treasury/closings', element: page(<CashClosingsPage />, table) },
           { path: '/expenses', element: page(<ExpenseListPage />, table) },
+          { path: '/ad-campaigns', element: page(<AdCampaignsPage />, table) },
           { path: '/commissions/rules', element: page(<CommissionRulesPage />, table) },
           { path: '/commissions/entries', element: page(<CommissionEntriesPage />, table) },
           { path: '/prospects', element: page(<ProspectsList hideCommercialField />, table) },

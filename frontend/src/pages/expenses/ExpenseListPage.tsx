@@ -2,8 +2,12 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, Plus, Send, CheckCircle, XCircle, Banknote, Lock, Undo2, Trash2, Eye, Camera, Paperclip } from 'lucide-react';
 import { expensesApi } from '@/api/expenses.api';
+import { accountingApi } from '@/api/accounting.api';
+import { scopeApi, type ScopeCountry } from '@/api/scope.api';
 import { servicesApi } from '@/api/services.api';
+import { treasuryApi } from '@/api/treasury.api';
 import { extractErrorMessage } from '@/api/errors';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency } from '@/utils/number';
 import { Spinner } from '@/components/ui/Spinner';
@@ -14,7 +18,12 @@ import { Modal } from '@/components/ui/Modal';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
 import type { Expense, ExpenseStatus } from '@/types/expenses';
+import type { AccountingCategory } from '@/types/accounting';
+import type { TreasuryAccount } from '@/types/treasury';
 import type { PaginationMeta } from '@/types/agency';
+
+/** Rôles qui saisissent les dépenses de l'Administration d'un pays. */
+const ADMINISTRATION_ROLES = ['super-admin', 'direction-generale', 'comptable'];
 
 const STATUS_BADGES: Record<ExpenseStatus, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -36,8 +45,14 @@ export default function ExpenseListPage() {
   const [filterSearch, setFilterSearch] = useState('');
   const [page, setPage] = useState(1);
 
+  const { user } = useAuth();
+  const canAdministration = ADMINISTRATION_ROLES.includes(user?.role?.name ?? '');
+
   const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({ agency_id: '', category_id: '', amount: '', expense_date: '', note: '', service_id: '' });
+  // Cible : « agency:<uuid> » ou « country:<uuid> » (Administration du pays).
+  const [form, setForm] = useState({ target: '', category_id: '', amount: '', expense_date: '', note: '', service_id: '' });
+  const [scopeCountries, setScopeCountries] = useState<ScopeCountry[]>([]);
+  const [categories, setCategories] = useState<AccountingCategory[]>([]);
   // T3.14 — séminaires vendus : un événement auquel rattacher la dépense.
   const [seminars, setSeminars] = useState<{ id: string; name: string; agency_name?: string | null }[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -66,7 +81,8 @@ export default function ExpenseListPage() {
   const [rejectTarget, setRejectTarget] = useState('');
 
   const [payOpen, setPayOpen] = useState(false);
-  const [payTarget, setPayTarget] = useState('');
+  const [payExpense, setPayExpense] = useState<Expense | null>(null);
+  const [payAccounts, setPayAccounts] = useState<TreasuryAccount[]>([]);
   const [payAccount, setPayAccount] = useState('');
 
   const load = useCallback(() => {
@@ -89,19 +105,69 @@ export default function ExpenseListPage() {
 
   useEffect(() => {
     if (!createOpen) return;
-    servicesApi
-      .list({ is_seminar: true, per_page: 100 })
-      .then((res) => setSeminars(res.data.map((s) => ({ id: s.id, name: s.name, agency_name: s.agency?.name ?? null }))))
-      .catch(() => setSeminars([]));
+    scopeApi
+      .getContext()
+      .then((ctx) => setScopeCountries(ctx.countries))
+      .catch(() => setScopeCountries([]));
+    accountingApi
+      .categories({ silentForbidden: true })
+      .then(setCategories)
+      .catch(() => setCategories([]));
   }, [createOpen]);
+
+  // T3.14 — le serveur refuse un séminaire d'une autre agence : on ne propose
+  // que ceux de l'agence de la dépense (ou tous pour une dépense
+  // d'Administration, sans agence).
+  useEffect(() => {
+    if (!createOpen) return;
+    if (!form.target) {
+      setSeminars([]);
+      return;
+    }
+    const agencyId = form.target.startsWith('agency:')
+      ? form.target.slice('agency:'.length)
+      : undefined;
+    let active = true;
+    servicesApi
+      .list({
+        is_seminar: true,
+        per_page: 100,
+        agency_id: agencyId,
+      })
+      .then((res) => {
+        if (active) {
+          setSeminars(res.data.map((s) => ({ id: s.id, name: s.name, agency_name: s.agency?.name ?? null })));
+        }
+      })
+      .catch(() => {
+        if (active) setSeminars([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [createOpen, form.target]);
+
+  const selectedAgencyId = form.target.startsWith('agency:') ? form.target.slice('agency:'.length) : null;
+  const categoryOptions = categories.filter(
+    (c) => c.type === 'expense' && (c.agency_id === null || c.agency_id === selectedAgencyId),
+  );
+
+  function openCreate() {
+    setForm({ target: '', category_id: '', amount: '', expense_date: '', note: '', service_id: '' });
+    setFormErrors({});
+    setCreateOpen(true);
+  }
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setFormErrors({});
     try {
+      const isAdministration = form.target.startsWith('country:');
       await expensesApi.create({
-        agency_id: form.agency_id,
+        ...(isAdministration
+          ? { country_id: form.target.slice('country:'.length) }
+          : { agency_id: form.target.slice('agency:'.length) }),
         category_id: form.category_id,
         amount: Number(form.amount),
         expense_date: form.expense_date,
@@ -156,8 +222,9 @@ export default function ExpenseListPage() {
   }
 
   async function handlePay() {
+    if (!payExpense) return;
     try {
-      await expensesApi.pay(payTarget, payAccount);
+      await expensesApi.pay(payExpense.id, payAccount);
       showToast(t('expenses.paid'), 'success');
       setPayOpen(false);
       load();
@@ -165,6 +232,22 @@ export default function ExpenseListPage() {
     } catch (error) {
       showToast(extractErrorMessage(error, t('common.error')), 'error');
     }
+  }
+
+  /** Caisses de l'agence de la dépense, ou de l'Administration de son pays. */
+  function openPay(expense: Expense) {
+    setPayExpense(expense);
+    setPayAccount('');
+    setPayAccounts([]);
+    setPayOpen(true);
+    treasuryApi
+      .listAccounts(
+        expense.agency_id
+          ? { agency_id: expense.agency_id }
+          : { administration: true, country_id: expense.country_id ?? undefined },
+      )
+      .then(setPayAccounts)
+      .catch(() => setPayAccounts([]));
   }
 
   function openDetail(exp: Expense) {
@@ -180,7 +263,7 @@ export default function ExpenseListPage() {
         </div>
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={openCreate}>
             <Plus className="h-4 w-4" />
             {t('expenses.newExpense')}
           </Button>
@@ -288,7 +371,7 @@ export default function ExpenseListPage() {
                           </>
                         )}
                         {exp.status === 'approved' && (
-                          <button onClick={() => { setPayTarget(exp.id); setPayOpen(true); }} className="rounded p-1 text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20" title={t('expenses.pay')}>
+                          <button onClick={() => openPay(exp)} className="rounded p-1 text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20" title={t('expenses.pay')}>
                             <Banknote className="h-4 w-4" />
                           </button>
                         )}
@@ -327,8 +410,49 @@ export default function ExpenseListPage() {
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title={t('expenses.newExpense')} maxWidth="max-w-lg">
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
           {formErrors.general && <Alert variant="error">{formErrors.general}</Alert>}
-          <Input label={t('expenses.agencyId')} required value={form.agency_id} onChange={(e) => setForm({ ...form, agency_id: e.target.value })} error={formErrors.agency_id} />
-          <Input label={t('expenses.categoryId')} required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} error={formErrors.category_id} />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('expenses.target')} *
+            </label>
+            <select
+              required
+              value={form.target}
+              onChange={(e) => setForm({ ...form, target: e.target.value, category_id: '', service_id: '' })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="">—</option>
+              {canAdministration && (
+                <optgroup label={t('expenses.administrationGroup')}>
+                  {scopeCountries.map((c) => (
+                    <option key={`country-${c.id}`} value={`country:${c.id}`}>
+                      {t('expenses.administrationOption', { country: c.name })}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label={t('expenses.agencyGroup')}>
+                {scopeCountries.flatMap((country) =>
+                  country.agencies.map((a) => (
+                    <option key={`agency-${a.id}`} value={`agency:${a.id}`}>
+                      {scopeCountries.length > 1 ? `${a.name} — ${country.name}` : a.name}
+                    </option>
+                  )),
+                )}
+              </optgroup>
+            </select>
+            {formErrors.agency_id && <p className="mt-1 text-xs text-red-500">{formErrors.agency_id}</p>}
+            {formErrors.country_id && <p className="mt-1 text-xs text-red-500">{formErrors.country_id}</p>}
+          </div>
+          <Select
+            label={`${t('expenses.category')} *`}
+            required
+            value={form.category_id}
+            onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+            error={formErrors.category_id}
+          >
+            <option value="">—</option>
+            {categoryOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
           <Input label={t('expenses.amount')} type="number" min={0.01} step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} error={formErrors.amount} />
           <Input label={t('expenses.date')} type="date" required value={form.expense_date} onChange={(e) => setForm({ ...form, expense_date: e.target.value })} error={formErrors.expense_date} />
           <Select
@@ -366,10 +490,29 @@ export default function ExpenseListPage() {
       {/* Pay modal */}
       <Modal isOpen={payOpen} onClose={() => setPayOpen(false)} title={t('expenses.pay')} maxWidth="max-w-sm">
         <div className="flex flex-col gap-4">
-          <Input label={t('expenses.treasuryAccountId')} required value={payAccount} onChange={(e) => setPayAccount(e.target.value)} />
+          {payExpense && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {payExpense.number} — {formatCurrency(payExpense.amount)}
+              {payExpense.country?.name ? ` · ${t('expenses.administrationOption', { country: payExpense.country.name })}` : ''}
+            </p>
+          )}
+          <Select
+            label={t('expenses.treasuryAccount')}
+            required
+            value={payAccount}
+            onChange={(e) => setPayAccount(e.target.value)}
+            error={payAccounts.length === 0 ? t('expenses.noTreasuryAccount') : undefined}
+          >
+            <option value="">—</option>
+            {payAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.code ? `${a.code} · ` : ''}{a.name} ({formatCurrency(a.balance)})
+              </option>
+            ))}
+          </Select>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setPayOpen(false)} className="flex-1">{t('common.cancel')}</Button>
-            <Button onClick={handlePay} disabled={!payAccount.trim()} className="flex-1">{t('common.confirm')}</Button>
+            <Button onClick={handlePay} disabled={!payAccount} className="flex-1">{t('common.confirm')}</Button>
           </div>
         </div>
       </Modal>
@@ -384,7 +527,7 @@ export default function ExpenseListPage() {
               <div><span className="text-gray-500">{t('expenses.date')}:</span> {new Date(detail.expense_date).toLocaleDateString()}</div>
               <div><span className="text-gray-500">{t('expenses.category')}:</span> {detail.category?.name ?? '—'}</div>
               <div><span className="text-gray-500">{t('expenses.requestor')}:</span> {detail.requestor ? `${detail.requestor.first_name} ${detail.requestor.last_name}` : '—'}</div>
-              <div><span className="text-gray-500">{t('expenses.agencyId')}:</span> {detail.agency?.name ?? '—'}</div>
+              <div><span className="text-gray-500">{t('expenses.target')}:</span> {detail.agency?.name ?? (detail.country ? t('expenses.administrationOption', { country: detail.country.name }) : '—')}</div>
             </div>
             {detail.note && <div><span className="text-gray-500">{t('expenses.note')}:</span> {detail.note}</div>}
             {detail.rejection_reason && <div><span className="text-red-500">{t('expenses.rejectionReason')}:</span> {detail.rejection_reason}</div>}

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeftRight, CheckCircle2, Lock, RefreshCw } from 'lucide-react';
+import { ArrowLeftRight, CheckCircle2, Lock, Plus, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import TransferModal from '@/components/treasury/TransferModal';
+import NewAccountModal from '@/components/treasury/NewAccountModal';
 import { treasuryApi } from '@/api/treasury.api';
 import { extractErrorMessage } from '@/api/errors';
 import { useToast } from '@/hooks/useToast';
@@ -51,7 +52,10 @@ export default function CashClosingsPage() {
   // transfert d'une caisse à une autre depuis les caisses du jour.
   const { user } = useAuth();
   const canTransfer = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(user?.role?.name ?? '');
+  // Seul l'administrateur (super-admin) crée les caisses.
+  const canManageAccounts = user?.role?.name === 'super-admin';
   const [transferOpen, setTransferOpen] = useState(false);
+  const [newAccountOpen, setNewAccountOpen] = useState(false);
   const { showToast } = useToast();
 
   const [date, setDate] = useState(todayLocal());
@@ -138,17 +142,27 @@ export default function CashClosingsPage() {
 
   const when = (iso: string | null) => (iso ? formatDateTimeFr(iso) : null);
 
-  // Une caisse C, O, M… par agence : on regroupe les cartes sous le nom de l'agence.
+  // Une caisse C, O, M… par agence : on regroupe les cartes sous le nom de
+  // l'agence. Les caisses de l'Administration sont groupées par pays.
   const byAgency = accounts.reduce<{ key: string; name: string; accounts: TreasuryAccount[] }[]>((groups, account) => {
-    const key = account.agency_id ?? 'none';
+    const key = account.agency_id
+      ? `agency:${account.agency_id}`
+      : `country:${account.country_id ?? 'none'}`;
     let group = groups.find((g) => g.key === key);
     if (!group) {
-      group = { key, name: account.agency?.name ?? t('treasury.noAgency'), accounts: [] };
+      group = {
+        key,
+        name: account.agency?.name
+          ?? (account.country
+            ? t('treasury.administrationGroup', { country: account.country.name })
+            : t('treasury.noAgency')),
+        accounts: [],
+      };
       groups.push(group);
     }
     group.accounts.push(account);
     return groups;
-  }, []);
+  }, []).sort((a, b) => Number(a.key.startsWith('country:')) - Number(b.key.startsWith('country:')));
 
   return (
     <div className="flex flex-col gap-6">
@@ -164,6 +178,12 @@ export default function CashClosingsPage() {
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
+          {canManageAccounts && (
+            <Button variant="outline" onClick={() => setNewAccountOpen(true)}>
+              <Plus className="h-4 w-4" />
+              {t('treasury.newAccount')}
+            </Button>
+          )}
           {canTransfer && (
             <Button onClick={() => setTransferOpen(true)}>
               <ArrowLeftRight className="h-4 w-4" />
@@ -341,6 +361,7 @@ export default function CashClosingsPage() {
           </div>
         </form>
       </Modal>
+      <NewAccountModal isOpen={newAccountOpen} onClose={() => setNewAccountOpen(false)} onDone={load} />
       <TransferModal isOpen={transferOpen} onClose={() => setTransferOpen(false)} onDone={load} />
     </div>
   );

@@ -1,3 +1,17 @@
+export interface AdministrationBody {
+  /** Dépenses payées de l'Administration (hors transferts et budget pub client). */
+  expenses: number;
+  expenses_by_category: { name: string; total: number }[];
+  /** Argent reçu des agences (transferts vers ses caisses). */
+  received_from_agencies: number;
+}
+
+export interface CountryBodiesTotal {
+  agencies_net: number;
+  administration_expenses: number;
+  net: number;
+}
+
 export interface DashboardStats {
   /** Cartes du cahier (FinancialKpiService). */
   recoveries_total?: number;
@@ -6,6 +20,10 @@ export interface DashboardStats {
   average_basket?: number;
   control_ok?: boolean;
   currency_code?: string;
+  country?: { id: string; name: string; code: string; currency_code?: string };
+  /** Cahier §2 — Administration du pays, ses dépenses et ses versements reçus. */
+  administration?: AdministrationBody;
+  bodies_total?: CountryBodiesTotal;
   period: { from: string; to: string };
   revenue: number;
   payments_total: number;

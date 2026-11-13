@@ -3,7 +3,9 @@ export type ExpenseStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'p
 export interface Expense {
   id: string;
   number: string;
-  agency_id: string;
+  agency_id: string | null;
+  /** Dépense de l'Administration d'un pays : pays sans agence. */
+  country_id?: string | null;
   department_id: string | null;
   category_id: string;
   amount: number;
@@ -30,6 +32,7 @@ export interface Expense {
   created_at: string;
   updated_at: string;
   agency?: { id: string; name: string };
+  country?: { id: string; name: string } | null;
   department?: { id: string; name: string };
   category?: { id: string; name: string; type: string };
   requestor?: { id: string; username: string; first_name: string; last_name: string };
@@ -42,6 +45,9 @@ export interface Expense {
 export interface ExpenseListParams {
   status?: ExpenseStatus;
   agency_id?: string;
+  country_id?: string;
+  /** Dépenses de l'Administration (sans agence) seulement. */
+  administration?: boolean;
   from?: string;
   to?: string;
   search?: string;
@@ -58,7 +64,9 @@ export interface ExpenseListResponse {
 }
 
 export interface ExpenseCreatePayload {
-  agency_id: string;
+  /** Agence, ou Administration d'un pays (country_id, sans agence). */
+  agency_id?: string | null;
+  country_id?: string | null;
   department_id?: string;
   category_id: string;
   amount: number;

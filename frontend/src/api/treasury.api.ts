@@ -5,6 +5,7 @@ import type {
   CashClosingListParams,
   CloseCashPayload,
   TreasuryAccount,
+  TreasuryAccountCreatePayload,
   TreasuryAccountListParams,
   TreasuryTransaction,
   TreasuryTransactionListParams,
@@ -14,7 +15,7 @@ import type {
 
 export const treasuryApi = {
   // Nouvelle caisse : crée aussi le moyen de paiement correspondant.
-  createAccount(payload: { agency_id: string; name: string; type: 'cash' | 'mobile_money' | 'bank'; account_number?: string; opening_balance?: number; visible_to_cashier?: boolean }): Promise<TreasuryAccount> {
+  createAccount(payload: TreasuryAccountCreatePayload): Promise<TreasuryAccount> {
     return client.post('/treasury/accounts', payload).then((r) => r.data);
   },
 

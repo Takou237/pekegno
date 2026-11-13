@@ -36,7 +36,28 @@ class ExpenseController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Expense::query()->with(['agency', 'country:id,name', 'category', 'requestor']);
-        app(ScopeService::class)->scopeManagerQuery($query, $request->user());
+        $user = $request->user();
+        $scope = app(ScopeService::class);
+
+        // Périmètre : un encadrant ne voit que ses agences ; l'Administration
+        // (direction rattachée à un pays, comptable) voit en plus les dépenses
+        // de l'Administration de son pays (elles n'ont pas d'agence).
+        if ($scope->isAgencyScoped($user)) {
+            $agencyIds = $scope->agencyIds($user);
+            $administration = in_array($user?->role?->name, self::ADMINISTRATION_ROLES, true);
+
+            $query->where(function ($q) use ($scope, $user, $agencyIds, $administration) {
+                if ($agencyIds !== null) {
+                    $q->whereIn('agency_id', $agencyIds);
+                }
+
+                if ($administration && $agencyIds !== null) {
+                    $q->orWhere(fn ($sub) => $sub
+                        ->whereNull('agency_id')
+                        ->whereIn('country_id', $scope->countryIds($user) ?? []));
+                }
+            });
+        }
 
         // Dépenses de l'Administration d'un pays (sans agence).
         if ($request->boolean('administration')) {
@@ -212,7 +233,7 @@ class ExpenseController extends Controller
     public function show(Expense $expense): JsonResponse
     {
         return response()->json($expense->load([
-            'agency', 'category', 'requestor', 'approver', 'rejector', 'payer', 'treasuryAccount', 'department',
+            'agency', 'country:id,name', 'category', 'requestor', 'approver', 'rejector', 'payer', 'treasuryAccount', 'department',
         ]));
     }
 
@@ -247,7 +268,7 @@ class ExpenseController extends Controller
 
         $expense->update($data);
 
-        return response()->json($expense->fresh()->load(['agency', 'category', 'requestor']));
+        return response()->json($expense->fresh()->load(['agency', 'country:id,name', 'category', 'requestor']));
     }
 #[OA\Post(
         path: '/api/expenses/{expense}/submit',
@@ -275,8 +296,16 @@ class ExpenseController extends Controller
             403,
             'Vous ne pouvez pas joindre de justificatif.'
         );
-        $scope = app(ScopeService::class)->agencyIds($user);
-        abort_if($scope !== null && ! in_array($expense->agency_id, $scope, true), 404);
+        $scope = app(ScopeService::class);
+        if ($scope->isAgencyScoped($user)) {
+            $agencyIds = $scope->agencyIds($user);
+            $inScope = $agencyIds === null
+                ? true
+                : ($expense->agency_id !== null
+                    ? in_array($expense->agency_id, $agencyIds, true)
+                    : in_array($expense->country_id, $scope->countryIds($user) ?? [], true));
+            abort_unless($inScope, 404);
+        }
 
         $previous = $expense->justification_path;
         $path = $request->file('file')->store('expense-justifications', 'public');
@@ -286,7 +315,7 @@ class ExpenseController extends Controller
             \Illuminate\Support\Facades\Storage::disk('public')->delete($previous);
         }
 
-        return response()->json($expense->fresh()->load(['agency', 'category', 'requestor', 'department']));
+        return response()->json($expense->fresh()->load(['agency', 'country:id,name', 'category', 'requestor', 'department']));
     }
 
     public function submit(Expense $expense, Request $request): JsonResponse

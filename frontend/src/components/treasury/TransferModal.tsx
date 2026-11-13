@@ -25,10 +25,6 @@ export const TRANSFER_TYPES: { value: TransferType; label: string; hint: string;
 
 export const TRANSFER_LABELS: Record<string, string> = Object.fromEntries(TRANSFER_TYPES.map((tt) => [tt.value, tt.label]));
 
-function accountName(a: TreasuryAccount): string {
-  return `${a.code ? `${a.code} · ` : ''}${a.name}${a.agency?.name ? ` — ${a.agency.name}` : ''}`;
-}
-
 
 interface TransferModalProps {
   isOpen: boolean;
@@ -66,8 +62,24 @@ export default function TransferModal({ isOpen, onClose, onDone }: TransferModal
   }, [isOpen]);
 
   const route = TRANSFER_TYPES.find((tt) => tt.value === transferType) ?? TRANSFER_TYPES[TRANSFER_TYPES.length - 1];
-  const sourceAccounts = accounts.filter((a) => a.is_active && (route.from === null || route.from.includes(a.type)));
-  const targetAccounts = accounts.filter((a) => a.is_active && a.id !== transferFrom && (route.to === null || route.to.includes(a.type)));
+  // Versement à l'Administration : d'une caisse d'agence vers une caisse du pays.
+  const isAdminTransfer = transferType === 'admin_disbursement';
+  const sourceAccounts = accounts.filter((a) => a.is_active
+    && (route.from === null || route.from.includes(a.type))
+    && (!isAdminTransfer || a.agency_id !== null));
+  // Versement à l'Administration : caisse du pays de l'agence source.
+  const sourceCountryId = accounts.find((a) => a.id === transferFrom)?.agency?.country_id ?? null;
+  const targetAccounts = accounts.filter((a) => a.is_active
+    && a.id !== transferFrom
+    && (route.to === null || route.to.includes(a.type))
+    && (!isAdminTransfer || (a.agency_id === null && (!sourceCountryId || a.country_id === sourceCountryId))));
+
+  /** « C · Caisse Espèces — Agence X » ou « C · Caisse Administration — Cameroun ». */
+  function accountName(a: TreasuryAccount): string {
+    const owner = a.agency?.name
+      ?? (a.country ? t('treasury.administrationGroup', { country: a.country.name }) : '');
+    return `${a.code ? `${a.code} · ` : ''}${a.name}${owner ? ` — ${owner}` : ''}`;
+  }
 
   function changeTransferType(value: TransferType) {
     setTransferType(value);
@@ -148,7 +160,7 @@ export default function TransferModal({ isOpen, onClose, onDone }: TransferModal
             label={t('treasury.fromAccount')}
             required
             value={transferFrom}
-            onChange={(e) => { setTransferFrom(e.target.value); if (e.target.value === transferTo) setTransferTo(''); }}
+            onChange={(e) => { setTransferFrom(e.target.value); setTransferTo(''); }}
             error={transferErrors.from_account_id ?? (sourceAccounts.length === 0 ? t('treasury.transferNoSource') : undefined)}
           >
             <option value="">{t('treasury.selectTreasuryAccount')}</option>

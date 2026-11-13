@@ -3,7 +3,10 @@ export type TreasuryAccountType = 'cash' | 'mobile_money' | 'bank';
 export interface TreasuryAccount {
   id: string;
   agency_id: string | null;
-  agency?: { id: string; name: string } | null;
+  /** Caisse de l'Administration d'un pays : pays sans agence. */
+  country_id?: string | null;
+  agency?: { id: string; name: string; country_id?: string | null } | null;
+  country?: { id: string; name: string } | null;
   name: string;
   code: string | null;
   visible_roles: string[] | null;
@@ -49,7 +52,21 @@ export interface TreasuryTransactionsResponse {
 
 export interface TreasuryAccountListParams {
   agency_id?: string;
+  country_id?: string;
+  /** Caisses de l'Administration (sans agence) : d'un pays ou de tous. */
+  administration?: boolean;
   type?: TreasuryAccountType;
+}
+
+export interface TreasuryAccountCreatePayload {
+  /** Agence, ou Administration d'un pays (country_id, sans agence). */
+  agency_id?: string;
+  country_id?: string;
+  name: string;
+  type: TreasuryAccountType;
+  account_number?: string;
+  opening_balance?: number;
+  visible_to_cashier?: boolean;
 }
 
 export interface TreasuryTransactionListParams {
