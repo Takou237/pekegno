@@ -7,7 +7,7 @@ import type { User } from '@/types/auth';
  */
 const role = (user: User | null) => user?.role?.name ?? '';
 
-const MANAGERS = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'];
+const MANAGERS = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'];
 
 export function canManagePackages(user: User | null): boolean {
   return MANAGERS.includes(role(user));
@@ -40,7 +40,7 @@ export function canEditPrestation(user: User | null): boolean {
  * K1/K2 : le caissier valide aussi directement (demande « créer et valider »).
  */
 export function canValidatePrestation(user: User | null): boolean {
-  return ['super-admin', 'direction-generale', 'responsable-agence', 'caissier'].includes(role(user));
+  return ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'caissier'].includes(role(user));
 }
 
 export function canManageActions(user: User | null): boolean {

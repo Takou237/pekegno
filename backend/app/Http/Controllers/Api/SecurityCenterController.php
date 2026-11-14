@@ -17,7 +17,7 @@ class SecurityCenterController extends Controller
 {
     private const PRIVILEGED_ROLES = [
         'super-admin',
-        'direction-generale',
+        'direction-generale', 'directeur',
         'comptable',
         'caissier',
         'responsable-agence',

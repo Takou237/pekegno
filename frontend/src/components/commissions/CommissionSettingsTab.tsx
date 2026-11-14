@@ -770,7 +770,7 @@ function MonthlyBonusCard() {
   const [computing, setComputing] = useState(false);
   const [result, setResult] = useState<{ created: number; updated: number } | null>(null);
 
-  if (user?.role?.name !== 'super-admin') return null;
+  if (!['super-admin', 'direction-generale'].includes(user?.role?.name ?? '')) return null;
 
   const monthLabel = period
     ? new Date(`${period}-01T00:00:00`).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' })

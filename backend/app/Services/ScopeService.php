@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\DB;
  * Périmètre d'accès organisationnel (§3 — L'application doit appliquer le périmètre côté backend).
  *
  * Règles :
- * - Le super-admin voit toute l'organisation.
- * - Le directeur général rattaché à un pays (users.country_id) ne voit que les
- *   agences de ce pays ; sans pays, il garde la vue groupe.
+ * - Le super-admin et le directeur général voient toute l'organisation.
+ * - Le directeur (rôle « directeur ») ne voit que les agences du pays qui lui
+ *   est attribué (users.country_id) ; sans pays, il ne voit rien.
  * - Tout autre utilisateur est limité aux agences auxquelles il est affecté
  *   (user_assignments, chef de département, commercial rattaché à une agence).
  * - Les pays et villes autorisés sont dérivés des agences autorisées.
@@ -28,20 +28,16 @@ class ScopeService
             return true;
         }
 
-        if ($this->directorCountryId($user) !== null) {
-            return false;
-        }
-
         return in_array($user->role?->name, self::GLOBAL_ROLES, true);
     }
 
     /**
-     * Pays du directeur général (son périmètre), null pour tout autre rôle ou
-     * un directeur sans pays attribué.
+     * Pays du directeur (son périmètre), null pour tout autre rôle ou un
+     * directeur sans pays attribué.
      */
     public function directorCountryId(?User $user): ?string
     {
-        if ($user?->role?->name !== 'direction-generale') {
+        if ($user?->role?->name !== 'directeur') {
             return null;
         }
 
@@ -59,8 +55,11 @@ class ScopeService
             return null;
         }
 
-        if ($countryId = $this->directorCountryId($user)) {
-            return Agency::where('country_id', $countryId)->pluck('id')->all();
+        if ($user->role?->name === 'directeur') {
+            // Directeur sans pays attribué : aucun périmètre (jamais tout le groupe).
+            $countryId = $this->directorCountryId($user);
+
+            return $countryId ? Agency::where('country_id', $countryId)->pluck('id')->all() : [];
         }
 
         $ids = collect([]);
@@ -95,7 +94,7 @@ class ScopeService
     }
 
     /** Rôles d'encadrement dont les listes sont limitées à leur espace. */
-    private const MANAGER_ROLES = ['responsable-agence', 'responsable-departement', 'direction-generale'];
+    private const MANAGER_ROLES = ['responsable-agence', 'responsable-departement', 'directeur'];
 
     /** Indique si les listes du rôle sont restreintes à son périmètre. */
     public function isAgencyScoped(?User $user): bool
@@ -105,7 +104,7 @@ class ScopeService
 
     /**
      * Restreint une requête (colonne agence) au périmètre d'un chef d'agence,
-     * chef de département ou directeur général rattaché à un pays. Sans effet
+     * chef de département ou directeur (pays). Sans effet
      * pour les autres rôles, dont les contrôleurs gèrent déjà le périmètre.
      */
     public function scopeManagerQuery($query, ?User $user, string $column = 'agency_id')

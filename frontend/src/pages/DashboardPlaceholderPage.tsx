@@ -15,12 +15,13 @@ import { paymentMethodLabel } from '@/utils/paymentMethods';
 import type { Agency } from '@/types/agency';
 import type { DashboardStats, MonthlyRevenuePoint, CategorySales, PaymentMethodStat, AgencyStats } from '@/types/stats';
 
-const ADMIN_ROLES = ['super-admin', 'direction-generale'];
+const ADMIN_ROLES = ['super-admin', 'direction-generale', 'directeur'];
 
 function roleBadge(roleName: string | null | undefined, t: (key: string, opts?: any) => string) {
   switch (roleName) {
     case 'super-admin': return <Badge variant="error">{t('roles.super-admin')}</Badge>;
     case 'direction-generale': return <Badge variant="brand">{t('roles.direction-generale')}</Badge>;
+    case 'directeur': return <Badge variant="brand">{t('roles.directeur')}</Badge>;
     case 'responsable-agence': return <Badge variant="warning">{t('roles.responsable-agence')}</Badge>;
     case 'responsable-departement': return <Badge variant="warning">{t('roles.responsable-departement')}</Badge>;
     case 'commercial': return <Badge variant="success">{t('roles.commercial')}</Badge>;

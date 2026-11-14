@@ -149,7 +149,7 @@ interface LearnerEditFormState {
  * le backend applique la permission réelle enrollments.modifier). */
 const EDITABLE_ROLES = [
   'super-admin',
-  'direction-generale',
+  'direction-generale', 'directeur',
   'responsable-agence',
   'responsable-departement',
   'commercial',

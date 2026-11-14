@@ -266,7 +266,7 @@ export default function ServiceListPage({ agencyId, showAcademyTabs = false }: S
     if (tab !== 'formations' || !effectiveShowAcademyTabs) return;
     fetchCourses();
   }, [tab, effectiveShowAcademyTabs, fetchCourses]);
-  const canPromoteService = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
+  const canPromoteService = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'].includes(
     user?.role?.name ?? ''
   );
 

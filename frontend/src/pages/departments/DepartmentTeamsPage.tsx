@@ -39,10 +39,10 @@ export default function DepartmentTeamsPage() {
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [removeSubmitting, setRemoveSubmitting] = useState(false);
 
-  const canCreateUsers = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
+  const canCreateUsers = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );
-  const canManageUsers = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
+  const canManageUsers = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );
 

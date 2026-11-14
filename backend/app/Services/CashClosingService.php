@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  */
 class CashClosingService
 {
-    public const VALIDATOR_ROLES = ['responsable-agence', 'direction-generale', 'super-admin'];
+    public const VALIDATOR_ROLES = ['responsable-agence', 'direction-generale', 'directeur', 'super-admin'];
 
     public function __construct(private readonly AgencyNotifier $notifier) {}
 
@@ -267,7 +267,7 @@ class CashClosingService
         );
 
         // Administration : chef(s) de l'agence, chefs de département de l'agence,
-        // direction générale et super-admins.
+        // super-admins, directeurs généraux et le directeur du pays.
         $departmentChiefs = \Illuminate\Support\Facades\DB::table('user_assignments')
             ->join('users', 'users.id', '=', 'user_assignments.user_id')
             ->join('roles', 'roles.id', '=', 'users.role_id')
@@ -278,7 +278,7 @@ class CashClosingService
         $recipients = array_values(array_unique(array_merge(
             $this->notifier->agencyChiefIds($agencyId),
             $departmentChiefs,
-            \App\Models\User::whereHas('role', fn ($q) => $q->whereIn('name', ['super-admin', 'direction-generale']))->where('is_active', true)->pluck('id')->all(),
+            $this->notifier->directionIds(\Illuminate\Support\Facades\DB::table('agencies')->where('id', $agencyId)->value('country_id')),
         )));
 
         foreach ($recipients as $userId) {

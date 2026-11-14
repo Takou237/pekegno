@@ -76,7 +76,7 @@ export default function QuickSaleModal({ isOpen, onClose, agencyId: agencyProp }
   const needsPaymentProof = isCommercial || isChief;
   // Le caissier et le super-admin valident directement leurs ventes de guichet.
   // La direction garde son vendeur par défaut mais ses ventes restent en attente.
-  const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(
+  const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale', 'directeur'].includes(
     currentUser?.role?.name ?? ''
   );
 

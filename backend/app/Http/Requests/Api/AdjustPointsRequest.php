@@ -9,7 +9,7 @@ class AdjustPointsRequest extends FormRequest
     public function authorize(): bool
     {
         $role = $this->user()?->role?->name;
-        if (in_array($role, ['super-admin', 'direction-generale'], true)) {
+        if (in_array($role, ['super-admin', 'direction-generale', 'directeur'], true)) {
             return true;
         }
         // Chefs : le périmètre (commercial de leur agence / département) est

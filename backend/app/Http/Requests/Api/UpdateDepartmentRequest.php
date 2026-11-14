@@ -15,7 +15,7 @@ class UpdateDepartmentRequest extends FormRequest
         // Ici : hors direction, on refuse seulement les départements et les
         // transferts d'agence hors périmètre.
         $user = $this->user();
-        if (in_array($user?->role?->name, ['super-admin', 'direction-generale'], true)) {
+        if (in_array($user?->role?->name, ['super-admin', 'direction-generale', 'directeur'], true)) {
             return true;
         }
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($user) ?? [];

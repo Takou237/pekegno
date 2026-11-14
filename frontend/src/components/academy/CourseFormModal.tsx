@@ -106,7 +106,7 @@ export function CourseFormModal({
   // liste des pays du déploiement vient du catalogue public (pays actifs, sans
   // statistiques) : le déploiement multi-pays reste possible, sans « accès refusé ».
   const canViewCountries =
-    currentUser?.role?.name === 'super-admin' || Boolean(currentUser?.permissions?.includes('countries.consulter'));
+    ['super-admin', 'direction-generale'].includes(currentUser?.role?.name ?? '') || Boolean(currentUser?.permissions?.includes('countries.consulter'));
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [categories, setCategories] = useState<CourseCategory[]>([]);

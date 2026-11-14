@@ -99,6 +99,7 @@ export default {
   },
 
   roles: {
+    directeur: 'Director',
     'super-admin': 'Super Admin',
     'direction-generale': 'General Management',
     'responsable-agence': 'Agency Manager',

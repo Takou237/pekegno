@@ -275,8 +275,8 @@ class PaymentProofController extends Controller
 
     private function ensureCashierAgencyAccess(Invoice $invoice, ?User $user): void
     {
-        // Directeur général rattaché à un pays : factures de ce pays uniquement.
-        if ($user?->role?->name === 'direction-generale') {
+        // Direction : directeur général (tout) ou directeur (factures de ses pays).
+        if (in_array($user?->role?->name, ['direction-generale', 'directeur'], true)) {
             $agencyIds = app(ScopeService::class)->agencyIds($user);
             abort_unless($agencyIds === null || in_array($invoice->agency_id, $agencyIds, true), 404);
 

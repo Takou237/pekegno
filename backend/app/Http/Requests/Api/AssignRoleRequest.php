@@ -13,7 +13,7 @@ class AssignRoleRequest extends FormRequest
     {
         return in_array($this->user()?->role?->name, [
             'super-admin',
-            'direction-generale',
+            'direction-generale', 'directeur',
             'responsable-agence',
         ], true);
     }

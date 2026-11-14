@@ -12,7 +12,8 @@ class RoleSeeder extends Seeder
     {
         $roles = [
             ['name' => 'super-admin', 'description' => 'Accès complet à l\'ensemble de l\'application'],
-            ['name' => 'direction-generale', 'description' => 'Pilote toutes les agences, les équipes et la comptabilité'],
+            ['name' => 'direction-generale', 'description' => 'Pilote tout le groupe (mêmes pouvoirs que le super-admin, sans voir le super-admin)'],
+            ['name' => 'directeur', 'description' => 'Dirige le pays qui lui est attribué (agences, équipes, comptabilité de ce pays)'],
             ['name' => 'responsable-agence', 'description' => 'Gère une agence, ses commerciaux, factures et promotions'],
             ['name' => 'responsable-departement', 'description' => 'Gère un département et ses équipes'],
             ['name' => 'commercial', 'description' => 'Suit sa clientèle, crée des factures et gagne des points'],
@@ -38,6 +39,8 @@ class RoleSeeder extends Seeder
         $assignments = [
             'super-admin' => $all,
             'direction-generale' => $all,
+            // Directeur : mêmes droits que la direction, limités à son pays par le périmètre.
+            'directeur' => $all,
             'responsable-agence' => array_merge(
                 $p('prospects', ['consulter', 'creer', 'modifier', 'supprimer']),
                 $p('agencies', ['consulter', 'modifier', 'exporter']),

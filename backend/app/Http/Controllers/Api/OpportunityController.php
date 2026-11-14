@@ -28,7 +28,7 @@ class OpportunityController extends Controller
             return $query->whereRaw('1 = 0');
         }
 
-        if (in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
+        if (in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'], true)) {
             return $query;
         }
 

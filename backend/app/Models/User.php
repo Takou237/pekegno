@@ -89,7 +89,7 @@ class User extends Authenticatable
     {
         return in_array($this->role?->name, [
             'super-admin',
-            'direction-generale',
+            'direction-generale', 'directeur',
             'comptable',
             'caissier',
         ], true);
@@ -256,9 +256,25 @@ class User extends Authenticatable
         $this->delete();
     }
 
+    /**
+     * Pouvoirs complets : le super-admin et le directeur général (qui fait tout
+     * ce que fait le super-admin, sans voir le super-admin ni ses actions).
+     */
+    public const FULL_ACCESS_ROLES = ['super-admin', 'direction-generale'];
+
+    public function hasFullAccess(): bool
+    {
+        return in_array($this->role?->name, self::FULL_ACCESS_ROLES, true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role?->name === 'super-admin';
+    }
+
     public function hasPermission(string $permission): bool
     {
-        if ($this->role?->name === 'super-admin') {
+        if ($this->hasFullAccess()) {
             return true;
         }
 
@@ -267,7 +283,7 @@ class User extends Authenticatable
 
     public function hasAnyPermission(array $permissions): bool
     {
-        if ($this->role?->name === 'super-admin') {
+        if ($this->hasFullAccess()) {
             return true;
         }
 

@@ -76,7 +76,7 @@ export default function InvoiceFormPage({
   const isResponsableAgence = currentUser?.role?.name === 'responsable-agence';
   // Le caissier et le super-admin valident directement leurs ventes de guichet.
     // La direction garde son vendeur par dǸfaut mais ses ventes restent en attente.
-    const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale'].includes(
+    const isSelfSellerRole = ['caissier', 'super-admin', 'direction-generale', 'directeur'].includes(
       currentUser?.role?.name ?? ''
     );
   // Comme le backend : le formulaire complet exige une preuve des vendeurs

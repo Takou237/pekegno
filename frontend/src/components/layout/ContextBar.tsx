@@ -125,10 +125,10 @@ export function ContextBar({ leftSlot, rightSlot, onMobileMenuToggle }: ContextB
   // sélecteurs Pays/Agence/Département en haut de son espace.
   // Les chefs d'agence / de département restent dans leur espace : pas de
   // sélecteurs Pays/Agence/Département non plus.
-  // Sélecteurs Pays/Agence/Département : super-admin uniquement. Le directeur
-  // général n'a qu'Agence/Département, limités à son pays (contexte du périmètre).
-  const isDirector = user?.role?.name === 'direction-generale';
-  const showOrgSelectors = user?.role?.name === 'super-admin' || isDirector;
+  // Sélecteurs Pays/Agence/Département : super-admin et directeur général
+  // (tout le groupe). Le directeur n'a qu'Agence/Département, limités à son pays.
+  const isDirector = user?.role?.name === 'directeur';
+  const showOrgSelectors = ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '') || isDirector;
 
   const canValidate = canValidateInvoices(user?.role?.name);
   const isCommercial = user?.role?.name === COMMERCIAL_ROLE;

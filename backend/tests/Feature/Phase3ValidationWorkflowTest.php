@@ -184,7 +184,7 @@ class Phase3ValidationWorkflowTest extends TestCase
     {
         foreach (Role::all() as $role) {
             $hasPermission = $role->permissions()->where('permissions.name', 'invoices.valider')->exists();
-            $shouldHavePermission = in_array($role->name, ['super-admin', 'direction-generale', 'caissier'], true);
+            $shouldHavePermission = in_array($role->name, ['super-admin', 'direction-generale', 'directeur', 'caissier'], true);
 
             $this->assertSame($shouldHavePermission, $hasPermission, "Unexpected invoice validation permission for {$role->name}.");
         }

@@ -20,11 +20,11 @@ export function canResetPasswordOf(
 ): boolean {
   const role = currentUser?.role?.name ?? '';
   if (user.id === currentUser?.id) return false;
-  if (['super-admin', 'direction-generale'].includes(role)) {
+  if (['super-admin', 'direction-generale', 'directeur'].includes(role)) {
     return user.role?.name !== 'super-admin' || role === 'super-admin';
   }
   if (['responsable-agence', 'responsable-departement'].includes(role)) {
-    return !['super-admin', 'direction-generale'].includes(user.role?.name ?? '');
+    return !['super-admin', 'direction-generale', 'directeur'].includes(user.role?.name ?? '');
   }
   return false;
 }

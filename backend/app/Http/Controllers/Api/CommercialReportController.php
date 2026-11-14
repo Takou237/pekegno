@@ -194,7 +194,7 @@ class CommercialReportController extends Controller
             return [];
         }
 
-        if (in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
+        if (in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'], true)) {
             return null;
         }
 

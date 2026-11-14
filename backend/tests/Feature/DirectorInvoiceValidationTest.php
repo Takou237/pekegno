@@ -53,7 +53,7 @@ class DirectorInvoiceValidationTest extends TestCase
         $abidjan = Agency::factory()->create(['country_id' => $ivoryCoast->id]);
 
         $director = User::factory()->create([
-            'role_id' => Role::where('name', 'direction-generale')->value('id'),
+            'role_id' => Role::where('name', 'directeur')->value('id'),
             'country_id' => $cameroon->id,
         ]);
         Sanctum::actingAs($director);

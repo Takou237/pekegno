@@ -107,7 +107,7 @@ class AdCampaignApiTest extends TestCase
         $own = $this->campaign($admin, $cameroun, null, 'Nationale Cameroun', true);
         $other = $this->campaign($admin, $gabon, null, 'Nationale Gabon', true);
 
-        Sanctum::actingAs($this->user('direction-generale', $cameroun));
+        Sanctum::actingAs($this->user('directeur', $cameroun));
 
         $this->postJson('/api/ad-campaigns', $this->payload([
             'name' => 'Nationale Cameroun 2',

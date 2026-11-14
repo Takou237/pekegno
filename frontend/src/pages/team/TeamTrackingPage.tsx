@@ -31,7 +31,7 @@ export default function TeamTrackingPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   // Super-admin : page « Mon suivi » retirée du parcours.
-  if (user?.role?.name === 'super-admin') {
+  if (['super-admin', 'direction-generale'].includes(user?.role?.name ?? '')) {
     return <Navigate to="/" replace />;
   }
 

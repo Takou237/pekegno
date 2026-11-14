@@ -8,24 +8,24 @@ import type { User } from '@/types/auth';
  * affiché en toast.
  */
 export function canViewAgencies(user: User | null): boolean {
-  return ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
+  return ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'].includes(
     user?.role?.name ?? ''
   );
 }
 
 export function canCreateAgency(user: User | null): boolean {
-  return ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '');
+  return ['super-admin', 'direction-generale', 'directeur'].includes(user?.role?.name ?? '');
 }
 
 /** Approximation : le backend vérifie en plus l'assignation "responsable-agence" primaire. */
 export function canEditAgency(user: User | null): boolean {
-  return ['super-admin', 'direction-generale', 'responsable-agence'].includes(
+  return ['super-admin', 'direction-generale', 'directeur', 'responsable-agence'].includes(
     user?.role?.name ?? ''
   );
 }
 
 export function canDeleteAgency(user: User | null): boolean {
-  return user?.role?.name === 'super-admin';
+  return ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '');
 }
 
 /**
@@ -35,7 +35,7 @@ export function canDeleteAgency(user: User | null): boolean {
  */
 export function canAssignAgencyChief(user: User | null, agencyId?: string): boolean {
   const roleName = user?.role?.name ?? '';
-  if (['super-admin', 'direction-generale'].includes(roleName)) return true;
+  if (['super-admin', 'direction-generale', 'directeur'].includes(roleName)) return true;
   if (roleName === 'responsable-agence' && agencyId) {
     return (user?.assignments ?? []).some(
       (a) => a.id === agencyId && a.pivot?.is_primary === true,
@@ -45,5 +45,5 @@ export function canAssignAgencyChief(user: User | null, agencyId?: string): bool
 }
 
 export function canManageTrash(user: User | null): boolean {
-  return user?.role?.name === 'super-admin';
+  return ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '');
 }

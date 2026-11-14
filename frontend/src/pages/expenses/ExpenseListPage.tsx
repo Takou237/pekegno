@@ -23,7 +23,7 @@ import type { TreasuryAccount } from '@/types/treasury';
 import type { PaginationMeta } from '@/types/agency';
 
 /** Rôles qui saisissent les dépenses de l'Administration d'un pays. */
-const ADMINISTRATION_ROLES = ['super-admin', 'direction-generale', 'comptable'];
+const ADMINISTRATION_ROLES = ['super-admin', 'direction-generale', 'directeur', 'comptable'];
 
 const STATUS_BADGES: Record<ExpenseStatus, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -64,7 +64,7 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
   // Onglet du circuit : Approuver / Rejeter seulement avec la permission de
   // valider (le chef d'agence l'a ; la caissière, elle, soumet sans valider).
   const canValidate =
-    user?.role?.name === 'super-admin' || Boolean(user?.permissions?.includes('depenses.valider'));
+    ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '') || Boolean(user?.permissions?.includes('depenses.valider'));
 
   const [createOpen, setCreateOpen] = useState(false);
   // Cible : « agency:<uuid> » ou « country:<uuid> » (Administration du pays).

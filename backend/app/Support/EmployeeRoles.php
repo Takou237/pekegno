@@ -8,6 +8,9 @@ class EmployeeRoles
 
     public const DIRECTION_GENERALE = 'direction-generale';
 
+    /** Directeur : rôle auquel on attribue un pays (périmètre pays). */
+    public const DIRECTEUR = 'directeur';
+
     public const CLIENT = 'client';
 
     /**
@@ -16,7 +19,7 @@ class EmployeeRoles
      */
     private const CHIEF_ROLES = ['responsable-agence', 'responsable-departement'];
 
-    private const CREATOR_ROLES = [self::SUPER_ADMIN, self::DIRECTION_GENERALE, 'responsable-agence', 'responsable-departement'];
+    private const CREATOR_ROLES = [self::SUPER_ADMIN, self::DIRECTION_GENERALE, self::DIRECTEUR, 'responsable-agence', 'responsable-departement'];
 
     /**
      * Rôles qu'un responsable peut créer via le formulaire employé.
@@ -30,13 +33,26 @@ class EmployeeRoles
             self::SUPER_ADMIN => [
                 self::SUPER_ADMIN,
                 self::DIRECTION_GENERALE,
+                self::DIRECTEUR,
                 'commercial',
                 'caissier',
                 'comptable',
                 'formateur',
             ],
+            // Le directeur général crée un autre directeur général ou un
+            // directeur, jamais un super-admin.
             self::DIRECTION_GENERALE => [
                 self::DIRECTION_GENERALE,
+                self::DIRECTEUR,
+                'commercial',
+                'caissier',
+                'comptable',
+                'formateur',
+            ],
+            // Directeur (ancien directeur général rattaché à un pays) : un autre
+            // directeur et les employés des agences de son pays.
+            self::DIRECTEUR => [
+                self::DIRECTEUR,
                 'commercial',
                 'caissier',
                 'comptable',

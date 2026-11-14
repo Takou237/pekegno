@@ -89,11 +89,11 @@ export default function CommercialDetailPage({ fixedAgencyId, overrideApi, pageT
   const [deleteTarget, setDeleteTarget] = useState<Prospect | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
-  const canManage = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
+  const canManage = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence'].includes(
     currentUser?.role?.name ?? ''
   );
   const canManageProspects = canManage || actsAsCommercial(currentUser?.role?.name);
-  const canAdjustPoints = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
+  const canAdjustPoints = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );
 

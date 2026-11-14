@@ -46,7 +46,7 @@ class InactivityLogout
 
         if (is_array($setting)) {
             $role = $user->role?->name;
-            $default = $role === 'direction-generale'
+            $default = in_array($role, ['direction-generale', 'directeur'], true)
                 ? self::DG_LIFETIME_MINUTES
                 : self::DEFAULT_LIFETIME_MINUTES;
 
@@ -59,7 +59,7 @@ class InactivityLogout
 
         // Pas de repli sur SESSION_LIFETIME (120 min dans le .env) : il
         // ramènerait les autres rôles à 2 h.
-        return $user->role?->name === 'direction-generale'
+        return in_array($user->role?->name, ['direction-generale', 'directeur'], true)
             ? self::DG_LIFETIME_MINUTES
             : self::DEFAULT_LIFETIME_MINUTES;
     }

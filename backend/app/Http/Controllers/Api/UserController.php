@@ -180,7 +180,7 @@ class UserController extends Controller
     )]
     public function suggestUsername(Request $request): JsonResponse
     {
-        abort_unless(in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'], true), 403);
+        abort_unless(in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'], true), 403);
 
         $data = $request->validate([
             'first_name' => ['nullable', 'string', 'max:100'],
@@ -255,15 +255,15 @@ class UserController extends Controller
             ->when($request->department_id, function ($q, $departmentId) {
                 $q->whereHas('assignments', fn ($q) => $q->where('department_id', $departmentId));
             })
-            // Vue d'un pays : comptes rattachés à une de ses agences, plus la
-            // direction générale de ce pays (rattachée au pays, pas à une agence).
+            // Vue d'un pays : comptes rattachés à une de ses agences, plus le
+            // directeur de ce pays (rattaché au pays, pas à une agence).
             ->when($request->country_id, function ($q, $countryId) {
                 $agencyIds = \App\Models\Agency::idsForCountry($countryId);
                 $q->where(function ($q) use ($agencyIds, $countryId) {
                     $q->whereHas('assignments', fn ($q) => $q->whereIn('agency_id', $agencyIds))
                         ->orWhere(function ($q) use ($countryId) {
                             $q->where('country_id', $countryId)
-                                ->whereHas('role', fn ($rq) => $rq->where('name', 'direction-generale'));
+                                ->whereHas('role', fn ($rq) => $rq->whereIn('name', ['direction-generale', 'directeur']));
                         });
                 });
             })
@@ -524,12 +524,12 @@ class UserController extends Controller
         $actor = $request->user();
         $actorRole = $actor?->role?->name;
 
-        if (in_array($actorRole, ['super-admin', 'direction-generale'], true)) {
-            // La direction générale ne peut pas réinitialiser un super-administrateur.
+        if (in_array($actorRole, ['super-admin', 'direction-generale', 'directeur'], true)) {
+            // La direction ne peut pas réinitialiser un super-administrateur.
             abort_if($user->role?->name === 'super-admin' && $actorRole !== 'super-admin', 403, 'Vous ne pouvez pas réinitialiser le mot de passe d\'un super-administrateur.');
         } elseif (in_array($actorRole, ['responsable-agence', 'responsable-departement'], true)) {
             // Les chefs réinitialisent les comptes non-admin de leur périmètre.
-            abort_if(in_array($user->role?->name, ['super-admin', 'direction-generale'], true), 403, 'Vous ne pouvez pas réinitialiser le mot de passe de ce compte.');
+            abort_if(in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'], true), 403, 'Vous ne pouvez pas réinitialiser le mot de passe de ce compte.');
             $this->assertInScope($actor, $user);
         } else {
             abort(403, 'Vous n\'êtes pas autorisé à réinitialiser un mot de passe.');
@@ -602,7 +602,7 @@ class UserController extends Controller
 
         // Les chefs ne suppriment ni la direction ni un super-admin.
         if (in_array($request->user()?->role?->name, ['responsable-agence', 'responsable-departement'], true)
-            && in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
+            && in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'], true)) {
             return response()->json([
                 'message' => 'Vous ne pouvez pas supprimer ce compte.',
             ], 403);

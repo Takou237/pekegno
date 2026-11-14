@@ -6,7 +6,7 @@ import { departmentsApi } from '@/api/departments.api';
 import { useAuth } from '@/hooks/useAuth';
 import type { Department } from '@/types/department';
 
-const ADMIN_ROLES = ['super-admin', 'direction-generale'];
+const ADMIN_ROLES = ['super-admin', 'direction-generale', 'directeur'];
 
 interface DepartmentSwitcherProps {
   department: Department;

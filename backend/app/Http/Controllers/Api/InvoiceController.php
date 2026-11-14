@@ -92,7 +92,7 @@ class InvoiceController extends Controller
         // uniquement les factures de leur périmètre (agences de leur espace),
         // plus leurs propres ventes : comme un commercial, ils peuvent vendre
         // pour une autre agence et doivent pouvoir suivre / encaisser ces factures.
-        if (in_array($user->role?->name, ['responsable-agence', 'responsable-departement', 'direction-generale'], true)) {
+        if (in_array($user->role?->name, ['responsable-agence', 'responsable-departement', 'direction-generale', 'directeur'], true)) {
             $agencyIds = app(ScopeService::class)->agencyIds($user);
             if ($agencyIds !== null) {
                 return $query->where(function ($q) use ($agencyIds, $user) {
@@ -944,7 +944,7 @@ class InvoiceController extends Controller
     {
         $this->ensureInvoiceInScope($invoice, $request->user());
         abort_unless(
-            in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'caissier'], true),
+            in_array($request->user()?->role?->name, ['super-admin', 'direction-generale', 'directeur', 'caissier'], true),
             403,
             'Seuls les administrateurs et les caissiers peuvent encaisser une facture.'
         );

@@ -16,7 +16,7 @@ class AgencyPolicy
         // le caissier et le community-manager doivent pouvoir résoudre leur agence
         // (formulaire « Nouvelle prestation », sélecteurs) sans 403 global.
         return in_array($user->role?->name, [
-            'super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement',
+            'super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement',
             'commercial', 'caissier', 'comptable', 'community-manager',
         ]);
     }
@@ -24,7 +24,7 @@ class AgencyPolicy
     public function view(User $user, Agency $agency): bool
     {
         // Administrateurs et direction : accès complet.
-        if (in_array($user->role?->name, ['super-admin', 'direction-generale'])) {
+        if (in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'])) {
             return $this->inDirectorCountry($user, $agency->id);
         }
 
@@ -39,12 +39,12 @@ class AgencyPolicy
 
     public function create(User $user): bool
     {
-        return in_array($user->role?->name, ['super-admin', 'direction-generale']);
+        return in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur']);
     }
 
     public function update(User $user, Agency $agency): bool
     {
-        if (in_array($user->role?->name, ['super-admin', 'direction-generale'])) {
+        if (in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'])) {
             return $this->inDirectorCountry($user, $agency->id);
         }
 
@@ -60,17 +60,17 @@ class AgencyPolicy
 
     public function delete(User $user): bool
     {
-        return $user->role?->name === 'super-admin';
+        return $user->hasFullAccess();
     }
 
     public function restore(User $user): bool
     {
-        return $user->role?->name === 'super-admin';
+        return $user->hasFullAccess();
     }
 
     public function forceDelete(User $user): bool
     {
-        return $user->role?->name === 'super-admin';
+        return $user->hasFullAccess();
     }
 
     /** Directeur général rattaché à un pays : uniquement les agences de ce pays. */

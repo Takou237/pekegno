@@ -109,7 +109,7 @@ export default function ClientListPage() {
   // Actions visibles pour tous les rôles : « Voir » pour tous, les autres
   // selon les droits réels du rôle (sinon l'API répondrait 403).
   const can = (permission: string) =>
-    currentUser?.role?.name === 'super-admin' || Boolean(currentUser?.permissions?.includes(permission));
+    ['super-admin', 'direction-generale'].includes(currentUser?.role?.name ?? '') || Boolean(currentUser?.permissions?.includes(permission));
   const canCreate = can('clients.creer');
   const canEdit = can('clients.modifier');
   const canDelete = can('clients.supprimer');

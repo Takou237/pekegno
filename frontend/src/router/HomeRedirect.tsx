@@ -39,8 +39,8 @@ export function HomeRedirect() {
     return <DepartmentHomeRedirect />;
   }
 
-  // Directeur général rattaché à un pays : son espace est ce pays.
-  if (role === 'direction-generale' && user?.country_id) {
+  // Directeur : son espace est le pays qui lui est attribué.
+  if (role === 'directeur' && user?.country_id) {
     return <Navigate to={`/countries/${user.country_id}`} replace />;
   }
 

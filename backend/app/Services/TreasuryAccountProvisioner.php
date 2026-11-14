@@ -27,7 +27,7 @@ class TreasuryAccountProvisioner
      * générale, chef d'agence, chef de département — et le comptable. Eux seuls
      * voient les caisses O/M/B/W/V ; la caissière ne voit que la caisse espèces.
      */
-    public const RESTRICTED_ROLES = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement', 'comptable'];
+    public const RESTRICTED_ROLES = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement', 'comptable'];
 
     /** @var array<string, array{name: string, type: string, provider: ?string}> */
     public const TEMPLATES = [

@@ -23,7 +23,8 @@ const DG_TIMEOUT_MINUTES = 720;
  */
 export function useInactivityLogout(): void {
   const { isAuthenticated, logout, user } = useAuth();
-  const isDg = user?.role?.name === 'direction-generale';
+  // B26 : 12 h pour la direction (directeur général et directeur), 24 h pour les autres.
+  const isDg = ['direction-generale', 'directeur'].includes(user?.role?.name ?? '');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {

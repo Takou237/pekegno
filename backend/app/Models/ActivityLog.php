@@ -48,4 +48,24 @@ class ActivityLog extends Model
     {
         return $this->belongsTo(Country::class);
     }
+
+    /**
+     * Le super-admin et ses actions ne sont visibles que d'un super-admin :
+     * le directeur général (et tout autre rôle) ne voit ni les actions faites
+     * par un super-admin, ni celles qui portent sur un compte super-admin.
+     */
+    public function scopeHideSuperAdminFrom($query, ?User $viewer)
+    {
+        if ($viewer?->isSuperAdmin()) {
+            return $query;
+        }
+
+        $superAdminIds = User::whereHas('role', fn ($q) => $q->where('name', 'super-admin'))->withTrashed()->select('id');
+
+        return $query
+            ->where(fn ($q) => $q->whereNull('activity_logs.user_id')->orWhereNotIn('activity_logs.user_id', $superAdminIds))
+            ->where(fn ($q) => $q->where('activity_logs.entity_type', '!=', 'user')
+                ->orWhereNull('activity_logs.entity_id')
+                ->orWhereNotIn('activity_logs.entity_id', User::whereHas('role', fn ($r) => $r->where('name', 'super-admin'))->withTrashed()->select('id')));
+    }
 }

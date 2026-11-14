@@ -37,7 +37,7 @@ class CommercialController extends Controller
         'community-manager',
         'responsable-departement',
         'responsable-agence',
-        'direction-generale',
+        'direction-generale', 'directeur',
         'super-admin',
     ];
 
@@ -51,7 +51,7 @@ class CommercialController extends Controller
             return $query->whereRaw('1 = 0');
         }
 
-        if (in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
+        if (in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'], true)) {
             return $query;
         }
 
@@ -296,7 +296,7 @@ class CommercialController extends Controller
     {
         $user = $request->user();
 
-        if (! $user || in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
+        if (! $user || in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'], true)) {
             return $user ? null : [];
         }
 
@@ -512,7 +512,7 @@ class CommercialController extends Controller
     public function adjustPoints(AdjustPointsRequest $request, Commercial $commercial): JsonResponse
     {
         $role = $request->user()?->role?->name;
-        if (! in_array($role, ['super-admin', 'direction-generale'], true)) {
+        if (! in_array($role, ['super-admin', 'direction-generale', 'directeur'], true)) {
             // Chefs : uniquement les commerciaux de leur périmètre.
             if (! in_array($role, ['responsable-agence', 'responsable-departement'], true)) {
                 return response()->json(['message' => 'Action non autorisée.'], 403);

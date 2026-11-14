@@ -52,8 +52,11 @@ class CustomCashBoxPaymentMethodTest extends TestCase
         // Une caissière ne crée pas de caisse.
         Sanctum::actingAs($this->user('caissier'));
         $this->postJson('/api/treasury/accounts', ['agency_id' => $agency->id, 'name' => 'Airtel Money', 'type' => 'mobile_money'])->assertForbidden();
-        Sanctum::actingAs($this->user('direction-generale'));
+        // Un directeur (pays) non plus ; le directeur général oui, comme le super-admin.
+        Sanctum::actingAs($this->user('directeur'));
         $this->postJson('/api/treasury/accounts', ['agency_id' => $agency->id, 'name' => 'Airtel Money', 'type' => 'mobile_money'])->assertForbidden();
+        Sanctum::actingAs($this->user('direction-generale'));
+        $this->postJson('/api/treasury/accounts', ['agency_id' => $agency->id, 'name' => 'Wave Pro', 'type' => 'mobile_money'])->assertCreated();
 
         $admin = $this->user('super-admin');
         Sanctum::actingAs($admin);

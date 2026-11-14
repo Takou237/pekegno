@@ -16,10 +16,10 @@ use OpenApi\Attributes as OA;
 class RoleController extends Controller
 {
     /** Rôles système : ni supprimables ni attribuables hors direction. */
-    private const SYSTEM_ROLES = ['super-admin', 'direction-generale', 'client'];
+    private const SYSTEM_ROLES = ['super-admin', 'direction-generale', 'directeur', 'client'];
 
     /** Rôles autorisés à gérer les rôles (création, suppression…). */
-    private const MANAGER_ROLES = ['super-admin', 'direction-generale'];
+    private const MANAGER_ROLES = ['super-admin', 'direction-generale', 'directeur'];
 
     public function __construct(
         private readonly ActivityLogger $logger,

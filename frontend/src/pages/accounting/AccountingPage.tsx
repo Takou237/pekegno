@@ -111,7 +111,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
 
   // Le caissier consulte et exporte (matrice T0.6) : il ne saisit ni ne
   // supprime d'écriture, la saisie revient au comptable et à l'administration.
-  const canManage = ['super-admin', 'direction-generale', 'responsable-agence', 'comptable'].includes(
+  const canManage = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'comptable'].includes(
     currentUser?.role?.name ?? ''
   );
 
@@ -418,7 +418,7 @@ export default function AccountingPage({ fixedAgencyId, fixedDepartmentId }: { f
       <div className="flex w-full gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800 sm:w-fit">
         {(['entries', 'expenses', 'catalog'] as const)
           // Onglet du circuit des sorties : réservé à qui peut consulter les dépenses.
-          .filter((key) => key !== 'expenses' || currentUser?.role?.name === 'super-admin' || Boolean(currentUser?.permissions?.includes('depenses.consulter')))
+          .filter((key) => key !== 'expenses' || ['super-admin', 'direction-generale'].includes(currentUser?.role?.name ?? '') || Boolean(currentUser?.permissions?.includes('depenses.consulter')))
           .map((key) => (
           <button
             key={key}

@@ -14,7 +14,7 @@ class DepartmentPolicy
     {
         return in_array($user->role?->name, [
             'super-admin',
-            'direction-generale',
+            'direction-generale', 'directeur',
             'responsable-agence',
             'responsable-departement',
             'commercial',
@@ -25,7 +25,7 @@ class DepartmentPolicy
 
     public function view(User $user, Department $department): bool
     {
-        if (in_array($user->role?->name, ['super-admin', 'direction-generale'])) {
+        if (in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'])) {
             return $this->inDirectorCountry($user, $department->agency_id);
         }
 
@@ -53,12 +53,12 @@ class DepartmentPolicy
 
     public function create(User $user): bool
     {
-        return in_array($user->role?->name, ['super-admin', 'direction-generale', 'responsable-agence']);
+        return in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur', 'responsable-agence']);
     }
 
     public function update(User $user, Department $department): bool
     {
-        if (in_array($user->role?->name, ['super-admin', 'direction-generale'])) {
+        if (in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'])) {
             return $this->inDirectorCountry($user, $department->agency_id);
         }
 
@@ -78,17 +78,17 @@ class DepartmentPolicy
 
     public function delete(User $user): bool
     {
-        return in_array($user->role?->name, ['super-admin', 'direction-generale']);
+        return in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur']);
     }
 
     public function restore(User $user): bool
     {
-        return $user->role?->name === 'super-admin';
+        return $user->hasFullAccess();
     }
 
     public function forceDelete(User $user): bool
     {
-        return $user->role?->name === 'super-admin';
+        return $user->hasFullAccess();
     }
 
     /**

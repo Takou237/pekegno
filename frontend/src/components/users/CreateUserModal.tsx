@@ -115,10 +115,12 @@ export function CreateUserModal({
 
   // Agence obligatoire, sauf pour les rôles globaux (super-admin, directeur général).
   const roleName = roles.find((r) => r.id === form.role_id)?.name ?? '';
-  const agencyRequired = !fixedAgencyId && !['super-admin', 'direction-generale'].includes(roleName);
+  const agencyRequired = !fixedAgencyId && !['super-admin', 'direction-generale', 'directeur'].includes(roleName);
 
+  // Le directeur (rattaché à un pays) se crée depuis la page Utilisateurs,
+  // qui demande son pays : pas depuis une agence ou un département.
   const assignableRoles = roles.filter((r) =>
-    isRoleAssignableToForm(r.name, currentUser?.role?.name)
+    r.name !== 'directeur' && isRoleAssignableToForm(r.name, currentUser?.role?.name)
   );
 
   async function handleSubmit(event: FormEvent) {

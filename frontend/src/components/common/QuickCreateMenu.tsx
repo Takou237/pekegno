@@ -102,7 +102,7 @@ export function QuickCreateMenu() {
 
   const role = user?.role?.name ?? '';
   // Création rapide : super-admin et directeur général uniquement.
-  const isAdmin = role === 'super-admin' || role === 'direction-generale';
+  const isAdmin = role === 'super-admin' || role === 'direction-generale' || role === 'directeur';
 
   const [prefs, setPrefs] = useState<Prefs>({ hidden: [], custom: [] });
   const [customLabel, setCustomLabel] = useState('');

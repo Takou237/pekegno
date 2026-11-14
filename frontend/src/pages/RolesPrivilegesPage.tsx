@@ -20,8 +20,8 @@ import {
 } from '@/utils/permissionGrouping';
 import type { Permission, RoleListItem } from '@/types/user';
 
-const ADMIN_ROLES = ['super-admin', 'direction-generale'];
-const PROTECTED_ROLES = ['super-admin', 'direction-generale'];
+const ADMIN_ROLES = ['super-admin', 'direction-generale', 'directeur'];
+const PROTECTED_ROLES = ['super-admin', 'direction-generale', 'directeur'];
 
 type Tab = 'roles' | 'permissions';
 

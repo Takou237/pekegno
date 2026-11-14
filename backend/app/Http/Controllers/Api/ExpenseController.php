@@ -140,7 +140,7 @@ class ExpenseController extends Controller
     }
 
     /** Rôles qui saisissent les dépenses de l'Administration d'un pays. */
-    public const ADMINISTRATION_ROLES = ['super-admin', 'direction-generale', 'comptable'];
+    public const ADMINISTRATION_ROLES = ['super-admin', 'direction-generale', 'directeur', 'comptable'];
 
     private const NO_ID = '00000000-0000-0000-0000-000000000000';
 

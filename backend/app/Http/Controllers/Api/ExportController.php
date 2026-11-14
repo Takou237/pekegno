@@ -30,7 +30,7 @@ class ExportController extends Controller
     private function canExport(Request $request): bool
     {
         return in_array($request->user()?->role?->name, [
-            'super-admin', 'direction-generale', 'responsable-agence',
+            'super-admin', 'direction-generale', 'directeur', 'responsable-agence',
         ]);
     }
 
@@ -627,6 +627,7 @@ class ExportController extends Controller
     public function activityLogs(Request $request): StreamedResponse
     {
         $query = ActivityLog::query()
+            ->hideSuperAdminFrom($request->user())
             ->with('user:id,first_name,last_name,email', 'agency:id,name,code');
 
         if ($request->from) {

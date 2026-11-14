@@ -1,9 +1,9 @@
 import type { User } from '@/types/auth';
 
-const MANAGERS = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'];
+const MANAGERS = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'];
 const ALL_EMPLOYEES = [
   'super-admin',
-  'direction-generale',
+  'direction-generale', 'directeur',
   'responsable-agence',
   'responsable-departement',
   'commercial',
@@ -30,9 +30,9 @@ export function canEditService(user: User | null): boolean {
 }
 
 export function canDeleteService(user: User | null): boolean {
-  return ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '');
+  return ['super-admin', 'direction-generale', 'directeur'].includes(user?.role?.name ?? '');
 }
 
 export function canManageCatalogTrash(user: User | null): boolean {
-  return user?.role?.name === 'super-admin';
+  return ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '');
 }

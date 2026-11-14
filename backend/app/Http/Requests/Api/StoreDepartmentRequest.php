@@ -16,7 +16,7 @@ class StoreDepartmentRequest extends FormRequest
             return false;
         }
         // Hors direction : création limitée aux agences du périmètre.
-        if (in_array($user->role?->name, ['super-admin', 'direction-generale'], true)) {
+        if (in_array($user->role?->name, ['super-admin', 'direction-generale', 'directeur'], true)) {
             return true;
         }
         $agencyIds = app(\App\Services\ScopeService::class)->agencyIds($user) ?? [];

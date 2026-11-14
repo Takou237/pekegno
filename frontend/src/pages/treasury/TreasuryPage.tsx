@@ -42,7 +42,7 @@ export default function TreasuryPage() {
   // Nouvelle caisse (administration) : crée aussi le moyen de paiement.
   const { user } = useAuth();
   // Seul l'administrateur (super-admin) crée et désactive les caisses.
-  const canManageAccounts = user?.role?.name === 'super-admin';
+  const canManageAccounts = ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '');
   const [newAccountOpen, setNewAccountOpen] = useState(false);
 
   const [transferOpen, setTransferOpen] = useState(false);

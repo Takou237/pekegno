@@ -91,6 +91,7 @@ export function DepartmentChiefAssignModal({
         assignedUserIds.has(u.id) &&
         u.role?.name !== 'super-admin' &&
         u.role?.name !== 'direction-generale' &&
+        u.role?.name !== 'directeur' &&
         u.role?.name !== 'client'
       )
       .map((u: any) => ({

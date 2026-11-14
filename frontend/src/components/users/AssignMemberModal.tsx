@@ -21,7 +21,7 @@ interface AssignMemberModalProps {
   targetName: string;
 }
 
-const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale']);
+const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale', 'directeur']);
 
 export function AssignMemberModal({
   isOpen,

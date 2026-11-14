@@ -33,7 +33,7 @@ class ActivityLogController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $query = app(ScopeService::class)->scopeManagerQuery(ActivityLog::query(), $request->user())
+        $query = app(ScopeService::class)->scopeManagerQuery(ActivityLog::query()->hideSuperAdminFrom($request->user()), $request->user())
             ->with('user:id,first_name,last_name,email', 'agency:id,name,code,country', 'country:id,name,code')
             ->when($request->user_id, fn ($q, $id) => $q->where('user_id', $id))
             ->when($request->entity_type, fn ($q, $t) => $q->where('entity_type', $t))

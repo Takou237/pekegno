@@ -9,7 +9,7 @@ namespace App\Support;
  */
 final class InvoiceValidators
 {
-    public const ROLES = ['super-admin', 'caissier', 'direction-generale'];
+    public const ROLES = ['super-admin', 'caissier', 'direction-generale', 'directeur'];
 
     /**
      * Vendeurs dont les souscriptions (packages) et inscriptions (formations)

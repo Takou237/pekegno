@@ -45,7 +45,7 @@ export default function AgencyPromotionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Promotion | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canManage = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
+  const canManage = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );
 

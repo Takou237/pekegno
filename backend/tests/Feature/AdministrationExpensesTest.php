@@ -75,7 +75,7 @@ class AdministrationExpensesTest extends TestCase
         $ownAdminExpense = $this->expense($admin, $category, $cameroun);
         $otherAdminExpense = $this->expense($admin, $category, $gabon);
 
-        Sanctum::actingAs($this->user('direction-generale', $cameroun));
+        Sanctum::actingAs($this->user('directeur', $cameroun));
 
         $ids = collect($this->getJson('/api/expenses?per_page=50')->assertOk()->json('data'))->pluck('id');
 
@@ -101,7 +101,7 @@ class AdministrationExpensesTest extends TestCase
         $own = $this->expense($admin, $category, $cameroun);
         $other = $this->expense($admin, $category, $gabon);
 
-        Sanctum::actingAs($this->user('direction-generale', $cameroun));
+        Sanctum::actingAs($this->user('directeur', $cameroun));
 
         $this->post("/api/expenses/{$own->id}/justification", ['file' => $this->png('recu-1.png')], ['Accept' => 'application/json'])->assertOk();
         $this->post("/api/expenses/{$other->id}/justification", ['file' => $this->png('recu-2.png')], ['Accept' => 'application/json'])->assertNotFound();

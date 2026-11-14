@@ -58,7 +58,7 @@ export default function SubscriptionListPage({ fixedAgencyId }: { fixedAgencyId?
   const countryId = fixedAgencyId ? undefined : routeCountryId;
   const clientId = searchParams.get('client_id') ?? '';
 
-  const canManage = ['super-admin', 'direction-generale', 'responsable-agence'].includes(
+  const canManage = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence'].includes(
     currentUser?.role?.name ?? ''
   );
 

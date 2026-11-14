@@ -13,7 +13,7 @@ class StoreUserRequest extends FormRequest
     {
         return in_array($this->user()?->role?->name, [
             'super-admin',
-            'direction-generale',
+            'direction-generale', 'directeur',
             'responsable-agence',
             'responsable-departement',
         ], true);
@@ -31,7 +31,7 @@ class StoreUserRequest extends FormRequest
             'role_id' => ['required', 'string', 'exists:roles,id'],
             'agency_id' => ['sometimes', 'nullable', 'string', 'exists:agencies,id'],
             'department_id' => ['sometimes', 'nullable', 'string', 'exists:departments,id'],
-            // Pays d'attribution du directeur général (périmètre de son espace).
+            // Pays attribué au directeur (périmètre de son espace).
             'country_id' => ['sometimes', 'nullable', 'string', 'exists:countries,id'],
         ];
     }

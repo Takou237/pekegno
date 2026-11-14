@@ -160,7 +160,7 @@ class CommissionController extends Controller
     public function computePeriod(Request $request): JsonResponse
     {
         // Bouton « Calculer les primes du mois » : réservé au super-admin.
-        abort_unless($request->user()?->role?->name === 'super-admin', 403, 'Seul le super-administrateur peut calculer les primes mensuelles.');
+        abort_unless((bool) $request->user()?->hasFullAccess(), 403, 'Seul le super-administrateur ou le directeur général peut calculer les primes mensuelles.');
 
         $validated = $request->validate([
             'period' => ['required', 'date_format:Y-m'],

@@ -84,7 +84,7 @@ class PermissionController extends Controller
     {
         $user = request()->user();
 
-        if (! in_array($user?->role?->name, ['super-admin', 'direction-generale'], true)) {
+        if (! in_array($user?->role?->name, ['super-admin', 'direction-generale', 'directeur'], true)) {
             return response()->json([
                 'message' => 'Vous n\'êtes pas autorisé à supprimer des permissions.',
             ], 403);

@@ -51,9 +51,9 @@ export default function CashClosingsPage() {
   // Administration (super-admin, direction, chefs d'agence et de département) :
   // transfert d'une caisse à une autre depuis les caisses du jour.
   const { user } = useAuth();
-  const canTransfer = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(user?.role?.name ?? '');
+  const canTransfer = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'].includes(user?.role?.name ?? '');
   // Seul l'administrateur (super-admin) crée les caisses.
-  const canManageAccounts = user?.role?.name === 'super-admin';
+  const canManageAccounts = ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '');
   const [transferOpen, setTransferOpen] = useState(false);
   const [newAccountOpen, setNewAccountOpen] = useState(false);
   const { showToast } = useToast();

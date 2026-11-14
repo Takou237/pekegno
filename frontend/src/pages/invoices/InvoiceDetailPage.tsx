@@ -151,7 +151,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   const [cancelReason, setCancelReason] = useState('');
   const [cancelError, setCancelError] = useState<string | null>(null);
 
-  const canCollect = ['super-admin', 'direction-generale', 'caissier'].includes(
+  const canCollect = ['super-admin', 'direction-generale', 'directeur', 'caissier'].includes(
     currentUser?.role?.name ?? ''
   );
   const canReviewPaymentProofs = canValidateInvoices(currentUser?.role?.name);
@@ -662,7 +662,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
   // Super-admin et caissier peuvent imprimer une facture impayée ou partielle ;
   // les autres profils gardent l'impression réservée aux factures soldées.
-  const canPrintUnpaid = ['super-admin', 'caissier'].includes(currentUser?.role?.name ?? '');
+  const canPrintUnpaid = ['super-admin', 'direction-generale', 'caissier'].includes(currentUser?.role?.name ?? '');
   const canPrint = invoice.status === 'paid' || canPrintUnpaid;
 
   // « Payer le reste » : le commercial (ou le vendeur) règle le solde d'une

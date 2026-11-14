@@ -167,7 +167,7 @@ export default function InvoiceListPage({
 
   // Super-admin et caissier peuvent imprimer une facture impayée ou partielle ;
   // les autres profils n'impriment que les factures soldées.
-  const canPrintUnpaid = ['super-admin', 'caissier'].includes(currentUser?.role?.name ?? '');
+  const canPrintUnpaid = ['super-admin', 'direction-generale', 'caissier'].includes(currentUser?.role?.name ?? '');
 
   function printInvoice(invoiceId: string) {
     navigate(`${listBase}/${invoiceId}?print=1`, { state: origin });

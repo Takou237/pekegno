@@ -111,11 +111,11 @@ export default function UserListPage() {
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [createSubmitting, setCreateSubmitting] = useState(false);
 
-  const canManageUsers = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
+  const canManageUsers = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );
 
-  const canCreateUsers = ['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement'].includes(
+  const canCreateUsers = ['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement'].includes(
     currentUser?.role?.name ?? ''
   );
 
@@ -127,7 +127,7 @@ export default function UserListPage() {
     if (!canManageUsers || user.id === currentUser?.id) return false;
     const role = currentUser?.role?.name ?? '';
     if (['responsable-agence', 'responsable-departement'].includes(role)) {
-      return !['super-admin', 'direction-generale'].includes(user.role?.name ?? '');
+      return !['super-admin', 'direction-generale', 'directeur'].includes(user.role?.name ?? '');
     }
 
     return user.role?.name !== 'super-admin' || role === 'super-admin';
@@ -185,9 +185,9 @@ export default function UserListPage() {
     usersApi.listRoles().then(setRoles).catch(() => {});
   }, []);
 
-  // Directeur général : son espace commence au pays qui lui est attribué.
+  // Directeur : son espace commence au pays qui lui est attribué.
   const isDirectorRoleId = (roleId: string | null | undefined) =>
-    roles.find((r) => r.id === roleId)?.name === 'direction-generale';
+    roles.find((r) => r.id === roleId)?.name === 'directeur';
 
   const assignableRoles = roles.filter((r) =>
     isRoleAssignableToForm(r.name, currentUser?.role?.name)
@@ -267,7 +267,7 @@ export default function UserListPage() {
   // Agence obligatoire à la création, sauf pour les rôles globaux (le
   // directeur général est rattaché à un pays, pas à une agence).
   const createRoleName = roles.find((r) => r.id === createForm.role_id)?.name ?? '';
-  const createAgencyRequired = !['super-admin', 'direction-generale'].includes(createRoleName);
+  const createAgencyRequired = !['super-admin', 'direction-generale', 'directeur'].includes(createRoleName);
   const createDepartmentOptions = useMemo(
     () =>
       (agencies.find((a) => a.id === createForm.agency_id)?.departments ?? [])
@@ -352,7 +352,7 @@ export default function UserListPage() {
     }
   }
 
-  const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale']);
+  const NON_ASSIGNABLE_ROLES = new Set(['super-admin', 'direction-generale', 'directeur']);
 
   function openAssignModal(type: 'agency' | 'department') {
     setAssignTargetType(type);
@@ -553,6 +553,8 @@ export default function UserListPage() {
         return <Badge variant="error">{t('roles.super-admin')}</Badge>;
       case 'direction-generale':
         return <Badge variant="brand">{t('roles.direction-generale')}</Badge>;
+      case 'directeur':
+        return <Badge variant="brand">{t('roles.directeur')}</Badge>;
       case 'responsable-agence':
         return <Badge variant="warning">{t('roles.responsable-agence')}</Badge>;
       case 'responsable-departement':

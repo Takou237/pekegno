@@ -32,8 +32,8 @@ class TreasuryController extends Controller
         return app(\App\Services\ScopeService::class)->agencyIds($user) ?? [];
     }
 
-    /** Seul l'administrateur (super-admin) crée / modifie les caisses. */
-    private const ACCOUNT_ADMIN_ROLES = ['super-admin'];
+    /** Super-admin et directeur général créent / modifient les caisses. */
+    private const ACCOUNT_ADMIN_ROLES = ['super-admin', 'direction-generale'];
 
     /**
      * Moyens de paiement proposés dans les formulaires : une caisse = un moyen

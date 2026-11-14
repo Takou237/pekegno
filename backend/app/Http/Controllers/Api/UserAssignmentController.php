@@ -19,7 +19,7 @@ use OpenApi\Attributes as OA;
 
 class UserAssignmentController extends Controller
 {
-    private const NON_ASSIGNABLE_ROLES = ['super-admin', 'direction-generale', 'client'];
+    private const NON_ASSIGNABLE_ROLES = ['super-admin', 'direction-generale', 'directeur', 'client'];
 
     public function __construct(
         private readonly ActivityLogger $logger,

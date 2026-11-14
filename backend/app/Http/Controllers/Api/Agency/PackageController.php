@@ -370,7 +370,7 @@ class PackageController extends Controller
         ]);
 
         // Super-admin : avance obligatoire (preuve retirée de l'écran).
-        if ($request->user()?->role?->name === 'super-admin' && empty($data['advance'])) {
+        if ($request->user()?->hasFullAccess() && empty($data['advance'])) {
             throw ValidationException::withMessages([
                 'advance' => "L'avance est obligatoire.",
             ]);

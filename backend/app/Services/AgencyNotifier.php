@@ -80,14 +80,27 @@ class AgencyNotifier
                 ->merge(DB::table('department_chiefs')->where('department_id', $contract->department_id)->pluck('user_id'))
             : collect();
 
-        $leaders = DB::table('users')
+        $countryId = $contract->agency_id ? DB::table('agencies')->where('id', $contract->agency_id)->value('country_id') : $contract->country_id ?? null;
+
+        return $chiefs->merge($departmentChiefs)->merge($this->directionIds($countryId))->filter()->unique()->values()->all();
+    }
+
+    /**
+     * Direction à prévenir : super-admins et directeurs généraux actifs, plus le
+     * directeur du pays concerné (un directeur ne reçoit que son pays).
+     *
+     * @return array<int, string>
+     */
+    public function directionIds(?string $countryId): array
+    {
+        return DB::table('users')
             ->join('roles', 'roles.id', '=', 'users.role_id')
-            ->whereIn('roles.name', ['super-admin', 'direction-generale'])
             ->where('users.is_active', true)
             ->whereNull('users.deleted_at')
-            ->pluck('users.id');
-
-        return $chiefs->merge($departmentChiefs)->merge($leaders)->filter()->unique()->values()->all();
+            ->where(fn ($q) => $q->whereIn('roles.name', ['super-admin', 'direction-generale'])
+                ->when($countryId, fn ($qq) => $qq->orWhere(fn ($d) => $d->where('roles.name', 'directeur')->where('users.country_id', $countryId))))
+            ->pluck('users.id')
+            ->all();
     }
 
     /**

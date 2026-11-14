@@ -9,7 +9,7 @@ class UpdatePermissionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return in_array($this->user()?->role?->name, ['super-admin', 'direction-generale']);
+        return in_array($this->user()?->role?->name, ['super-admin', 'direction-generale', 'directeur']);
     }
 
     public function rules(): array

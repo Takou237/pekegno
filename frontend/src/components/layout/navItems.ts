@@ -41,7 +41,7 @@ import { canValidateInvoices } from '@/utils/invoicePermissions';
 import { homeSpace, isGroupLevelPath } from '@/utils/userScope';
 import { actsAsCommercial } from '@/utils/commercialRoles';
 
-export const ADMIN_ROLES = ['super-admin', 'direction-generale'];
+export const ADMIN_ROLES = ['super-admin', 'direction-generale', 'directeur'];
 
 type TranslateFn = ReturnType<typeof useTranslation>['t'];
 
@@ -74,7 +74,7 @@ function myProfileItem(t: TranslateFn): NavItem {
   return { to: '/profile', label: t('nav.myProfile'), icon: UserRound, end: false };
 }
 
-export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'responsable-agence', 'responsable-departement', 'comptable']);
+export const INVOICES_ROLES = new Set(['super-admin', 'direction-generale', 'directeur', 'responsable-agence', 'responsable-departement', 'comptable']);
 
 // « Factures » ne doit pas rester actif sur la page des validations (/invoices/payment-proofs),
 // sinon il serait surligné en même temps que « Paiements à valider ».
@@ -145,7 +145,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
 
   if (ADMIN_ROLES.includes(roleName ?? '')) {
     // Super-admin : pas de « Mon suivi » (/team/tracking) dans le menu.
-    const tracking = roleName === 'super-admin' ? [] : [trackingItem(t)];
+    const tracking = roleName === 'super-admin' || roleName === 'direction-generale' ? [] : [trackingItem(t)];
     return [
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
       ...tracking,
@@ -291,7 +291,7 @@ export function getMainItems(t: TranslateFn, roleName: string | null | undefined
 /** Rôles livrés avec une interface dédiée ; tout autre rôle est « personnalisé ». */
 export const BUILT_IN_ROLES = new Set([
   'super-admin',
-  'direction-generale',
+  'direction-generale', 'directeur',
   'responsable-agence',
   'responsable-departement',
   'caissier',

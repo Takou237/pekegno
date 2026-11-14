@@ -32,7 +32,7 @@ export function homeSpace(user: User | null | undefined): HomeSpace | null {
     return departmentId ? { type: 'department', id: departmentId, path: `/departments/${departmentId}` } : null;
   }
 
-  if (role === 'direction-generale' && user?.country_id) {
+  if (role === 'directeur' && user?.country_id) {
     return { type: 'country', id: user.country_id, path: `/countries/${user.country_id}` };
   }
 

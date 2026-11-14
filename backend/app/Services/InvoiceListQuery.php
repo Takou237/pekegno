@@ -62,7 +62,7 @@ class InvoiceListQuery
         // uniquement les factures de leur périmètre (agences de leur espace),
         // plus leurs propres ventes : comme un commercial, ils peuvent vendre
         // pour une autre agence et doivent pouvoir suivre / encaisser ces factures.
-        if (in_array($user->role?->name, ['responsable-agence', 'responsable-departement', 'direction-generale'], true)) {
+        if (in_array($user->role?->name, ['responsable-agence', 'responsable-departement', 'direction-generale', 'directeur'], true)) {
             $agencyIds = $this->scope->agencyIds($user);
             if ($agencyIds !== null) {
                 return $query->where(function ($q) use ($agencyIds, $user) {

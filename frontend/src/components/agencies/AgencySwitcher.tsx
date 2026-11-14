@@ -6,7 +6,7 @@ import { agenciesApi } from '@/api/agencies.api';
 import { useAuth } from '@/hooks/useAuth';
 import type { Agency } from '@/types/agency';
 
-const ADMIN_ROLES = ['super-admin', 'direction-generale'];
+const ADMIN_ROLES = ['super-admin', 'direction-generale', 'directeur'];
 
 interface AgencySwitcherProps {
   agency: Agency;
