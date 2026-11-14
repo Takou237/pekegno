@@ -21,6 +21,7 @@ class BilanEqualsAccountingTest extends TestCase
 {
     use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
+    use \Tests\Concerns\ManualExpense;
 
     private Agency $agency;
 
@@ -58,15 +59,14 @@ class BilanEqualsAccountingTest extends TestCase
         ])->assertStatus(201);
 
         // Dépense : 2 000 sortis de la caisse C.
-        $this->postJson('/api/accounting/transactions', [
-            'type' => 'expense',
+        $this->manualExpense([
             'label' => 'Achat carburant',
             'amount' => 2000,
             'agency_id' => $this->agency->id,
             'treasury_account_id' => $this->cashBoxId($this->agency->id),
             'beneficiary' => 'Station Total',
             'justification' => 'Déplacement',
-        ])->assertStatus(201);
+        ]);
 
         $bilan = $this->getJson("/api/bilans?agency_id={$this->agency->id}&date={$today}")
             ->assertOk()

@@ -17,6 +17,7 @@ class Phase3AccountingTest extends TestCase
 {
     use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
+    use \Tests\Concerns\ManualExpense;
 
     protected function setUp(): void
     {
@@ -102,20 +103,21 @@ class Phase3AccountingTest extends TestCase
         ]);
     }
 
-    public function test_expense_store_records_beneficiary_and_justification(): void
+    public function test_store_records_beneficiary_and_justification(): void
     {
         $this->actingAsAdmin();
 
+        // Une sortie ne se saisit plus en écriture directe (circuit des dépenses, N25).
         $this->postJson('/api/accounting/transactions', [
             'type' => 'expense',
             'label' => 'Achat carburant',
             'amount' => 2000,
             'treasury_account_id' => $this->cashBoxId(),
-        ])->assertStatus(201);
+        ])->assertStatus(422);
 
         $created = $this->postJson('/api/accounting/transactions', [
-            'type' => 'expense',
-            'label' => 'Achat carburant',
+            'type' => 'income',
+            'label' => 'Remboursement carburant',
             'amount' => 2000,
             'treasury_account_id' => $this->cashBoxId(),
             'beneficiary' => 'Station Total',
@@ -125,11 +127,12 @@ class Phase3AccountingTest extends TestCase
 
         $this->assertDatabaseHas('accounting_transactions', [
             'id' => $created->json('id'),
-            'type' => 'expense',
+            'type' => 'income',
             'amount' => 2000.00,
             'beneficiary' => 'Station Total',
             'justification' => 'Déplacement direction',
         ]);
+        $this->assertDatabaseMissing('accounting_transactions', ['type' => 'expense']);
     }
 
     public function test_index_filters_and_totals(): void
@@ -142,14 +145,13 @@ class Phase3AccountingTest extends TestCase
             'amount' => 50000,
         ])->assertStatus(201);
 
-        $this->postJson('/api/accounting/transactions', [
-            'type' => 'expense',
+        $this->manualExpense([
             'label' => 'Loyer',
             'amount' => 20000,
             'treasury_account_id' => $this->cashBoxId(),
             'beneficiary' => 'Propriétaire',
             'justification' => 'Loyer août',
-        ])->assertStatus(201);
+        ]);
 
         $res = $this->getJson('/api/accounting/transactions')
             ->assertOk()

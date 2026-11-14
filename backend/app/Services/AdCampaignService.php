@@ -109,8 +109,13 @@ class AdCampaignService
      */
     private function periodShare(AdCampaign $campaign, Carbon $from, Carbon $to): array
     {
-        $start = $campaign->start_date->copy()->startOfDay();
-        $end = ($campaign->end_date ?? $campaign->start_date)->copy()->endOfDay();
+        // Dates de la campagne en journées métier du pays (1er novembre 00:00 à
+        // Douala = 31 octobre 23:00 UTC), comme les bornes de la période.
+        $countryTz = Period::timezoneForCountry($campaign->country_id);
+        $startDate = $campaign->start_date->toDateString();
+        $endDate = ($campaign->end_date ?? $campaign->start_date)->toDateString();
+        [$start] = Period::dayBoundsUtc($startDate, $countryTz);
+        [, $end] = Period::dayBoundsUtc($endDate, $countryTz);
         $overlapFrom = $from->copy()->max($start);
         $overlapTo = $to->copy()->min($end);
 
@@ -125,12 +130,11 @@ class AdCampaignService
         // Douala = 31 octobre 23:00 UTC) : compter les jours du calendrier
         // métier, sinon le prorata gagne un jour (14 jours au lieu de 13, 31 au
         // lieu de 30) et une campagne de 2 mois pèse 62 000 au lieu de 61 000.
-        $tz = Period::businessTimezone();
+        $tz = $countryTz;
         $businessDay = function (Carbon $instant) use ($tz): Carbon {
             return Carbon::parse($instant->copy()->setTimezone($tz)->toDateString(), $tz)->startOfDay();
         };
-        $campaignDays = Carbon::parse($start->toDateString(), $tz)
-            ->diffInDays(Carbon::parse($end->toDateString(), $tz)) + 1;
+        $campaignDays = Carbon::parse($startDate, $tz)->diffInDays(Carbon::parse($endDate, $tz)) + 1;
         $overlapDays = $businessDay($overlapFrom)->diffInDays($businessDay($overlapTo)) + 1;
 
         return [$overlapFrom, $overlapTo, min(1.0, $overlapDays / max(1, $campaignDays))];
@@ -177,13 +181,21 @@ class AdCampaignService
      */
     public function getBranchRevenueByAgency(string $countryId, string $branch, Carbon $from, Carbon $to): array
     {
+        // invoice_date porte l'heure : comparer à des instants, pas à de simples
+        // dates. Les bornes sont ramenées aux journées métier du pays (1er au
+        // 30 novembre à Douala), comme pour les cartes : sinon le CA « du mois »
+        // prenait le 31 octobre et perdait le 30 novembre.
+        $tz = Period::timezoneForCountry($countryId);
+        [$start] = Period::dayBoundsUtc($from->copy()->setTimezone($tz)->toDateString(), $tz);
+        [, $end] = Period::dayBoundsUtc($to->copy()->setTimezone($tz)->toDateString(), $tz);
+
         $query = DB::table('invoice_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->join('agencies', 'agencies.id', '=', 'invoices.agency_id')
             ->where('agencies.country_id', $countryId)
             ->where('invoices.validation_status', 'validated')
             ->whereNull('invoices.cancelled_at')
-            ->whereBetween('invoices.invoice_date', [$from->toDateString(), $to->toDateString()])
+            ->whereBetween('invoices.invoice_date', [$start, $end])
             ->where(function ($q) {
                 $q->whereNull('invoice_items.is_pass_through')
                     ->orWhere('invoice_items.is_pass_through', false);

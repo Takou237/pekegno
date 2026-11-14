@@ -26,6 +26,14 @@ class Period
         return $agency?->geoCountry?->currency_code === 'XOF' ? 'Africa/Abidjan' : self::businessTimezone();
     }
 
+    /** Fuseau métier d'un pays (même règle que pour une agence). */
+    public static function timezoneForCountry(?string $countryId): string
+    {
+        $currency = $countryId ? \App\Models\Country::whereKey($countryId)->value('currency_code') : null;
+
+        return $currency === 'XOF' ? 'Africa/Abidjan' : self::businessTimezone();
+    }
+
     /**
      * Bornes UTC d'une journée métier (00:00 → 23:59:59 locale).
      *

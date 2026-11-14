@@ -56,6 +56,8 @@ class AccountingTransaction extends Model
     /** Catégories / libellés qui désignent un transfert entre caisses (B13). */
     public const TRANSFER_PATTERN = '/versement|virement|d[ée]p[ôo]t (en|à la) banque|bancaire|transfert|d[ée]caissement admin/iu';
 
+    public const TRANSFER_NOT_EXPENSE_MESSAGE = 'Un versement en banque ou un décaissement vers l\'administration est un transfert entre caisses, pas une dépense : utilisez Caisses du jour → Transfert.';
+
     public static function looksLikeTransfer(?string $category, ?string $label = null): bool
     {
         return preg_match(self::TRANSFER_PATTERN, (string) $category) === 1

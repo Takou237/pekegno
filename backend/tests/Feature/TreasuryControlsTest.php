@@ -34,6 +34,7 @@ use Tests\TestCase;
 class TreasuryControlsTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ManualExpense;
 
     private Agency $agency;
 
@@ -95,30 +96,50 @@ class TreasuryControlsTest extends TestCase
 
     // --- T1.4 : caisse obligatoire sur les dépenses manuelles -------------------
 
-    public function test_manual_expense_requires_a_cash_box(): void
+    public function test_a_spending_cannot_be_entered_directly_in_accounting(): void
     {
         Sanctum::actingAs($this->user('super-admin', false));
+        $cash = $this->account('C');
 
+        // N25 : une sortie suit le circuit des dépenses, jamais une écriture directe.
         $this->postJson('/api/accounting/transactions', [
             'type' => 'expense',
             'label' => 'Carburant',
             'amount' => 24000,
-            'agency_id' => $this->agency->id,
-        ])->assertUnprocessable()->assertJsonValidationErrors('treasury_account_id');
+            'treasury_account_id' => $cash->id,
+        ])->assertUnprocessable()->assertJsonFragment(['message' => 'Une sortie suit le circuit des dépenses : Comptabilité → Nouvelle transaction → Sortie, puis l\'onglet « Sorties à valider ».']);
+
+        $this->assertSame(0, AccountingTransaction::count());
+        $this->assertSame(0.0, (float) $cash->fresh()->computed_balance);
     }
 
-    public function test_manual_expense_follows_its_cash_box_movement(): void
+    public function test_an_income_cannot_be_turned_into_a_spending(): void
     {
         Sanctum::actingAs($this->user('super-admin', false));
         $cash = $this->account('C');
 
         $id = $this->postJson('/api/accounting/transactions', [
-            'type' => 'expense',
+            'type' => 'income',
+            'label' => 'Recette diverse',
+            'amount' => 5000,
+            'treasury_account_id' => $cash->id,
+        ])->assertCreated()->json('id');
+
+        $this->putJson("/api/accounting/transactions/{$id}", ['type' => 'expense'])->assertUnprocessable();
+        $this->assertSame('income', AccountingTransaction::find($id)->type);
+    }
+
+    public function test_an_existing_manual_expense_can_still_be_corrected(): void
+    {
+        Sanctum::actingAs($this->user('super-admin', false));
+        $cash = $this->account('C');
+
+        $id = $this->manualExpense([
             'label' => 'Carburant',
             'amount' => 24000,
             'treasury_account_id' => $cash->id,
             'transacted_at' => '2026-11-02',
-        ])->assertCreated()->json('id');
+        ])->id;
 
         // Agence déduite de la caisse, sortie de caisse créée et datée.
         $this->assertSame($this->agency->id, AccountingTransaction::find($id)->agency_id);
@@ -126,6 +147,7 @@ class TreasuryControlsTest extends TestCase
         $movement = TreasuryTransaction::where('source_type', 'accounting_transaction')->where('source_id', $id)->firstOrFail();
         $this->assertSame('2026-11-02', $movement->transacted_at->toDateString());
 
+        // N25 : corriger une écriture existante reste possible.
         $this->putJson("/api/accounting/transactions/{$id}", ['amount' => 30000])->assertOk();
         $this->assertSame(-30000.0, (float) $cash->fresh()->computed_balance);
 
@@ -151,13 +173,14 @@ class TreasuryControlsTest extends TestCase
     {
         Sanctum::actingAs($this->user('super-admin', false));
 
-        $this->postJson('/api/accounting/transactions', [
-            'type' => 'expense',
-            'label' => 'Versement à Afriland',
-            'amount' => 222000,
+        // Le circuit des sorties refuse un versement en banque (c'est un transfert).
+        $this->postJson('/api/expenses', [
+            'agency_id' => $this->agency->id,
             'category_id' => $this->category('VERSEMENT BANCAIRE')->id,
-            'treasury_account_id' => $this->account('C')->id,
-        ])->assertUnprocessable();
+            'amount' => 222000,
+            'expense_date' => '2026-11-02',
+            'note' => 'Versement à Afriland',
+        ])->assertUnprocessable()->assertJsonFragment(['message' => AccountingTransaction::TRANSFER_NOT_EXPENSE_MESSAGE]);
     }
 
     public function test_reclassify_command_turns_legacy_bank_deposits_into_transfers(): void
@@ -207,7 +230,7 @@ class TreasuryControlsTest extends TestCase
         $closing = $this->postJson('/api/treasury/closings', [
             'treasury_account_id' => $cash->id,
             'actual_balance' => 10000,
-        ])->assertCreated()->json();
+        ])->json();
         $this->assertEquals(10000, $closing['theoretical_balance']);
         $this->assertTrue($this->getJson("/api/treasury/closings/day?treasury_account_id={$cash->id}")->json('is_closed'));
 
@@ -272,10 +295,10 @@ class TreasuryControlsTest extends TestCase
 
         // 24 000 de dépenses payées depuis la caisse C.
         Sanctum::actingAs($admin);
-        $this->postJson('/api/accounting/transactions', [
-            'type' => 'expense', 'label' => 'Dépenses du jour', 'amount' => 24000,
+        $this->manualExpense([
+            'label' => 'Dépenses du jour', 'amount' => 24000,
             'treasury_account_id' => $c->id, 'transacted_at' => '2026-11-02 12:00:00',
-        ])->assertCreated();
+        ]);
 
         $closing = app(\App\Services\CashClosingService::class);
         $this->assertSame(381000.0, $closing->theoreticalBalance($c->fresh(), '2026-11-02'));
@@ -314,10 +337,10 @@ class TreasuryControlsTest extends TestCase
             'cancellation_reason' => 'Annulation de test',
         ])->assertOk();
 
-        $this->postJson('/api/accounting/transactions', [
-            'type' => 'expense', 'label' => 'Dépenses du jour', 'amount' => 24000,
+        $this->manualExpense([
+            'label' => 'Dépenses du jour', 'amount' => 24000,
             'treasury_account_id' => $c->id, 'transacted_at' => '2026-11-02 12:00:00',
-        ])->assertCreated();
+        ]);
 
         $transfer = fn (string $from, string $to, float $amount, string $type) => $this->postJson('/api/treasury/transfer', [
             'from_account_id' => $this->account($from)->id, 'to_account_id' => $this->account($to)->id,

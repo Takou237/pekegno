@@ -248,40 +248,20 @@ class AccountingController extends Controller
             'treasury_account_id.required_if' => 'Indiquez la caisse d\'où sort cette dépense.',
         ]);
 
-        // Caissier : force l'agence à son périmètre, refuse toute autre agence.
-        if (($request->user()->role?->name ?? '') === 'caissier') {
-            $agencyIds = DB::table('user_assignments')
-                ->where('user_id', $request->user()->id)
-                ->whereNotNull('agency_id')
-                ->pluck('agency_id')
-                ->filter()
-                ->unique()
-                ->values()
-                ->all();
-            if (empty($agencyIds)) {
-                abort(403, 'Aucune agence affectée.');
-            }
-            if (empty($data['agency_id'])) {
-                $data['agency_id'] = $agencyIds[0];
-            }
-            abort_unless(in_array($data['agency_id'], $agencyIds, true), 403, 'Hors périmètre agence.');
-        }
-
-        // B13 : un versement en banque / décaissement administratif n'est pas une
-        // dépense mais un transfert entre caisses (Trésorerie → Transfert).
-        if ($data['type'] === 'expense' && ! empty($data['category_id'])) {
-            $categoryName = \App\Models\AccountingCategory::whereKey($data['category_id'])->value('name');
-            abort_if(
-                AccountingTransaction::looksLikeTransfer($categoryName),
-                422,
-                'Un versement en banque ou un décaissement vers l\'administration est un transfert entre caisses, pas une dépense : utilisez Trésorerie → Transfert.'
-            );
-        }
+        // Cahier §14 (N25) : une sortie suit le circuit des dépenses (demande,
+        // validation, paiement depuis une caisse) ; elle ne se saisit jamais
+        // directement en écriture, sinon l'argent sort d'une caisse sans validation.
+        abort_if(
+            $data['type'] === 'expense',
+            422,
+            'Une sortie suit le circuit des dépenses : Comptabilité → Nouvelle transaction → Sortie, puis l\'onglet « Sorties à valider ».'
+        );
 
         // Agence déduite de la caisse si elle n'est pas précisée.
         if (empty($data['agency_id']) && ! empty($data['treasury_account_id'])) {
             $data['agency_id'] = TreasuryAccount::whereKey($data['treasury_account_id'])->value('agency_id');
         }
+        $data = $this->scopeEntry($request, $data);
         $this->assertTreasuryAccount($request, $data['treasury_account_id'] ?? null, $data['agency_id'] ?? null);
 
         $transaction = DB::transaction(function () use ($data, $request) {
@@ -326,17 +306,7 @@ class AccountingController extends Controller
             422,
             'Cette écriture vient du circuit des dépenses : modifiez la dépense elle-même.'
         );
-        if (($request->user()->role?->name ?? '') === 'caissier') {
-            $agencyIds = DB::table('user_assignments')
-                ->where('user_id', $request->user()->id)
-                ->whereNotNull('agency_id')
-                ->pluck('agency_id')
-                ->filter()
-                ->unique()
-                ->values()
-                ->all();
-            abort_unless($transaction->agency_id && in_array($transaction->agency_id, $agencyIds, true), 403, 'Hors périmètre agence.');
-        }
+        $this->assertTransactionInScope($request, $transaction);
 
         $data = $request->validate([
             'type' => ['sometimes', Rule::in(['income', 'expense'])],
@@ -355,9 +325,31 @@ class AccountingController extends Controller
         ]);
 
         $type = $data['type'] ?? $transaction->type;
+        // Corriger une sortie existante reste possible (N25) ; transformer une
+        // recette en sortie contournerait le circuit des dépenses.
+        abort_if(
+            $type === 'expense' && $transaction->type !== 'expense',
+            422,
+            'Une sortie suit le circuit des dépenses : Comptabilité → Nouvelle transaction → Sortie, puis l\'onglet « Sorties à valider ».'
+        );
+        $categoryId = array_key_exists('category_id', $data) ? $data['category_id'] : $transaction->category_id;
+        abort_if(
+            $type === 'expense' && $categoryId
+                && AccountingTransaction::looksLikeTransfer(\App\Models\AccountingCategory::whereKey($categoryId)->value('name')),
+            422,
+            AccountingTransaction::TRANSFER_NOT_EXPENSE_MESSAGE
+        );
         $accountId = array_key_exists('treasury_account_id', $data) ? $data['treasury_account_id'] : $transaction->treasury_account_id;
         abort_if($type === 'expense' && $accountId === null, 422, "Indiquez la caisse d'où sort cette dépense.");
-        $this->assertTreasuryAccount($request, $accountId, array_key_exists('agency_id', $data) ? $data['agency_id'] : $transaction->agency_id);
+        $scoped = $this->scopeEntry($request, [
+            'agency_id' => array_key_exists('agency_id', $data) ? $data['agency_id'] : $transaction->agency_id,
+            'treasury_account_id' => $accountId,
+        ]);
+        $data['agency_id'] = $scoped['agency_id'];
+        if (array_key_exists('country_id', $scoped)) {
+            $data['country_id'] = $scoped['country_id'];
+        }
+        $this->assertTreasuryAccount($request, $accountId, $data['agency_id']);
 
         DB::transaction(function () use ($transaction, $data) {
             $transaction->update($data);
@@ -393,17 +385,7 @@ class AccountingController extends Controller
             422,
             'Cette écriture vient du circuit des dépenses : modifiez la dépense elle-même.'
         );
-        if (($request->user()->role?->name ?? '') === 'caissier') {
-            $agencyIds = DB::table('user_assignments')
-                ->where('user_id', $request->user()->id)
-                ->whereNotNull('agency_id')
-                ->pluck('agency_id')
-                ->filter()
-                ->unique()
-                ->values()
-                ->all();
-            abort_unless($transaction->agency_id && in_array($transaction->agency_id, $agencyIds, true), 403, 'Hors périmètre agence.');
-        }
+        $this->assertTransactionInScope($request, $transaction);
 
         $number = $transaction->number;
         DB::transaction(function () use ($transaction) {
@@ -423,6 +405,74 @@ class AccountingController extends Controller
     }
 
     /**
+     * Périmètre d'une écriture manuelle (cahier §5) : agence du périmètre de
+     * l'utilisateur ; sans agence, c'est une écriture de l'Administration d'un
+     * pays, réservée au super-admin, à la direction et au comptable, et rangée
+     * sous le pays de sa caisse (vue Pays, bloc Administration).
+     */
+    private function scopeEntry(Request $request, array $data): array
+    {
+        $user = $request->user();
+        $scope = app(ScopeService::class);
+        $agencyIds = $scope->isGlobal($user) ? null : $scope->agencyIds($user);
+        if ($agencyIds === null && $user?->role?->name === 'caissier') {
+            abort(403, 'Aucune agence affectée.');
+        }
+
+        // Une seule agence dans le périmètre : elle est l'agence par défaut
+        // (sauf si une caisse est choisie : l'agence est alors celle de la caisse).
+        if (empty($data['agency_id']) && empty($data['treasury_account_id']) && $agencyIds !== null && count($agencyIds) === 1
+            && ! in_array($user?->role?->name, \App\Http\Controllers\Api\ExpenseController::ADMINISTRATION_ROLES, true)) {
+            $data['agency_id'] = $agencyIds[0];
+        }
+
+        if (! empty($data['agency_id'])) {
+            abort_unless($agencyIds === null || in_array($data['agency_id'], $agencyIds, true), 403, 'Hors périmètre agence.');
+
+            return $data;
+        }
+
+        abort_unless(
+            in_array($user?->role?->name, \App\Http\Controllers\Api\ExpenseController::ADMINISTRATION_ROLES, true),
+            403,
+            "Seuls l'administrateur, la direction générale et le comptable saisissent les écritures de l'Administration."
+        );
+
+        $data['agency_id'] = null;
+        $countryId = ! empty($data['treasury_account_id'])
+            ? TreasuryAccount::whereKey($data['treasury_account_id'])->value('country_id')
+            : null;
+        if ($countryId !== null) {
+            $countries = $scope->countryIds($user);
+            abort_unless($countries === null || in_array($countryId, $countries, true), 403, 'Pays hors de votre périmètre.');
+            $data['country_id'] = $countryId;
+        }
+
+        return $data;
+    }
+
+    /** Une écriture hors du périmètre de l'utilisateur ne se modifie ni ne se supprime. */
+    private function assertTransactionInScope(Request $request, AccountingTransaction $transaction): void
+    {
+        $user = $request->user();
+        $scope = app(ScopeService::class);
+        if ($scope->isGlobal($user)) {
+            return;
+        }
+        $agencyIds = $scope->agencyIds($user);
+        if ($agencyIds === null && $user?->role?->name === 'caissier') {
+            $agencyIds = [];
+        }
+
+        $inScope = $transaction->agency_id !== null
+            ? ($agencyIds === null || in_array($transaction->agency_id, $agencyIds, true))
+            : (in_array($user?->role?->name, \App\Http\Controllers\Api\ExpenseController::ADMINISTRATION_ROLES, true)
+                && (($countries = $scope->countryIds($user)) === null || $transaction->country_id === null || in_array($transaction->country_id, $countries, true)));
+
+        abort_unless($inScope, 403, 'Hors périmètre agence.');
+    }
+
+    /**
      * La caisse d'une écriture manuelle doit être active, de la même agence que
      * l'écriture et visible de l'utilisateur (une caissière ne débite pas O/M/B).
      */
@@ -438,6 +488,11 @@ class AccountingController extends Controller
             $account->agency_id !== null && $account->agency_id !== $agencyId,
             422,
             "La caisse choisie n'appartient pas à l'agence de l'écriture."
+        );
+        abort_if(
+            $account->agency_id === null && $agencyId !== null,
+            422,
+            "Une caisse de l'Administration ne porte que des écritures de l'Administration."
         );
         $this->authorize('view', $account);
     }

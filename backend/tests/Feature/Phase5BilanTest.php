@@ -22,6 +22,7 @@ class Phase5BilanTest extends TestCase
 {
     use \Tests\Concerns\LineCategory;
     use RefreshDatabase;
+    use \Tests\Concerns\ManualExpense;
 
     protected function setUp(): void
     {
@@ -169,15 +170,14 @@ class Phase5BilanTest extends TestCase
         $agency = $this->createAgency();
         $this->createInvoice(['agency_id' => $agency->id, 'advance' => 25000, 'payment_type' => 'cash']);
 
-        $this->postJson('/api/accounting/transactions', [
-            'type' => 'expense',
+        $this->manualExpense([
             'label' => 'Achat carburant',
             'amount' => 2000,
             'agency_id' => $agency->id,
             'treasury_account_id' => $this->cashBoxId($agency->id),
             'beneficiary' => 'Station Total',
             'justification' => 'Déplacement direction',
-        ])->assertStatus(201);
+        ]);
 
         $bilan = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
 
@@ -218,15 +218,14 @@ class Phase5BilanTest extends TestCase
 
         $agency = $this->createAgency();
         $this->createInvoice(['agency_id' => $agency->id, 'advance' => 25000, 'payment_type' => 'cash']);
-        $this->postJson('/api/accounting/transactions', [
-            'type' => 'expense',
+        $this->manualExpense([
             'label' => 'Réparation',
             'amount' => 3000,
             'agency_id' => $agency->id,
             'treasury_account_id' => $this->cashBoxId($agency->id),
             'beneficiary' => 'Garage X',
             'justification' => 'Maintenance',
-        ])->assertStatus(201);
+        ]);
 
         $today = $this->getJson('/api/bilans?agency_id='.$agency->id)->assertOk()->json();
         $this->assertEquals(22000, $today['solde_final']);

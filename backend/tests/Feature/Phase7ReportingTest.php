@@ -90,10 +90,11 @@ class Phase7ReportingTest extends TestCase
         ]));
         $this->postJson('/api/invoices', [
             'agency_id' => $agency->id,
-            'items' => [['label' => 'Formation', 'unit_price' => 10000, 'quantity' => 1]],
+            'commercial_id' => auth()->id(),
+            'items' => [['category_id' => $this->lineCategoryId(), 'label' => 'Formation', 'unit_price' => 10000, 'quantity' => 1]],
             'advance' => 1000,
             'payment_type' => 'cash',
-            'proof_file' => File::fake()->image('proof.png'),
+            'proof_file' => $this->fakeProof(),
         ])->assertStatus(201);
 
         Sanctum::actingAs(User::factory()->create([

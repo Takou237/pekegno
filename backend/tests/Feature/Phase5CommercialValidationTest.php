@@ -180,16 +180,17 @@ class Phase5CommercialValidationTest extends TestCase
         $this->assertSame(0.0, (float) $stats['turnover']);
         $this->assertSame(0.0, (float) $stats['commissions']);
 
-        // Le caissier valide : toujours pas comptabilisé (pas encore encaissé).
+        // Le caissier valide : la vente compte dès la validation, même avant
+        // d'être soldée (cahier §1 : chiffre d'affaires = factures validées).
         $cashier = $this->actingAsRole('caissier');
         $this->assignCashierToInvoiceAgency($cashier, $invoice['id']);
         $proof = PaymentProof::where('invoice_id', $invoice['id'])->first();
         $this->postJson("/api/payment-proofs/{$proof->id}/approve")->assertOk();
         $stats = $this->scopedStats($commercial->id);
-        $this->assertSame(0, (int) $stats['sales_count']);
-        $this->assertSame(0.0, (float) $stats['turnover']);
+        $this->assertSame(5, (int) $stats['sales_count']);
+        $this->assertSame((float) $total, (float) $stats['turnover']);
 
-        // Le caissier encaisse le solde → les stats du commercial montent.
+        // Le caissier encaisse le solde : la vente reste comptée une seule fois.
         $this->postJson("/api/invoices/{$invoice['id']}/payments", [
             'amount' => $total - 1000,
             'payment_method' => 'cash',

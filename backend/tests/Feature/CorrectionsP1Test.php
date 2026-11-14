@@ -33,6 +33,7 @@ use Tests\TestCase;
 class CorrectionsP1Test extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ManualExpense;
 
     private User $admin;
 
@@ -316,7 +317,7 @@ class CorrectionsP1Test extends TestCase
         $pay($old, 10000); // recouvrement
         $this->invoice($agency, 60000, [['line_total' => 60000]], ['validation_status' => Invoice::VALIDATION_PENDING, 'declared_advance' => 25000]);
         $cash = \App\Models\TreasuryAccount::where('agency_id', $agency->id)->where('code', 'C')->first();
-        $this->postJson('/api/accounting/transactions', ['type' => 'expense', 'label' => 'Loyer', 'amount' => 7000, 'treasury_account_id' => $cash->id, 'agency_id' => $agency->id, 'transacted_at' => '2026-11-02 12:00:00'])->assertCreated();
+        $this->manualExpense(['label' => 'Loyer', 'amount' => 7000, 'treasury_account_id' => $cash->id, 'agency_id' => $agency->id, 'transacted_at' => '2026-11-02 12:00:00']);
 
         $q = 'from=2026-11-01&to=2026-11-03&agency_id='.$agency->id;
         $summary = $this->getJson("/api/metrics/summary?{$q}")->assertOk()->json();

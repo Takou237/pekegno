@@ -182,4 +182,76 @@ class AdCampaignAllocationTest extends TestCase
         // Total réparti = budget de la campagne nationale
         $this->assertEquals(200000, $costsDouala['national_ads'] + $costsYaounde['national_ads']);
     }
+
+    /**
+     * N14 : la pub nationale de novembre se répartit au prorata du CA du mois
+     * en heure de Douala — la vente du 31 octobre n'y entre pas, celle du
+     * 30 novembre si. Bornes telles que la vue Pays les envoie (Period).
+     */
+    public function test_national_share_uses_the_business_month_of_the_country(): void
+    {
+        [$country, $douala, $yaounde] = $this->cameroun();
+        $service = Service::factory()->create(['name' => 'Livre Pekegno', 'price' => 10000]);
+
+        $this->sale($douala, $service, '2026-11-30 12:00:00', 300000);   // 30/11 à Douala
+        $this->sale($yaounde, $service, '2026-11-10 09:00:00', 100000);  // 10/11
+        $this->sale($yaounde, $service, '2026-10-31 10:00:00', 500000);  // 31/10 : hors novembre
+
+        AdCampaign::create([
+            'name' => 'Nationale Store', 'branch' => Department::TYPE_STORE, 'country_id' => $country->id,
+            'is_national' => true, 'budget' => 200000, 'start_date' => '2026-11-01', 'end_date' => '2026-11-30',
+            'status' => AdCampaign::STATUS_ACTIVE,
+        ]);
+
+        $request = new \Illuminate\Http\Request(['from' => '2026-11-01', 'to' => '2026-11-30']);
+        [$from, $to] = [Period::from($request), Period::to($request)];
+        $ads = app(AdCampaignService::class);
+
+        $this->assertEquals(150000, $ads->getAgencyAdCosts($douala, $from, $to)['national_ads']);
+        $this->assertEquals(50000, $ads->getAgencyAdCosts($yaounde, $from, $to)['national_ads']);
+    }
+
+    /** Une campagne finie le 15/11 ne pèse rien sur la seconde quinzaine (jour de fin en heure locale). */
+    public function test_a_campaign_ending_mid_month_costs_nothing_after_its_last_day(): void
+    {
+        [$country, $douala] = $this->cameroun();
+
+        AdCampaign::create([
+            'name' => 'Locale Douala', 'branch' => Department::TYPE_ACADEMY, 'country_id' => $country->id,
+            'is_national' => false, 'agency_id' => $douala->id, 'budget' => 15000,
+            'start_date' => '2026-11-01', 'end_date' => '2026-11-15', 'status' => AdCampaign::STATUS_COMPLETED,
+        ]);
+
+        $ads = app(AdCampaignService::class);
+        $second = new \Illuminate\Http\Request(['from' => '2026-11-16', 'to' => '2026-11-30']);
+        $first = new \Illuminate\Http\Request(['from' => '2026-11-01', 'to' => '2026-11-15']);
+
+        $this->assertEquals(0, $ads->getAgencyAdCosts($douala, Period::from($second), Period::to($second))['local_ads']);
+        $this->assertEquals(15000, $ads->getAgencyAdCosts($douala, Period::from($first), Period::to($first))['local_ads']);
+    }
+
+    /** @return array{0: Country, 1: Agency, 2: Agency} */
+    private function cameroun(): array
+    {
+        $country = Country::create([
+            'name' => 'Cameroun', 'code' => 'CM', 'currency_code' => 'XAF', 'exchange_rate' => 1.0, 'phone_code' => '237',
+        ]);
+        $agency = fn (string $name, string $code) => Agency::create([
+            'name' => $name, 'code' => $code, 'country_id' => $country->id, 'country' => 'Cameroun', 'city' => $name,
+        ]);
+
+        return [$country, $agency('Douala', 'DLA'), $agency('Yaoundé', 'YDE')];
+    }
+
+    private function sale(Agency $agency, Service $service, string $at, float $amount): void
+    {
+        $invoice = Invoice::create([
+            'number' => 'FAC-'.uniqid(), 'agency_id' => $agency->id, 'invoice_date' => $at,
+            'total_amount' => $amount, 'amount_paid' => $amount, 'payment_status' => 'paid', 'validation_status' => 'validated',
+        ]);
+        InvoiceItem::create([
+            'invoice_id' => $invoice->id, 'service_id' => $service->id, 'label' => $service->name,
+            'quantity' => 1, 'unit_price' => $amount, 'line_total' => $amount, 'total_price' => $amount,
+        ]);
+    }
 }

@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Service;
+use App\Models\TreasuryAccount;
+use App\Models\User;
 use App\Services\ExpenseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,24 +39,24 @@ class ExpenseController extends Controller
     {
         $query = Expense::query()->with(['agency', 'country:id,name', 'category', 'requestor']);
         $user = $request->user();
-        $scope = app(ScopeService::class);
 
-        // Périmètre : un encadrant ne voit que ses agences ; l'Administration
-        // (direction rattachée à un pays, comptable) voit en plus les dépenses
-        // de l'Administration de son pays (elles n'ont pas d'agence).
-        if ($scope->isAgencyScoped($user)) {
-            $agencyIds = $scope->agencyIds($user);
-            $administration = in_array($user?->role?->name, self::ADMINISTRATION_ROLES, true);
+        // Périmètre (cahier §5) : chacun ne voit que les dépenses de ses agences ;
+        // l'Administration (super-admin, direction, comptable) voit en plus les
+        // dépenses de l'Administration de ses pays (elles n'ont pas d'agence).
+        $agencyIds = $this->allowedAgencyIds($user);
+        $administration = $this->isAdministration($user);
+        if ($agencyIds !== null || ! $administration) {
+            $countryIds = app(ScopeService::class)->countryIds($user);
 
-            $query->where(function ($q) use ($scope, $user, $agencyIds, $administration) {
-                if ($agencyIds !== null) {
-                    $q->whereIn('agency_id', $agencyIds);
-                }
+            $query->where(function ($q) use ($agencyIds, $administration, $countryIds) {
+                $agencyIds === null
+                    ? $q->whereNotNull('agency_id')
+                    : $q->whereIn('agency_id', $agencyIds ?: [self::NO_ID]);
 
-                if ($administration && $agencyIds !== null) {
+                if ($administration) {
                     $q->orWhere(fn ($sub) => $sub
                         ->whereNull('agency_id')
-                        ->whereIn('country_id', $scope->countryIds($user) ?? []));
+                        ->when($countryIds !== null, fn ($c) => $c->whereIn('country_id', $countryIds ?: [self::NO_ID])));
                 }
             });
         }
@@ -123,6 +125,7 @@ class ExpenseController extends Controller
             'service_id' => ['nullable', 'uuid', 'exists:services,id'],
         ]);
 
+        $this->assertNotTransfer($data['category_id']);
         $data = $this->administrationAttributes($data, $request);
         $data = $this->passThroughAttributes($data);
         $data = $this->eventAttributes($data);
@@ -139,6 +142,65 @@ class ExpenseController extends Controller
     /** Rôles qui saisissent les dépenses de l'Administration d'un pays. */
     public const ADMINISTRATION_ROLES = ['super-admin', 'direction-generale', 'comptable'];
 
+    private const NO_ID = '00000000-0000-0000-0000-000000000000';
+
+    /** B13 : un versement en banque ou un décaissement administratif est un transfert, pas une dépense. */
+    private function assertNotTransfer(?string $categoryId): void
+    {
+        $name = $categoryId ? \App\Models\AccountingCategory::whereKey($categoryId)->value('name') : null;
+        abort_if(\App\Models\AccountingTransaction::looksLikeTransfer($name), 422, \App\Models\AccountingTransaction::TRANSFER_NOT_EXPENSE_MESSAGE);
+    }
+
+    /**
+     * Agences dont l'utilisateur voit et traite les dépenses (null = toutes).
+     * Une caissière sans agence affectée n'en voit aucune.
+     *
+     * @return array<int, string>|null
+     */
+    private function allowedAgencyIds(?User $user): ?array
+    {
+        $scope = app(ScopeService::class);
+        if (! $user || $scope->isGlobal($user)) {
+            return $user ? null : [];
+        }
+
+        $ids = $scope->agencyIds($user);
+
+        return $ids === null && $user->role?->name === 'caissier' ? [] : $ids;
+    }
+
+    private function isAdministration(?User $user): bool
+    {
+        return in_array($user?->role?->name, self::ADMINISTRATION_ROLES, true);
+    }
+
+    /** L'utilisateur peut-il traiter les dépenses de l'Administration de ce pays ? */
+    private function canHandleAdministration(?User $user, ?string $countryId): bool
+    {
+        if (! $this->isAdministration($user)) {
+            return false;
+        }
+        $countryIds = app(ScopeService::class)->countryIds($user);
+
+        return $countryIds === null || in_array($countryId, $countryIds, true);
+    }
+
+    /**
+     * Cahier §5 : une dépense hors du périmètre de l'utilisateur n'existe pas
+     * pour lui (404) — ni consultation, ni action du circuit.
+     */
+    private function assertInScope(Request $request, Expense $expense): void
+    {
+        $user = $request->user();
+        $agencyIds = $this->allowedAgencyIds($user);
+
+        $visible = $expense->agency_id !== null
+            ? ($agencyIds === null || in_array($expense->agency_id, $agencyIds, true))
+            : $this->canHandleAdministration($user, $expense->country_id);
+
+        abort_unless($visible, 404, 'Dépense introuvable.');
+    }
+
     /**
      * Cahier §2 : dépense de l'Administration d'un pays (frais d'administration,
      * publicité Pekegno, stock de livres et de Matootoo) — sans agence ni
@@ -147,15 +209,26 @@ class ExpenseController extends Controller
     private function administrationAttributes(array $data, Request $request): array
     {
         if (! empty($data['agency_id'])) {
+            $agencyIds = $this->allowedAgencyIds($request->user());
+            abort_unless(
+                $agencyIds === null || in_array($data['agency_id'], $agencyIds, true),
+                403,
+                'Agence hors de votre périmètre.'
+            );
             unset($data['country_id']);
 
             return $data;
         }
 
         abort_unless(
-            in_array($request->user()?->role?->name, self::ADMINISTRATION_ROLES, true),
+            $this->isAdministration($request->user()),
             403,
             "Seuls l'administrateur, la direction générale et le comptable saisissent les dépenses de l'Administration."
+        );
+        abort_unless(
+            $this->canHandleAdministration($request->user(), $data['country_id'] ?? null),
+            403,
+            'Pays hors de votre périmètre.'
         );
         $data['agency_id'] = null;
         $data['department_id'] = null;
@@ -232,8 +305,10 @@ class ExpenseController extends Controller
             new OA\Response(response: 200, description: 'Détail'),
         ]
     )]
-    public function show(Expense $expense): JsonResponse
+    public function show(Request $request, Expense $expense): JsonResponse
     {
+        $this->assertInScope($request, $expense);
+
         return response()->json($expense->load([
             'agency', 'country:id,name', 'category', 'requestor', 'approver', 'rejector', 'payer', 'treasuryAccount', 'department',
         ]));
@@ -251,6 +326,7 @@ class ExpenseController extends Controller
     )]
     public function update(Request $request, Expense $expense): JsonResponse
     {
+        $this->assertInScope($request, $expense);
         abort_if($expense->status !== Expense::STATUS_DRAFT, 422, 'Seule une dépense en brouillon peut être modifiée.');
 
         $data = $request->validate([
@@ -265,6 +341,7 @@ class ExpenseController extends Controller
             'service_id' => ['nullable', 'uuid', 'exists:services,id'],
         ]);
 
+        $this->assertNotTransfer($data['category_id']);
         $data = $this->passThroughAttributes($data, $expense);
         $data = $this->eventAttributes($data, $expense);
 
@@ -298,16 +375,7 @@ class ExpenseController extends Controller
             403,
             'Vous ne pouvez pas joindre de justificatif.'
         );
-        $scope = app(ScopeService::class);
-        if ($scope->isAgencyScoped($user)) {
-            $agencyIds = $scope->agencyIds($user);
-            $inScope = $agencyIds === null
-                ? true
-                : ($expense->agency_id !== null
-                    ? in_array($expense->agency_id, $agencyIds, true)
-                    : in_array($expense->country_id, $scope->countryIds($user) ?? [], true));
-            abort_unless($inScope, 404);
-        }
+        $this->assertInScope($request, $expense);
 
         $previous = $expense->justification_path;
         $path = $request->file('file')->store('expense-justifications', 'public');
@@ -322,6 +390,7 @@ class ExpenseController extends Controller
 
     public function submit(Expense $expense, Request $request): JsonResponse
     {
+        $this->assertInScope($request, $expense);
         $expense = $this->expenseService->submit($expense, $request->user()->id);
 
         return response()->json($expense->fresh()->load(['agency', 'category', 'requestor']));
@@ -339,6 +408,7 @@ class ExpenseController extends Controller
     )]
     public function approve(Expense $expense, Request $request): JsonResponse
     {
+        $this->assertInScope($request, $expense);
         $expense = $this->expenseService->approve($expense, $request->user()->id);
 
         return response()->json($expense->fresh()->load(['agency', 'category', 'requestor', 'approver']));
@@ -356,6 +426,7 @@ class ExpenseController extends Controller
     )]
     public function reject(Request $request, Expense $expense): JsonResponse
     {
+        $this->assertInScope($request, $expense);
         $data = $request->validate([
             'reason' => ['required', 'string', 'max:255'],
         ]);
@@ -377,9 +448,16 @@ class ExpenseController extends Controller
     )]
     public function pay(Request $request, Expense $expense): JsonResponse
     {
+        $this->assertInScope($request, $expense);
         $data = $request->validate([
             'treasury_account_id' => ['required', 'uuid', 'exists:treasury_accounts,id'],
         ]);
+        // Sécu §16 : on ne paie que depuis une caisse que l'on voit (la caissière : C seulement).
+        abort_unless(
+            TreasuryAccount::find($data['treasury_account_id'])?->isVisibleTo($request->user()),
+            403,
+            "Vous n'avez pas accès à cette caisse."
+        );
 
         $expense = $this->expenseService->pay($expense, $data['treasury_account_id'], $request->user()->id);
 
@@ -398,6 +476,7 @@ class ExpenseController extends Controller
     )]
     public function close(Expense $expense, Request $request): JsonResponse
     {
+        $this->assertInScope($request, $expense);
         $expense = $this->expenseService->close($expense, $request->user()->id);
 
         return response()->json($expense->fresh());
@@ -415,6 +494,7 @@ class ExpenseController extends Controller
     )]
     public function reopen(Expense $expense, Request $request): JsonResponse
     {
+        $this->assertInScope($request, $expense);
         $expense = $this->expenseService->reopen($expense, $request->user()->id);
 
         return response()->json($expense->fresh());
@@ -430,8 +510,9 @@ class ExpenseController extends Controller
             new OA\Response(response: 422, description: 'Suppression interdite dans cet état'),
         ]
     )]
-    public function destroy(Expense $expense): JsonResponse
+    public function destroy(Request $request, Expense $expense): JsonResponse
     {
+        $this->assertInScope($request, $expense);
         abort_if(! in_array($expense->status, [Expense::STATUS_DRAFT, Expense::STATUS_REJECTED], true), 422, 'Seule une dépense en brouillon ou rejetée peut être supprimée.');
 
         $expense->delete();
