@@ -1,0 +1,19 @@
+# .env du SITE DE TEST (repositories/pekegno_test/backend/.env)
+# Partir d'une copie du .env de la prod et changer UNIQUEMENT ces lignes.
+# Le mot de passe de la base se saisit directement sur le serveur.
+
+APP_ENV=staging
+APP_DEBUG=false
+APP_URL=https://api.test.pekegnogroup.com
+FRONTEND_URL=https://test.pekegnogroup.com
+
+DB_DATABASE=sc1fopa5058_test_pekegno
+DB_USERNAME=sc1fopa5058_test
+DB_PASSWORD=<mot de passe de l'utilisateur de test>
+
+# Copie des donnees de la prod : AUCUN e-mail ne doit partir vers les vrais clients.
+MAIL_MAILER=log
+CLIENT_EMAILS_ENABLED=false
+
+# Garder APP_KEY identique a la prod si la base est une copie de la prod
+# (sinon les donnees chiffrees, ex. 2FA, deviennent illisibles).
