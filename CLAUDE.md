@@ -29,6 +29,10 @@ La production est en **PostgreSQL 9.6** : `php artisan migrate` y échoue dès q
 modifie une colonne (`->change()` génère du SQL PostgreSQL 10+). Écrire ces changements en
 `DB::statement` compatible 9.6, ou les livrer en SQL.
 
+Après toute migration sur un serveur : `php artisan cache:clear`. Plusieurs listes de référence
+(`/api/roles`, pays, catalogue…) sont mises en cache jusqu'à 1 h (`cache.response`) et une
+migration qui écrit en base ne les invalide pas.
+
 ### Échecs connus (pas graves)
 
 Environ 31 tests échouent en local. Ce sont des échecs connus, sans rapport avec une régression :

@@ -101,7 +101,7 @@ export default {
   roles: {
     directeur: 'Directeur',
     'super-admin': 'Super Admin',
-    'direction-generale': 'Direction Générale',
+    'direction-generale': 'Directeur général',
     'responsable-agence': 'Responsable Agence',
     'responsable-departement': 'Responsable Département',
     commercial: 'Commercial',

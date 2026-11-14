@@ -31,7 +31,7 @@ if (! str_contains((string) $db, 'test')) {
 
 $run = ($_GET['run'] ?? '') === '1';
 $steps = $run
-    ? ['storage:link' => [], 'route:clear' => [], 'config:clear' => [], 'migrate:status' => []]
+    ? ['storage:link' => [], 'route:clear' => [], 'config:clear' => [], 'cache:clear' => [], 'migrate:status' => []]
     : ['migrate:status' => []];
 
 foreach ($steps as $command => $args) {

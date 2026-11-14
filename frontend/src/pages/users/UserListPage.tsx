@@ -628,7 +628,7 @@ export default function UserListPage() {
               .filter((r) => r.name !== 'client')
               .map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.name}
+                  {t(`roles.${r.name}`, { defaultValue: r.name })}
                 </option>
               ))}
           </Select>
@@ -877,7 +877,7 @@ export default function UserListPage() {
             <option value="">{t('users.selectRole')}</option>
             {assignableRoles.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.name}
+                {t(`roles.${r.name}`, { defaultValue: r.name })}
               </option>
             ))}
             {editUser?.role &&
@@ -1119,7 +1119,7 @@ export default function UserListPage() {
             <option value="">{t('users.selectRole')}</option>
             {assignableRoles.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.name}
+                {t(`roles.${r.name}`, { defaultValue: r.name })}
               </option>
             ))}
           </Select>
