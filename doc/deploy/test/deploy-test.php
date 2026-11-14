@@ -3,7 +3,10 @@
 // 1. Remplacer CHANGE-MOI ci-dessous par un mot de passe a soi.
 // 2. Televerser dans repositories/pekegno_test/backend/public/
 // 3. Visiter https://api.test.pekegnogroup.com/deploy-test.php?token=<ton mot>
-//    -> etat des migrations ; ajouter &run=1 pour les appliquer.
+//    -> etat des migrations ; ajouter &run=1 pour creer le lien storage et
+//    vider les caches. Les migrations ne sont PAS lancees : Laravel genere du
+//    SQL PostgreSQL 10+ (ALTER ... IDENTITY) incompatible avec PG 9.6
+//    d'o2switch. La base se cree en important base-test-vierge-*.sql.
 // 4. SUPPRIMER ce fichier ensuite.
 
 const TOKEN = 'CHANGE-MOI';
@@ -28,7 +31,7 @@ if (! str_contains((string) $db, 'test')) {
 
 $run = ($_GET['run'] ?? '') === '1';
 $steps = $run
-    ? ['migrate' => ['--force' => true], 'storage:link' => [], 'route:clear' => [], 'config:clear' => [], 'migrate:status' => []]
+    ? ['storage:link' => [], 'route:clear' => [], 'config:clear' => [], 'migrate:status' => []]
     : ['migrate:status' => []];
 
 foreach ($steps as $command => $args) {
@@ -48,4 +51,4 @@ if (function_exists('opcache_reset')) {
     opcache_reset();
     echo "\nOPcache vide.\n";
 }
-echo $run ? "\nTermine. SUPPRIMER deploy-test.php maintenant.\n" : "\nAjouter &run=1 a l'adresse pour appliquer les migrations.\n";
+echo $run ? "\nTermine. SUPPRIMER deploy-test.php maintenant.\n" : "\nAjouter &run=1 a l'adresse pour creer le lien storage et vider les caches.\n";
