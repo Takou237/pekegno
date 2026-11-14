@@ -230,6 +230,9 @@ class UserController extends Controller
         $user = $request->user();
         $users = User::with($with)
             ->whereHas('role', fn ($q) => $q->where('name', '!=', 'client'))
+            // Les comptes super-admin ne sont visibles que d'un super-admin
+            // (le directeur général ne voit pas le super-admin).
+            ->when(! $user?->isSuperAdmin(), fn ($q) => $q->whereDoesntHave('role', fn ($r) => $r->where('name', 'super-admin')))
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
@@ -409,6 +412,8 @@ class UserController extends Controller
     )]
     public function show(Request $request, User $user)
     {
+        abort_if($user->role?->name === 'super-admin' && ! $request->user()?->isSuperAdmin(), 404);
+
         $with = array_unique(array_merge(['role', 'assignments.agency'], $this->parseWith($request)));
 
         return new UserResource($user->load($with));

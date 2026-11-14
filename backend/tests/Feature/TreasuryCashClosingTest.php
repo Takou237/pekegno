@@ -114,7 +114,7 @@ class TreasuryCashClosingTest extends TestCase
             'declared_advance' => 0,
             'discount' => 0,
             'vat_rate' => 0,
-            'status' => 'pending',
+            'status' => 'unpaid',
             'validation_status' => Invoice::VALIDATION_VALIDATED,
             'validated_at' => now(),
         ]);

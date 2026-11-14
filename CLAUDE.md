@@ -12,6 +12,23 @@ docker exec pekegno-server php artisan test
 
 Les tests utilisent SQLite en mémoire (`phpunit.xml`) : ils ne touchent pas la base Postgres locale.
 
+**Avant de livrer, relancer aussi la suite sur PostgreSQL** : SQLite accepte des comparaisons
+qu'on ne voit planter qu'en production (texte vs uuid, valeur hors contrainte CHECK…). Base jetable :
+
+```bash
+docker network create pgtest-net
+docker run -d --name pgtest --network pgtest-net -e POSTGRES_PASSWORD=secret \
+  -e POSTGRES_USER=pekegno -e POSTGRES_DB=pekegno_tests postgres:16
+cd backend && docker run --rm --network pgtest-net -e DB_CONNECTION=pgsql -e DB_HOST=pgtest \
+  -e DB_DATABASE=pekegno_tests -e DB_USERNAME=pekegno -e DB_PASSWORD=secret \
+  -v "$PWD":/app -w /app --entrypoint php pekegno-php artisan test
+docker rm -f pgtest && docker network rm pgtest-net
+```
+
+La production est en **PostgreSQL 9.6** : `php artisan migrate` y échoue dès qu'une migration
+modifie une colonne (`->change()` génère du SQL PostgreSQL 10+). Écrire ces changements en
+`DB::statement` compatible 9.6, ou les livrer en SQL.
+
 ### Échecs connus (pas graves)
 
 Environ 31 tests échouent en local. Ce sont des échecs connus, sans rapport avec une régression :

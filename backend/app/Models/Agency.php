@@ -220,9 +220,14 @@ class Agency extends Model
         // Accepte un id (FK country_id) ou le libellé legacy (colonne varchar
         // `country`) : les agences historiques n'ont pas toujours country_id
         // renseigné (ex. Côte d'Ivoire à 0 de CA car whereIn([])).
+        // Un libellé (« France ») n'est jamais comparé à la colonne uuid :
+        // PostgreSQL le refuse (500), SQLite l'acceptait.
         return $query->where(function ($q) use ($country) {
-            $q->where('country_id', $country)
-                ->orWhere('country', $country);
+            if (\Illuminate\Support\Str::isUuid($country)) {
+                $q->where('country_id', $country)->orWhere('country', $country);
+            } else {
+                $q->where('country', $country);
+            }
         });
     }
 

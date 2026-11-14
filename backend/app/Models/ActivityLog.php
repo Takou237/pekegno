@@ -60,12 +60,17 @@ class ActivityLog extends Model
             return $query;
         }
 
-        $superAdminIds = User::whereHas('role', fn ($q) => $q->where('name', 'super-admin'))->withTrashed()->select('id');
+        // Comparaisons en texte : activity_logs.entity_id est un varchar
+        // (identifiants de toutes sortes d'entités) et users.id un uuid.
+        $superAdminIds = fn () => User::withTrashed()
+            ->whereHas('role', fn ($q) => $q->where('name', 'super-admin'))
+            ->selectRaw('CAST(users.id AS TEXT)');
 
         return $query
-            ->where(fn ($q) => $q->whereNull('activity_logs.user_id')->orWhereNotIn('activity_logs.user_id', $superAdminIds))
+            ->where(fn ($q) => $q->whereNull('activity_logs.user_id')
+                ->orWhereRaw('CAST(activity_logs.user_id AS TEXT) NOT IN ('.$superAdminIds()->toSql().')', $superAdminIds()->getBindings()))
             ->where(fn ($q) => $q->where('activity_logs.entity_type', '!=', 'user')
                 ->orWhereNull('activity_logs.entity_id')
-                ->orWhereNotIn('activity_logs.entity_id', User::whereHas('role', fn ($r) => $r->where('name', 'super-admin'))->withTrashed()->select('id')));
+                ->orWhereRaw('CAST(activity_logs.entity_id AS TEXT) NOT IN ('.$superAdminIds()->toSql().')', $superAdminIds()->getBindings()));
     }
 }

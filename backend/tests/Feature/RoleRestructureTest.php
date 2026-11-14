@@ -50,6 +50,16 @@ class RoleRestructureTest extends TestCase
 
         Sanctum::actingAs($super);
         $this->assertCount(3, $this->getJson('/api/activity-logs?per_page=100')->assertOk()->json('data'));
+
+        // Ni dans les utilisateurs (Réglages → Utilisateurs, filtre du journal), ni sur sa fiche.
+        Sanctum::actingAs($dg);
+        $ids = collect($this->getJson('/api/users?per_page=100')->assertOk()->json('data'))->pluck('id');
+        $this->assertNotContains($super->id, $ids->all());
+        $this->assertContains($other->id, $ids->all());
+        $this->getJson("/api/users/{$super->id}")->assertNotFound();
+
+        Sanctum::actingAs($super);
+        $this->assertContains($super->id, collect($this->getJson('/api/users?per_page=100')->json('data'))->pluck('id')->all());
     }
 
     public function test_general_director_creates_general_directors_and_directors_but_not_super_admins(): void
