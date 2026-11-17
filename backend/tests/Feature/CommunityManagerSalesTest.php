@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\Commercial;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -64,6 +65,41 @@ class CommunityManagerSalesTest extends TestCase
         $profile = Commercial::where('user_id', $cm->id)->firstOrFail();
         $this->assertSame($profile->id, $own->fresh()->commercial_id);
         $this->assertSame($other->id, $foreign->fresh()->commercial_id);
+    }
+
+    public function test_commercial_sees_cross_agency_sale_in_sales_tracking(): void
+    {
+        $ownAgency = Agency::factory()->create();
+        $sellingAgency = Agency::factory()->create();
+
+        $commercial = User::factory()->create(['role_id' => Role::where('name', 'commercial')->value('id')]);
+        $commercial->assignments()->sync([$ownAgency->id => ['is_primary' => true]]);
+
+        $invoice = $this->makeInvoice($sellingAgency, [
+            'seller_user_id' => $commercial->id,
+            'commercial_id' => null,
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+            'total_amount' => 50000,
+        ]);
+
+        InvoiceItem::create([
+            'invoice_id' => $invoice->id,
+            'label' => 'Produit hors agence',
+            'quantity' => 1,
+            'unit_price' => 50000,
+            'line_total' => 50000,
+            'total_price' => 50000,
+        ]);
+
+        Sanctum::actingAs($commercial);
+
+        $response = $this->getJson('/api/sales-tracking')->assertOk();
+        $invoiceIds = collect($response->json('data'))->pluck('invoice_id');
+
+        $this->assertTrue(
+            $invoiceIds->contains($invoice->id),
+            'Une vente réalisée dans une autre agence doit apparaître dans le suivi du commercial.'
+        );
     }
 
     public function test_community_manager_has_commercial_permissions(): void

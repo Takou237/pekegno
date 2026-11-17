@@ -6,6 +6,7 @@ use App\Models\AccountingCategory;
 use App\Models\AccountingTransaction;
 use App\Models\Expense;
 use App\Models\TreasuryAccount;
+use App\Models\TreasuryTransaction;
 use Illuminate\Support\Facades\DB;
 
 class ExpenseService
@@ -73,6 +74,13 @@ class ExpenseService
             "Une dépense de l'Administration se paie depuis une caisse de l'Administration du même pays."
         );
 
+        // Point 12 : une dépense ne peut pas mettre la caisse en négatif.
+        abort_if(
+            (float) $expense->amount > $this->treasuryService->balanceFor($account),
+            422,
+            'Solde insuffisant dans cette caisse.'
+        );
+
         DB::transaction(function () use ($expense, $account, $actorUserId) {
             $this->treasuryService->recordMovement(
                 account: $account,
@@ -112,6 +120,7 @@ class ExpenseService
 
     public function reopen(Expense $expense, string $actorUserId): Expense
     {
+        abort_if($expense->cancelled_at !== null, 422, 'Cette dépense est annulée.');
         if ($expense->status !== Expense::STATUS_REJECTED) {
             abort(422, 'Seule une dépense rejetée peut être rouverte.');
         }
@@ -124,8 +133,56 @@ class ExpenseService
         return $expense;
     }
 
+    public function cancel(Expense $expense, string $actorUserId): Expense
+    {
+        abort_if($expense->cancelled_at !== null, 422, 'Cette dépense est déjà annulée.');
+
+        DB::transaction(function () use ($expense, $actorUserId) {
+            // Dépense déjà payée : on remet l'argent en caisse et on supprime
+            // l'écriture comptable correspondante.
+            if (in_array($expense->status, [Expense::STATUS_PAID, Expense::STATUS_CLOSED], true)) {
+                $this->reversePaidOutcome($expense, $actorUserId);
+            }
+
+            $expense->cancelled_at = now();
+            $expense->cancelled_by = $actorUserId;
+            $expense->save();
+        });
+
+        $this->activity('annulée', $expense);
+
+        return $expense;
+    }
+
+    private function reversePaidOutcome(Expense $expense, string $actorUserId): void
+    {
+        $transactions = TreasuryTransaction::query()
+            ->where('source_type', 'expense')
+            ->where('source_id', $expense->id)
+            ->where('direction', 'out')
+            ->get();
+
+        foreach ($transactions as $transaction) {
+            $alreadyReversed = TreasuryTransaction::query()
+                ->where('source_type', 'reversal')
+                ->where('source_id', $transaction->id)
+                ->exists();
+
+            if (! $alreadyReversed) {
+                $this->treasuryService->reverse($transaction, $actorUserId);
+            }
+        }
+
+        AccountingTransaction::query()
+            ->where('reference', $expense->number)
+            ->where('type', 'expense')
+            ->delete();
+    }
+
     private function assertTransition(Expense $expense, string $target): void
     {
+        abort_if($expense->cancelled_at !== null, 422, 'Cette dépense est annulée.');
+
         $allowed = match ($target) {
             Expense::STATUS_SUBMITTED => in_array($expense->status, [Expense::STATUS_DRAFT], true),
             Expense::STATUS_APPROVED => in_array($expense->status, [Expense::STATUS_SUBMITTED], true),

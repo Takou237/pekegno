@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeftRight, CheckCircle2, Lock, Plus, RefreshCw } from 'lucide-react';
+import { ArrowLeftRight, CheckCircle2, Lock, Plus, RefreshCw, Unlock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import TransferModal from '@/components/treasury/TransferModal';
 import NewAccountModal from '@/components/treasury/NewAccountModal';
@@ -63,6 +63,8 @@ export default function CashClosingsPage() {
   const [closings, setClosings] = useState<CashClosing[]>([]);
   const [days, setDays] = useState<Record<string, CashJourney>>({});
   const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const [bulkClosing, setBulkClosing] = useState(false);
+  const [bulkReopening, setBulkReopening] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [closingAccount, setClosingAccount] = useState<TreasuryAccount | null>(null);
@@ -140,6 +142,32 @@ export default function CashClosingsPage() {
     }
   }
 
+  async function handleCloseAll() {
+    setBulkClosing(true);
+    try {
+      const result = await treasuryApi.closeAllCash();
+      showToast(t('treasury.closeAllSuccess', { count: result.closed }), 'success');
+      load();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('common.error')), 'error');
+    } finally {
+      setBulkClosing(false);
+    }
+  }
+
+  async function handleReopenAll() {
+    setBulkReopening(true);
+    try {
+      const result = await treasuryApi.reopenAllCash();
+      showToast(t('treasury.reopenAllSuccess', { count: result.reopened }), 'success');
+      load();
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('common.error')), 'error');
+    } finally {
+      setBulkReopening(false);
+    }
+  }
+
   const when = (iso: string | null) => (iso ? formatDateTimeFr(iso) : null);
 
   // Une caisse C, O, M… par agence : on regroupe les cartes sous le nom de
@@ -185,10 +213,20 @@ export default function CashClosingsPage() {
             </Button>
           )}
           {canTransfer && (
-            <Button onClick={() => setTransferOpen(true)}>
-              <ArrowLeftRight className="h-4 w-4" />
-              {t('treasury.transfer')}
-            </Button>
+            <>
+              <Button variant="outline" onClick={handleCloseAll} isLoading={bulkClosing}>
+                <Lock className="h-4 w-4" />
+                {t('treasury.closeAllCash')}
+              </Button>
+              <Button variant="outline" onClick={handleReopenAll} isLoading={bulkReopening}>
+                <Unlock className="h-4 w-4" />
+                {t('treasury.reopenAllCash')}
+              </Button>
+              <Button onClick={() => setTransferOpen(true)}>
+                <ArrowLeftRight className="h-4 w-4" />
+                {t('treasury.transfer')}
+              </Button>
+            </>
           )}
           <Button variant="outline" onClick={load}>
             <RefreshCw className="h-4 w-4" />

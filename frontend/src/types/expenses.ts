@@ -29,6 +29,8 @@ export interface Expense {
   service_id?: string | null;
   cancelled_by: string | null;
   cancelled_at: string | null;
+  /** Dérivé : cancelled_at renseigné. */
+  is_cancelled?: boolean;
   created_at: string;
   updated_at: string;
   agency?: { id: string; name: string };

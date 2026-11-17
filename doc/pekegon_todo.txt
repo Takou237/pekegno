@@ -1,0 +1,35 @@
+Où nous en sommes
+
+Les deux audits sont terminés (preuves/factures, dépenses/caisses) et aucune ligne de code n'a été modifiée — tout était en lecture seule. J'ai complété par trois vérifications qui manquaient : sessions/tokens, édition des utilisateurs, suivi des ventes. Seul fichier nouveau : le TODO. Rien à tester tant qu'on n'a pas touché au code.
+
+Ce que l'audit a confirmé (les causes, pas seulement les symptômes)
+
+- Images de preuves cassées : trois causes cumulées. L'URL est absolue et construite depuis  APP_URL  ( PaymentProof.php:65-68 ), donc le proxy Vercel ne s'applique pas ;  storage:link  est lancé avec  || true  (échec silencieux) ; et surtout  render.yaml  est en  plan: free  sans disque persistant → les fichiers uploadés disparaissent à chaque redéploiement. En local, les images s'affichent : le bug est bien un problème d'hébergement, pas d'upload.
+- Session 24 h : les tokens Sanctum n'expirent jamais ( config/sanctum.php:53 → null ) et  SESSION_LIFETIME=120  ne sert à rien ici (auth par Bearer, pas cookie). Il existe déjà  EnsureSingleSession  : c'est là qu'on ajoute la durée de vie.
+- Modifier un utilisateur : impossible aujourd'hui, il n'existe que  PUT /users/{user}/role  et  reset-password . Il faut créer l'endpoint.
+- « Nouveau formateur » :  availableUsers  filtre  role = formateur  et exclut les comptes déjà liés ;  linkUser  refuse aussi tout autre rôle. D'où le select incomplet.
+- Vente d'une autre agence invisible : le suivi des ventes applique d'abord le périmètre d'agences du commercial, avant le filtre « mes ventes ». La facture, émise sur l'agence du produit, est donc filtrée alors qu'elle lui appartient.
+- Solde négatif : aucun contrôle nulle part, et les tests l'assument explicitement ( TreasuryControlsTest:146,152,212 ) — ils devront changer avec la règle.
+- Annuler une dépense : n'existe pas. Les colonnes  cancelled_at / cancelled_by  sont déjà là mais inutilisées.
+- Clôture auto : aucune tâche planifiée pour les caisses, et une heure fixe unique est fausse puisque l'app est en UTC, le métier en  Africa/Douala  et les pays XOF en  Africa/Abidjan .
+
+Par quoi commencer
+
+Ordre recommandé, du moins risqué au plus structurant :
+1. Affichage et permissions factures (points 5, 6, 7, 9) : quelques heures, très visibles, aucun impact comptable. Badge « Annulée » basé sur  is_cancelled , motif de rejet affiché, bouton Annuler piloté par  invoices.annuler , motif facultatif pour le commercial tant que rien n'est encaissé.
+2. Cascade du rejet + bouton « Encaisser » (points 4 et 8) : même écran, même logique, à faire dans la même passe.
+3. Images des preuves (point 3) : passer par une route API authentifiée qui sert le fichier — ça règle URL absolue, proxy et mixed content d'un coup — puis trancher le stockage durable.
+4. Académie (point 10) : une demi-heure, indépendant du reste.
+5. Session 24 h puis édition utilisateur (points 2 et 1).
+6. Suivi des ventes (point 11).
+7. Lot caisses/dépenses (12 → 13 → 14a → 14b) en dernier : c'est là qu'on touche aux statuts, aux mouvements de trésorerie et aux fuseaux horaires, donc aux tests existants.
+
+Décisions qui t'attendent
+
+- Stockage des preuves : disque persistant Render (payant) ou stockage objet S3 ?
+- Session 24 h : réglage global (proposition) ou par utilisateur ?
+- Solde insuffisant : sur toutes les sorties de trésorerie (proposition, avec exception interne pour les contre-passations) ou seulement les dépenses ?
+- Horaires de caisse : un couple global ou un réglage par agence (proposition) ?
+- Dépense annulée : nouveau statut  cancelled  visible dans les rapports, ou suppression douce avec motif ?
+
+Tout est détaillé dans  doc/TODO_CORRECTIONS_2026-11-16.md , avec fichiers et numéros de ligne pour chaque point.

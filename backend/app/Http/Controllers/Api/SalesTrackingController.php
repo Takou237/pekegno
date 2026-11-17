@@ -71,8 +71,11 @@ class SalesTrackingController extends Controller
         // agences (user_assignments, chef de département, commercial). Sans ce
         // filtre, le suivi mélangeait les agences et les caissiers hors scope
         // affichaient 0 une fois filtrés côté front.
+        // Point 11 : un commercial peut vendre un produit d'une autre agence ; le
+        // périmètre d'agence masquerait cette vente alors qu'il en est le vendeur.
+        // On le laisse donc voir toutes les factures dont il est le vendeur.
         $scopeAgencyIds = app(\App\Services\ScopeService::class)->agencyIds($user);
-        if ($scopeAgencyIds !== null) {
+        if ($scopeAgencyIds !== null && ! $user?->actsAsCommercial()) {
             $invoiceBase->whereIn('agency_id', $scopeAgencyIds);
         }
 

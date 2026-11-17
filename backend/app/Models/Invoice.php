@@ -56,7 +56,9 @@ class Invoice extends Model
         'cancelled_at',
     ];
 
-    protected $appends = ['balance_due', 'vat_amount', 'agency_snapshot', 'client_label', 'currency_code'];
+    // `is_cancelled` : le front distingue « annulée » de « rejetée » et masque le
+    // bloc « Validée par … » ; sans lui, l'API ne renvoyait que `status`.
+    protected $appends = ['balance_due', 'vat_amount', 'agency_snapshot', 'client_label', 'currency_code', 'is_cancelled'];
 
     protected function casts(): array
     {

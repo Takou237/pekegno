@@ -136,7 +136,7 @@ class CashClosingService
      * solde initial de la journée suivante.
      */
     public function close(
-        User $user,
+        ?User $user,
         TreasuryAccount $account,
         float $actualBalance,
         ?string $justification = null,
@@ -168,7 +168,7 @@ class CashClosingService
             'difference' => $difference,
             'justification' => $justification !== '' ? $justification : null,
             'status' => CashClosing::STATUS_CLOSED,
-            'closed_by' => $user->id,
+            'closed_by' => $user?->id,
         ]);
 
         if ($closing->hasDifference() && $account->agency_id) {
@@ -179,14 +179,65 @@ class CashClosingService
     }
 
     /** Réouverture : une nouvelle journée commence, au solde final de la clôture. */
-    public function reopen(User $user, TreasuryAccount $account): CashClosing
+    public function reopen(?User $user, TreasuryAccount $account): CashClosing
     {
         $open = CashClosing::openFor($account->id);
-        abort_if($open === null, 422, 'Cette caisse est déjà ouverte.');
+        abort_if($open === null, 422, 'Cette caisse est dǸj�� ouverte.');
 
-        $open->update(['reopened_at' => now(), 'reopened_by' => $user->id]);
+        $open->update(['reopened_at' => now(), 'reopened_by' => $user?->id]);
 
         return $open->load('account');
+    }
+
+    /**
+     * Point 14a : clôture de toutes les caisses du périmètre (administration).
+     * Le solde physique déclaré est le solde théorique : pas d'écart, donc
+     * pas de justification à saisir. Les caisses déjà fermées sont ignorées.
+     *
+     * @return array{closed: int, skipped: int}
+     */
+    public function closeAll(?User $user, ?array $agencyIds = null): array
+    {
+        $accounts = TreasuryAccount::query()
+            ->where('type', 'cash')
+            ->where('is_active', true)
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->get();
+
+        $closed = 0;
+        $skipped = 0;
+
+        foreach ($accounts as $account) {
+            if (CashClosing::openFor($account->id) !== null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $this->close($user, $account, $this->currentJourney($account)['closing']);
+            $closed++;
+        }
+
+        return ['closed' => $closed, 'skipped' => $skipped];
+    }
+
+    /**
+     * Point 14a : réouverture de toutes les caisses fermées du périmètre.
+     *
+     * @return array{reopened: int}
+     */
+    public function reopenAll(?User $user, ?array $agencyIds = null): array
+    {
+        $closings = CashClosing::query()
+            ->whereNull('reopened_at')
+            ->when($agencyIds !== null, fn ($q) => $q->whereIn('agency_id', $agencyIds))
+            ->get();
+
+        foreach ($closings as $closing) {
+            $closing->update(['reopened_at' => now(), 'reopened_by' => $user?->id]);
+        }
+
+        return ['reopened' => $closings->count()];
     }
 
     /**

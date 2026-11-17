@@ -121,6 +121,22 @@ class CashClosingController extends Controller
         return response()->json($service->reopen($request->user(), $account));
     }
 
+    /** Point 14a : clôturer toutes les caisses du périmètre. */
+    public function closeAll(Request $request, CashClosingService $service, ScopeService $scope)
+    {
+        return response()->json(
+            $service->closeAll($request->user(), $scope->agencyIds($request->user())),
+        );
+    }
+
+    /** Point 14a : rouvrir toutes les caisses fermées du périmètre. */
+    public function reopenAll(Request $request, CashClosingService $service, ScopeService $scope)
+    {
+        return response()->json(
+            $service->reopenAll($request->user(), $scope->agencyIds($request->user())),
+        );
+    }
+
     public function validateClosing(Request $request, CashClosing $closing, CashClosingService $service, ScopeService $scope)
     {
         $this->authorize('view', $closing->account);

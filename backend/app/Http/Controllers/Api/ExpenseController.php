@@ -327,7 +327,17 @@ class ExpenseController extends Controller
     public function update(Request $request, Expense $expense): JsonResponse
     {
         $this->assertInScope($request, $expense);
-        abort_if($expense->status !== Expense::STATUS_DRAFT, 422, 'Seule une dépense en brouillon peut être modifiée.');
+        abort_if($expense->cancelled_at !== null, 422, 'Cette dépense est annulée.');
+        abort_if(
+            ! in_array($expense->status, [
+                Expense::STATUS_DRAFT,
+                Expense::STATUS_SUBMITTED,
+                Expense::STATUS_APPROVED,
+                Expense::STATUS_REJECTED,
+            ], true),
+            422,
+            'Une dépense payée ou clôturée ne peut plus être modifiée.'
+        );
 
         $data = $request->validate([
             'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
@@ -498,6 +508,24 @@ class ExpenseController extends Controller
         $expense = $this->expenseService->reopen($expense, $request->user()->id);
 
         return response()->json($expense->fresh());
+    }
+
+    #[OA\Post(
+        path: '/api/expenses/{expense}/cancel',
+        summary: 'Annuler une dépense (rembourse la caisse et retire l\'écriture si elle était payée)',
+        tags: ['Dépenses'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Dépense annulée'),
+            new OA\Response(response: 422, description: 'Dépense déjà annulée'),
+        ]
+    )]
+    public function cancel(Expense $expense, Request $request): JsonResponse
+    {
+        $this->assertInScope($request, $expense);
+        $expense = $this->expenseService->cancel($expense, $request->user()->id);
+
+        return response()->json($expense->fresh()->load(['agency', 'country:id,name', 'category', 'requestor']));
     }
 
     #[OA\Delete(

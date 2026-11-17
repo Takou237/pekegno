@@ -83,6 +83,13 @@ export default function PendingInvoicesPage({
   const [proofModalError, setProofModalError] = useState<string | null>(null);
   const [proofSubmitting, setProofSubmitting] = useState(false);
 
+  // Point 8 : depuis la preuve, un seul « Encaisser » et un « Annuler » qui
+  // rejette uniquement LA preuve (motif libre), pas la facture entière.
+  const [proofRejectTarget, setProofRejectTarget] = useState<PaymentProof | null>(null);
+  const [proofRejectReason, setProofRejectReason] = useState('');
+  const [proofRejectError, setProofRejectError] = useState<string | null>(null);
+  const [proofRejectSubmitting, setProofRejectSubmitting] = useState(false);
+
   const agencyId = fixedAgencyId ?? (searchParams.get('agency_id') ?? '');
 
   useEffect(() => {
@@ -200,11 +207,44 @@ export default function PendingInvoicesPage({
     }
   }
 
-  function rejectFromProofModal() {
-    if (!proofModalInvoice) return;
-    const invoice = proofModalInvoice;
-    closeProofModal();
-    openReject(invoice);
+  function openProofReject() {
+    if (!proofModalProof) return;
+    setProofRejectTarget(proofModalProof);
+    setProofRejectReason('');
+    setProofRejectError(null);
+  }
+
+  function closeProofReject() {
+    setProofRejectTarget(null);
+    setProofRejectReason('');
+    setProofRejectError(null);
+  }
+
+  async function handleRejectProof(event: FormEvent) {
+    event.preventDefault();
+    if (!proofRejectTarget) return;
+    if (!proofRejectReason.trim()) {
+      setProofRejectError(t('invoices.proofRejectReasonRequired'));
+      return;
+    }
+    setProofRejectSubmitting(true);
+    setProofRejectError(null);
+    try {
+      await invoicesApi.rejectProof(proofRejectTarget.id, {
+        rejection_code: 'other',
+        notes: proofRejectReason.trim(),
+      });
+      showToast(t('invoices.proofRejectedToast'), 'success');
+      closeProofReject();
+      closeProofModal();
+      fetchInvoices();
+    } catch (error) {
+      const msg = extractErrorMessage(error, t('invoices.proofError'));
+      setProofRejectError(msg);
+      if (msg) showToast(msg, 'error');
+    } finally {
+      setProofRejectSubmitting(false);
+    }
   }
 
   async function handleReject(event: FormEvent) {
@@ -457,13 +497,13 @@ export default function PendingInvoicesPage({
                 {proofModalError && <Alert variant="error">{proofModalError}</Alert>}
 
                 <div className="flex justify-end gap-3">
-                  <Button type="button" variant="danger" onClick={rejectFromProofModal} disabled={proofSubmitting}>
+                  <Button type="button" variant="danger" onClick={openProofReject} disabled={proofSubmitting}>
                     <XCircle className="h-4 w-4" />
-                    {t('invoices.reject')}
+                    {t('invoices.proofCancel')}
                   </Button>
                   <Button type="button" onClick={handleApproveProof} isLoading={proofSubmitting}>
                     <Check className="h-4 w-4" />
-                    {t('invoices.validate')}
+                    {t('invoices.proofCollect')}
                   </Button>
                 </div>
               </>
@@ -480,6 +520,37 @@ export default function PendingInvoicesPage({
             )}
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={proofRejectTarget !== null}
+        onClose={closeProofReject}
+        title={t('invoices.proofRejectTitle')}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleRejectProof} className="flex flex-col gap-4">
+          {proofRejectError && <Alert variant="error">{proofRejectError}</Alert>}
+          <Input
+            label={t('invoices.proofRejectDetails')}
+            value={proofRejectReason}
+            onChange={(e) => setProofRejectReason(e.target.value)}
+            error={proofRejectError ?? undefined}
+            placeholder={t('invoices.proofRejectReasonPlaceholder')}
+          />
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={closeProofReject} disabled={proofRejectSubmitting}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="submit"
+              variant="danger"
+              isLoading={proofRejectSubmitting}
+              disabled={!proofRejectReason.trim()}
+            >
+              {t('invoices.proofCancel')}
+            </Button>
+          </div>
+        </form>
       </Modal>
 
       <Modal

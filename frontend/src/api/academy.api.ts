@@ -131,7 +131,7 @@ export const academyApi = {
   },
 
   async availableUsers(params: { agency_id?: string } = {}): Promise<
-    { id: string; first_name: string | null; last_name: string | null; email: string; is_active: boolean }[]
+    { id: string; first_name: string | null; last_name: string | null; email: string; is_active: boolean; role?: string | null }[]
   > {
     const { data } = await client.get('/trainers/available-users', { params });
     return Array.isArray(data) ? data : [];

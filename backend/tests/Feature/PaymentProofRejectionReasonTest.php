@@ -127,6 +127,102 @@ class PaymentProofRejectionReasonTest extends TestCase
             ->assertJsonValidationErrors(['rejection_code']);
     }
 
+    public function test_rejecting_the_first_payment_cancels_the_invoice(): void
+    {
+        $proof = $this->pendingProof();
+        Sanctum::actingAs($this->reviewer());
+
+        $this->postJson("/api/payment-proofs/{$proof->id}/reject", [
+            'rejection_code' => 'expired_date',
+        ])->assertOk();
+
+        $invoice = Invoice::findOrFail($proof->invoice_id);
+        $this->assertNotNull($invoice->cancelled_at);
+        $this->assertSame('cancelled', $invoice->status);
+        $this->assertSame(Invoice::VALIDATION_REJECTED, $invoice->validation_status);
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'cancelled',
+            'entity_id' => $invoice->id,
+        ]);
+    }
+
+    public function test_rejecting_the_remaining_payment_does_not_cancel_the_invoice(): void
+    {
+        $agency = Agency::factory()->create();
+        $this->seq++;
+
+        $invoice = Invoice::create([
+            'number' => sprintf('PK-B25-%03d', $this->seq),
+            'agency_id' => $agency->id,
+            'invoice_date' => '2026-11-12',
+            'total_amount' => 10000,
+            'amount_paid' => 4000,
+            'discount' => 0,
+            'vat_rate' => 0,
+            'status' => 'partial',
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+            'source' => 'in_person',
+        ]);
+
+        $proof = PaymentProof::create([
+            'invoice_id' => $invoice->id,
+            'payment_method' => 'momo',
+            'amount' => 6000,
+            'file_path' => 'payment-proofs/test.jpg',
+            'status' => PaymentProof::STATUS_PENDING,
+        ]);
+
+        Sanctum::actingAs($this->reviewer());
+
+        $this->postJson("/api/payment-proofs/{$proof->id}/reject", [
+            'rejection_code' => 'unreadable',
+        ])->assertOk();
+
+        $invoice->refresh();
+        $this->assertNull($invoice->cancelled_at);
+        $this->assertSame('partial', $invoice->status);
+        $this->assertSame(Invoice::VALIDATION_VALIDATED, $invoice->validation_status);
+        $this->assertSame(PaymentProof::STATUS_REJECTED, $proof->fresh()->status);
+    }
+
+    public function test_rejecting_first_payment_on_validated_invoice_cancels_it(): void
+    {
+        $agency = Agency::factory()->create();
+        $this->seq++;
+
+        $invoice = Invoice::create([
+            'number' => sprintf('PK-B25-%03d', $this->seq),
+            'agency_id' => $agency->id,
+            'invoice_date' => '2026-11-12',
+            'total_amount' => 10000,
+            'amount_paid' => 0,
+            'discount' => 0,
+            'vat_rate' => 0,
+            'status' => 'unpaid',
+            'validation_status' => Invoice::VALIDATION_VALIDATED,
+            'source' => 'in_person',
+        ]);
+
+        $proof = PaymentProof::create([
+            'invoice_id' => $invoice->id,
+            'payment_method' => 'momo',
+            'amount' => 10000,
+            'file_path' => 'payment-proofs/test.jpg',
+            'status' => PaymentProof::STATUS_PENDING,
+        ]);
+
+        Sanctum::actingAs($this->reviewer());
+
+        $this->postJson("/api/payment-proofs/{$proof->id}/reject", [
+            'rejection_code' => 'expired_date',
+        ])->assertOk();
+
+        $invoice->refresh();
+        $this->assertNotNull($invoice->cancelled_at);
+        $this->assertSame('cancelled', $invoice->status);
+        $this->assertSame(Invoice::VALIDATION_REJECTED, $invoice->validation_status);
+    }
+
     public function test_legacy_notes_only_rejection_still_works(): void
     {
         $proof = $this->pendingProof();

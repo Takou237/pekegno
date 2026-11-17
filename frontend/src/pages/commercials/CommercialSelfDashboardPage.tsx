@@ -284,7 +284,7 @@ function CommercialSelfDashboard() {
                       )}
                     </td>
                     <td className="px-5 py-3 text-right">
-                      {inv.validation_status === 'pending' ? (
+                      {inv.validation_status === 'pending' && Number(inv.amount_paid) <= 0 ? (
                         <button
                           type="button"
                           onClick={() => handleDelete(inv)}

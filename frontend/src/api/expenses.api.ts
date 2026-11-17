@@ -57,4 +57,8 @@ export const expensesApi = {
   reopen(id: string): Promise<Expense> {
     return client.post(`/expenses/${id}/reopen`).then((r) => r.data);
   },
+
+  cancel(id: string): Promise<Expense> {
+    return client.post(`/expenses/${id}/cancel`).then((r) => r.data);
+  },
 };

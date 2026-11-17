@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ActivityLog;
 use App\Models\Agency;
+use App\Models\Commercial;
 use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
@@ -162,5 +163,68 @@ class InvoiceAlwaysVisibleTest extends TestCase
 
         $this->assertArrayHasKey('PK-20261101-013', $listed);
         $this->assertArrayHasKey('PK-20261101-014', $listed);
+    }
+
+    /**
+     * Point 9 : un commercial annule sa facture sans motif tant que rien n'est
+     * encaissé. Dès qu'un versement existe, l'annulation reste réservée à
+     * l'encadrement (avec motif).
+     */
+    public function test_a_commercial_cancels_his_unpaid_invoice_without_a_reason(): void
+    {
+        $commercialUser = $this->user('commercial');
+        $profile = Commercial::create([
+            'user_id' => $commercialUser->id,
+            'agency_id' => $this->agency->id,
+            'first_name' => 'Awa',
+            'last_name' => 'K',
+            'is_active' => true,
+        ]);
+
+        $invoice = $this->invoice('PK-20261101-020', Invoice::VALIDATION_VALIDATED, [
+            'commercial_id' => $profile->id,
+        ]);
+
+        Sanctum::actingAs($commercialUser);
+
+        $this->postJson("/api/invoices/{$invoice->id}/cancel")->assertOk();
+
+        $this->assertNotNull($invoice->fresh()->cancelled_at);
+
+        $log = ActivityLog::where('action', 'cancelled')
+            ->where('entity_type', 'invoice')
+            ->where('entity_id', $invoice->id)
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertSame(
+            'Annulée par le commercial avant encaissement.',
+            $log->new_values['cancellation_reason'] ?? null,
+        );
+
+        // Facture partiellement encaissée : plus d'annulation commerciale sans
+        // motif (et plus d'annulation du tout pour un commercial sur une facture
+        // validée et payée).
+        $paid = $this->invoice('PK-20261101-021', Invoice::VALIDATION_VALIDATED, [
+            'commercial_id' => $profile->id,
+            'amount_paid' => 10000,
+            'status' => 'partial',
+        ]);
+
+        $this->postJson("/api/invoices/{$paid->id}/cancel")->assertStatus(422);
+        $this->assertNull($paid->fresh()->cancelled_at);
+
+        // Encaissée mais pas encore validée : le commercial ne peut pas non plus
+        // l'annuler, même avec un motif.
+        $paidPending = $this->invoice('PK-20261101-022', Invoice::VALIDATION_PENDING, [
+            'commercial_id' => $profile->id,
+            'amount_paid' => 5000,
+            'status' => 'partial',
+        ]);
+
+        $this->postJson("/api/invoices/{$paidPending->id}/cancel", [
+            'cancellation_reason' => 'Tentative après encaissement',
+        ])->assertStatus(422);
+        $this->assertNull($paidPending->fresh()->cancelled_at);
     }
 }

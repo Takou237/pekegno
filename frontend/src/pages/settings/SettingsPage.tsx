@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonDetail, SkeletonTable } from '@/components/ui/Skeleton';
 import type { CommissionType } from '@/types/settings';
@@ -38,6 +39,10 @@ interface SettingsForm {
   default_commission_value: string;
   invoice_prefix: string;
   group_currency: string;
+  session_lifetime_hours: string;
+  cash_auto_closing_enabled: boolean;
+  cash_closing_time: string;
+  cash_reopening_time: string;
 }
 
 const EMPTY_FORM: SettingsForm = {
@@ -50,6 +55,10 @@ const EMPTY_FORM: SettingsForm = {
   default_commission_value: '20',
   invoice_prefix: '',
   group_currency: 'XAF',
+  session_lifetime_hours: '24',
+  cash_auto_closing_enabled: true,
+  cash_closing_time: '22:00',
+  cash_reopening_time: '07:00',
 };
 
 export default function SettingsPage() {
@@ -133,6 +142,10 @@ function GeneralSettingsTab() {
         const isLegacyDefault =
           (rawType === undefined || rawType === 'none') &&
           (rawValue === undefined || Number(rawValue) === 0);
+        // Le réglage est stocké en minutes ; l'écran le présente en heures. Une
+        // valeur par rôle (tableau) n'est pas éditable ici : on affiche le défaut.
+        const rawLifetime = map.get('session_lifetime_minutes');
+        const lifetimeMinutes = typeof rawLifetime === 'number' ? rawLifetime : 1440;
         setForm({
           sales_points_per_sale: String(map.get('sales_points_per_sale') ?? 3),
           prospect_points_per_add: String(map.get('prospect_points_per_add') ?? 2),
@@ -143,6 +156,10 @@ function GeneralSettingsTab() {
           default_commission_value: String(isLegacyDefault ? 20 : (rawValue ?? 20)),
           invoice_prefix: String(map.get('invoice_prefix') ?? 'PK'),
           group_currency: String(map.get('group_currency') ?? 'XAF'),
+          session_lifetime_hours: String(Math.round((lifetimeMinutes / 60) * 100) / 100),
+          cash_auto_closing_enabled: map.get('cash_auto_closing_enabled') !== false,
+          cash_closing_time: String(map.get('cash_closing_time') ?? '22:00'),
+          cash_reopening_time: String(map.get('cash_reopening_time') ?? '07:00'),
         });
       })
       .catch((error) => setLoadError(extractErrorMessage(error, t('settingsPage.loadFailed'))))
@@ -162,6 +179,10 @@ function GeneralSettingsTab() {
         inactivity_penalty_points: Number(form.inactivity_penalty_points),
         invoice_prefix: form.invoice_prefix.trim() || 'PK',
         group_currency: form.group_currency.trim().toUpperCase() || 'XAF',
+        session_lifetime_minutes: Math.round(Number(form.session_lifetime_hours) * 60),
+        cash_auto_closing_enabled: form.cash_auto_closing_enabled,
+        cash_closing_time: form.cash_closing_time,
+        cash_reopening_time: form.cash_reopening_time,
       });
       void refreshOrg();
       showToast(t('settingsPage.saved'), 'success');
@@ -208,6 +229,24 @@ function GeneralSettingsTab() {
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('settingsPage.groupCurrency')}</h2>
           <Input label={t('settingsPage.groupCurrency')} hint={t('settingsPage.groupCurrencyHint')} minLength={3} maxLength={10} required value={form.group_currency} onChange={(e) => setForm((p) => ({ ...p, group_currency: e.target.value.toUpperCase() }))} />
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('settingsPage.security')}</h2>
+          <Input label={t('settingsPage.sessionLifetimeHours')} hint={t('settingsPage.sessionLifetimeHoursHint')} type="number" min="0.5" max="168" step="0.5" required value={form.session_lifetime_hours} onChange={(e) => setForm((p) => ({ ...p, session_lifetime_hours: e.target.value }))} />
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('settingsPage.cashAutomation')}</h2>
+          <div className="flex flex-col gap-4">
+            <Checkbox
+              label={t('settingsPage.cashAutoClosingEnabled')}
+              checked={form.cash_auto_closing_enabled}
+              onChange={(e) => setForm((p) => ({ ...p, cash_auto_closing_enabled: e.target.checked }))}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input label={t('settingsPage.cashClosingTime')} hint={t('settingsPage.cashClosingTimeHint')} type="time" required value={form.cash_closing_time} onChange={(e) => setForm((p) => ({ ...p, cash_closing_time: e.target.value }))} />
+              <Input label={t('settingsPage.cashReopeningTime')} hint={t('settingsPage.cashReopeningTimeHint')} type="time" required value={form.cash_reopening_time} onChange={(e) => setForm((p) => ({ ...p, cash_reopening_time: e.target.value }))} />
+            </div>
+          </div>
         </div>
         <div className="flex justify-end">
           <Button type="submit" isLoading={isSaving}><Save className="h-4 w-4" />{t('settingsPage.save')}</Button>

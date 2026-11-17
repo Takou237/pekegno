@@ -1,7 +1,10 @@
 #!/bin/sh
 set -e
 
-php artisan storage:link || true
+# Les anciennes URL /storage/... dépendent de ce lien : ne pas masquer un échec.
+if ! php artisan storage:link; then
+  echo "ATTENTION: storage:link a échoué — les fichiers de storage/app/public ne seront pas servis sous /storage." >&2
+fi
 php artisan migrate --force
 php artisan config:cache
 php artisan route:cache

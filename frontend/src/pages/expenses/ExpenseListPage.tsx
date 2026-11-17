@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Plus, Send, CheckCircle, XCircle, Banknote, Lock, Undo2, Trash2, Eye, Camera, Paperclip } from 'lucide-react';
+import { RefreshCw, Plus, Send, CheckCircle, XCircle, Banknote, Lock, Undo2, Trash2, Eye, Camera, Paperclip, Pencil, Ban } from 'lucide-react';
 import { expensesApi } from '@/api/expenses.api';
 import { accountingApi } from '@/api/accounting.api';
 import { scopeApi, type ScopeCountry } from '@/api/scope.api';
@@ -65,6 +65,10 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
   // valider (le chef d'agence l'a ; la caissière, elle, soumet sans valider).
   const canValidate =
     ['super-admin', 'direction-generale'].includes(user?.role?.name ?? '') || Boolean(user?.permissions?.includes('depenses.valider'));
+  const canEditExpense =
+    ['super-admin'].includes(user?.role?.name ?? '') || Boolean(user?.permissions?.includes('depenses.modifier'));
+  const canCancelExpense =
+    ['super-admin'].includes(user?.role?.name ?? '') || Boolean(user?.permissions?.includes('depenses.supprimer'));
 
   const [createOpen, setCreateOpen] = useState(false);
   // Cible : « agency:<uuid> » ou « country:<uuid> » (Administration du pays).
@@ -104,6 +108,14 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
   const [payAccounts, setPayAccounts] = useState<TreasuryAccount[]>([]);
   const [payAccount, setPayAccount] = useState('');
 
+  // Point 13 — modifier / annuler une dépense.
+  const [editTarget, setEditTarget] = useState<Expense | null>(null);
+  const [editForm, setEditForm] = useState({ category_id: '', amount: '', expense_date: '', note: '' });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<Expense | null>(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+
   const load = useCallback(() => {
     setLoading(true);
     expensesApi.list({
@@ -123,7 +135,7 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (!createOpen) return;
+    if (!createOpen && !editTarget) return;
     scopeApi
       .getContext()
       .then((ctx) => setScopeCountries(ctx.countries))
@@ -132,7 +144,7 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
       .categories({ silentForbidden: true })
       .then(setCategories)
       .catch(() => setCategories([]));
-  }, [createOpen]);
+  }, [createOpen, editTarget]);
 
   // T3.14 — le serveur refuse un séminaire d'une autre agence : on ne propose
   // que ceux de l'agence de la dépense (ou tous pour une dépense
@@ -169,6 +181,9 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
   const selectedAgencyId = form.target.startsWith('agency:') ? form.target.slice('agency:'.length) : null;
   const categoryOptions = categories.filter(
     (c) => c.type === 'expense' && (c.agency_id === null || c.agency_id === selectedAgencyId),
+  );
+  const editCategoryOptions = categories.filter(
+    (c) => c.type === 'expense' && (c.agency_id === null || c.agency_id === editTarget?.agency_id),
   );
 
   function openCreate() {
@@ -286,6 +301,56 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
     expensesApi.get(exp.id).then(setDetail).catch(() => setDetail(exp));
   }
 
+  function openEdit(exp: Expense) {
+    setEditTarget(exp);
+    setEditForm({
+      category_id: exp.category_id,
+      amount: String(exp.amount),
+      expense_date: exp.expense_date.slice(0, 10),
+      note: exp.note ?? '',
+    });
+    setEditErrors({});
+  }
+
+  async function handleEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    setEditSubmitting(true);
+    setEditErrors({});
+    try {
+      await expensesApi.update(editTarget.id, {
+        category_id: editForm.category_id,
+        amount: Number(editForm.amount),
+        expense_date: editForm.expense_date,
+        note: editForm.note || undefined,
+      });
+      showToast(t('expenses.updated'), 'success');
+      setEditTarget(null);
+      load();
+      setDetail(null);
+    } catch (error) {
+      setEditErrors(extractFieldErrors(error));
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  async function handleCancelExpense() {
+    if (!cancelTarget) return;
+    setCancelSubmitting(true);
+    try {
+      await expensesApi.cancel(cancelTarget.id);
+      showToast(t('expenses.cancelDone'), 'success');
+      setCancelTarget(null);
+      load();
+      setDetail(null);
+    } catch (error) {
+      showToast(extractErrorMessage(error, t('common.error')), 'error');
+    } finally {
+      setCancelSubmitting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -360,9 +425,15 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
                       {exp.requestor ? `${exp.requestor.first_name} ${exp.requestor.last_name}` : '—'}
                     </td>
                     <td className="py-2 pr-3">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGES[exp.status]}`}>
-                        {t(`expenses.status${exp.status.charAt(0).toUpperCase() + exp.status.slice(1)}`)}
-                      </span>
+                      {exp.is_cancelled ? (
+                        <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                          {t('expenses.statusCancelled')}
+                        </span>
+                      ) : (
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGES[exp.status]}`}>
+                          {t(`expenses.status${exp.status.charAt(0).toUpperCase() + exp.status.slice(1)}`)}
+                        </span>
+                      )}
                     </td>
                     <td className="py-2 pr-3">
                       <div className="flex items-center gap-2">
@@ -393,6 +464,16 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
                         <button onClick={() => openDetail(exp)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" title={t('common.view')}>
                           <Eye className="h-4 w-4" />
                         </button>
+                        {canEditExpense && !exp.is_cancelled && ['draft', 'submitted', 'approved', 'rejected'].includes(exp.status) && (
+                          <button onClick={() => openEdit(exp)} className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('expenses.edit')}>
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canCancelExpense && !exp.is_cancelled && (
+                          <button onClick={() => setCancelTarget(exp)} className="rounded p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title={t('expenses.cancelExpense')}>
+                            <Ban className="h-4 w-4" />
+                          </button>
+                        )}
                         {exp.status === 'draft' && (
                           <button onClick={() => handleAction('submit', exp.id)} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-900/20">
                             <Send className="h-3.5 w-3.5" /><span>{t('expenses.submit')}</span>
@@ -524,6 +605,51 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
         </form>
       </Modal>
 
+      {/* Edit modal (point 13) */}
+      <Modal isOpen={editTarget !== null} onClose={() => setEditTarget(null)} title={t('expenses.editTitle')} maxWidth="max-w-lg">
+        <form onSubmit={handleEdit} className="flex flex-col gap-4">
+          {editErrors.general && <Alert variant="error">{editErrors.general}</Alert>}
+          {editTarget && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {editTarget.number} — {formatCurrency(editTarget.amount)}
+            </p>
+          )}
+          <Select
+            label={`${t('expenses.category')} *`}
+            required
+            value={editForm.category_id}
+            onChange={(e) => setEditForm({ ...editForm, category_id: e.target.value })}
+            error={editErrors.category_id}
+          >
+            <option value="">—</option>
+            {editCategoryOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+          <Input label={t('expenses.amount')} type="number" min={0.01} step="0.01" required value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} error={editErrors.amount} />
+          <Input label={t('expenses.date')} type="date" required value={editForm.expense_date} onChange={(e) => setEditForm({ ...editForm, expense_date: e.target.value })} error={editErrors.expense_date} />
+          <Input label={t('expenses.note')} value={editForm.note} onChange={(e) => setEditForm({ ...editForm, note: e.target.value })} error={editErrors.note} />
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setEditTarget(null)} className="flex-1">{t('common.cancel')}</Button>
+            <Button type="submit" isLoading={editSubmitting} className="flex-1">{t('common.save')}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Cancel modal (point 13) */}
+      <Modal isOpen={cancelTarget !== null} onClose={() => setCancelTarget(null)} title={t('expenses.cancelTitle')} maxWidth="max-w-md">
+        <div className="flex flex-col gap-4">
+          {cancelTarget && (
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {cancelTarget.number} — {formatCurrency(cancelTarget.amount)}
+            </p>
+          )}
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('expenses.cancelConfirm')}</p>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setCancelTarget(null)} disabled={cancelSubmitting} className="flex-1">{t('common.cancel')}</Button>
+            <Button variant="danger" onClick={handleCancelExpense} isLoading={cancelSubmitting} className="flex-1">{t('expenses.cancelExpense')}</Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Reject modal */}
       <Modal isOpen={rejectOpen} onClose={() => setRejectOpen(false)} title={t('expenses.reject')} maxWidth="max-w-sm">
         <div className="flex flex-col gap-4">
@@ -571,7 +697,7 @@ export default function ExpenseListPage({ embedded = false, createSignal, prefil
           <div className="flex flex-col gap-3 text-sm">
             <div className="grid grid-cols-2 gap-3">
               <div><span className="text-gray-500">{t('expenses.amount')}:</span> <span className="font-medium">{formatCurrency(detail.amount)}</span></div>
-              <div><span className="text-gray-500">{t('common.status')}:</span> <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGES[detail.status]}`}>{t(`expenses.status${detail.status.charAt(0).toUpperCase() + detail.status.slice(1)}`)}</span></div>
+              <div><span className="text-gray-500">{t('common.status')}:</span> {detail.is_cancelled ? <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300">{t('expenses.statusCancelled')}</span> : <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGES[detail.status]}`}>{t(`expenses.status${detail.status.charAt(0).toUpperCase() + detail.status.slice(1)}`)}</span>}</div>
               <div><span className="text-gray-500">{t('expenses.date')}:</span> {new Date(detail.expense_date).toLocaleDateString()}</div>
               <div><span className="text-gray-500">{t('expenses.category')}:</span> {detail.category?.name ?? '—'}</div>
               <div><span className="text-gray-500">{t('expenses.requestor')}:</span> {detail.requestor ? `${detail.requestor.first_name} ${detail.requestor.last_name}` : '—'}</div>

@@ -30,7 +30,12 @@ class Expense extends Model
     ];
 
     /** Lien du justificatif (photo / PDF du reçu). */
-    protected $appends = ['justification_url'];
+    protected $appends = ['justification_url', 'is_cancelled'];
+
+    public function getIsCancelledAttribute(): bool
+    {
+        return $this->cancelled_at !== null;
+    }
 
     public function getJustificationUrlAttribute(): ?string
     {

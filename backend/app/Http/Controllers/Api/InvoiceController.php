@@ -1153,26 +1153,34 @@ class InvoiceController extends Controller
     )]
     public function cancel(Request $request, Invoice $invoice): JsonResponse
     {
-        $this->ensureInvoiceInScope($invoice, $request->user());
+        $user = $request->user();
+        $this->ensureInvoiceInScope($invoice, $user);
         abort_if($invoice->is_cancelled, 422, 'Cette facture est déjà annulée.');
 
-        // Un commercial ne peut annuler que ses propres factures non encore validées
-        // (en attente ou rejetées). Une fois validée (définitive), seule la direction /
-        // un responsable peut l'annuler.
-        if ($request->user()->actsAsCommercial()) {
-            $ownProfile = $request->user()->commercialProfile;
+        // Un commercial peut annuler ses propres factures tant que rien n'a été
+        // encaissé (motif facultatif). Dès qu'un versement existe, l'annulation
+        // revient à la direction / aux responsables, avec un motif.
+        $cancelsOwnUnpaid = false;
+        if ($user->actsAsCommercial()) {
+            $ownProfile = $user->commercialProfile;
             abort_if(! $ownProfile || $invoice->commercial_id !== $ownProfile->id, 403, 'Vous ne pouvez annuler que vos propres factures.');
-            abort_if(in_array($invoice->validation_status, [Invoice::VALIDATION_VALIDATED], true), 422, 'Une facture validée ne peut plus être supprimée par son commercial.');
+            $cancelsOwnUnpaid = (float) $invoice->amount_paid <= 0;
+            abort_if(! $cancelsOwnUnpaid, 422, 'Une facture encaissée ne peut plus être annulée par son commercial.');
         }
 
-        // B8 : une annulation sans motif n'est pas traçable. Le motif est
-        // obligatoire et part dans le journal d'activité (qui a annulé, quand, pourquoi).
+        // B8 : une annulation sans motif n'est pas traçable. Le motif reste
+        // obligatoire, sauf pour le commercial qui annule sa facture non encaissée :
+        // un motif par défaut garde la trace de qui a annulé et pourquoi.
         $reason = trim((string) $request->input('cancellation_reason', ''));
 
         if ($reason === '') {
-            throw ValidationException::withMessages([
-                'cancellation_reason' => "Le motif de l'annulation est obligatoire.",
-            ]);
+            if (! $cancelsOwnUnpaid) {
+                throw ValidationException::withMessages([
+                    'cancellation_reason' => "Le motif de l'annulation est obligatoire.",
+                ]);
+            }
+
+            $reason = 'Annulée par le commercial avant encaissement.';
         }
 
         $statusBefore = $invoice->status;
@@ -1182,7 +1190,7 @@ class InvoiceController extends Controller
         $invoice->save();
 
         // Paiements, recettes comptables et commissions annulés avec la facture (B9).
-        app(InvoiceCancellationService::class)->reverseFinancials($invoice, $request->user()->id);
+        app(InvoiceCancellationService::class)->reverseFinancials($invoice, $user->id);
 
         $this->logger->log(
             'cancelled',

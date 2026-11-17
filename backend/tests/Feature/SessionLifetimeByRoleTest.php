@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -62,5 +63,26 @@ class SessionLifetimeByRoleTest extends TestCase
         Sanctum::actingAs($this->user('responsable-agence', 25 * 60));
 
         $this->hitProtectedRoute()->assertStatus(401);
+    }
+
+    public function test_the_session_lifetime_is_configurable(): void
+    {
+        Setting::set('session_lifetime_minutes', 180);
+
+        Sanctum::actingAs($this->user('commercial', 2 * 60));
+        $this->hitProtectedRoute()->assertOk();
+
+        Sanctum::actingAs($this->user('commercial', 4 * 60));
+        $this->hitProtectedRoute()->assertStatus(401);
+    }
+
+    public function test_the_settings_endpoint_accepts_the_session_lifetime(): void
+    {
+        $admin = User::factory()->create(['role_id' => Role::where('name', 'super-admin')->value('id')]);
+        Sanctum::actingAs($admin);
+
+        $this->putJson('/api/settings', ['session_lifetime_minutes' => 720])->assertOk();
+
+        $this->assertSame(720, (int) Setting::get('session_lifetime_minutes'));
     }
 }

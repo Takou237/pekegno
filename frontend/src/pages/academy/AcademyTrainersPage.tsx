@@ -26,6 +26,7 @@ interface AvailableUser {
   last_name: string | null;
   email: string;
   is_active: boolean;
+  role?: string | null;
 }
 
 interface FormState {
@@ -367,6 +368,7 @@ export default function AcademyTrainersPage() {
               {linkableUsers.map((u) => (
                 <option key={u.id} value={u.id}>
                   {[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}
+                  {u.role ? ` — ${u.role}` : ''}
                 </option>
               ))}
             </Select>

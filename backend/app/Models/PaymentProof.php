@@ -62,8 +62,24 @@ class PaymentProof extends Model
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
+    /**
+     * URL de consultation du fichier, servie par l'API.
+     *
+     * L'ancienne URL pointait vers `/storage/...`, qui dépendait du lien
+     * symbolique et du disque de l'instance : sur Render (disque éphémère, lien
+     * parfois absent), les preuves s'affichaient cassées. La route API signée
+     * fonctionne dans un `<img src>` et survit aux changements d'hébergement.
+     */
     public function getFileUrlAttribute(): ?string
     {
-        return $this->file_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->file_path) : null;
+        if (! $this->file_path) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'payment-proofs.file',
+            now()->addHours(12),
+            ['proof' => $this->getKey()]
+        );
     }
 }

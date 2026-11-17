@@ -124,6 +124,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/auth/change-password', ChangePasswordController::class);
 });
 
+// Fichiers de preuve de paiement servis par l'API, via une URL signée temporaire.
+// Une URL signée évite d'exposer /storage (lien symbolique + disque) et reste
+// utilisable directement dans un <img src>, qui ne peut pas porter d'en-tête
+// Authorization. Hors du groupe `auth:sanctum` : c'est la signature qui autorise.
+Route::get('/payment-proofs/{proof}/file', [PaymentProofController::class, 'file'])
+    ->middleware('signed')
+    ->name('payment-proofs.file');
+
 Route::post('/staff/login', StaffLoginController::class)->middleware('throttle:5,1');
 Route::post('/client/login', ClientLoginController::class)->middleware('throttle:5,1');
 Route::post('/client/register', RegisterController::class)->middleware('throttle:3,10');
@@ -417,6 +425,8 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::get('/treasury/closings', [CashClosingController::class, 'index'])->middleware('permission:tresories.consulter');
     Route::get('/treasury/closings/day', [CashClosingController::class, 'day'])->middleware('permission:tresories.consulter');
     Route::post('/treasury/closings', [CashClosingController::class, 'store'])->middleware('permission:tresories.modifier');
+    Route::post('/treasury/closings/close-all', [CashClosingController::class, 'closeAll'])->middleware('permission:tresories.modifier');
+    Route::post('/treasury/closings/reopen-all', [CashClosingController::class, 'reopenAll'])->middleware('permission:tresories.modifier');
     Route::post('/treasury/accounts/{account}/reopen', [CashClosingController::class, 'reopen'])->middleware('permission:tresories.modifier');
     // Validation des clôtures retirée (11/11) : la caissière clôture simplement.
     // Route::post('/treasury/closings/{closing}/validate', [CashClosingController::class, 'validateClosing'])->middleware('permission:tresories.modifier');
@@ -484,6 +494,7 @@ Route::middleware(['auth:sanctum', 'single.session', 'inactivity.logout', 'updat
     Route::post('/expenses/{expense}/pay', [ExpenseController::class, 'pay'])->middleware('permission:depenses.encaisser');
     Route::post('/expenses/{expense}/close', [ExpenseController::class, 'close'])->middleware('permission:depenses.modifier');
     Route::post('/expenses/{expense}/reopen', [ExpenseController::class, 'reopen'])->middleware('permission:depenses.modifier');
+    Route::post('/expenses/{expense}/cancel', [ExpenseController::class, 'cancel'])->middleware('permission:depenses.supprimer');
 
     // === T3.8-T3.11 : Publicité Pekegno (campagnes locales et nationales) ===
     Route::get('/ad-campaigns', [AdCampaignController::class, 'index'])->middleware('permission:depenses.consulter');

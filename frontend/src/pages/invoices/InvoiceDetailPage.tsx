@@ -33,7 +33,7 @@ import {
   PROOF_REJECTION_OTHER,
   type ProofRejectionCode,
 } from '@/data/proofRejectionReasons';
-import { canValidateInvoices } from '@/utils/invoicePermissions';
+import { canCancelInvoice, canCancelInvoices, canValidateInvoices } from '@/utils/invoicePermissions';
 import { useAgencyCurrency } from '@/hooks/useAgencyCurrency';
 import type { ServiceSearchItem } from '@/types/service';
 import { actsAsCommercial } from '@/utils/commercialRoles';
@@ -165,6 +165,13 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
   );
 
   const isCommercial = actsAsCommercial(currentUser?.role?.name);
+  // Point 7 : le bouton reste visible pour qui a la permission, mais il est
+  // désactivé quand les règles métier interdisent l'annulation (déjà annulée,
+  // déjà encaissée pour un commercial…).
+  const showCancelButton = canCancelInvoices(currentUser);
+  const canCancel = invoice ? canCancelInvoice(currentUser, invoice) : false;
+  // Point 9 : un commercial annule sa facture sans motif tant que rien n'est encaissé.
+  const cancelReasonOptional = isCommercial && Number(invoice?.amount_paid ?? 0) <= 0;
   const editCurrency = useAgencyCurrency(invoice?.agency_id);
   const editTotals = useMemo(() => {
     const subtotal = editLines.reduce(
@@ -407,7 +414,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
 
   async function handleCancel(e: FormEvent) {
     e.preventDefault();
-    if (!invoice || !cancelReason.trim()) return;
+    if (!invoice || (!cancelReason.trim() && !cancelReasonOptional)) return;
     setCancelSubmitting(true);
     setCancelError(null);
     try {
@@ -701,7 +708,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
               {t('invoices.detailTitle', { number: invoice.number })}
             </h1>
-            <InvoiceStatusBadge status={invoice.status} />
+            <InvoiceStatusBadge status={invoice.is_cancelled ? 'cancelled' : invoice.status} />
             {invoice.validation_status !== 'validated' && (
               <ValidationBadge status={invoice.validation_status} />
             )}
@@ -734,8 +741,19 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 {t('invoices.payRemaining')}
               </Button>
             )}
-            {!invoice.is_cancelled && (!isCommercial || invoice.validation_status !== 'validated') && (
-              <Button variant="danger" onClick={() => setCancelTarget(true)} disabled={cancelSubmitting}>
+            {showCancelButton && (
+              <Button
+                variant="danger"
+                onClick={() => setCancelTarget(true)}
+                disabled={cancelSubmitting || !canCancel}
+                title={
+                  invoice.is_cancelled
+                    ? t('invoices.alreadyCancelled')
+                    : !canCancel
+                      ? t('invoices.cancelNotAllowed')
+                      : undefined
+                }
+              >
                 <XCircle className="h-4 w-4" />
                 {t('invoices.cancelInvoice')}
               </Button>
@@ -743,6 +761,14 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           </div>
         </div>
       </div>
+
+      {/* Point 6 : le motif de rejet de la facture est visible dans le détail. */}
+      {invoice.validation_status === 'rejected' && invoice.rejection_reason && (
+        <Alert variant="error">
+          <span className="font-medium">{t('invoices.rejectReason')} : </span>
+          {invoice.rejection_reason}
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
@@ -781,18 +807,25 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           <p className="text-xs text-gray-400">
             {new Date(invoice.invoice_date).toLocaleString(currentLocale())}
           </p>
-          <p className={`mt-2 text-xs ${invoice.validated_at ? 'text-success-600' : 'text-gray-400'}`}>
-            {invoice.validated_at ? (
-              <>
-                {t('invoices.validatedOn', { date: formatDateTimeFr(invoice.validated_at) })}
-                {invoice.validator && (
-                  <> {t('invoices.validatedBy', { name: [invoice.validator.first_name, invoice.validator.last_name].filter(Boolean).join(' ') || invoice.validator.email })}</>
-                )}
-              </>
-            ) : (
-              t('invoices.notValidatedYet')
-            )}
-          </p>
+          {/* Point 5 : une facture annulée n'affiche plus « Validée par … » mais sa date d'annulation. */}
+          {invoice.is_cancelled ? (
+            <p className="mt-2 text-xs font-medium text-error-600 dark:text-error-400">
+              {t('invoices.cancelledOn', { date: formatDateTimeFr(invoice.cancelled_at ?? invoice.updated_at) })}
+            </p>
+          ) : (
+            <p className={`mt-2 text-xs ${invoice.validated_at ? 'text-success-600' : 'text-gray-400'}`}>
+              {invoice.validated_at ? (
+                <>
+                  {t('invoices.validatedOn', { date: formatDateTimeFr(invoice.validated_at) })}
+                  {invoice.validator && (
+                    <> {t('invoices.validatedBy', { name: [invoice.validator.first_name, invoice.validator.last_name].filter(Boolean).join(' ') || invoice.validator.email })}</>
+                  )}
+                </>
+              ) : (
+                t('invoices.notValidatedYet')
+              )}
+            </p>
+          )}
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('invoices.clientLabel')}</p>
@@ -970,24 +1003,26 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                         {t('invoices.proofReference')}: {proof.reference}
                       </p>
                     )}
+                    {proof.status === 'rejected' && proof.rejection_code && (
+                      <p className="text-xs font-medium text-error-500 dark:text-error-400">
+                        {t('invoices.rejectReason')}:{' '}
+                        {PROOF_REJECTION_LABEL_KEY[proof.rejection_code as ProofRejectionCode]
+                          ? t(PROOF_REJECTION_LABEL_KEY[proof.rejection_code as ProofRejectionCode])
+                          : proof.rejection_code}
+                      </p>
+                    )}
                     {proof.notes && (
                       <p className="text-xs text-error-500 dark:text-error-400">{proof.notes}</p>
                     )}
                   </div>
                 </div>
+                {/* Point 8 : un seul bouton « Encaisser », qui ouvre la preuve ;
+                    l'acceptation et l'annulation (motif) se décident dans la preuve. */}
                 {proof.status === 'pending' && canReviewPaymentProofs && (
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setProofPreview(proof)}>
-                      <ImageIcon className="h-4 w-4" />
-                      {t('invoices.proofView')}
-                    </Button>
-                    <Button size="sm" onClick={() => handleApproveProof(proof)} isLoading={proofSubmitting}>
-                      <ThumbsUp className="h-4 w-4" />
-                      {t('invoices.proofApprove')}
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => openRejectProof(proof)}>
-                      <ThumbsDown className="h-4 w-4" />
-                      {t('invoices.proofReject')}
+                    <Button size="sm" onClick={() => { setProofError(null); setProofPreview(proof); }}>
+                      <Wallet className="h-4 w-4" />
+                      {t('invoices.proofCollect')}
                     </Button>
                   </div>
                 )}
@@ -1585,12 +1620,14 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
           </p>
           {cancelError && <Alert variant="error">{cancelError}</Alert>}
           <Input
-            label={t('invoices.cancelReason')}
+            label={cancelReasonOptional ? t('invoices.cancelReasonOptional') : t('invoices.cancelReason')}
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
             placeholder={t('invoices.cancelReasonPlaceholder')}
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400">{t('invoices.cancelReasonHint')}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {cancelReasonOptional ? t('invoices.cancelReasonOptionalHint') : t('invoices.cancelReasonHint')}
+          </p>
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={closeCancel} disabled={cancelSubmitting}>
               {t('common.cancel')}
@@ -1599,7 +1636,7 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
               type="submit"
               variant="danger"
               isLoading={cancelSubmitting}
-              disabled={!cancelReason.trim()}
+              disabled={!cancelReason.trim() && !cancelReasonOptional}
             >
               {t('invoices.cancelInvoice')}
             </Button>
@@ -1639,15 +1676,28 @@ export default function InvoiceDetailPage({ fixedAgencyId }: { fixedAgencyId?: s
                 </p>
               )}
             </div>
+            {proofPreview.status === 'rejected' && (proofPreview.rejection_code || proofPreview.notes) && (
+              <Alert variant="error">
+                {proofPreview.rejection_code && (
+                  <>
+                    {PROOF_REJECTION_LABEL_KEY[proofPreview.rejection_code as ProofRejectionCode]
+                      ? t(PROOF_REJECTION_LABEL_KEY[proofPreview.rejection_code as ProofRejectionCode])
+                      : proofPreview.rejection_code}
+                    {proofPreview.notes ? ' — ' : ''}
+                  </>
+                )}
+                {proofPreview.notes}
+              </Alert>
+            )}
             {proofPreview.status === 'pending' && canReviewPaymentProofs && (
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => openRejectProof(proofPreview)} disabled={proofSubmitting}>
                   <ThumbsDown className="h-4 w-4" />
-                  {t('invoices.proofReject')}
+                  {t('invoices.proofCancel')}
                 </Button>
                 <Button onClick={() => handleApproveProof(proofPreview)} isLoading={proofSubmitting}>
                   <ThumbsUp className="h-4 w-4" />
-                  {t('invoices.proofApprove')}
+                  {t('invoices.proofCollect')}
                 </Button>
               </div>
             )}

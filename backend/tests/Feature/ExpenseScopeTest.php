@@ -48,6 +48,9 @@ class ExpenseScopeTest extends TestCase
         $provisioner->ensureForAgency($this->douala);
         $provisioner->ensureForAgency($this->yaounde);
         $provisioner->ensureForAdministration($this->country);
+        // Point 12 : payer une dépense exige un solde suffisant dans la caisse.
+        // Les scénarios de circuit ci-dessous partent donc d'une caisse approvisionnée.
+        $this->account($this->douala, 'C')->update(['opening_balance' => 100000]);
         $this->category = AccountingCategory::create(['name' => 'Fournitures', 'type' => 'expense']);
     }
 
@@ -108,6 +111,22 @@ class ExpenseScopeTest extends TestCase
 
         $this->assertSame(Expense::STATUS_APPROVED, $other->fresh()->status);
         $this->assertSame(0, $this->account($this->yaounde, 'C')->transactions()->count());
+    }
+
+    public function test_paying_an_expense_above_the_cash_balance_is_blocked(): void
+    {
+        $expense = $this->expense($this->douala, Expense::STATUS_APPROVED);
+        $account = $this->account($this->douala, 'C');
+        $account->update(['opening_balance' => 1000]);
+        Sanctum::actingAs($this->user('responsable-agence', $this->douala));
+
+        $this->postJson("/api/expenses/{$expense->id}/pay", [
+            'treasury_account_id' => $account->id,
+        ])->assertStatus(422)
+            ->assertJsonPath('message', 'Solde insuffisant dans cette caisse.');
+
+        $this->assertSame(Expense::STATUS_APPROVED, $expense->fresh()->status);
+        $this->assertSame(0, $account->transactions()->count());
     }
 
     public function test_a_cashier_list_is_limited_to_her_agency(): void

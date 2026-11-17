@@ -62,6 +62,12 @@ export const treasuryApi = {
   closeCash(payload: CloseCashPayload): Promise<CashClosing> {
     return client.post('/treasury/closings', payload).then((r) => r.data);
   },
+  closeAllCash(): Promise<{ closed: number; skipped: number }> {
+    return client.post('/treasury/closings/close-all').then((r) => r.data);
+  },
+  reopenAllCash(): Promise<{ reopened: number }> {
+    return client.post('/treasury/closings/reopen-all').then((r) => r.data);
+  },
 
   validateClosing(id: string): Promise<CashClosing> {
     return client.post(`/treasury/closings/${id}/validate`).then((r) => r.data);

@@ -127,16 +127,36 @@ class TrainerController extends Controller
             ->pluck('user_id');
 
         $query = User::query()
-            ->whereHas('role', fn ($q) => $q->where('name', 'formateur'))
+            ->with('role:id,name')
+            // Point 10 : n'importe quel compte interne de l'agence peut devenir
+            // formateur — pas seulement les comptes déjà au rôle « formateur ».
+            ->whereHas('role', fn ($q) => $q->where('name', '!=', TrainerAssignmentService::CLIENT_ROLE))
             ->when($linkedIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $linkedIds))
-            ->when($request->agency_id, fn ($q, $v) => $q->whereHas(
-                'assignments',
-                fn ($aq) => $aq->where('agency_id', $v),
-            ))
-            ->orderBy('first_name')
-            ->get(['id', 'first_name', 'last_name', 'email', 'is_active']);
+            ->when($request->agency_id, fn ($q, $v) => $q->where(function ($sq) use ($v) {
+                $sq->whereHas('assignments', fn ($aq) => $aq->where('agency_id', $v))
+                    ->orWhereHas('commercialProfile', fn ($cq) => $cq->where('agency_id', $v));
+            }))
+            ->when(! $request->agency_id, function ($q) use ($request) {
+                $agencyIds = $this->scopeService->agencyIds($request->user());
 
-        return response()->json($query);
+                if ($agencyIds !== null) {
+                    $q->where(function ($sq) use ($agencyIds) {
+                        $sq->whereHas('assignments', fn ($aq) => $aq->whereIn('agency_id', $agencyIds))
+                            ->orWhereHas('commercialProfile', fn ($cq) => $cq->whereIn('agency_id', $agencyIds));
+                    });
+                }
+            })
+            ->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name', 'email', 'is_active', 'role_id']);
+
+        return response()->json($query->map(fn (User $user) => [
+            'id' => $user->id,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'email' => $user->email,
+            'is_active' => (bool) $user->is_active,
+            'role' => $user->role?->name,
+        ])->values());
     }
 
     #[OA\Get(
@@ -190,9 +210,10 @@ class TrainerController extends Controller
 
         $user = User::findOrFail($validated['user_id']);
 
-        if ($user->role?->name !== 'formateur') {
+        // Point 10 : tout compte interne peut animer ; seuls les clients sont exclus.
+        if (! $user->role || $user->role->name === TrainerAssignmentService::CLIENT_ROLE) {
             return response()->json([
-                'message' => 'L\'utilisateur doit avoir le rôle « formateur ».',
+                'message' => 'Un compte client ne peut pas être lié à un profil formateur.',
             ], 422);
         }
 

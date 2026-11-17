@@ -54,7 +54,7 @@ class PassThroughBudgetTest extends TestCase
             'code' => 'C',
             'name' => 'Caisse Principale',
             'type' => TreasuryAccount::TYPE_CASH,
-            'opening_balance' => 0,
+            'opening_balance' => 1000000,
             'currency_code' => 'XAF',
             'is_active' => true,
         ]);

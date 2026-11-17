@@ -22,6 +22,11 @@ class SettingController extends Controller
         'default_commission_value',
         'invoice_prefix',
         'group_currency',
+        // Durée d'inactivité avant déconnexion, en minutes (lue par InactivityLogout).
+        'session_lifetime_minutes',
+        'cash_auto_closing_enabled',
+        'cash_closing_time',
+        'cash_reopening_time',
     ];
 
     public function __construct(private readonly ActivityLogger $logger) {}
@@ -66,6 +71,7 @@ class SettingController extends Controller
                     new OA\Property(property: 'default_commission_value', type: 'number', example: 0),
                     new OA\Property(property: 'invoice_prefix', type: 'string', example: 'PK'),
                     new OA\Property(property: 'group_currency', type: 'string', example: 'XAF'),
+                    new OA\Property(property: 'session_lifetime_minutes', type: 'integer', example: 1440),
                 ]
             )
         ),
@@ -93,6 +99,11 @@ class SettingController extends Controller
             'default_commission_value' => ['sometimes', 'numeric', 'min:0'],
             'invoice_prefix' => ['sometimes', 'string', 'min:1', 'max:5'],
             'group_currency' => ['sometimes', 'string', 'min:3', 'max:10'],
+            // 30 min à 7 jours.
+            'session_lifetime_minutes' => ['sometimes', 'integer', 'min:30', 'max:10080'],
+            'cash_auto_closing_enabled' => ['sometimes', 'boolean'],
+            'cash_closing_time' => ['sometimes', 'date_format:H:i'],
+            'cash_reopening_time' => ['sometimes', 'date_format:H:i'],
         ]);
 
         $userId = $request->user()->id;

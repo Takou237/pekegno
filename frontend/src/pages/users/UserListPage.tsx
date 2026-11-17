@@ -60,6 +60,7 @@ export default function UserListPage() {
 
   const [editUser, setEditUser] = useState<UserListItem | null>(null);
   const [editForm, setEditForm] = useState({
+    username: '',
     first_name: '',
     last_name: '',
     email: '',
@@ -301,6 +302,7 @@ export default function UserListPage() {
     setEditUser(user);
     setEditInitialAssignment(initialAssignment);
     setEditForm({
+      username: user.username ?? '',
       first_name: user.first_name ?? '',
       last_name: user.last_name ?? '',
       email: user.email,
@@ -843,6 +845,12 @@ export default function UserListPage() {
             </Alert>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              label={t('users.username')}
+              value={editForm.username}
+              onChange={(e) => setEditForm((p) => ({ ...p, username: e.target.value }))}
+              error={editErrors.username}
+            />
             <Input
               label={t('users.firstName')}
               value={editForm.first_name}

@@ -268,7 +268,7 @@ export default function PaymentProofsPage({
                             disabled={submitting}
                           >
                             <ImageIcon className="h-4 w-4" />
-                            {t('invoices.proofExamine')}
+                            {t('invoices.proofCollect')}
                           </Button>
                         </div>
                       </td>
@@ -365,11 +365,11 @@ export default function PaymentProofsPage({
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="danger" onClick={() => openReject(viewProof)} disabled={submitting}>
                   <XCircle className="h-4 w-4" />
-                  {t('invoices.proofReject')}
+                  {t('invoices.proofCancel')}
                 </Button>
                 <Button type="button" onClick={() => handleApprove(viewProof)} isLoading={submitting}>
                   <Check className="h-4 w-4" />
-                  {t('invoices.proofApprove')}
+                  {t('invoices.proofCollect')}
                 </Button>
               </div>
             )}

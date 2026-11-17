@@ -18,4 +18,8 @@ export interface SettingsPayload {
   default_commission_value?: number;
   invoice_prefix?: string;
   group_currency?: string;
+  session_lifetime_minutes?: number;
+  cash_auto_closing_enabled?: boolean;
+  cash_closing_time?: string;
+  cash_reopening_time?: string;
 }

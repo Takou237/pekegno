@@ -20,3 +20,5 @@ Schedule::command('contracts:refresh-status')->dailyAt('06:30');
 Schedule::command('invoices:check-overdue')->dailyAt('06:45');
 // Primes mensuelles des règles par rôle (mois écoulé), le 1er de chaque mois.
 Schedule::command('commissions:compute-period')->monthlyOn(1, '05:00');
+Schedule::command('treasury:auto-close')->everyMinute()->withoutOverlapping();
+Schedule::command('treasury:auto-reopen')->everyMinute()->withoutOverlapping();

@@ -106,6 +106,27 @@ class PaymentProofController extends Controller
         return response()->json($query->paginate(min((int) $request->input('per_page', 15), 100)));
     }
 
+    /**
+     * Sert le fichier de la preuve (image ou PDF) à partir d'une URL signée.
+     * L'autorisation vient de la signature : elle n'est délivrée, côté API, que
+     * dans la sérialisation des preuves auxquelles l'appelant a déjà accès.
+     */
+    public function file(PaymentProof $proof)
+    {
+        $disk = Storage::disk('public');
+
+        abort_unless(
+            $proof->file_path && $disk->exists($proof->file_path),
+            404,
+            'Fichier de preuve introuvable.'
+        );
+
+        return $disk->response($proof->file_path, null, [
+            'Cache-Control' => 'private, max-age=600',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     #[OA\Post(
         path: '/api/invoices/{invoice}/payment-proof',
         summary: 'Soumettre une preuve de paiement pour une facture (staff)',
@@ -347,7 +368,7 @@ class PaymentProofController extends Controller
             )
         ),
         responses: [
-            new OA\Response(response: 200, description: 'Preuve rejetée'),
+            new OA\Response(response: 200, description: 'Preuve rejetée (facture annulée si c\'était le premier paiement)'),
             new OA\Response(response: 422, description: 'Preuve déjà traitée ou motif manquant'),
         ]
     )]
@@ -426,6 +447,17 @@ class PaymentProofController extends Controller
                 // montant du reste à payer. L'accepter encaisse automatiquement
                 // ce montant — reçu, trésorerie, comptabilité et commissions.
                 $this->applyRemainingPayment($invoice, $proof, $request->user()->id);
+            } elseif (
+                $invoice
+                && $status === PaymentProof::STATUS_REJECTED
+                && $invoice->validation_status === Invoice::VALIDATION_VALIDATED
+                && ! $invoice->is_cancelled
+                && (float) $invoice->amount_paid <= 0
+            ) {
+                // Point 4 : première preuve rejetée sur une facture déjà validée
+                // mais rien d'encaissé — la facture est annulée, comme pour une
+                // facture encore en attente de validation.
+                $this->markInvoiceRejected($invoice, $request->user()->id, 'Preuve de paiement rejetée : '.$rejectionText);
             }
 
             $this->logger->log(
@@ -569,6 +601,25 @@ class PaymentProofController extends Controller
         ]);
 
         $this->logger->log('rejected', 'invoice', $invoice->id, "Facture {$invoice->number} rejetée : {$reason}");
+
+        // Rejet du premier paiement (rien encaissé) : la facture est annulée, pas
+        // seulement rejetée — elle sort des impayés et des statistiques. Un rejet
+        // du règlement du reste à payer, lui, ne touche pas la facture déjà
+        // partiellement encaissée : seuls la preuve et son futur versement tombent.
+        if ((float) $invoice->amount_paid <= 0) {
+            $invoice->update(['cancelled_at' => now()]);
+            $invoice->refreshStatus();
+            $invoice->save();
+
+            app(\App\Services\InvoiceCancellationService::class)->reverseFinancials($invoice, $userId);
+
+            $this->logger->log(
+                'cancelled',
+                'invoice',
+                $invoice->id,
+                "Facture {$invoice->number} annulée (preuve de paiement rejetée : {$reason})",
+            );
+        }
 
         $this->rejections->notify($invoice, $reason);
 
